@@ -69,3 +69,19 @@ pnpm dev
 ```
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
+
+## Workspaces and plans
+
+Every account receives a default workspace and can belong to multiple
+workspaces. Workspace members have `owner`, `admin`, or `member` roles; owners
+and admins can rename the workspace, manage member roles, add existing accounts,
+and create seven-day invitation records. Pending invitations are not emailed or
+self-service accepted yet. Chat and document data, subscription records, and
+usage events are scoped to the validated active workspace. The initial `free`
+plan tracks monthly chat messages (1,000 included); payment processing is not
+enabled.
+
+Apply `pnpm db:migrate` after setting `POSTGRES_URL` in `.env.local` to create
+the workspace tables and backfill existing users, chats, and documents. Use
+`/workspace` to manage a workspace and `/workspace/billing` to inspect its plan
+and usage. New accounts and guest sessions are provisioned automatically.

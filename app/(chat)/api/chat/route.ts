@@ -10,7 +10,7 @@ import {
 import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
-import { auth, type UserType } from "@/app/(auth)/auth";
+import type { UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { allowedModelIds } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
@@ -19,6 +19,7 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
@@ -26,14 +27,17 @@ import {
   getChatById,
   getMessageCountByUserId,
   getMessagesByChatId,
+  getWorkspaceBilling,
   saveChat,
   saveMessages,
+  trackWorkspaceUsage,
   updateChatTitleById,
   updateMessage,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { checkIpRateLimit } from "@/lib/ratelimit";
+import { workspacePlans } from "@/lib/saas/plans";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -65,13 +69,20 @@ export async function POST(request: Request) {
     const { id, message, messages, selectedChatModel, selectedVisibilityType } =
       requestBody;
 
-    const [botResult, session] = await Promise.all([checkBotId(), auth()]);
+    const [botResult, workspaceContext] = await Promise.all([
+      checkBotId(),
+      getWorkspaceContext(),
+    ]);
+    const session = workspaceContext?.session;
 
     if (botResult.isBot) {
       return new ChatbotError("unauthorized:chat").toResponse();
     }
 
     if (!session?.user) {
+      return new ChatbotError("unauthorized:chat").toResponse();
+    }
+    if (!workspaceContext) {
       return new ChatbotError("unauthorized:chat").toResponse();
     }
 
@@ -92,23 +103,39 @@ export async function POST(request: Request) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
+    const billing = await getWorkspaceBilling(workspaceContext.organizationId);
+    const plan = workspacePlans[billing.subscription?.plan ?? "free"];
+    if (
+      plan.monthlyMessages !== null &&
+      billing.usage.messages >= plan.monthlyMessages
+    ) {
+      return new ChatbotError("rate_limit:chat").toResponse();
+    }
+
     const isToolApprovalFlow = Boolean(messages);
 
-    const chat = await getChatById({ id });
+    const chat = await getChatById({
+      id,
+      organizationId: workspaceContext.organizationId,
+    });
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string> | null = null;
 
     if (chat) {
-      if (chat.userId !== session.user.id) {
+      if (chat.visibility === "private" && chat.userId !== session.user.id) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
       if (!isToolApprovalFlow) {
-        messagesFromDb = await getMessagesByChatId({ id });
+        messagesFromDb = await getMessagesByChatId({
+          id,
+          organizationId: workspaceContext.organizationId,
+        });
       }
     } else if (message?.role === "user") {
       await saveChat({
         id,
         userId: session.user.id,
+        organizationId: workspaceContext.organizationId,
         title: "New chat",
         visibility: selectedVisibilityType,
       });
@@ -140,6 +167,12 @@ export async function POST(request: Request) {
             createdAt: new Date(),
           },
         ],
+        organizationId: workspaceContext.organizationId,
+      });
+      await trackWorkspaceUsage({
+        organizationId: workspaceContext.organizationId,
+        userId: session.user.id,
+        event: "chat_message",
       });
     }
 
@@ -192,7 +225,11 @@ export async function POST(request: Request) {
         if (titlePromise) {
           const title = await titlePromise;
           dataStream.write({ type: "data-chat-title", data: title });
-          updateChatTitleById({ chatId: id, title });
+          updateChatTitleById({
+            chatId: id,
+            title,
+            organizationId: workspaceContext.organizationId,
+          });
         }
       },
       generateId: generateUUID,
@@ -204,6 +241,7 @@ export async function POST(request: Request) {
               await updateMessage({
                 id: finishedMsg.id,
                 parts: finishedMsg.parts,
+                organizationId: workspaceContext.organizationId,
               });
             } else {
               await saveMessages({
@@ -217,6 +255,7 @@ export async function POST(request: Request) {
                     chatId: id,
                   },
                 ],
+                organizationId: workspaceContext.organizationId,
               });
             }
           }
@@ -230,6 +269,7 @@ export async function POST(request: Request) {
               attachments: [],
               chatId: id,
             })),
+            organizationId: workspaceContext.organizationId,
           });
         }
       },
@@ -256,7 +296,11 @@ export async function POST(request: Request) {
           const streamContext = getStreamContext();
           if (streamContext) {
             const streamId = generateId();
-            await createStreamId({ streamId, chatId: id });
+            await createStreamId({
+              streamId,
+              chatId: id,
+              organizationId: workspaceContext.organizationId,
+            });
             await streamContext.createNewResumableStream(
               streamId,
               () => sseStream
@@ -296,19 +340,30 @@ export async function DELETE(request: Request) {
     return new ChatbotError("bad_request:api").toResponse();
   }
 
-  const session = await auth();
+  const workspaceContext = await getWorkspaceContext();
+  const session = workspaceContext?.session;
 
   if (!session?.user) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
-  const chat = await getChatById({ id });
+  if (!workspaceContext) {
+    return new ChatbotError("unauthorized:chat").toResponse();
+  }
+
+  const chat = await getChatById({
+    id,
+    organizationId: workspaceContext.organizationId,
+  });
 
   if (chat?.userId !== session.user.id) {
     return new ChatbotError("forbidden:chat").toResponse();
   }
 
-  const deletedChat = await deleteChatById({ id });
+  const deletedChat = await deleteChatById({
+    id,
+    organizationId: workspaceContext.organizationId,
+  });
 
   return Response.json(deletedChat, { status: 200 });
 }

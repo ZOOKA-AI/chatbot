@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getChatById, getVotesByChatId, voteMessage } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 
@@ -13,23 +13,29 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const context = await getWorkspaceContext();
 
-  if (!session?.user) {
+  if (!context) {
     return new ChatbotError("unauthorized:vote").toResponse();
   }
 
-  const chat = await getChatById({ id: chatId });
+  const chat = await getChatById({
+    id: chatId,
+    organizationId: context.organizationId,
+  });
 
   if (!chat) {
     return new ChatbotError("not_found:chat").toResponse();
   }
 
-  if (chat.userId !== session.user.id) {
+  if (chat.userId !== context.user.id) {
     return new ChatbotError("forbidden:vote").toResponse();
   }
 
-  const votes = await getVotesByChatId({ id: chatId });
+  const votes = await getVotesByChatId({
+    id: chatId,
+    organizationId: context.organizationId,
+  });
 
   return Response.json(votes, { status: 200 });
 }
@@ -49,19 +55,22 @@ export async function PATCH(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const context = await getWorkspaceContext();
 
-  if (!session?.user) {
+  if (!context) {
     return new ChatbotError("unauthorized:vote").toResponse();
   }
 
-  const chat = await getChatById({ id: chatId });
+  const chat = await getChatById({
+    id: chatId,
+    organizationId: context.organizationId,
+  });
 
   if (!chat) {
     return new ChatbotError("not_found:vote").toResponse();
   }
 
-  if (chat.userId !== session.user.id) {
+  if (chat.userId !== context.user.id) {
     return new ChatbotError("forbidden:vote").toResponse();
   }
 
@@ -69,6 +78,7 @@ export async function PATCH(request: Request) {
     chatId,
     messageId,
     type,
+    organizationId: context.organizationId,
   });
 
   return new Response("Message voted", { status: 200 });

@@ -1,11 +1,10 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-
-import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { convertToUIMessages } from "@/lib/utils";
 
@@ -19,16 +18,19 @@ export default function Page(props: { params: Promise<{ id: string }> }) {
 
 async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const chat = await getChatById({ id });
+  const context = await getWorkspaceContext();
+  if (!context) {
+    redirect("/api/auth/guest");
+  }
+
+  const { session } = context;
+  const chat = await getChatById({
+    id,
+    organizationId: context.organizationId,
+  });
 
   if (!chat) {
     redirect("/");
-  }
-
-  const session = await auth();
-
-  if (!session) {
-    redirect("/api/auth/guest");
   }
 
   if (chat.visibility === "private") {
@@ -43,6 +45,7 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
 
   const messagesFromDb = await getMessagesByChatId({
     id,
+    organizationId: context.organizationId,
   });
 
   const uiMessages = convertToUIMessages(messagesFromDb);

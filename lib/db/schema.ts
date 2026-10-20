@@ -2,11 +2,14 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  index,
+  integer,
   json,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -19,17 +22,124 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
-export const chat = pgTable("Chat", {
+export const organization = pgTable("Organization", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
-  createdAt: timestamp("createdAt").notNull(),
-  title: text("title").notNull(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => user.id),
-  visibility: varchar("visibility", { enum: ["public", "private"] })
-    .notNull()
-    .default("private"),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
+
+export const organizationMember = pgTable(
+  "OrganizationMember",
+  {
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: varchar("role", { enum: ["owner", "admin", "member"] })
+      .notNull()
+      .default("member"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.organizationId, table.userId] }),
+    userIndex: index("OrganizationMember_userId_idx").on(table.userId),
+  })
+);
+
+export const invitation = pgTable(
+  "Invitation",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 254 }).notNull(),
+    role: varchar("role", { enum: ["admin", "member"] })
+      .notNull()
+      .default("member"),
+    invitedBy: uuid("invitedBy")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    acceptedAt: timestamp("acceptedAt"),
+  },
+  (table) => ({
+    organizationEmailUnique: unique(
+      "Invitation_organizationId_email_unique"
+    ).on(table.organizationId, table.email),
+    organizationIndex: index("Invitation_organizationId_idx").on(
+      table.organizationId
+    ),
+  })
+);
+
+export const subscription = pgTable("Subscription", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  organizationId: uuid("organizationId")
+    .notNull()
+    .unique()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  plan: varchar("plan", { enum: ["free", "pro", "enterprise"] })
+    .notNull()
+    .default("free"),
+  status: varchar("status", {
+    enum: ["trialing", "active", "past_due", "canceled"],
+  })
+    .notNull()
+    .default("active"),
+  externalCustomerId: text("externalCustomerId"),
+  externalSubscriptionId: text("externalSubscriptionId"),
+  periodEnd: timestamp("periodEnd"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const usageEvent = pgTable(
+  "UsageEvent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+    event: varchar("event", { length: 64 }).notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationCreatedIndex: index(
+      "UsageEvent_organizationId_createdAt_idx"
+    ).on(table.organizationId, table.createdAt),
+  })
+);
+
+export const chat = pgTable(
+  "Chat",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    createdAt: timestamp("createdAt").notNull(),
+    title: text("title").notNull(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+    visibility: varchar("visibility", { enum: ["public", "private"] })
+      .notNull()
+      .default("private"),
+  },
+  (table) => ({
+    organizationCreatedIndex: index("Chat_organizationId_createdAt_idx").on(
+      table.organizationId,
+      table.createdAt
+    ),
+  })
+);
 
 export type Chat = InferSelectModel<typeof chat>;
 
@@ -112,6 +222,9 @@ export const document = pgTable(
     kind: varchar("text", { enum: ["text", "code", "image", "sheet"] })
       .notNull()
       .default("text"),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id),
     userId: uuid("userId")
       .notNull()
       .references(() => user.id),
@@ -119,6 +232,9 @@ export const document = pgTable(
   (table) => {
     return {
       pk: primaryKey({ columns: [table.id, table.createdAt] }),
+      organizationIndex: index("Document_organizationId_idx").on(
+        table.organizationId
+      ),
     };
   }
 );

@@ -10,6 +10,8 @@ import {
   gte,
   inArray,
   lt,
+  ne,
+  or,
   type SQL,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -23,11 +25,16 @@ import {
   chat,
   type DBMessage,
   document,
+  invitation,
   message,
+  organization,
+  organizationMember,
   type Suggestion,
   stream,
+  subscription,
   suggestion,
   type User,
+  usageEvent,
   user,
   vote,
 } from "./schema";
@@ -40,6 +47,244 @@ import { generateHashedPassword } from "./utils";
 // biome-ignore lint: Forbidden non-null assertion.
 const client = postgres(process.env.POSTGRES_URL!);
 const db = drizzle(client);
+
+export async function getWorkspaceForUser(
+  userId: string,
+  organizationId?: string
+) {
+  const [workspace] = await db
+    .select({
+      id: organization.id,
+      name: organization.name,
+      role: organizationMember.role,
+    })
+    .from(organizationMember)
+    .innerJoin(
+      organization,
+      eq(organizationMember.organizationId, organization.id)
+    )
+    .where(
+      organizationId
+        ? and(
+            eq(organizationMember.userId, userId),
+            eq(organizationMember.organizationId, organizationId)
+          )
+        : eq(organizationMember.userId, userId)
+    )
+    .orderBy(asc(organizationMember.createdAt))
+    .limit(1);
+
+  return workspace ?? null;
+}
+
+export function getWorkspacesForUser(userId: string) {
+  return db
+    .select({
+      id: organization.id,
+      name: organization.name,
+      role: organizationMember.role,
+    })
+    .from(organizationMember)
+    .innerJoin(
+      organization,
+      eq(organizationMember.organizationId, organization.id)
+    )
+    .where(eq(organizationMember.userId, userId))
+    .orderBy(asc(organizationMember.createdAt));
+}
+
+export async function ensureUserWorkspace({
+  userId,
+  email,
+}: {
+  userId: string;
+  email: string;
+}) {
+  const existingWorkspace = await getWorkspaceForUser(userId);
+  if (existingWorkspace) {
+    return existingWorkspace;
+  }
+
+  const [createdWorkspace] = await db
+    .insert(organization)
+    .values({ name: `${email.split("@")[0] || "My"}'s workspace` })
+    .returning({ id: organization.id, name: organization.name });
+
+  await db
+    .insert(organizationMember)
+    .values({
+      organizationId: createdWorkspace.id,
+      userId,
+      role: "owner",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(subscription)
+    .values({ organizationId: createdWorkspace.id })
+    .onConflictDoNothing();
+
+  return (
+    (await getWorkspaceForUser(userId)) ?? {
+      ...createdWorkspace,
+      role: "owner" as const,
+    }
+  );
+}
+
+export function getWorkspaceMembers(organizationId: string) {
+  return db
+    .select({
+      userId: user.id,
+      email: user.email,
+      role: organizationMember.role,
+      joinedAt: organizationMember.createdAt,
+    })
+    .from(organizationMember)
+    .innerJoin(user, eq(organizationMember.userId, user.id))
+    .where(eq(organizationMember.organizationId, organizationId))
+    .orderBy(asc(organizationMember.createdAt));
+}
+
+export function updateWorkspaceMemberRole({
+  organizationId,
+  userId,
+  role,
+}: {
+  organizationId: string;
+  userId: string;
+  role: "admin" | "member";
+}) {
+  return db
+    .update(organizationMember)
+    .set({ role })
+    .where(
+      and(
+        eq(organizationMember.organizationId, organizationId),
+        eq(organizationMember.userId, userId),
+        ne(organizationMember.role, "owner")
+      )
+    );
+}
+
+export function addWorkspaceMember({
+  organizationId,
+  userId,
+  role,
+}: {
+  organizationId: string;
+  userId: string;
+  role: "admin" | "member";
+}) {
+  return db
+    .insert(organizationMember)
+    .values({ organizationId, userId, role })
+    .onConflictDoNothing();
+}
+
+export function getWorkspaceInvitations(organizationId: string) {
+  return db
+    .select({
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
+      acceptedAt: invitation.acceptedAt,
+    })
+    .from(invitation)
+    .where(eq(invitation.organizationId, organizationId))
+    .orderBy(desc(invitation.createdAt));
+}
+
+export function updateWorkspaceName({
+  organizationId,
+  name,
+}: {
+  organizationId: string;
+  name: string;
+}) {
+  return db
+    .update(organization)
+    .set({ name })
+    .where(eq(organization.id, organizationId));
+}
+
+export function createWorkspaceInvitation({
+  organizationId,
+  invitedBy,
+  email,
+  role,
+}: {
+  organizationId: string;
+  invitedBy: string;
+  email: string;
+  role: "admin" | "member";
+}) {
+  return db
+    .insert(invitation)
+    .values({
+      organizationId,
+      invitedBy,
+      email,
+      role,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    })
+    .onConflictDoUpdate({
+      target: [invitation.organizationId, invitation.email],
+      set: {
+        role,
+        invitedBy,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        acceptedAt: null,
+      },
+    });
+}
+
+export async function getWorkspaceBilling(organizationId: string) {
+  const [currentSubscription] = await db
+    .select()
+    .from(subscription)
+    .where(eq(subscription.organizationId, organizationId))
+    .limit(1);
+  const [usage] = await db
+    .select({ messages: count(usageEvent.id) })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        eq(usageEvent.event, "chat_message"),
+        gte(
+          usageEvent.createdAt,
+          new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        )
+      )
+    );
+
+  return {
+    subscription: currentSubscription ?? null,
+    usage: { messages: usage?.messages ?? 0 },
+  };
+}
+
+export function trackWorkspaceUsage({
+  organizationId,
+  userId,
+  event,
+  quantity = 1,
+}: {
+  organizationId: string;
+  userId: string;
+  event: string;
+  quantity?: number;
+}) {
+  return db.insert(usageEvent).values({
+    organizationId,
+    userId,
+    event,
+    quantity,
+  });
+}
 
 export async function getUser(email: string): Promise<User[]> {
   try {
@@ -82,11 +327,13 @@ export async function createGuestUser() {
 export async function saveChat({
   id,
   userId,
+  organizationId,
   title,
   visibility,
 }: {
   id: string;
   userId: string;
+  organizationId: string;
   title: string;
   visibility: VisibilityType;
 }) {
@@ -95,6 +342,7 @@ export async function saveChat({
       id,
       createdAt: new Date(),
       userId,
+      organizationId,
       title,
       visibility,
     });
@@ -103,15 +351,30 @@ export async function saveChat({
   }
 }
 
-export async function deleteChatById({ id }: { id: string }) {
+export async function deleteChatById({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}) {
   try {
+    const [selectedChat] = await db
+      .select({ id: chat.id })
+      .from(chat)
+      .where(and(eq(chat.id, id), eq(chat.organizationId, organizationId)));
+
+    if (!selectedChat) {
+      return undefined;
+    }
+
     await db.delete(vote).where(eq(vote.chatId, id));
     await db.delete(message).where(eq(message.chatId, id));
     await db.delete(stream).where(eq(stream.chatId, id));
 
     const [chatsDeleted] = await db
       .delete(chat)
-      .where(eq(chat.id, id))
+      .where(and(eq(chat.id, id), eq(chat.organizationId, organizationId)))
       .returning();
     return chatsDeleted;
   } catch (_error) {
@@ -122,12 +385,16 @@ export async function deleteChatById({ id }: { id: string }) {
   }
 }
 
-export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
+export async function deleteAllChatsByOrganizationId({
+  organizationId,
+}: {
+  organizationId: string;
+}) {
   try {
     const userChats = await db
       .select({ id: chat.id })
       .from(chat)
-      .where(eq(chat.userId, userId));
+      .where(eq(chat.organizationId, organizationId));
 
     if (userChats.length === 0) {
       return { deletedCount: 0 };
@@ -141,7 +408,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
     const deletedChats = await db
       .delete(chat)
-      .where(eq(chat.userId, userId))
+      .where(eq(chat.organizationId, organizationId))
       .returning();
 
     return { deletedCount: deletedChats.length };
@@ -153,19 +420,25 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
   }
 }
 
-export async function getChatsByUserId({
-  id,
+export async function getChatsByOrganizationId({
+  organizationId,
+  userId,
   limit,
   startingAfter,
   endingBefore,
 }: {
-  id: string;
+  organizationId: string;
+  userId: string;
   limit: number;
   startingAfter: string | null;
   endingBefore: string | null;
 }) {
   try {
     const extendedLimit = limit + 1;
+    const visibleToUser = or(
+      eq(chat.userId, userId),
+      eq(chat.visibility, "public")
+    );
 
     const query = (whereCondition?: SQL<any>) =>
       db
@@ -173,8 +446,12 @@ export async function getChatsByUserId({
         .from(chat)
         .where(
           whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id)
+            ? and(
+                whereCondition,
+                eq(chat.organizationId, organizationId),
+                visibleToUser
+              )
+            : and(eq(chat.organizationId, organizationId), visibleToUser)
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -185,7 +462,13 @@ export async function getChatsByUserId({
       const [selectedChat] = await db
         .select()
         .from(chat)
-        .where(eq(chat.id, startingAfter))
+        .where(
+          and(
+            eq(chat.id, startingAfter),
+            eq(chat.organizationId, organizationId),
+            visibleToUser
+          )
+        )
         .limit(1);
 
       if (!selectedChat) {
@@ -200,7 +483,13 @@ export async function getChatsByUserId({
       const [selectedChat] = await db
         .select()
         .from(chat)
-        .where(eq(chat.id, endingBefore))
+        .where(
+          and(
+            eq(chat.id, endingBefore),
+            eq(chat.organizationId, organizationId),
+            visibleToUser
+          )
+        )
         .limit(1);
 
       if (!selectedChat) {
@@ -229,9 +518,18 @@ export async function getChatsByUserId({
   }
 }
 
-export async function getChatById({ id }: { id: string }) {
+export async function getChatById({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}) {
   try {
-    const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id));
+    const [selectedChat] = await db
+      .select()
+      .from(chat)
+      .where(and(eq(chat.id, id), eq(chat.organizationId, organizationId)));
     if (!selectedChat) {
       return null;
     }
@@ -242,8 +540,29 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
-export async function saveMessages({ messages }: { messages: DBMessage[] }) {
+export async function saveMessages({
+  messages,
+  organizationId,
+}: {
+  messages: DBMessage[];
+  organizationId: string;
+}) {
   try {
+    const chatIds = [...new Set(messages.map(({ chatId }) => chatId))];
+    if (chatIds.length === 0) {
+      return;
+    }
+
+    const tenantChats = await db
+      .select({ id: chat.id })
+      .from(chat)
+      .where(
+        and(inArray(chat.id, chatIds), eq(chat.organizationId, organizationId))
+      );
+    if (tenantChats.length !== chatIds.length) {
+      throw new ChatbotError("forbidden:chat");
+    }
+
     return await db.insert(message).values(messages);
   } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to save messages");
@@ -253,23 +572,55 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 export async function updateMessage({
   id,
   parts,
+  organizationId,
 }: {
   id: string;
   parts: DBMessage["parts"];
+  organizationId: string;
 }) {
   try {
-    return await db.update(message).set({ parts }).where(eq(message.id, id));
+    return await db
+      .update(message)
+      .set({ parts })
+      .where(
+        inArray(
+          message.id,
+          db
+            .select({ id: message.id })
+            .from(message)
+            .innerJoin(chat, eq(message.chatId, chat.id))
+            .where(
+              and(eq(message.id, id), eq(chat.organizationId, organizationId))
+            )
+        )
+      );
   } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to update message");
   }
 }
 
-export async function getMessagesByChatId({ id }: { id: string }) {
+export async function getMessagesByChatId({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}) {
   try {
     return await db
-      .select()
+      .select({
+        id: message.id,
+        chatId: message.chatId,
+        role: message.role,
+        parts: message.parts,
+        attachments: message.attachments,
+        createdAt: message.createdAt,
+      })
       .from(message)
-      .where(eq(message.chatId, id))
+      .innerJoin(chat, eq(message.chatId, chat.id))
+      .where(
+        and(eq(message.chatId, id), eq(chat.organizationId, organizationId))
+      )
       .orderBy(asc(message.createdAt));
   } catch (_error) {
     throw new ChatbotError(
@@ -283,16 +634,33 @@ export async function voteMessage({
   chatId,
   messageId,
   type,
+  organizationId,
 }: {
   chatId: string;
   messageId: string;
   type: "up" | "down";
+  organizationId: string;
 }) {
   try {
+    const [scopedMessage] = await db
+      .select({ id: message.id })
+      .from(message)
+      .innerJoin(chat, eq(message.chatId, chat.id))
+      .where(
+        and(
+          eq(message.id, messageId),
+          eq(message.chatId, chatId),
+          eq(chat.organizationId, organizationId)
+        )
+      );
+    if (!scopedMessage) {
+      throw new ChatbotError("not_found:vote");
+    }
+
     const [existingVote] = await db
       .select()
       .from(vote)
-      .where(and(eq(vote.messageId, messageId)));
+      .where(and(eq(vote.messageId, messageId), eq(vote.chatId, chatId)));
 
     if (existingVote) {
       return await db
@@ -310,9 +678,23 @@ export async function voteMessage({
   }
 }
 
-export async function getVotesByChatId({ id }: { id: string }) {
+export async function getVotesByChatId({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}) {
   try {
-    return await db.select().from(vote).where(eq(vote.chatId, id));
+    return await db
+      .select({
+        chatId: vote.chatId,
+        messageId: vote.messageId,
+        isUpvoted: vote.isUpvoted,
+      })
+      .from(vote)
+      .innerJoin(chat, eq(vote.chatId, chat.id))
+      .where(and(eq(vote.chatId, id), eq(chat.organizationId, organizationId)));
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
@@ -327,12 +709,14 @@ export async function saveDocument({
   kind,
   content,
   userId,
+  organizationId,
 }: {
   id: string;
   title: string;
   kind: ArtifactKind;
   content: string;
   userId: string;
+  organizationId: string;
 }) {
   try {
     return await db
@@ -343,6 +727,7 @@ export async function saveDocument({
         kind,
         content,
         userId,
+        organizationId,
         createdAt: new Date(),
       })
       .returning();
@@ -351,12 +736,20 @@ export async function saveDocument({
   }
 }
 
-export async function getDocumentsById({ id }: { id: string }) {
+export async function getDocumentsById({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}) {
   try {
     const documents = await db
       .select()
       .from(document)
-      .where(eq(document.id, id))
+      .where(
+        and(eq(document.id, id), eq(document.organizationId, organizationId))
+      )
       .orderBy(asc(document.createdAt));
 
     return documents;
@@ -368,12 +761,20 @@ export async function getDocumentsById({ id }: { id: string }) {
   }
 }
 
-export async function getDocumentById({ id }: { id: string }) {
+export async function getDocumentById({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}) {
   try {
     const [selectedDocument] = await db
       .select()
       .from(document)
-      .where(eq(document.id, id))
+      .where(
+        and(eq(document.id, id), eq(document.organizationId, organizationId))
+      )
       .orderBy(desc(document.createdAt));
 
     return selectedDocument;
@@ -388,9 +789,11 @@ export async function getDocumentById({ id }: { id: string }) {
 export async function deleteDocumentsByIdAfterTimestamp({
   id,
   timestamp,
+  organizationId,
 }: {
   id: string;
   timestamp: Date;
+  organizationId: string;
 }) {
   try {
     await db
@@ -398,13 +801,26 @@ export async function deleteDocumentsByIdAfterTimestamp({
       .where(
         and(
           eq(suggestion.documentId, id),
+          inArray(
+            suggestion.documentId,
+            db
+              .selectDistinct({ id: document.id })
+              .from(document)
+              .where(eq(document.organizationId, organizationId))
+          ),
           gt(suggestion.documentCreatedAt, timestamp)
         )
       );
 
     return await db
       .delete(document)
-      .where(and(eq(document.id, id), gt(document.createdAt, timestamp)))
+      .where(
+        and(
+          eq(document.id, id),
+          eq(document.organizationId, organizationId),
+          gt(document.createdAt, timestamp)
+        )
+      )
       .returning();
   } catch (_error) {
     throw new ChatbotError(
@@ -416,10 +832,32 @@ export async function deleteDocumentsByIdAfterTimestamp({
 
 export async function saveSuggestions({
   suggestions,
+  organizationId,
 }: {
   suggestions: Suggestion[];
+  organizationId: string;
 }) {
   try {
+    const documentIds = [
+      ...new Set(suggestions.map(({ documentId }) => documentId)),
+    ];
+    if (documentIds.length === 0) {
+      return;
+    }
+
+    const tenantDocuments = await db
+      .selectDistinct({ id: document.id })
+      .from(document)
+      .where(
+        and(
+          inArray(document.id, documentIds),
+          eq(document.organizationId, organizationId)
+        )
+      );
+    if (tenantDocuments.length !== documentIds.length) {
+      throw new ChatbotError("forbidden:document");
+    }
+
     return await db.insert(suggestion).values(suggestions);
   } catch (_error) {
     throw new ChatbotError(
@@ -431,14 +869,38 @@ export async function saveSuggestions({
 
 export async function getSuggestionsByDocumentId({
   documentId,
+  organizationId,
 }: {
   documentId: string;
+  organizationId: string;
 }) {
   try {
     return await db
-      .select()
+      .select({
+        id: suggestion.id,
+        documentId: suggestion.documentId,
+        documentCreatedAt: suggestion.documentCreatedAt,
+        originalText: suggestion.originalText,
+        suggestedText: suggestion.suggestedText,
+        description: suggestion.description,
+        isResolved: suggestion.isResolved,
+        userId: suggestion.userId,
+        createdAt: suggestion.createdAt,
+      })
       .from(suggestion)
-      .where(eq(suggestion.documentId, documentId));
+      .innerJoin(
+        document,
+        and(
+          eq(suggestion.documentId, document.id),
+          eq(suggestion.documentCreatedAt, document.createdAt)
+        )
+      )
+      .where(
+        and(
+          eq(suggestion.documentId, documentId),
+          eq(document.organizationId, organizationId)
+        )
+      );
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
@@ -447,9 +909,31 @@ export async function getSuggestionsByDocumentId({
   }
 }
 
-export async function getMessageById({ id }: { id: string }) {
+export async function getMessageById({
+  id,
+  organizationId,
+  userId,
+}: {
+  id: string;
+  organizationId: string;
+  userId: string;
+}) {
   try {
-    return await db.select().from(message).where(eq(message.id, id));
+    return await db
+      .select({
+        id: message.id,
+        chatId: message.chatId,
+        createdAt: message.createdAt,
+      })
+      .from(message)
+      .innerJoin(chat, eq(message.chatId, chat.id))
+      .where(
+        and(
+          eq(message.id, id),
+          eq(chat.organizationId, organizationId),
+          eq(chat.userId, userId)
+        )
+      );
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
@@ -461,16 +945,23 @@ export async function getMessageById({ id }: { id: string }) {
 export async function deleteMessagesByChatIdAfterTimestamp({
   chatId,
   timestamp,
+  organizationId,
 }: {
   chatId: string;
   timestamp: Date;
+  organizationId: string;
 }) {
   try {
     const messagesToDelete = await db
       .select({ id: message.id })
       .from(message)
+      .innerJoin(chat, eq(message.chatId, chat.id))
       .where(
-        and(eq(message.chatId, chatId), gte(message.createdAt, timestamp))
+        and(
+          eq(message.chatId, chatId),
+          eq(chat.organizationId, organizationId),
+          gte(message.createdAt, timestamp)
+        )
       );
 
     const messageIds = messagesToDelete.map(
@@ -501,12 +992,17 @@ export async function deleteMessagesByChatIdAfterTimestamp({
 export async function updateChatVisibilityById({
   chatId,
   visibility,
+  organizationId,
 }: {
   chatId: string;
   visibility: "private" | "public";
+  organizationId: string;
 }) {
   try {
-    return await db.update(chat).set({ visibility }).where(eq(chat.id, chatId));
+    return await db
+      .update(chat)
+      .set({ visibility })
+      .where(and(eq(chat.id, chatId), eq(chat.organizationId, organizationId)));
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
@@ -518,12 +1014,17 @@ export async function updateChatVisibilityById({
 export async function updateChatTitleById({
   chatId,
   title,
+  organizationId,
 }: {
   chatId: string;
   title: string;
+  organizationId: string;
 }) {
   try {
-    return await db.update(chat).set({ title }).where(eq(chat.id, chatId));
+    return await db
+      .update(chat)
+      .set({ title })
+      .where(and(eq(chat.id, chatId), eq(chat.organizationId, organizationId)));
   } catch (error) {
     console.warn("Failed to update title for chat", chatId, error);
     return;
@@ -567,11 +1068,21 @@ export async function getMessageCountByUserId({
 export async function createStreamId({
   streamId,
   chatId,
+  organizationId,
 }: {
   streamId: string;
   chatId: string;
+  organizationId: string;
 }) {
   try {
+    const [tenantChat] = await db
+      .select({ id: chat.id })
+      .from(chat)
+      .where(and(eq(chat.id, chatId), eq(chat.organizationId, organizationId)));
+    if (!tenantChat) {
+      throw new ChatbotError("not_found:chat");
+    }
+
     await db
       .insert(stream)
       .values({ id: streamId, chatId, createdAt: new Date() });
@@ -583,12 +1094,21 @@ export async function createStreamId({
   }
 }
 
-export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
+export async function getStreamIdsByChatId({
+  chatId,
+  organizationId,
+}: {
+  chatId: string;
+  organizationId: string;
+}) {
   try {
     const streamIds = await db
       .select({ id: stream.id })
       .from(stream)
-      .where(eq(stream.chatId, chatId))
+      .innerJoin(chat, eq(stream.chatId, chat.id))
+      .where(
+        and(eq(stream.chatId, chatId), eq(chat.organizationId, organizationId))
+      )
       .orderBy(asc(stream.createdAt))
       .execute();
 
