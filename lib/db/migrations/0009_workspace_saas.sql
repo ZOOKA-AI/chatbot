@@ -47,13 +47,16 @@ CREATE TABLE IF NOT EXISTS "UsageEvent" (
 --> statement-breakpoint
 INSERT INTO "Organization" ("id", "name")
 SELECT "id", COALESCE(NULLIF(split_part("email", '@', 1), ''), 'Workspace') || '''s workspace'
-FROM "User";
+FROM "User"
+ON CONFLICT ("id") DO NOTHING;
 --> statement-breakpoint
 INSERT INTO "OrganizationMember" ("organizationId", "userId", "role")
-SELECT "id", "id", 'owner' FROM "User";
+SELECT "id", "id", 'owner' FROM "User"
+ON CONFLICT ("organizationId", "userId") DO NOTHING;
 --> statement-breakpoint
 INSERT INTO "Subscription" ("organizationId", "plan", "status")
-SELECT "id", 'free', 'active' FROM "Organization";
+SELECT "id", 'free', 'active' FROM "Organization"
+ON CONFLICT ("organizationId") DO NOTHING;
 --> statement-breakpoint
 ALTER TABLE "Chat" ADD COLUMN "organizationId" uuid;
 --> statement-breakpoint
