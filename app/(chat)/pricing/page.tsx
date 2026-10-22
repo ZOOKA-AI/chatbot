@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
-import { workspacePlans } from "@/lib/saas/plans";
+import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
 
 const pricingPlanKeys = ["free", "pro", "business"] as const;
 
@@ -35,6 +35,14 @@ export default async function PricingPage({
         {pricingPlanKeys.map((planKey) => {
           const plan = workspacePlans[planKey];
           const isPaid = planKey !== "free";
+          const setupMessage =
+            planKey === "free"
+              ? undefined
+              : process.env.STRIPE_SECRET_KEY
+                ? getStripePriceId(planKey)
+                  ? undefined
+                  : `Billing setup required: configure STRIPE_PRICE_${planKey.toUpperCase()} with its Stripe Price ID.`
+                : "Billing setup required: configure STRIPE_SECRET_KEY.";
           return (
             <article
               className="flex flex-col gap-6 rounded-xl border p-6"
@@ -61,6 +69,7 @@ export default async function PricingPage({
                 <PricingCheckoutButton
                   label={`Upgrade to ${plan.name}`}
                   plan={planKey}
+                  setupMessage={setupMessage}
                 />
               ) : (
                 <Link

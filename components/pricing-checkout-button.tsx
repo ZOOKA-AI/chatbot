@@ -6,9 +6,11 @@ import type { PaidWorkspacePlan } from "@/lib/saas/plans";
 export function PricingCheckoutButton({
   plan,
   label,
+  setupMessage,
 }: {
   plan: PaidWorkspacePlan;
   label: string;
+  setupMessage?: string;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -47,12 +49,17 @@ export function PricingCheckoutButton({
     <div className="flex flex-col gap-2">
       <button
         className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground disabled:opacity-50"
-        disabled={isLoading}
+        disabled={isLoading || Boolean(setupMessage)}
         onClick={beginCheckout}
         type="button"
       >
         {isLoading ? "Redirecting…" : label}
       </button>
+      {setupMessage && (
+        <p aria-live="polite" className="text-muted-foreground text-sm">
+          {setupMessage}
+        </p>
+      )}
       {error && (
         <p aria-live="polite" className="text-destructive text-sm">
           {error}

@@ -90,8 +90,13 @@ and usage. New accounts and guest sessions are provisioned automatically.
 Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, and
 `STRIPE_PRICE_BUSINESS` in `.env.local`. Set `NEXT_PUBLIC_APP_URL` to the
 canonical production origin; Vercel's `VERCEL_URL` is used as a fallback. The
-price variables must be recurring monthly Price IDs created in Stripe.
-Configure a Stripe webhook pointing to `/api/webhooks/stripe` and enable `checkout.session.completed` and
+price variables must contain recurring monthly USD Price IDs created in Stripe,
+not lookup keys. Create Pro at $19/month with lookup key `zooka_pro_monthly` and
+Business at $49/month with lookup key `zooka_business_monthly`; store their Price
+IDs in the corresponding environment variables. If Stripe keys or a Price ID
+are missing, the pricing page disables that upgrade and explains which setting
+is required. Configure a Stripe webhook pointing to `/api/webhooks/stripe` and
+enable `checkout.session.completed` and
 `customer.subscription.updated`. Checkout is restricted to workspace owners
 and admins; the signed webhook synchronizes subscription status and plan into
 the existing `Subscription` table. Enable `customer.subscription.deleted` as

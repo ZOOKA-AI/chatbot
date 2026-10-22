@@ -32,9 +32,17 @@ export async function POST(request: Request) {
   }
 
   const priceId = getStripePriceId(parsed.data.plan);
-  if (!priceId || !process.env.STRIPE_SECRET_KEY) {
+  if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json(
-      { error: "Stripe billing is not configured" },
+      { error: "Billing setup required: configure STRIPE_SECRET_KEY." },
+      { status: 503 }
+    );
+  }
+  if (!priceId) {
+    return NextResponse.json(
+      {
+        error: `Billing setup required: configure STRIPE_PRICE_${parsed.data.plan.toUpperCase()} with its Stripe Price ID.`,
+      },
       { status: 503 }
     );
   }
