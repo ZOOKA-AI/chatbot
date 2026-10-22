@@ -15,8 +15,8 @@ const THINKING_SUFFIX_REGEX = /-thinking$/;
 const USE_DIRECT_GOOGLE =
   !process.env.AI_GATEWAY_API_KEY && !!process.env.GEMINI_API_KEY;
 
-const DIRECT_MODEL = "gemini-2.5-flash";
-const DIRECT_MODEL_REASONING = "gemini-2.5-pro";
+const DIRECT_MODEL = "gemini-flash-latest";
+const DIRECT_MODEL_REASONING = "gemini-pro-latest";
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -79,7 +79,7 @@ export function getTitleModel() {
     return myProvider.languageModel("title-model");
   }
   if (USE_DIRECT_GOOGLE) {
-    return googleWithKey("gemini-2.5-flash-lite");
+    return googleWithKey("gemini-flash-lite-latest");
   }
   return gateway.languageModel("google/gemini-2.5-flash-lite");
 }
