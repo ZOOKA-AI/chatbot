@@ -37,6 +37,10 @@ export const myProvider = isTestEnvironment
     })()
   : null;
 
+const googleWithKey = google.createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
 export function getLanguageModel(modelId: string) {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel(modelId);
@@ -48,8 +52,8 @@ export function getLanguageModel(modelId: string) {
 
   if (USE_DIRECT_GOOGLE) {
     const direct = isReasoningModel
-      ? google(DIRECT_MODEL_REASONING)
-      : google(DIRECT_MODEL);
+      ? googleWithKey(DIRECT_MODEL_REASONING)
+      : googleWithKey(DIRECT_MODEL);
     return isReasoningModel
       ? wrapLanguageModel({
           model: direct,
@@ -75,7 +79,7 @@ export function getTitleModel() {
     return myProvider.languageModel("title-model");
   }
   if (USE_DIRECT_GOOGLE) {
-    return google("gemini-2.5-flash-lite");
+    return googleWithKey("gemini-2.5-flash-lite");
   }
   return gateway.languageModel("google/gemini-2.5-flash-lite");
 }
@@ -85,7 +89,7 @@ export function getArtifactModel() {
     return myProvider.languageModel("artifact-model");
   }
   if (USE_DIRECT_GOOGLE) {
-    return google(DIRECT_MODEL);
+    return googleWithKey(DIRECT_MODEL);
   }
   return gateway.languageModel("anthropic/claude-haiku-4.5");
 }
