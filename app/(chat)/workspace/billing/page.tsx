@@ -4,6 +4,8 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { workspacePlans } from "@/lib/saas/plans";
 
+import { ManageSubscriptionButton } from "./manage-subscription";
+
 export default async function WorkspaceBillingPage({
   searchParams,
 }: {
@@ -58,12 +60,7 @@ export default async function WorkspaceBillingPage({
             Upgrade
           </Link>
         )}
-        {isPaid && (
-          <p className="text-muted-foreground text-xs">
-            To change or cancel this subscription, use the Stripe customer
-            portal when it is configured.
-          </p>
-        )}
+        {isPaid && <ManageSubscriptionButton />}
       </section>
     </main>
   );
