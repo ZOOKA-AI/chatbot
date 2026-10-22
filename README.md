@@ -69,3 +69,37 @@ pnpm dev
 ```
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
+
+## Workspaces and plans
+
+Every account receives a default workspace and can belong to multiple
+workspaces. Workspace members have `owner`, `admin`, or `member` roles; owners
+and admins can rename the workspace, manage member roles, add existing accounts,
+and create seven-day invitation records. Pending invitations are not emailed or
+self-service accepted yet. Chat and document data, subscription records, and
+usage events are scoped to the validated active workspace. The `free` plan
+includes 1,000 messages each month; paid plans use Stripe Checkout.
+
+Apply `pnpm db:migrate` after setting `POSTGRES_URL` in `.env.local` to create
+the workspace tables and backfill existing users, chats, and documents. Use
+`/workspace` to manage a workspace and `/workspace/billing` to inspect its plan
+and usage. New accounts and guest sessions are provisioned automatically.
+
+### Stripe subscriptions
+
+Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, and
+`STRIPE_PRICE_BUSINESS` in `.env.local`. Set `NEXT_PUBLIC_APP_URL` to the
+canonical production origin; Vercel's `VERCEL_URL` is used as a fallback. The
+price variables must contain recurring monthly USD Price IDs created in Stripe,
+not lookup keys. Create Pro at $19/month with lookup key `zooka_pro_monthly` and
+Business at $49/month with lookup key `zooka_business_monthly`; store their Price
+IDs in the corresponding environment variables. If Stripe keys or a Price ID
+are missing, the pricing page disables that upgrade and explains which setting
+is required. Configure a Stripe webhook pointing to `/api/webhooks/stripe` and
+enable `checkout.session.completed` and
+`customer.subscription.updated`. Checkout is restricted to workspace owners
+and admins; the signed webhook synchronizes subscription status and plan into
+the existing `Subscription` table. Enable `customer.subscription.deleted` as
+well to synchronize cancellations. Pro and Business plans receive higher
+hourly and monthly message limits plus access to advanced models. Stripe's
+customer portal and cancellation UI are not implemented yet.

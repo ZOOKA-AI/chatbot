@@ -5,8 +5,10 @@ import { cookies } from "next/headers";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   deleteMessagesByChatIdAfterTimestamp,
+  getChatById,
   getMessageById,
   updateChatVisibilityById,
 } from "@/lib/db/queries";
@@ -34,11 +36,24 @@ export async function generateTitleFromUserMessage({
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
-  const [message] = await getMessageById({ id });
+  const context = await getWorkspaceContext();
+  if (!context) {
+    return;
+  }
+
+  const [message] = await getMessageById({
+    id,
+    organizationId: context.organizationId,
+    userId: context.user.id,
+  });
+  if (!message) {
+    return;
+  }
 
   await deleteMessagesByChatIdAfterTimestamp({
     chatId: message.chatId,
     timestamp: message.createdAt,
+    organizationId: context.organizationId,
   });
 }
 
@@ -49,5 +64,20 @@ export async function updateChatVisibility({
   chatId: string;
   visibility: VisibilityType;
 }) {
-  await updateChatVisibilityById({ chatId, visibility });
+  const context = await getWorkspaceContext();
+  if (!context) {
+    return;
+  }
+  const chat = await getChatById({
+    id: chatId,
+    organizationId: context.organizationId,
+  });
+  if (!chat || chat.userId !== context.user.id) {
+    return;
+  }
+  await updateChatVisibilityById({
+    chatId,
+    visibility,
+    organizationId: context.organizationId,
+  });
 }

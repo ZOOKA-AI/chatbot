@@ -34,7 +34,15 @@ import {
 } from "./ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar({
+  user,
+  workspaceName,
+  role,
+}: {
+  user: User | undefined;
+  workspaceName?: string;
+  role?: "owner" | "admin" | "member";
+}) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
   const { mutate } = useSWRConfig();
@@ -76,7 +84,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 </span>
               </Link>
               <div className="flex flex-row gap-1">
-                {user && (
+                {user && (role === "owner" || role === "admin") && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -117,6 +125,18 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </SidebarMenu>
         </SidebarHeader>
         <SidebarContent>
+          {user && (
+            <div className="mx-2 rounded-md border p-3 text-sm">
+              <p className="truncate font-medium">{workspaceName}</p>
+              <Link
+                className="text-muted-foreground text-xs underline"
+                href="/workspace"
+                onClick={() => setOpenMobile(false)}
+              >
+                Workspace settings
+              </Link>
+            </div>
+          )}
           <SidebarHistory user={user} />
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>

@@ -1,5 +1,5 @@
-import { auth } from "@/app/(auth)/auth";
 import type { ArtifactKind } from "@/components/artifact";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   deleteDocumentsByIdAfterTimestamp,
   getDocumentsById,
@@ -18,22 +18,21 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const context = await getWorkspaceContext();
 
-  if (!session?.user) {
+  if (!context) {
     return new ChatbotError("unauthorized:document").toResponse();
   }
 
-  const documents = await getDocumentsById({ id });
+  const documents = await getDocumentsById({
+    id,
+    organizationId: context.organizationId,
+  });
 
   const [document] = documents;
 
   if (!document) {
     return new ChatbotError("not_found:document").toResponse();
-  }
-
-  if (document.userId !== session.user.id) {
-    return new ChatbotError("forbidden:document").toResponse();
   }
 
   return Response.json(documents, { status: 200 });
@@ -50,9 +49,9 @@ export async function POST(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const context = await getWorkspaceContext();
 
-  if (!session?.user) {
+  if (!context) {
     return new ChatbotError("not_found:document").toResponse();
   }
 
@@ -63,22 +62,13 @@ export async function POST(request: Request) {
   }: { content: string; title: string; kind: ArtifactKind } =
     await request.json();
 
-  const documents = await getDocumentsById({ id });
-
-  if (documents.length > 0) {
-    const [doc] = documents;
-
-    if (doc.userId !== session.user.id) {
-      return new ChatbotError("forbidden:document").toResponse();
-    }
-  }
-
   const document = await saveDocument({
     id,
     content,
     title,
     kind,
-    userId: session.user.id,
+    userId: context.user.id,
+    organizationId: context.organizationId,
   });
 
   return Response.json(document, { status: 200 });
@@ -103,23 +93,27 @@ export async function DELETE(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const context = await getWorkspaceContext();
 
-  if (!session?.user) {
+  if (!context) {
     return new ChatbotError("unauthorized:document").toResponse();
   }
 
-  const documents = await getDocumentsById({ id });
+  const documents = await getDocumentsById({
+    id,
+    organizationId: context.organizationId,
+  });
 
   const [document] = documents;
 
-  if (document.userId !== session.user.id) {
-    return new ChatbotError("forbidden:document").toResponse();
+  if (!document) {
+    return new ChatbotError("not_found:document").toResponse();
   }
 
   const documentsDeleted = await deleteDocumentsByIdAfterTimestamp({
     id,
     timestamp: new Date(timestamp),
+    organizationId: context.organizationId,
   });
 
   return Response.json(documentsDeleted, { status: 200 });

@@ -20,7 +20,10 @@ export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
         .describe("The description of changes that need to be made"),
     }),
     execute: async ({ id, description }) => {
-      const document = await getDocumentById({ id });
+      const document = await getDocumentById({
+        id,
+        organizationId: session.user.organizationId,
+      });
 
       if (!document) {
         return {

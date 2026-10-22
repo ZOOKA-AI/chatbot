@@ -27,7 +27,10 @@ export const requestSuggestions = ({
         ),
     }),
     execute: async ({ documentId }) => {
-      const document = await getDocumentById({ id: documentId });
+      const document = await getDocumentById({
+        id: documentId,
+        organizationId: session.user.organizationId,
+      });
 
       if (!document || !document.content) {
         return {
@@ -102,6 +105,7 @@ export const requestSuggestions = ({
             createdAt: new Date(),
             documentCreatedAt: document.createdAt,
           })),
+          organizationId: session.user.organizationId,
         });
       }
 
