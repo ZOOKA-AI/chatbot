@@ -256,7 +256,9 @@ export async function getWorkspaceBilling(organizationId: string) {
         eq(usageEvent.event, "chat_message"),
         gte(
           usageEvent.createdAt,
-          new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          new Date(
+            Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)
+          )
         )
       )
     );
