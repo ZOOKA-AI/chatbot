@@ -267,6 +267,43 @@ export async function getWorkspaceBilling(organizationId: string) {
   };
 }
 
+export function syncWorkspaceSubscription({
+  organizationId,
+  plan,
+  status,
+  externalCustomerId,
+  externalSubscriptionId,
+  periodEnd,
+}: {
+  organizationId: string;
+  plan: "free" | "pro" | "business";
+  status: "trialing" | "active" | "past_due" | "canceled";
+  externalCustomerId: string | null;
+  externalSubscriptionId: string | null;
+  periodEnd: Date | null;
+}) {
+  return db
+    .insert(subscription)
+    .values({
+      organizationId,
+      plan,
+      status,
+      externalCustomerId,
+      externalSubscriptionId,
+      periodEnd,
+    })
+    .onConflictDoUpdate({
+      target: subscription.organizationId,
+      set: {
+        plan,
+        status,
+        externalCustomerId,
+        externalSubscriptionId,
+        periodEnd,
+      },
+    });
+}
+
 export function trackWorkspaceUsage({
   organizationId,
   userId,

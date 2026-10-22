@@ -12,7 +12,7 @@ import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import type { UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import { allowedModelIds } from "@/lib/ai/models";
+import { allowedModelIds, paidModelIds } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
@@ -94,17 +94,37 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
+    const billing = await getWorkspaceBilling(workspaceContext.organizationId);
+    const effectivePlan =
+      billing.subscription &&
+      ["active", "trialing"].includes(billing.subscription.status)
+        ? billing.subscription.plan
+        : "free";
+    const plan = workspacePlans[effectivePlan];
     const messageCount = await getMessageCountByUserId({
       id: session.user.id,
       differenceInHours: 1,
     });
+    const hourlyLimit =
+      userType === "guest"
+        ? entitlementsByUserType.guest.maxMessagesPerHour
+        : effectivePlan === "business"
+          ? 100
+          : effectivePlan === "pro"
+            ? 40
+            : entitlementsByUserType.regular.maxMessagesPerHour;
 
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerHour) {
+    if (messageCount >= hourlyLimit) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
-    const billing = await getWorkspaceBilling(workspaceContext.organizationId);
-    const plan = workspacePlans[billing.subscription?.plan ?? "free"];
+    if (effectivePlan === "free" && paidModelIds.has(selectedChatModel)) {
+      return Response.json(
+        { error: "This model requires a Pro or Business workspace plan." },
+        { status: 403 }
+      );
+    }
+
     if (
       plan.monthlyMessages !== null &&
       billing.usage.messages >= plan.monthlyMessages

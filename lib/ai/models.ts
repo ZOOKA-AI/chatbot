@@ -66,6 +66,12 @@ export const chatModels: ChatModel[] = [
 
 // Group models by provider for UI
 export const allowedModelIds = new Set(chatModels.map((m) => m.id));
+export const paidModelIds = new Set([
+  "openai/gpt-5-mini",
+  "google/gemini-3-pro-preview",
+  "anthropic/claude-3.7-sonnet-thinking",
+  "xai/grok-code-fast-1-thinking",
+]);
 
 export const modelsByProvider = chatModels.reduce(
   (acc, model) => {

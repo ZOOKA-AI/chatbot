@@ -82,7 +82,7 @@ export const subscription = pgTable("Subscription", {
     .notNull()
     .unique()
     .references(() => organization.id, { onDelete: "cascade" }),
-  plan: varchar("plan", { enum: ["free", "pro", "enterprise"] })
+  plan: varchar("plan", { enum: ["free", "pro", "business"] })
     .notNull()
     .default("free"),
   status: varchar("status", {
