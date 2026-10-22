@@ -1,4 +1,4 @@
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { gateway } from "@ai-sdk/gateway";
 import {
   customProvider,
@@ -37,7 +37,7 @@ export const myProvider = isTestEnvironment
     })()
   : null;
 
-const googleWithKey = google.createGoogleGenerativeAI({
+const googleWithKey = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
