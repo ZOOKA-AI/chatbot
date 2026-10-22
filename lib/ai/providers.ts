@@ -1,3 +1,4 @@
+import { google } from "@ai-sdk/google";
 import { gateway } from "@ai-sdk/gateway";
 import {
   customProvider,
@@ -7,6 +8,15 @@ import {
 import { isTestEnvironment } from "../constants";
 
 const THINKING_SUFFIX_REGEX = /-thinking$/;
+
+// Direct Google fallback: when the AI Gateway is not configured (no
+// AI_GATEWAY_API_KEY and no Vercel OIDC runtime) but a GEMINI_API_KEY is
+// present, route every request straight to Google's Generative Language API.
+const USE_DIRECT_GOOGLE =
+  !process.env.AI_GATEWAY_API_KEY && !!process.env.GEMINI_API_KEY;
+
+const DIRECT_MODEL = "gemini-2.5-flash";
+const DIRECT_MODEL_REASONING = "gemini-2.5-pro";
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -36,6 +46,18 @@ export function getLanguageModel(modelId: string) {
     modelId.endsWith("-thinking") ||
     (modelId.includes("reasoning") && !modelId.includes("non-reasoning"));
 
+  if (USE_DIRECT_GOOGLE) {
+    const direct = isReasoningModel
+      ? google(DIRECT_MODEL_REASONING)
+      : google(DIRECT_MODEL);
+    return isReasoningModel
+      ? wrapLanguageModel({
+          model: direct,
+          middleware: extractReasoningMiddleware({ tagName: "thinking" }),
+        })
+      : direct;
+  }
+
   if (isReasoningModel) {
     const gatewayModelId = modelId.replace(THINKING_SUFFIX_REGEX, "");
 
@@ -52,12 +74,18 @@ export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
+  if (USE_DIRECT_GOOGLE) {
+    return google("gemini-2.5-flash-lite");
+  }
   return gateway.languageModel("google/gemini-2.5-flash-lite");
 }
 
 export function getArtifactModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("artifact-model");
+  }
+  if (USE_DIRECT_GOOGLE) {
+    return google(DIRECT_MODEL);
   }
   return gateway.languageModel("anthropic/claude-haiku-4.5");
 }
