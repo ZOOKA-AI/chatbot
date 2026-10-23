@@ -1,3 +1,4 @@
+// Full DB JSON dump, protected by BACKUP_TOKEN header check.
 import { NextResponse } from "next/server";
 import postgres from "postgres";
 
