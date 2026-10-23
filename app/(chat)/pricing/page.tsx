@@ -83,6 +83,15 @@ export default async function PricingPage({
           );
         })}
       </section>
+
+      <footer className="text-muted-foreground mx-auto flex gap-4 text-sm">
+        <Link className="hover:underline" href="/privacy">
+          Privacy Policy
+        </Link>
+        <Link className="hover:underline" href="/terms">
+          Terms of Service
+        </Link>
+      </footer>
     </main>
   );
 }
