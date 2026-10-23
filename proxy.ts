@@ -21,6 +21,8 @@ export async function proxy(request: NextRequest) {
     pathname === "/pricing" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
+    pathname === "/embed" ||
+    pathname === "/embed.js" ||
     pathname === "/api/webhooks/stripe" ||
     pathname === "/api/admin/backup"
   ) {
