@@ -20,7 +20,7 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const context = await getWorkspaceContext();
   if (!context) {
-    redirect("/api/auth/guest");
+    redirect("/login");
   }
 
   const { session } = context;
