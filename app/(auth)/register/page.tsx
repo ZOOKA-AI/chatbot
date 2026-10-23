@@ -70,6 +70,23 @@ export default function Page() {
             </Link>
             {" instead."}
           </p>
+          <p className="mt-2 text-center text-xs text-gray-500 dark:text-zinc-500">
+            {"By signing up, you agree to our "}
+            <Link
+              className="font-medium text-gray-700 underline dark:text-zinc-300"
+              href="/terms"
+            >
+              Terms of Service
+            </Link>
+            {" and "}
+            <Link
+              className="font-medium text-gray-700 underline dark:text-zinc-300"
+              href="/privacy"
+            >
+              Privacy Policy
+            </Link>
+            {"."}
+          </p>
         </AuthForm>
       </div>
     </div>
