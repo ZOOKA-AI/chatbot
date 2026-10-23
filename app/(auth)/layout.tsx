@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
 export default async function AuthLayout({
