@@ -1,6 +1,5 @@
-export const dynamic = "force-dynamic";
-
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
@@ -15,7 +14,7 @@ export const metadata: Metadata = {
   title: "Zooka AI — محادثة",
 };
 
-export default async function EmbedPage() {
+async function EmbedContent() {
   const session = await auth();
 
   if (!session?.user) {
@@ -39,5 +38,13 @@ export default async function EmbedPage() {
       </SidebarProvider>
       <DataStreamHandler />
     </DataStreamProvider>
+  );
+}
+
+export default function EmbedPage() {
+  return (
+    <Suspense fallback={null}>
+      <EmbedContent />
+    </Suspense>
   );
 }
