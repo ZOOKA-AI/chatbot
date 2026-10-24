@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import Link from "next/link";
 import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { LanguageToggle } from "@/components/language-toggle";
