@@ -1,10 +1,9 @@
-export const dynamic = "force-dynamic";
-
+import { Suspense } from "react";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
-export default async function TermsPage() {
+async function TermsContent() {
   const lang = await getLang();
   const ar = lang === "ar";
 
@@ -162,5 +161,13 @@ export default async function TermsPage() {
         </Link>
       </footer>
     </main>
+  );
+}
+
+export default function TermsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TermsContent />
+    </Suspense>
   );
 }
