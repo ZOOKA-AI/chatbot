@@ -1,10 +1,9 @@
-export const dynamic = "force-dynamic";
-
+import { Suspense } from "react";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
-export default async function PrivacyPage() {
+async function PrivacyContent() {
   const lang = await getLang();
   const ar = lang === "ar";
 
@@ -163,5 +162,13 @@ export default async function PrivacyPage() {
         </Link>
       </footer>
     </main>
+  );
+}
+
+export default function PrivacyPage() {
+  return (
+    <Suspense fallback={null}>
+      <PrivacyContent />
+    </Suspense>
   );
 }
