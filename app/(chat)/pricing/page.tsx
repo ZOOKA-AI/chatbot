@@ -32,6 +32,7 @@ const strings = {
     startFree: "ابدأ مجاناً",
     privacy: "سياسة الخصوصية",
     terms: "شروط الخدمة",
+    support: "ادعم العمل المفتوح ❤️",
   },
   en: {
     eyebrow: "Simple, transparent plans",
@@ -52,6 +53,7 @@ const strings = {
     startFree: "Start for free",
     privacy: "Privacy Policy",
     terms: "Terms of Service",
+    support: "Support Open Source ❤️",
   },
 } as const;
 
@@ -144,6 +146,14 @@ export default async function PricingPage({
         <Link className="hover:underline" href="/terms">
           {t.terms}
         </Link>
+        <a
+          className="hover:underline"
+          href="https://github.com/sponsors/ZOOKA-AI"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t.support}
+        </a>
       </footer>
     </main>
   );

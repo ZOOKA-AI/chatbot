@@ -116,7 +116,7 @@ the Stripe Dashboard (Settings → Billing → Customer portal) before launch.
 
 ### Guest paywall
 
-Visitors who are not signed in may send 3 free messages. The count is tracked in
+When `GUEST_PAYWALL_ENABLED=true`, visitors who are not signed in may send 3 free messages. The count is tracked in
 `localStorage` for the UI and enforced by `POST /api/chat`, which stores
 counters in the `GuestUsage` table keyed by an HTTP-only `zooka_guest` cookie
 and by a hashed IP address per day. Further messages receive HTTP `402` and the
@@ -148,3 +148,13 @@ canonical, Open Graph, Twitter `summary_large_image`, icons, theme color).
    events listed above; enable the Customer Portal.
 4. Run `pnpm db:migrate` (the Vercel build already runs it) to apply migration
    `0010_guest_usage_workspace_names`.
+
+## ✨ Sponsors
+
+Support the development of this project! Sponsors are recognized below automatically.
+
+<!-- sponsors:start -->
+[![Become a sponsor](https://img.shields.io/badge/Become_a-❤️_sponsor-ea4aaa?style=flat-square&logo=github)](https://github.com/sponsors/ZOOKA-AI)
+<!-- sponsors:end -->
+
+[![Sponsor ZOOKA-AI](https://img.shields.io/badge/Support-open_source-0366d6?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/ZOOKA-AI)
