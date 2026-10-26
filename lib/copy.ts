@@ -16,7 +16,7 @@ export const copy = {
     viewPlans: "عرض الخطط",
     paywallTitle: "تابع محادثتك مع Zooka AI",
     paywallBody:
-      "لقد استخدمت رسائلك المجانية الثلاث. أنشئ حساباً مجانياً أو قم بالترقية لمتابعة الحوار وحفظ محادثاتك.",
+      "أنشئ حساباً لحفظ محادثاتك، أو رقِّ إلى Pro أو Business للاستفادة من نماذج متقدمة ووضع الوكيل وحدود استخدام أعلى.",
     guestNotice: "تجربة الضيف: 3 رسائل مجانية",
     rename: "إعادة التسمية",
     renameTitle: "إعادة تسمية مساحة العمل",
@@ -25,6 +25,7 @@ export const copy = {
     cancel: "إلغاء",
     renameFailed: "تعذّر تغيير اسم مساحة العمل",
     workspaceSettings: "إعدادات مساحة العمل",
+    integrations: "التكاملات",
   },
   en: {
     upgrade: "Upgrade",
@@ -35,7 +36,7 @@ export const copy = {
     viewPlans: "View plans",
     paywallTitle: "Continue your conversation with Zooka AI",
     paywallBody:
-      "You've used your 3 free messages. Create a free account or upgrade to keep chatting and save your conversations.",
+      "Create an account to save your conversations, or upgrade to Pro or Business for advanced models, Agent mode, and higher usage limits.",
     guestNotice: "Guest preview: 3 free messages",
     rename: "Rename",
     renameTitle: "Rename workspace",
@@ -44,5 +45,6 @@ export const copy = {
     cancel: "Cancel",
     renameFailed: "Unable to rename the workspace",
     workspaceSettings: "Workspace settings",
+    integrations: "Integrations",
   },
 } as const;

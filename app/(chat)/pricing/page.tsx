@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { LanguageToggle } from "@/components/language-toggle";
+import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
 
@@ -20,10 +20,22 @@ const strings = {
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
       free: { name: "المجانية", features: ["1,000 رسالة شهرياً", "نماذج قياسية"] },
-      pro: { name: "الاحترافية", features: ["10,000 رسالة شهرياً", "نماذج متقدمة"] },
+      pro: {
+        name: "الاحترافية",
+        features: [
+          "10,000 رسالة شهرياً",
+          "500 تشغيل للوكيل شهرياً",
+          "نماذج متقدمة",
+        ],
+      },
       business: {
         name: "الأعمال",
-        features: ["100,000 رسالة شهرياً", "مساحات عمل للفرق", "دعم بأولوية"],
+        features: [
+          "100,000 رسالة شهرياً",
+          "5,000 تشغيل للوكيل شهرياً",
+          "مساحات عمل للفرق",
+          "دعم بأولوية",
+        ],
       },
     },
     perMonth: " / شهرياً",
@@ -33,6 +45,7 @@ const strings = {
     privacy: "سياسة الخصوصية",
     terms: "شروط الخدمة",
     support: "ادعم العمل المفتوح ❤️",
+    billingSetup: "الفوترة غير متاحة حالياً. يرجى المحاولة لاحقاً.",
   },
   en: {
     eyebrow: "Simple, transparent plans",
@@ -41,10 +54,22 @@ const strings = {
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
       free: { name: "Free", features: ["1,000 messages per month", "Standard models"] },
-      pro: { name: "Pro", features: ["10,000 messages per month", "Advanced models"] },
+      pro: {
+        name: "Pro",
+        features: [
+          "10,000 messages per month",
+          "500 agent runs per month",
+          "Advanced models",
+        ],
+      },
       business: {
         name: "Business",
-        features: ["100,000 messages per month", "Team workspaces", "Priority support"],
+        features: [
+          "100,000 messages per month",
+          "5,000 agent runs per month",
+          "Team workspaces",
+          "Priority support",
+        ],
       },
     },
     perMonth: " / month",
@@ -54,6 +79,7 @@ const strings = {
     privacy: "Privacy Policy",
     terms: "Terms of Service",
     support: "Support Open Source ❤️",
+    billingSetup: "Billing is unavailable. Please try again later.",
   },
 } as const;
 
@@ -96,8 +122,8 @@ export default async function PricingPage({
               : process.env.STRIPE_SECRET_KEY
                 ? getStripePriceId(planKey)
                   ? undefined
-                  : `Billing setup required: configure STRIPE_PRICE_${planKey.toUpperCase()} with its Stripe Price ID.`
-                : "Billing setup required: configure STRIPE_SECRET_KEY.";
+                  : t.billingSetup
+                : t.billingSetup;
           return (
             <article
               className="flex flex-col gap-6 rounded-xl border p-6"

@@ -69,6 +69,8 @@ function PureArtifact({
   isReadonly,
   selectedVisibilityType,
   selectedModelId,
+  agentMode,
+  onAgentModeChange,
 }: {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
@@ -86,6 +88,8 @@ function PureArtifact({
   isReadonly: boolean;
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
+  agentMode: boolean;
+  onAgentModeChange: (enabled: boolean) => void;
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
@@ -336,10 +340,12 @@ function PureArtifact({
                 <div className="relative flex w-full flex-row items-end gap-2 px-4 pb-4">
                   <MultimodalInput
                     attachments={attachments}
+                    agentMode={agentMode}
                     chatId={chatId}
                     className="bg-background dark:bg-muted"
                     input={input}
                     messages={messages}
+                    onAgentModeChange={onAgentModeChange}
                     selectedModelId={selectedModelId}
                     selectedVisibilityType={selectedVisibilityType}
                     sendMessage={sendMessage}
@@ -525,6 +531,9 @@ export const Artifact = memo(PureArtifact, (prevProps, nextProps) => {
     return false;
   }
   if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
+    return false;
+  }
+  if (prevProps.agentMode !== nextProps.agentMode) {
     return false;
   }
 

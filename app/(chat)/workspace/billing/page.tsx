@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BillingEvent } from "@/components/billing-event";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { getLang } from "@/lib/i18n";
@@ -38,10 +39,13 @@ export default async function WorkspaceBillingPage({
         <h1 className="font-semibold text-2xl">Plan and usage</h1>
       </div>
       {success === "1" && (
-        <p className="rounded-md border border-green-600 p-3 text-sm">
-          Checkout completed. Your workspace plan will update as soon as Stripe
-          confirms the subscription.
-        </p>
+        <>
+          <BillingEvent event="checkout_success" />
+          <p className="rounded-md border border-green-600 p-3 text-sm">
+            Checkout completed. Your workspace plan will update as soon as
+            Stripe confirms the subscription.
+          </p>
+        </>
       )}
       <section className="flex flex-col gap-3 rounded-lg border p-5">
         <h2 className="font-medium text-lg">{plan.name} plan</h2>
@@ -54,6 +58,10 @@ export default async function WorkspaceBillingPage({
         <div className="text-sm">
           Chat messages this month: {billing.usage.messages.toLocaleString()} /{" "}
           {plan.monthlyMessages.toLocaleString()}
+        </div>
+        <div className="text-sm">
+          Agent runs this month: {billing.usage.agentRuns.toLocaleString()} /{" "}
+          {plan.monthlyAgentRuns.toLocaleString()}
         </div>
         {canUpgrade && !isPaid && (
           <Link

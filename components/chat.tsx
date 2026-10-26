@@ -77,11 +77,16 @@ export function Chat({
   const { isGuest } = useBilling();
   const guestQuota = useGuestQuota();
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
+  const [agentMode, setAgentMode] = useState(false);
   const currentModelIdRef = useRef(currentModelId);
+  const agentModeRef = useRef(agentMode);
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
+  useEffect(() => {
+    agentModeRef.current = agentMode;
+  }, [agentMode]);
 
   const {
     messages,
@@ -135,6 +140,7 @@ export function Chat({
               : {}),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
+            agentMode: agentModeRef.current,
             ...request.body,
           },
         };
@@ -246,10 +252,12 @@ export function Chat({
           {!isReadonly && (
             <MultimodalInput
               attachments={attachments}
+              agentMode={agentMode}
               chatId={id}
               input={input}
               messages={messages}
               onModelChange={setCurrentModelId}
+              onAgentModeChange={setAgentMode}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
@@ -265,11 +273,13 @@ export function Chat({
 
       <Artifact
         addToolApprovalResponse={addToolApprovalResponse}
+        agentMode={agentMode}
         attachments={attachments}
         chatId={id}
         input={input}
         isReadonly={isReadonly}
         messages={messages}
+        onAgentModeChange={setAgentMode}
         regenerate={regenerate}
         selectedModelId={currentModelId}
         selectedVisibilityType={visibilityType}

@@ -16,4 +16,5 @@ test("workspace settings and billing show the current tenant", async ({
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Free plan" })).toBeVisible();
   await expect(page.getByText(/Chat messages this month:/)).toBeVisible();
+  await expect(page.getByText(/Agent runs this month:/)).toBeVisible();
 });

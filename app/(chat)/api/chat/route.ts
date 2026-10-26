@@ -20,7 +20,6 @@ import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { consumeGuestMessage } from "@/lib/guest";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
@@ -37,6 +36,7 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import { consumeGuestMessage } from "@/lib/guest";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import type { ChatMessage } from "@/lib/types";
@@ -149,6 +149,7 @@ export async function POST(request: Request) {
       history,
       selectedChatModel,
       selectedVisibilityType,
+      agentMode,
     } = requestBody;
 
     const [botResult, workspaceContext] = await Promise.all([
@@ -167,6 +168,12 @@ export async function POST(request: Request) {
     await checkIpRateLimit(ipAddress(request));
 
     if (!workspaceContext) {
+      if (agentMode) {
+        return Response.json(
+          { error: "Agent mode requires a Pro or Business workspace plan." },
+          { status: 403 }
+        );
+      }
       return await handleGuestMessage({
         request,
         message,
@@ -206,6 +213,20 @@ export async function POST(request: Request) {
       return Response.json(
         { error: "This model requires a Pro or Business workspace plan." },
         { status: 403 }
+      );
+    }
+
+    if (agentMode && plan.monthlyAgentRuns === 0) {
+      return Response.json(
+        { error: "Agent mode requires a Pro or Business workspace plan." },
+        { status: 403 }
+      );
+    }
+
+    if (agentMode && billing.usage.agentRuns >= plan.monthlyAgentRuns) {
+      return Response.json(
+        { error: "This workspace has reached its monthly agent run limit." },
+        { status: 429 }
       );
     }
 
@@ -278,6 +299,13 @@ export async function POST(request: Request) {
         userId: session.user.id,
         event: "chat_message",
       });
+      if (agentMode) {
+        await trackWorkspaceUsage({
+          organizationId: workspaceContext.organizationId,
+          userId: session.user.id,
+          event: "agent_run",
+        });
+      }
     }
 
     const isReasoningModel =
@@ -292,9 +320,11 @@ export async function POST(request: Request) {
       execute: async ({ writer: dataStream }) => {
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: agentMode
+            ? `${systemPrompt({ selectedChatModel, requestHints })}\n\nYou are in Agent mode. Use the available tools when they help complete the user's request, and use the current conversation as context.`
+            : systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(agentMode ? 10 : 5),
           experimental_activeTools: isReasoningModel
             ? []
             : [

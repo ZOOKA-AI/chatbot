@@ -1,6 +1,8 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import { useState } from "react";
+import { useBilling } from "@/components/billing-provider";
 import type { PaidWorkspacePlan } from "@/lib/saas/plans";
 
 export function PricingCheckoutButton({
@@ -14,10 +16,12 @@ export function PricingCheckoutButton({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const { lang } = useBilling();
 
   async function beginCheckout() {
     setIsLoading(true);
     setError("");
+    track("click_upgrade", { plan });
     try {
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
@@ -34,12 +38,21 @@ export function PricingCheckoutButton({
         return;
       }
       if (!response.ok || !result.url) {
-        setError(result.error ?? "Unable to start checkout");
+        setError(
+          lang === "ar"
+            ? "تعذّر بدء الدفع. تحقّق من إعدادات الفوترة أو حاول مجدداً."
+            : (result.error ?? "Unable to start checkout. Please try again.")
+        );
         return;
       }
+      track("checkout_started", { plan });
       window.location.assign(result.url);
     } catch {
-      setError("Unable to connect to billing");
+      setError(
+        lang === "ar"
+          ? "تعذّر الاتصال بخدمة الدفع. حاول مجدداً."
+          : "Unable to connect to billing. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -48,12 +61,17 @@ export function PricingCheckoutButton({
   return (
     <div className="flex flex-col gap-2">
       <button
+        aria-busy={isLoading}
         className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground disabled:opacity-50"
         disabled={isLoading || Boolean(setupMessage)}
         onClick={beginCheckout}
         type="button"
       >
-        {isLoading ? "Redirecting…" : label}
+        {isLoading
+          ? lang === "ar"
+            ? "جارٍ التحويل للدفع…"
+            : "Redirecting…"
+          : label}
       </button>
       {setupMessage && (
         <p aria-live="polite" className="text-muted-foreground text-sm">

@@ -53,6 +53,10 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
         lang,
         isGuest,
         isSubscribed: hasPaidPlan,
+        canUseAgentMode:
+          !!subscription &&
+          subscription.plan !== "free" &&
+          ["active", "trialing"].includes(subscription.status),
         canManageBilling,
       }}
     >

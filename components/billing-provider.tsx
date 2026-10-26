@@ -7,6 +7,7 @@ export type BillingState = {
   lang: Lang;
   isGuest: boolean;
   isSubscribed: boolean;
+  canUseAgentMode: boolean;
   canManageBilling: boolean;
 };
 
@@ -14,6 +15,7 @@ const defaultState: BillingState = {
   lang: "ar",
   isGuest: true,
   isSubscribed: false,
+  canUseAgentMode: false,
   canManageBilling: false,
 };
 

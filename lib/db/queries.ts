@@ -266,10 +266,28 @@ export async function getWorkspaceBilling(organizationId: string) {
         )
       )
     );
+  const [agentUsage] = await db
+    .select({ runs: count(usageEvent.id) })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        eq(usageEvent.event, "agent_run"),
+        gte(
+          usageEvent.createdAt,
+          new Date(
+            Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)
+          )
+        )
+      )
+    );
 
   return {
     subscription: currentSubscription ?? null,
-    usage: { messages: usage?.messages ?? 0 },
+    usage: {
+      messages: usage?.messages ?? 0,
+      agentRuns: agentUsage?.runs ?? 0,
+    },
   };
 }
 

@@ -27,6 +27,7 @@ import {
   ModelSelectorName,
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
+import { useBilling } from "@/components/billing-provider";
 import {
   chatModels,
   DEFAULT_CHAT_MODEL,
@@ -68,6 +69,8 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  agentMode,
+  onAgentModeChange,
 }: {
   chatId: string;
   input: string;
@@ -83,9 +86,12 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  agentMode: boolean;
+  onAgentModeChange: (enabled: boolean) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+  const { canUseAgentMode, lang } = useBilling();
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -379,6 +385,24 @@ function PureMultimodalInput({
         </div>
         <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
+            <Button
+              aria-pressed={agentMode}
+              className="h-8 px-2"
+              data-testid="agent-mode-toggle"
+              disabled={!canUseAgentMode}
+              onClick={() => onAgentModeChange(!agentMode)}
+              title={
+                canUseAgentMode
+                  ? undefined
+                  : lang === "ar"
+                    ? "يتطلب وضع الوكيل خطة Pro أو Business"
+                    : "Agent mode requires a Pro or Business plan"
+              }
+              type="button"
+              variant={agentMode ? "default" : "ghost"}
+            >
+              {lang === "ar" ? "الوكيل" : "Agent"}
+            </Button>
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
@@ -424,6 +448,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+      return false;
+    }
+    if (prevProps.agentMode !== nextProps.agentMode) {
       return false;
     }
 
