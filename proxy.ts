@@ -47,8 +47,11 @@ export async function proxy(request: NextRequest) {
     secureCookie: !isDevelopmentEnvironment,
   });
 
-  // Anonymous visitors may try the chat; the chat API enforces the free-message limit
+  // Anonymous visitors may try the chat when the guest paywall is enabled at
+  // launch; the chat API enforces the free-message limit. Default is off, so
+  // unauthenticated users are redirected to /login (locked behavior).
   if (
+    process.env.GUEST_PAYWALL_ENABLED === "true" &&
     !token &&
     (pathname === "/" ||
       (pathname === "/api/chat" && request.method === "POST"))

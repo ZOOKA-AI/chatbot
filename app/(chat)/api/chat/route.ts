@@ -93,6 +93,10 @@ async function handleGuestMessage({
     );
   }
 
+  if (process.env.GUEST_PAYWALL_ENABLED !== "true") {
+    return new ChatbotError("unauthorized:chat").toResponse();
+  }
+
   await consumeGuestMessage(ipAddress(request));
 
   const previousMessages = (history ?? [])

@@ -9,6 +9,7 @@ import {
   gt,
   gte,
   inArray,
+  like,
   lt,
   ne,
   or,
@@ -310,6 +311,20 @@ export function syncWorkspaceSubscription({
 }
 
 export async function incrementGuestUsage(key: string) {
+  // Opportunistically prune per-IP rows from previous days; they are dead
+  // once their date suffix has passed and would otherwise accumulate forever.
+  const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  try {
+    await db.delete(guestUsage).where(
+      and(
+        like(guestUsage.key, "ip:%"),
+        lt(guestUsage.updatedAt, cutoff),
+      ),
+    );
+  } catch {
+    // Pruning is best-effort; never block the request on it.
+  }
+
   const [row] = await db
     .insert(guestUsage)
     .values({ key, count: 1 })
