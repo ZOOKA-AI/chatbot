@@ -103,3 +103,13 @@ the existing `Subscription` table. Enable `customer.subscription.deleted` as
 well to synchronize cancellations. Pro and Business plans receive higher
 hourly and monthly message limits plus access to advanced models. Stripe's
 customer portal and cancellation UI are not implemented yet.
+
+## ✨ Sponsors
+
+Support the development of this project! Sponsors are recognized below automatically.
+
+<!-- sponsors:start -->
+[![Become a sponsor](https://img.shields.io/badge/Become_a-❤️_sponsor-ea4aaa?style=flat-square&logo=github)](https://github.com/sponsors/ZOOKA-AI)
+<!-- sponsors:end -->
+
+[![Sponsor ZOOKA-AI](https://img.shields.io/badge/Support-open_source-0366d6?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/ZOOKA-AI)
