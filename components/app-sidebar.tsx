@@ -7,7 +7,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
+import { useBilling } from "@/components/billing-provider";
 import { PlusIcon, TrashIcon } from "@/components/icons";
+import { ManageAccountButton } from "@/components/manage-account-button";
+import { RenameWorkspaceDialog } from "@/components/rename-workspace-dialog";
+import { UpgradeButton } from "@/components/upgrade-button";
+import { copy } from "@/lib/copy";
 import {
   getChatHistoryPaginationKey,
   SidebarHistory,
@@ -38,11 +43,17 @@ export function AppSidebar({
   user,
   workspaceName,
   role,
+  isGuest,
 }: {
   user: User | undefined;
   workspaceName?: string;
   role?: "owner" | "admin" | "member";
+  isGuest?: boolean;
 }) {
+  const { lang } = useBilling();
+  const t = copy[lang];
+  const canRename = role === "owner" || role === "admin";
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
   const { mutate } = useSWRConfig();
@@ -127,20 +138,68 @@ export function AppSidebar({
         <SidebarContent>
           {user && (
             <div className="mx-2 rounded-md border p-3 text-sm">
-              <p className="truncate font-medium">{workspaceName}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p
+                  className="truncate font-medium"
+                  data-testid="workspace-name"
+                >
+                  {workspaceName}
+                </p>
+                {canRename && (
+                  <button
+                    aria-label={t.rename}
+                    className="shrink-0 text-muted-foreground text-xs underline"
+                    data-testid="rename-workspace"
+                    onClick={() => setShowRenameDialog(true)}
+                    type="button"
+                  >
+                    {t.rename}
+                  </button>
+                )}
+              </div>
               <Link
                 className="text-muted-foreground text-xs underline"
                 href="/workspace"
                 onClick={() => setOpenMobile(false)}
               >
-                Workspace settings
+                {t.workspaceSettings}
               </Link>
             </div>
           )}
+          <div className="mx-2 flex flex-col gap-2">
+            <UpgradeButton
+              className="w-full"
+              onNavigate={() => setOpenMobile(false)}
+            />
+            <ManageAccountButton className="w-full" />
+          </div>
           <SidebarHistory user={user} />
         </SidebarContent>
-        <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
+        <SidebarFooter>
+          {user && !isGuest && <SidebarUserNav user={user} />}
+          {isGuest && (
+            <div className="flex flex-col gap-2">
+              <p className="text-center text-muted-foreground text-xs">
+                {t.guestNotice}
+              </p>
+              <Button asChild size="sm">
+                <Link href="/register">{t.signUp}</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/login">{t.logIn}</Link>
+              </Button>
+            </div>
+          )}
+        </SidebarFooter>
       </Sidebar>
+
+      {workspaceName && (
+        <RenameWorkspaceDialog
+          currentName={workspaceName}
+          onOpenChange={setShowRenameDialog}
+          open={showRenameDialog}
+        />
+      )}
 
       <AlertDialog
         onOpenChange={setShowDeleteAllDialog}

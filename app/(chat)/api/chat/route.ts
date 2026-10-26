@@ -20,6 +20,7 @@ import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { consumeGuestMessage } from "@/lib/guest";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
@@ -55,6 +56,77 @@ function getStreamContext() {
 
 export { getStreamContext };
 
+function toGuestTextMessage(
+  input: { role: string; parts: unknown[] },
+  role: "user" | "assistant"
+): ChatMessage {
+  const parts = input.parts
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        typeof part === "object" &&
+        part !== null &&
+        (part as { type?: unknown }).type === "text" &&
+        typeof (part as { text?: unknown }).text === "string"
+    )
+    .map((part) => ({ type: "text" as const, text: part.text.slice(0, 4000) }));
+  return { id: generateUUID(), role, parts };
+}
+
+async function handleGuestMessage({
+  request,
+  message,
+  history,
+  selectedChatModel,
+}: {
+  request: Request;
+  message: PostRequestBody["message"];
+  history: PostRequestBody["history"];
+  selectedChatModel: string;
+}) {
+  if (message?.role !== "user") {
+    return new ChatbotError("unauthorized:chat").toResponse();
+  }
+  if (paidModelIds.has(selectedChatModel)) {
+    return Response.json(
+      { error: "This model requires a Pro or Business workspace plan." },
+      { status: 403 }
+    );
+  }
+
+  await consumeGuestMessage(ipAddress(request));
+
+  const previousMessages = (history ?? [])
+    .filter((entry) => entry.role === "user" || entry.role === "assistant")
+    .slice(-6)
+    .map((entry) =>
+      toGuestTextMessage(entry, entry.role === "user" ? "user" : "assistant")
+    )
+    .filter((entry) => entry.parts.length > 0);
+  const modelMessages = await convertToModelMessages([
+    ...previousMessages,
+    toGuestTextMessage(message, "user"),
+  ]);
+
+  const { longitude, latitude, city, country } = geolocation(request);
+  const requestHints: RequestHints = { longitude, latitude, city, country };
+
+  const stream = createUIMessageStream({
+    execute: ({ writer: dataStream }) => {
+      const result = streamText({
+        model: getLanguageModel(selectedChatModel),
+        system: systemPrompt({ selectedChatModel, requestHints }),
+        messages: modelMessages,
+        experimental_activeTools: [],
+      });
+      dataStream.merge(result.toUIMessageStream());
+    },
+    generateId: generateUUID,
+    onError: () => "Oops, an error occurred!",
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
@@ -66,23 +138,21 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const {
+      id,
+      message,
+      messages,
+      history,
+      selectedChatModel,
+      selectedVisibilityType,
+    } = requestBody;
 
     const [botResult, workspaceContext] = await Promise.all([
       checkBotId(),
       getWorkspaceContext(),
     ]);
-    const session = workspaceContext?.session;
 
     if (botResult.isBot) {
-      return new ChatbotError("unauthorized:chat").toResponse();
-    }
-
-    if (!session?.user) {
-      return new ChatbotError("unauthorized:chat").toResponse();
-    }
-    if (!workspaceContext) {
       return new ChatbotError("unauthorized:chat").toResponse();
     }
 
@@ -91,6 +161,16 @@ export async function POST(request: Request) {
     }
 
     await checkIpRateLimit(ipAddress(request));
+
+    if (!workspaceContext) {
+      return await handleGuestMessage({
+        request,
+        message,
+        history,
+        selectedChatModel,
+      });
+    }
+    const { session } = workspaceContext;
 
     const userType: UserType = session.user.type;
 

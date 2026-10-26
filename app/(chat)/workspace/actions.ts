@@ -13,8 +13,13 @@ import {
   updateWorkspaceMemberRole,
   updateWorkspaceName,
 } from "@/lib/db/queries";
+import { WORKSPACE_NAME_MAX, WORKSPACE_NAME_MIN } from "@/lib/workspace-name";
 
-const workspaceNameSchema = z.string().trim().min(2).max(80);
+const workspaceNameSchema = z
+  .string()
+  .trim()
+  .min(WORKSPACE_NAME_MIN)
+  .max(WORKSPACE_NAME_MAX);
 const invitationSchema = z.object({
   email: z.string().trim().email().max(254),
   role: z.enum(["admin", "member"]),

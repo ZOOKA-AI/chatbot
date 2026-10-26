@@ -13,6 +13,7 @@ import {
   ne,
   or,
   type SQL,
+  sql,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -20,11 +21,13 @@ import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
+import { defaultWorkspaceNameForEmail } from "../workspace-name";
 import {
   type Chat,
   chat,
   type DBMessage,
   document,
+  guestUsage,
   invitation,
   message,
   organization,
@@ -107,7 +110,7 @@ export async function ensureUserWorkspace({
 
   const [createdWorkspace] = await db
     .insert(organization)
-    .values({ name: `${email.split("@")[0] || "My"}'s workspace` })
+    .values({ name: defaultWorkspaceNameForEmail(email) })
     .returning({ id: organization.id, name: organization.name });
 
   await db
@@ -304,6 +307,18 @@ export function syncWorkspaceSubscription({
         periodEnd,
       },
     });
+}
+
+export async function incrementGuestUsage(key: string) {
+  const [row] = await db
+    .insert(guestUsage)
+    .values({ key, count: 1 })
+    .onConflictDoUpdate({
+      target: guestUsage.key,
+      set: { count: sql`${guestUsage.count} + 1`, updatedAt: new Date() },
+    })
+    .returning({ count: guestUsage.count });
+  return row.count;
 }
 
 export function trackWorkspaceUsage({

@@ -2,6 +2,7 @@ export type ErrorType =
   | "bad_request"
   | "unauthorized"
   | "forbidden"
+  | "payment_required"
   | "not_found"
   | "rate_limit"
   | "offline";
@@ -92,6 +93,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
     case "forbidden:auth":
       return "Your account does not have access to this feature.";
 
+    case "payment_required:chat":
+      return "You've used your 3 free messages. Sign up or upgrade to continue chatting and save your conversations.";
     case "rate_limit:chat":
       return "You have exceeded your maximum number of messages for the day. Please try again later.";
     case "not_found:chat":
@@ -123,6 +126,8 @@ function getStatusCodeByType(type: ErrorType) {
       return 400;
     case "unauthorized":
       return 401;
+    case "payment_required":
+      return 402;
     case "forbidden":
       return 403;
     case "not_found":

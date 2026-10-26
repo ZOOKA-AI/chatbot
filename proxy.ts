@@ -24,7 +24,19 @@ export async function proxy(request: NextRequest) {
     pathname === "/embed" ||
     pathname === "/embed.js" ||
     pathname === "/api/webhooks/stripe" ||
+    pathname === "/api/stripe/webhook" ||
     pathname === "/api/admin/backup"
+  ) {
+    return NextResponse.next();
+  }
+
+  if (
+    pathname.startsWith("/opengraph-image") ||
+    pathname.startsWith("/twitter-image") ||
+    pathname.startsWith("/icon") ||
+    pathname.startsWith("/apple-icon") ||
+    pathname.startsWith("/images/") ||
+    pathname === "/manifest.webmanifest"
   ) {
     return NextResponse.next();
   }
@@ -34,6 +46,15 @@ export async function proxy(request: NextRequest) {
     secret: process.env.AUTH_SECRET,
     secureCookie: !isDevelopmentEnvironment,
   });
+
+  // Anonymous visitors may try the chat; the chat API enforces the free-message limit
+  if (
+    !token &&
+    (pathname === "/" ||
+      (pathname === "/api/chat" && request.method === "POST"))
+  ) {
+    return NextResponse.next();
+  }
 
   if (!token && !["/login", "/register"].includes(pathname)) {
     // Guest auto-provisioning disabled: require real sign-up

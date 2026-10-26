@@ -32,6 +32,8 @@ export const postRequestBodySchema = z.object({
   // Either a single new message or all messages (for tool approvals)
   message: userMessageSchema.optional(),
   messages: z.array(messageSchema).optional(),
+  // Prior turns for guests, whose conversations are not stored server-side
+  history: z.array(messageSchema).max(20).optional(),
   selectedChatModel: z.string(),
   selectedVisibilityType: z.enum(["public", "private"]),
 });

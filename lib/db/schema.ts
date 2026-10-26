@@ -22,6 +22,12 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
+export const guestUsage = pgTable("GuestUsage", {
+  key: varchar("key", { length: 128 }).primaryKey().notNull(),
+  count: integer("count").notNull().default(0),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
 export const organization = pgTable("Organization", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   name: text("name").notNull(),

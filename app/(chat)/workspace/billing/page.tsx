@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
+import { getLang } from "@/lib/i18n";
 import { workspacePlans } from "@/lib/saas/plans";
+import { displayWorkspaceName } from "@/lib/workspace-name";
 
 import { ManageSubscriptionButton } from "./manage-subscription";
 
@@ -16,6 +18,7 @@ export default async function WorkspaceBillingPage({
     redirect("/login");
   }
 
+  const lang = await getLang();
   const billing = await getWorkspaceBilling(context.organizationId);
   const planKey = billing.subscription?.plan ?? "free";
   const plan = workspacePlans[planKey];
@@ -30,7 +33,7 @@ export default async function WorkspaceBillingPage({
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
       <div>
         <p className="text-muted-foreground text-sm">
-          {context.workspace.name}
+          {displayWorkspaceName(context.workspace.name, lang)}
         </p>
         <h1 className="font-semibold text-2xl">Plan and usage</h1>
       </div>

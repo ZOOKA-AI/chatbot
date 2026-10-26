@@ -95,11 +95,56 @@ not lookup keys. Create Pro at $19/month with lookup key `zooka_pro_monthly` and
 Business at $49/month with lookup key `zooka_business_monthly`; store their Price
 IDs in the corresponding environment variables. If Stripe keys or a Price ID
 are missing, the pricing page disables that upgrade and explains which setting
-is required. Configure a Stripe webhook pointing to `/api/webhooks/stripe` and
-enable `checkout.session.completed` and
-`customer.subscription.updated`. Checkout is restricted to workspace owners
-and admins; the signed webhook synchronizes subscription status and plan into
-the existing `Subscription` table. Enable `customer.subscription.deleted` as
-well to synchronize cancellations. Pro and Business plans receive higher
-hourly and monthly message limits plus access to advanced models. Stripe's
-customer portal and cancellation UI are not implemented yet.
+is required. Configure a Stripe webhook pointing to
+`https://zooka-ai.com/api/stripe/webhook` (the legacy `/api/webhooks/stripe`
+path still works) and enable `checkout.session.completed`,
+`customer.subscription.updated`, `customer.subscription.deleted`, and
+`invoice.payment_failed`. Checkout is restricted to workspace owners and
+admins; the signed webhook synchronizes subscription status, plan, Stripe
+customer ID, and current period end into the existing `Subscription` table
+(a failed invoice marks the workspace `past_due`). Pro and Business plans
+receive higher hourly and monthly message limits plus access to advanced
+models.
+
+### Subscription management
+
+Subscribed workspace owners and admins with a Stripe customer ID see a
+"Manage account / إدارة الاشتراك" button in the sidebar, header, and
+`/workspace/billing`. It calls `POST /api/billing/portal`, which opens a Stripe
+Customer Portal session that returns to the app. Enable the Customer Portal in
+the Stripe Dashboard (Settings → Billing → Customer portal) before launch.
+
+### Guest paywall
+
+Visitors who are not signed in may send 3 free messages. The count is tracked in
+`localStorage` for the UI and enforced by `POST /api/chat`, which stores
+counters in the `GuestUsage` table keyed by an HTTP-only `zooka_guest` cookie
+and by a hashed IP address per day. Further messages receive HTTP `402` and the
+UI shows a modal with Sign up, Log in, and View plans actions. Guest
+conversations are not stored.
+
+### Workspace names
+
+Workspaces have a `name` (existing `Organization.name` column). Numeric default
+names such as `1792738151875` are replaced by "مساحة عمل جديدة" by migration
+`0010`, and new workspaces for such accounts use that default. Owners and admins
+can rename from the sidebar dialog, `/workspace`, or `PATCH /api/workspace`
+(`{ "name": "..." }`, 2–80 characters).
+
+### SEO
+
+`app/layout.tsx` sets metadata for `https://zooka-ai.com` (title, description,
+canonical, Open Graph, Twitter `summary_large_image`, icons, theme color).
+`app/opengraph-image.tsx` and `app/twitter-image.tsx` generate the branded
+1200×630 image, and `app/robots.ts` / `app/sitemap.ts` serve `robots.txt` and
+`sitemap.xml`.
+
+### Launch checklist
+
+1. In Stripe, create the Pro ($19/month) and Business ($49/month) recurring
+   prices and set `STRIPE_PRICE_PRO` / `STRIPE_PRICE_BUSINESS`.
+2. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_APP_URL=https://zooka-ai.com`.
+3. Add the webhook endpoint `https://zooka-ai.com/api/stripe/webhook` and the
+   events listed above; enable the Customer Portal.
+4. Run `pnpm db:migrate` (the Vercel build already runs it) to apply migration
+   `0010_guest_usage_workspace_names`.

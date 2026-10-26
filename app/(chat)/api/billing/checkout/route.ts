@@ -80,7 +80,9 @@ export async function POST(request: Request) {
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: context.organizationId,
-      customer_email: context.user.email ?? undefined,
+      ...(billing.subscription?.externalCustomerId
+        ? { customer: billing.subscription.externalCustomerId }
+        : { customer_email: context.user.email ?? undefined }),
       metadata: {
         organizationId: context.organizationId,
         plan: parsed.data.plan,
