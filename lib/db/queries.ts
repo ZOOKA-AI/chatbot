@@ -9,10 +9,12 @@ import {
   gt,
   gte,
   inArray,
+  like,
   lt,
   ne,
   or,
   type SQL,
+  sql,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -20,11 +22,13 @@ import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
+import { defaultWorkspaceNameForEmail } from "../workspace-name";
 import {
   type Chat,
   chat,
   type DBMessage,
   document,
+  guestUsage,
   invitation,
   message,
   organization,
@@ -107,7 +111,7 @@ export async function ensureUserWorkspace({
 
   const [createdWorkspace] = await db
     .insert(organization)
-    .values({ name: `${email.split("@")[0] || "My"}'s workspace` })
+    .values({ name: defaultWorkspaceNameForEmail(email) })
     .returning({ id: organization.id, name: organization.name });
 
   await db
@@ -304,6 +308,32 @@ export function syncWorkspaceSubscription({
         periodEnd,
       },
     });
+}
+
+export async function incrementGuestUsage(key: string) {
+  // Opportunistically prune per-IP rows from previous days; they are dead
+  // once their date suffix has passed and would otherwise accumulate forever.
+  const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  try {
+    await db.delete(guestUsage).where(
+      and(
+        like(guestUsage.key, "ip:%"),
+        lt(guestUsage.updatedAt, cutoff),
+      ),
+    );
+  } catch {
+    // Pruning is best-effort; never block the request on it.
+  }
+
+  const [row] = await db
+    .insert(guestUsage)
+    .values({ key, count: 1 })
+    .onConflictDoUpdate({
+      target: guestUsage.key,
+      set: { count: sql`${guestUsage.count} + 1`, updatedAt: new Date() },
+    })
+    .returning({ count: guestUsage.count });
+  return row.count;
 }
 
 export function trackWorkspaceUsage({

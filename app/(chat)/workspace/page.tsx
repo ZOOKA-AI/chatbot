@@ -7,6 +7,8 @@ import {
   switchWorkspace,
 } from "@/app/(chat)/workspace/actions";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { getLang } from "@/lib/i18n";
+import { displayWorkspaceName } from "@/lib/workspace-name";
 import {
   getWorkspaceInvitations,
   getWorkspaceMembers,
@@ -24,6 +26,8 @@ export default async function WorkspacePage() {
     getWorkspaceInvitations(context.organizationId),
     getWorkspacesForUser(context.user.id),
   ]);
+  const lang = await getLang();
+  const workspaceName = displayWorkspaceName(context.workspace.name, lang);
   const canManage = context.role === "owner" || context.role === "admin";
 
   return (
@@ -31,7 +35,7 @@ export default async function WorkspacePage() {
       <header className="flex items-center justify-between">
         <div>
           <p className="text-muted-foreground text-sm">Current workspace</p>
-          <h1 className="font-semibold text-2xl">{context.workspace.name}</h1>
+          <h1 className="font-semibold text-2xl">{workspaceName}</h1>
         </div>
         <Link className="text-sm underline" href="/workspace/billing">
           Plan and usage
@@ -51,7 +55,7 @@ export default async function WorkspacePage() {
           >
             {workspaces.map((workspace) => (
               <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
+                {displayWorkspaceName(workspace.name, lang)}
               </option>
             ))}
           </select>
@@ -69,7 +73,7 @@ export default async function WorkspacePage() {
               Workspace name
               <input
                 className="rounded-md border bg-background px-3 py-2"
-                defaultValue={context.workspace.name}
+                defaultValue={workspaceName}
                 id="name"
                 maxLength={80}
                 minLength={2}
@@ -85,7 +89,7 @@ export default async function WorkspacePage() {
             </button>
           </form>
         ) : (
-          <p className="text-sm">{context.workspace.name}</p>
+          <p className="text-sm">{workspaceName}</p>
         )}
       </section>
 

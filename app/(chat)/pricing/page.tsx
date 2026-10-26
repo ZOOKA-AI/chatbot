@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { LanguageToggle } from "@/components/language-toggle";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
+
+export const metadata: Metadata = {
+  title: "الأسعار | Pricing",
+  description: "Zooka AI plans and pricing — خطط وأسعار Zooka AI",
+};
 
 const pricingPlanKeys = ["free", "pro", "business"] as const;
 

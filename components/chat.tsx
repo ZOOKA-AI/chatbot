@@ -3,10 +3,12 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
+import { useBilling } from "@/components/billing-provider";
 import { ChatHeader } from "@/components/chat-header";
+import { GuestPaywallDialog } from "@/components/guest-paywall-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +22,7 @@ import {
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import { useGuestQuota } from "@/hooks/use-guest-quota";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -70,6 +73,9 @@ export function Chat({
 
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const { isGuest } = useBilling();
+  const guestQuota = useGuestQuota();
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
 
@@ -80,7 +86,7 @@ export function Chat({
   const {
     messages,
     setMessages,
-    sendMessage,
+    sendMessage: rawSendMessage,
     status,
     stop,
     regenerate,
@@ -124,6 +130,9 @@ export function Chat({
             ...(isToolApprovalContinuation
               ? { messages: request.messages }
               : { message: lastMessage }),
+            ...(isGuest && !isToolApprovalContinuation
+              ? { history: request.messages.slice(0, -1) }
+              : {}),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
             ...request.body,
@@ -135,10 +144,21 @@ export function Chat({
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: () => {
+      if (isGuest) {
+        if (guestQuota.isExhausted()) {
+          setShowPaywall(true);
+        }
+        return;
+      }
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
-      if (error.message?.includes("AI Gateway requires a valid credit card")) {
+      if (error instanceof ChatbotError && error.type === "payment_required") {
+        guestQuota.markExhausted();
+        setShowPaywall(true);
+      } else if (
+        error.message?.includes("AI Gateway requires a valid credit card")
+      ) {
         setShowCreditCardAlert(true);
       } else if (error instanceof ChatbotError) {
         toast({
@@ -153,6 +173,20 @@ export function Chat({
       }
     },
   });
+
+  const sendMessage = useCallback<typeof rawSendMessage>(
+    (...args) => {
+      if (isGuest) {
+        if (guestQuota.isExhausted()) {
+          setShowPaywall(true);
+          return Promise.resolve();
+        }
+        guestQuota.consume();
+      }
+      return rawSendMessage(...args);
+    },
+    [isGuest, guestQuota, rawSendMessage]
+  );
 
   const searchParams = useSearchParams();
   const query = searchParams.get("query");
@@ -172,7 +206,7 @@ export function Chat({
   }, [query, sendMessage, hasAppendedQuery, id]);
 
   const { data: votes } = useSWR<Vote[]>(
-    messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
+    messages.length >= 2 && !isGuest ? `/api/vote?chatId=${id}` : null,
     fetcher
   );
 
@@ -247,6 +281,8 @@ export function Chat({
         stop={stop}
         votes={votes}
       />
+
+      <GuestPaywallDialog onOpenChange={setShowPaywall} open={showPaywall} />
 
       <AlertDialog
         onOpenChange={setShowCreditCardAlert}
