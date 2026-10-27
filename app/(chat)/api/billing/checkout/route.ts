@@ -48,18 +48,45 @@ export async function POST(request: Request) {
   }
 
   const billing = await getWorkspaceBilling(context.organizationId);
-  if (
-    billing.subscription?.externalSubscriptionId &&
-    ["active", "trialing", "past_due"].includes(billing.subscription.status)
-  ) {
-    return NextResponse.json(
-      { error: "This workspace already has a paid subscription" },
-      { status: 409 }
-    );
-  }
 
   try {
     const stripe = getStripe();
+
+    // Guard against stale subscription records left by earlier test-mode runs:
+    // only block checkout when the subscription really exists in the live account.
+    const storedSubId = billing.subscription?.externalSubscriptionId;
+    if (
+      storedSubId &&
+      ["active", "trialing", "past_due"].includes(billing.subscription?.status ?? "")
+    ) {
+      let liveSubActive = false;
+      try {
+        const sub = await stripe.subscriptions.retrieve(storedSubId);
+        liveSubActive = ["active", "trialing", "past_due"].includes(sub.status);
+      } catch {
+        liveSubActive = false;
+      }
+      if (liveSubActive) {
+        return NextResponse.json(
+          { error: "This workspace already has a paid subscription" },
+          { status: 409 }
+        );
+      }
+    }
+
+    let reusableCustomerId: string | undefined;
+    if (billing.subscription?.externalCustomerId) {
+      try {
+        const customer = await stripe.customers.retrieve(
+          billing.subscription.externalCustomerId
+        );
+        if (!(customer as { deleted?: boolean }).deleted) {
+          reusableCustomerId = billing.subscription.externalCustomerId;
+        }
+      } catch {
+        reusableCustomerId = undefined;
+      }
+    }
     const configuredOrigin =
       process.env.NEXT_PUBLIC_APP_URL ??
       process.env.AUTH_URL ??
@@ -80,8 +107,8 @@ export async function POST(request: Request) {
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: context.organizationId,
-      ...(billing.subscription?.externalCustomerId
-        ? { customer: billing.subscription.externalCustomerId }
+      ...(reusableCustomerId
+        ? { customer: reusableCustomerId }
         : { customer_email: context.user.email ?? undefined }),
       metadata: {
         organizationId: context.organizationId,

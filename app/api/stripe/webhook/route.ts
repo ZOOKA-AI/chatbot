@@ -82,15 +82,19 @@ async function syncFromFailedInvoice(invoice: Stripe.Invoice) {
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
-  if (
-    !signature ||
-    !process.env.STRIPE_SECRET_KEY ||
-    !process.env.STRIPE_WEBHOOK_SECRET
-  ) {
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json(
       { error: "Webhook is not configured" },
       {
         status: 503,
+      }
+    );
+  }
+  if (!signature) {
+    return NextResponse.json(
+      { error: "Missing stripe-signature header" },
+      {
+        status: 400,
       }
     );
   }
@@ -131,26 +135,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
-}
-
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  if (url.searchParams.get("k") !== "zooka-diag-7391") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-  }
-  const sk = process.env.STRIPE_SECRET_KEY ?? "";
-  const wh = process.env.STRIPE_WEBHOOK_SECRET ?? "";
-  const pro = process.env.STRIPE_PRICE_PRO ?? "";
-  const biz = process.env.STRIPE_PRICE_BUSINESS ?? "";
-  return NextResponse.json({
-    sk_present: Boolean(sk),
-    sk_len: sk.length,
-    sk_mode: sk.startsWith("sk_live") ? "live" : sk.startsWith("sk_test") ? "test" : "other",
-    sk_suffix: sk.slice(-6),
-    wh_present: Boolean(wh),
-    wh_len: wh.length,
-    pro_suffix: pro.slice(-6),
-    biz_suffix: biz.slice(-6),
-    sha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
-  });
 }
