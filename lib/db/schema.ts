@@ -290,3 +290,31 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+export const affiliate = pgTable("Affiliate", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  code: varchar("code", { length: 64 }).notNull().unique(),
+  name: varchar("name", { length: 255 }),
+  platform: varchar("platform", { length: 64 }),
+  commissionPct: integer("commissionPct").notNull().default(20),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const referralEvent = pgTable(
+  "ReferralEvent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    code: varchar("code", { length: 64 }).notNull(),
+    event: varchar("event", { length: 16 }).notNull(),
+    userId: uuid("userId"),
+    organizationId: uuid("organizationId"),
+    plan: varchar("plan", { length: 32 }),
+    amountCents: integer("amountCents"),
+    externalRef: varchar("externalRef", { length: 255 }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => [index("ReferralEvent_code_idx").on(table.code)]
+);
+
+export type Affiliate = InferSelectModel<typeof affiliate>;
+export type ReferralEvent = InferSelectModel<typeof referralEvent>;

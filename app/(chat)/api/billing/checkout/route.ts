@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { REFERRAL_COOKIE, normalizeCode } from "@/lib/affiliate";
 import { requireWorkspaceRole } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { getStripePriceId, paidWorkspacePlans } from "@/lib/saas/plans";
@@ -103,6 +105,16 @@ export async function POST(request: Request) {
       );
     }
 
+    let affiliateCode: string | null = null;
+    try {
+      affiliateCode = normalizeCode((await cookies()).get(REFERRAL_COOKIE)?.value);
+    } catch {
+      affiliateCode = null;
+    }
+    const affiliateMeta: Record<string, string> = affiliateCode
+      ? { affiliateCode }
+      : {};
+
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
@@ -113,11 +125,13 @@ export async function POST(request: Request) {
       metadata: {
         organizationId: context.organizationId,
         plan: parsed.data.plan,
+        ...affiliateMeta,
       },
       subscription_data: {
         metadata: {
           organizationId: context.organizationId,
           plan: parsed.data.plan,
+          ...affiliateMeta,
         },
       },
       success_url: new URL(

@@ -25,7 +25,8 @@ export async function proxy(request: NextRequest) {
     pathname === "/embed.js" ||
     pathname === "/api/webhooks/stripe" ||
     pathname === "/api/stripe/webhook" ||
-    pathname === "/api/admin/backup"
+    pathname === "/api/admin/backup" ||
+    pathname.startsWith("/r/")
   ) {
     return NextResponse.next();
   }
