@@ -19,11 +19,11 @@ const strings = {
     subtitle: "ابدأ مجاناً وارتقِ وقت ما تحتاج فريقك.",
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
-      free: { name: "المجانية", features: ["1,000 رسالة شهرياً", "نماذج قياسية"] },
-      pro: { name: "الاحترافية", features: ["10,000 رسالة شهرياً", "نماذج متقدمة"] },
+      free: { name: "المجانية", features: ["نماذج قياسية"] },
+      pro: { name: "الاحترافية", features: ["نماذج متقدمة"] },
       business: {
         name: "الأعمال",
-        features: ["100,000 رسالة شهرياً", "مساحات عمل للفرق", "دعم بأولوية"],
+        features: ["مساحات عمل للفرق", "دعم بأولوية"],
       },
     },
     perMonth: " / شهرياً",
@@ -40,11 +40,11 @@ const strings = {
     subtitle: "Start for free and upgrade whenever your team needs more.",
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
-      free: { name: "Free", features: ["1,000 messages per month", "Standard models"] },
-      pro: { name: "Pro", features: ["10,000 messages per month", "Advanced models"] },
+      free: { name: "Free", features: ["Standard models"] },
+      pro: { name: "Pro", features: ["Advanced models"] },
       business: {
         name: "Business",
-        features: ["100,000 messages per month", "Team workspaces", "Priority support"],
+        features: ["Team workspaces", "Priority support"],
       },
     },
     perMonth: " / month",
