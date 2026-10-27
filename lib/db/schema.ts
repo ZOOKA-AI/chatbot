@@ -313,7 +313,7 @@ export const referralEvent = pgTable(
     externalRef: varchar("externalRef", { length: 255 }),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
-  (table) => [index("ReferralEvent_code_idx").on(table.code)]
+  (table) => ({ codeIdx: index("ReferralEvent_code_idx").on(table.code) })
 );
 
 export type Affiliate = InferSelectModel<typeof affiliate>;

@@ -1,10 +1,10 @@
+import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
 import { affiliate } from "@/lib/db/schema";
 import { getReferralReport, normalizeCode } from "@/lib/affiliate";
-
-export const dynamic = "force-dynamic";
+import { referralEvent } from "@/lib/db/schema";
 
 type PageProps = {
   searchParams: Promise<{
@@ -53,7 +53,15 @@ async function addAffiliate(
   });
 }
 
-export default async function AdminReferralsPage({ searchParams }: PageProps) {
+export default function AdminReferralsPage({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<main className="p-8 text-sm">Loading referral report…</main>}>
+      <AdminReferralsContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function AdminReferralsContent({ searchParams }: PageProps) {
   const params = await searchParams;
   const adminEmails = (
     process.env.ADMIN_EMAILS ??
@@ -85,20 +93,18 @@ export default async function AdminReferralsPage({ searchParams }: PageProps) {
     await addAffiliate(params.add, params.name, params.platform, params.pct);
   }
 
-  await db.execute(sql`select 1`);
-
   const [rows, partners, totals] = await Promise.all([
     getReferralReport(),
     db.select().from(affiliate).orderBy(affiliate.createdAt),
     db
       .select({
-        clicks: sql<string>`count(*) filter (where "event" = 'click')`,
-        signups: sql<string>`count(*) filter (where "event" = 'signup')`,
-        subscriptions: sql<string>`count(*) filter (where "event" = 'subscribe')`,
-        dailySignups: sql<string>`count(*) filter (where "event" = 'signup' and "createdAt" > now() - interval '7 days')`,
-        dailySubs: sql<string>`count(*) filter (where "event" = 'subscribe' and "createdAt" > now() - interval '7 days')`,
+        clicks: sql<string>`count(*) filter (where ${referralEvent.event} = 'click')`,
+        signups: sql<string>`count(*) filter (where ${referralEvent.event} = 'signup')`,
+        subscriptions: sql<string>`count(*) filter (where ${referralEvent.event} = 'subscribe')`,
+        dailySignups: sql<string>`count(*) filter (where ${referralEvent.event} = 'signup' and ${referralEvent.createdAt} > now() - interval '7 days')`,
+        dailySubs: sql<string>`count(*) filter (where ${referralEvent.event} = 'subscribe' and ${referralEvent.createdAt} > now() - interval '7 days')`,
       })
-      .from(sql`"ReferralEvent"`),
+      .from(referralEvent),
   ]);
 
   const pctByCode = new Map(partners.map((p) => [p.code, p.commissionPct]));
