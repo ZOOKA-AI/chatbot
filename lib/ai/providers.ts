@@ -15,7 +15,7 @@ const THINKING_SUFFIX_REGEX = /-thinking$/;
 const USE_DIRECT_GOOGLE =
   !process.env.AI_GATEWAY_API_KEY && !!process.env.GEMINI_API_KEY;
 
-const DIRECT_MODEL = "gemini-flash-latest";
+const DIRECT_MODEL = "gemini-flash-lite-latest";
 const DIRECT_MODEL_REASONING = "gemini-pro-latest";
 
 export const myProvider = isTestEnvironment
@@ -37,8 +37,17 @@ export const myProvider = isTestEnvironment
     })()
   : null;
 
+const GOOGLE_REQUEST_TIMEOUT_MS = 45_000;
+
 const googleWithKey = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
+  fetch: (input, init) => {
+    const timeout = AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS);
+    const signal = init?.signal
+      ? AbortSignal.any([init.signal, timeout])
+      : timeout;
+    return fetch(input, { ...init, signal });
+  },
 });
 
 export function getLanguageModel(modelId: string) {
