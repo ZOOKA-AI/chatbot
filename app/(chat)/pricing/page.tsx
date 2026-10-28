@@ -19,7 +19,10 @@ const strings = {
     subtitle: "ابدأ مجاناً وارتقِ وقت ما تحتاج فريقك.",
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
-      free: { name: "المجانية", features: ["1,000 رسالة شهرياً", "نماذج قياسية"] },
+      free: {
+        name: "المجانية",
+        features: ["1,000 رسالة شهرياً", "نماذج قياسية"],
+      },
       pro: {
         name: "الاحترافية",
         features: [
@@ -55,7 +58,10 @@ const strings = {
     subtitle: "Start for free and upgrade whenever your team needs more.",
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
-      free: { name: "Free", features: ["1,000 messages per month", "Standard models"] },
+      free: {
+        name: "Free",
+        features: ["1,000 messages per month", "Standard models"],
+      },
       pro: {
         name: "Pro",
         features: [
@@ -113,7 +119,9 @@ export default async function PricingPage({
       </header>
 
       {canceled && (
-        <p className="text-center text-sm text-muted-foreground">{t.canceled}</p>
+        <p className="text-center text-sm text-muted-foreground">
+          {t.canceled}
+        </p>
       )}
 
       <section className="grid gap-5 md:grid-cols-3">
@@ -134,7 +142,9 @@ export default async function PricingPage({
               key={planKey}
             >
               <div className="flex flex-col gap-2">
-                <h2 className="font-semibold text-xl">{t.plans[planKey].name}</h2>
+                <h2 className="font-semibold text-xl">
+                  {t.plans[planKey].name}
+                </h2>
                 <p className="text-3xl font-semibold">
                   ${plan.price}
                   <span className="font-normal text-base text-muted-foreground">
@@ -179,8 +189,8 @@ export default async function PricingPage({
         <a
           className="hover:underline"
           href="https://github.com/sponsors/ZOOKA-AI"
-          target="_blank"
           rel="noopener noreferrer"
+          target="_blank"
         >
           {t.support}
         </a>

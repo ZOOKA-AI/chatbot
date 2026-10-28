@@ -1,8 +1,8 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { captureException } from "@sentry/nextjs";
 import { DefaultChatTransport } from "ai";
-import * as Sentry from "@sentry/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -160,7 +160,7 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
-      Sentry.captureException(new Error("Chat stream failed"), {
+      captureException(new Error("Chat stream failed"), {
         tags: { area: "chat-stream" },
       });
       if (error instanceof ChatbotError && error.type === "payment_required") {
@@ -261,14 +261,16 @@ export function Chat({
         <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
           {!isReadonly && (
             <MultimodalInput
-              attachments={attachments}
               agentMode={agentMode}
+              attachments={attachments}
               chatId={id}
               input={input}
               messages={messages}
-              onModelChange={setCurrentModelId}
               onAgentModeChange={setAgentMode}
-              onRetry={() => void regenerate()}
+              onModelChange={setCurrentModelId}
+              onRetry={() => {
+                regenerate().catch(() => undefined);
+              }}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
@@ -291,7 +293,9 @@ export function Chat({
         isReadonly={isReadonly}
         messages={messages}
         onAgentModeChange={setAgentMode}
-        onRetry={() => void regenerate()}
+        onRetry={() => {
+          regenerate().catch(() => undefined);
+        }}
         regenerate={regenerate}
         selectedModelId={currentModelId}
         selectedVisibilityType={visibilityType}

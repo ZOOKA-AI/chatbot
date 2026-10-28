@@ -1,5 +1,6 @@
 import "server-only";
 
+import { del as deleteBlob, list as listBlobs } from "@vercel/blob";
 import {
   and,
   asc,
@@ -13,11 +14,10 @@ import {
   lt,
   ne,
   or,
-  sum,
   type SQL,
   sql,
+  sum,
 } from "drizzle-orm";
-import { del as deleteBlob, list as listBlobs } from "@vercel/blob";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/artifact";
@@ -74,7 +74,7 @@ async function retryBlobRequest<T>(
   throw new Error("Blob request failed");
 }
 
-export async function deleteAccountData(userId: string) {
+export function deleteAccountData(userId: string) {
   return db.transaction(async (tx) => {
     const memberships = await tx
       .select({
@@ -99,7 +99,10 @@ export async function deleteAccountData(userId: string) {
         )
         .limit(1);
       if (otherMember) {
-        return { deleted: false as const, reason: "workspace_members" as const };
+        return {
+          deleted: false as const,
+          reason: "workspace_members" as const,
+        };
       }
 
       const paidSubscriptions = await tx
@@ -116,13 +119,19 @@ export async function deleteAccountData(userId: string) {
           ["active", "trialing", "past_due"].includes(status)
         )
       ) {
-        return { deleted: false as const, reason: "active_subscription" as const };
+        return {
+          deleted: false as const,
+          reason: "active_subscription" as const,
+        };
       }
     }
 
     const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
     if (!blobToken && memberships.length > 0) {
-      return { deleted: false as const, reason: "blob_storage_unavailable" as const };
+      return {
+        deleted: false as const,
+        reason: "blob_storage_unavailable" as const,
+      };
     }
 
     const blobUrls: string[] = [];
@@ -132,7 +141,13 @@ export async function deleteAccountData(userId: string) {
         let cursor: string | undefined;
         do {
           const result = await retryBlobRequest((abortSignal) =>
-            listBlobs({ prefix, cursor, limit: 1000, token: blobToken, abortSignal })
+            listBlobs({
+              prefix,
+              cursor,
+              limit: 1000,
+              token: blobToken,
+              abortSignal,
+            })
           );
           blobUrls.push(...result.blobs.map(({ url }) => url));
           if (result.hasMore && !result.cursor) {
@@ -184,7 +199,9 @@ export async function deleteAccountData(userId: string) {
 
     if (chatIds.length > 0) {
       await tx.delete(vote).where(inArray(vote.chatId, chatIds));
-      await tx.delete(voteDeprecated).where(inArray(voteDeprecated.chatId, chatIds));
+      await tx
+        .delete(voteDeprecated)
+        .where(inArray(voteDeprecated.chatId, chatIds));
       await tx.delete(message).where(inArray(message.chatId, chatIds));
       await tx
         .delete(messageDeprecated)
@@ -203,12 +220,8 @@ export async function deleteAccountData(userId: string) {
         .delete(subscription)
         .where(inArray(subscription.organizationId, ownedOrganizationIds));
     }
-    await tx
-      .delete(invitation)
-      .where(eq(invitation.invitedBy, userId));
-    await tx
-      .delete(usageEvent)
-      .where(eq(usageEvent.userId, userId));
+    await tx.delete(invitation).where(eq(invitation.invitedBy, userId));
+    await tx.delete(usageEvent).where(eq(usageEvent.userId, userId));
     await tx
       .delete(document)
       .where(
@@ -537,12 +550,11 @@ export async function incrementGuestUsage(key: string) {
   // once their date suffix has passed and would otherwise accumulate forever.
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   try {
-    await db.delete(guestUsage).where(
-      and(
-        like(guestUsage.key, "ip:%"),
-        lt(guestUsage.updatedAt, cutoff),
-      ),
-    );
+    await db
+      .delete(guestUsage)
+      .where(
+        and(like(guestUsage.key, "ip:%"), lt(guestUsage.updatedAt, cutoff))
+      );
   } catch {
     // Pruning is best-effort; never block the request on it.
   }

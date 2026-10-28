@@ -1,4 +1,4 @@
-import { workspacePlans, type WorkspacePlan } from "@/lib/saas/plans";
+import { type WorkspacePlan, workspacePlans } from "@/lib/saas/plans";
 
 export const quotaFeatures = {
   chat_message: "monthlyMessages",

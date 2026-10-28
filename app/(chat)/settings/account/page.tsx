@@ -12,13 +12,18 @@ export default async function AccountSettingsPage() {
   const ar = lang === "ar";
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6" dir={ar ? "rtl" : "ltr"}>
+    <main
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6"
+      dir={ar ? "rtl" : "ltr"}
+    >
       <header className="flex flex-col gap-2">
         <h1 className="font-semibold text-2xl">
           {ar ? "إعدادات الحساب" : "Account settings"}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {ar ? "إدارة بيانات حسابك وخصوصيتك." : "Manage your account data and privacy."}
+          {ar
+            ? "إدارة بيانات حسابك وخصوصيتك."
+            : "Manage your account data and privacy."}
         </p>
       </header>
       <section className="flex flex-col gap-4 rounded-lg border border-destructive/40 p-5">

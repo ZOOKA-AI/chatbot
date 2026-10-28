@@ -18,8 +18,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (
+    pathname === "/about" ||
+    pathname === "/contact" ||
+    pathname === "/cookies" ||
+    pathname === "/partners" ||
+    pathname === "/partners/join" ||
     pathname === "/pricing" ||
     pathname === "/privacy" ||
+    pathname === "/refund" ||
     pathname === "/terms" ||
     pathname === "/embed" ||
     pathname === "/embed.js" ||

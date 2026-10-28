@@ -12,7 +12,7 @@ export const workspacePlans = {
     price: 19,
     monthlyMessages: 10_000,
     monthlyAgentRuns: 500,
-    monthlyWebSearches: 1_000,
+    monthlyWebSearches: 1000,
     features: [
       "10,000 messages per month",
       "Advanced models",
@@ -23,7 +23,7 @@ export const workspacePlans = {
     name: "Business",
     price: 49,
     monthlyMessages: 100_000,
-    monthlyAgentRuns: 5_000,
+    monthlyAgentRuns: 5000,
     monthlyWebSearches: 10_000,
     features: [
       "100,000 messages per month",

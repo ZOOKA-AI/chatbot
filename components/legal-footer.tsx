@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
 import type { Lang } from "@/lib/i18n";
+import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
 
 const pages = [
+  ["Partners", "/partners"],
   ["about", "/about"],
   ["privacy", "/privacy"],
   ["terms", "/terms"],
   ["refund", "/refund"],
   ["contact", "/contact"],
   ["cookies", "/cookies"],
-] as const satisfies readonly [LegalPageId, string][];
+] as const satisfies readonly [LegalPageId | "Partners", string][];
 
 export function LegalFooter({ lang }: { lang: Lang }) {
   return (
@@ -20,7 +21,11 @@ export function LegalFooter({ lang }: { lang: Lang }) {
     >
       {pages.map(([page, href]) => (
         <Link className="hover:underline" href={href} key={href}>
-          {getLegalPageCopy(lang, page).title}
+          {page === "Partners"
+            ? lang === "ar"
+              ? "الشركاء"
+              : "Partners"
+            : getLegalPageCopy(lang, page).title}
         </Link>
       ))}
     </footer>

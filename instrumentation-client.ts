@@ -1,13 +1,18 @@
+import { init } from "@sentry/nextjs";
 import { initBotId } from "botid/client/core";
-import * as Sentry from "@sentry/nextjs";
 
-Sentry.init({
+init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   beforeSend(event) {
-    if (event.request) {
-      delete event.request.data;
+    event.request = undefined;
+    event.user = undefined;
+    event.breadcrumbs = undefined;
+    event.extra = undefined;
+    if (event.exception?.values) {
+      for (const exception of event.exception.values) {
+        exception.value = "Sanitized application error";
+      }
     }
-    delete event.user;
     return event;
   },
 });

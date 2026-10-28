@@ -1,15 +1,20 @@
+import { init } from "@sentry/nextjs";
 import { registerOTel } from "@vercel/otel";
-import * as Sentry from "@sentry/nextjs";
 
 export function register() {
   registerOTel({ serviceName: "chatbot" });
-  Sentry.init({
+  init({
     dsn: process.env.SENTRY_DSN,
     beforeSend(event) {
-      if (event.request) {
-        delete event.request.data;
+      event.request = undefined;
+      event.user = undefined;
+      event.breadcrumbs = undefined;
+      event.extra = undefined;
+      if (event.exception?.values) {
+        for (const exception of event.exception.values) {
+          exception.value = "Sanitized application error";
+        }
       }
-      delete event.user;
       return event;
     },
   });

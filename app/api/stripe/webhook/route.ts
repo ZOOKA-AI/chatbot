@@ -1,5 +1,5 @@
+import { captureException } from "@sentry/nextjs";
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
 import type Stripe from "stripe";
 import { syncWorkspaceSubscription } from "@/lib/db/queries";
 import { getPlanFromStripePriceId, type WorkspacePlan } from "@/lib/saas/plans";
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       }
     }
   } catch {
-    Sentry.captureException(new Error("Stripe subscription synchronization failed"), {
+    captureException(new Error("Stripe subscription synchronization failed"), {
       tags: { area: "stripe-webhook" },
     });
     return NextResponse.json(

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { signOut } from "next-auth/react";
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import type { Lang } from "@/lib/i18n";
 
 export function DeleteAccountButton({ lang }: { lang: Lang }) {
@@ -38,7 +38,9 @@ export function DeleteAccountButton({ lang }: { lang: Lang }) {
       if (!response.ok) {
         setError(
           result.error ??
-            (ar ? "تعذّر حذف الحساب. حاول مرة أخرى." : "Account deletion failed.")
+            (ar
+              ? "تعذّر حذف الحساب. حاول مرة أخرى."
+              : "Account deletion failed.")
         );
         setPending(false);
         return;
@@ -78,7 +80,9 @@ export function DeleteAccountButton({ lang }: { lang: Lang }) {
         <AlertDialogContent dir={ar ? "rtl" : "ltr"}>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {ar ? "تأكيد حذف الحساب نهائياً" : "Permanently delete your account?"}
+              {ar
+                ? "تأكيد حذف الحساب نهائياً"
+                : "Permanently delete your account?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {ar
@@ -87,9 +91,7 @@ export function DeleteAccountButton({ lang }: { lang: Lang }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <label className="flex flex-col gap-2 text-sm">
-            {ar
-              ? "اكتب DELETE للتأكيد"
-              : "Type DELETE to confirm"}
+            {ar ? "اكتب DELETE للتأكيد" : "Type DELETE to confirm"}
             <input
               autoComplete="off"
               className="rounded-md border bg-background px-3 py-2"
@@ -105,7 +107,13 @@ export function DeleteAccountButton({ lang }: { lang: Lang }) {
               disabled={pending || confirmation !== "DELETE"}
               onClick={(event) => {
                 event.preventDefault();
-                void deleteAccount();
+                deleteAccount().catch(() =>
+                  setError(
+                    ar
+                      ? "تعذّر حذف الحساب. حاول مرة أخرى."
+                      : "Account deletion failed. Please try again."
+                  )
+                );
               }}
             >
               {pending

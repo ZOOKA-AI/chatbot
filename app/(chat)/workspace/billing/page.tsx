@@ -92,14 +92,17 @@ export default async function WorkspaceBillingPage({
                   : billing.subscription?.status === "canceled"
                     ? "ملغاة"
                     : "نشطة"
-            : billing.subscription?.status ?? "active"}
+            : (billing.subscription?.status ?? "active")}
           {billing.subscription?.periodEnd
             ? isArabic
               ? ` · تنتهي الفترة ${billing.subscription.periodEnd.toLocaleDateString("ar")}`
               : ` · Renews ${billing.subscription.periodEnd.toLocaleDateString()}`
             : ""}
         </p>
-        <ul className="flex flex-col gap-3 text-sm" aria-label={isArabic ? "الاستخدام الشهري" : "Monthly usage"}>
+        <ul
+          aria-label={isArabic ? "الاستخدام الشهري" : "Monthly usage"}
+          className="flex flex-col gap-3 text-sm"
+        >
           <li>
             {isArabic ? "الرسائل" : "Chat messages"}:{" "}
             {billing.usage.messages.toLocaleString(lang)} /{" "}

@@ -11,8 +11,8 @@ const tavilyResponseSchema = z.object({
     z.object({
       title: z.string().max(500),
       url: z.string().url(),
-      content: z.string().max(4_000),
-    }),
+      content: z.string().max(4000),
+    })
   ),
 });
 

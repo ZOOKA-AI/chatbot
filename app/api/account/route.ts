@@ -1,5 +1,5 @@
+import { captureException } from "@sentry/nextjs";
 import { ipAddress } from "@vercel/functions";
-import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
@@ -31,7 +31,10 @@ export async function DELETE(request: Request) {
 
   const context = await getWorkspaceContext();
   if (!context || context.user.type === "guest") {
-    return NextResponse.json({ error: "يجب تسجيل الدخول أولاً." }, { status: 401 });
+    return NextResponse.json(
+      { error: "يجب تسجيل الدخول أولاً." },
+      { status: 401 }
+    );
   }
 
   const payload = await request.json().catch(() => null);
@@ -65,7 +68,7 @@ export async function DELETE(request: Request) {
     }
     return NextResponse.json({ deleted: true });
   } catch {
-    Sentry.captureException(new Error("Account deletion failed"), {
+    captureException(new Error("Account deletion failed"), {
       tags: { area: "account-deletion" },
     });
     return NextResponse.json(

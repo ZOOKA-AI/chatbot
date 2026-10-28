@@ -341,8 +341,8 @@ function PureArtifact({
 
                 <div className="relative flex w-full flex-row items-end gap-2 px-4 pb-4">
                   <MultimodalInput
-                    attachments={attachments}
                     agentMode={agentMode}
+                    attachments={attachments}
                     chatId={chatId}
                     className="bg-background dark:bg-muted"
                     input={input}

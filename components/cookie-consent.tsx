@@ -1,8 +1,8 @@
 "use client";
 
+import { Analytics } from "@vercel/analytics/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Analytics } from "@vercel/analytics/react";
 import type { Lang } from "@/lib/i18n";
 
 const CONSENT_KEY = "zooka-cookie-consent";
@@ -27,7 +27,9 @@ export function CookieConsent({ lang }: { lang: Lang }) {
       {consent === "accepted" && <Analytics />}
       {consent === null && (
         <aside
-          aria-label={lang === "ar" ? "إعدادات ملفات الارتباط" : "Cookie preferences"}
+          aria-label={
+            lang === "ar" ? "إعدادات ملفات الارتباط" : "Cookie preferences"
+          }
           className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-3xl flex-col gap-3 rounded-xl border bg-background p-4 shadow-xl sm:flex-row sm:items-center sm:justify-between"
           dir={lang === "ar" ? "rtl" : "ltr"}
           lang={lang}

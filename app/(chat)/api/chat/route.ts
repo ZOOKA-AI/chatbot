@@ -31,7 +31,6 @@ import {
   getWorkspaceBilling,
   saveChat,
   saveMessages,
-  trackWorkspaceUsage,
   updateChatTitleById,
   updateMessage,
 } from "@/lib/db/queries";
@@ -236,7 +235,7 @@ export async function POST(request: Request) {
     const messageQuota = await checkQuota(
       session.user.id,
       "chat_message",
-      workspaceContext.organizationId,
+      workspaceContext.organizationId
     );
     if (!messageQuota.allowed) {
       return new ChatbotError("rate_limit:chat").toResponse();
@@ -246,12 +245,12 @@ export async function POST(request: Request) {
       const agentQuota = await checkQuota(
         session.user.id,
         "agent_run",
-        workspaceContext.organizationId,
+        workspaceContext.organizationId
       );
       if (!agentQuota.allowed) {
         return Response.json(
           { error: "This workspace has reached its monthly agent run limit." },
-          { status: 429 },
+          { status: 429 }
         );
       }
     }
@@ -423,13 +422,13 @@ export async function POST(request: Request) {
             await recordUsage(
               session.user.id,
               "chat_message",
-              workspaceContext.organizationId,
+              workspaceContext.organizationId
             );
             if (agentMode) {
               await recordUsage(
                 session.user.id,
                 "agent_run",
-                workspaceContext.organizationId,
+                workspaceContext.organizationId
               );
             }
           }

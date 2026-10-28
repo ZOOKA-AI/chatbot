@@ -1,12 +1,16 @@
 import "server-only";
 
-import { getWorkspaceBilling, getWorkspaceForUser, trackWorkspaceUsage } from "@/lib/db/queries";
+import {
+  getWorkspaceBilling,
+  getWorkspaceForUser,
+  trackWorkspaceUsage,
+} from "@/lib/db/queries";
 import { getQuotaStatus, type QuotaFeature } from "@/lib/saas/quota-utils";
 
 export async function checkQuota(
   userId: string,
   feature: QuotaFeature,
-  organizationId: string,
+  organizationId: string
 ) {
   const workspace = await getWorkspaceForUser(userId, organizationId);
   if (!workspace) {
@@ -44,7 +48,7 @@ export async function recordUsage(
   userId: string,
   feature: QuotaFeature,
   organizationId: string,
-  amount = 1,
+  amount = 1
 ) {
   if (!Number.isSafeInteger(amount) || amount < 1) {
     throw new Error("Usage amount must be a positive integer");
