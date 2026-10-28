@@ -19,6 +19,7 @@ export async function proxy(request: NextRequest) {
 
   if (
     pathname === "/pricing" ||
+    pathname === "/contact" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/embed" ||
