@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-// Digits joined with a zero-width non-joiner so devices cannot turn the
-// printed number into a tap-to-call link. WhatsApp is the only support channel.
-const ZW = "\u200C";
+// Plain, accessible number: readable by screen readers and safe to copy.
+// It is rendered as text (no tel: link) so it cannot be tapped to call.
 const WHATSAPP_NUMBER = "971566047579";
-const DISPLAY_NUMBERS = ["0", "5", "6", "6", "0", "4", "7", "5", "7", "9"]
-  .join(ZW);
+const DISPLAY_NUMBERS = "0566047579";
 
 export const metadata: Metadata = {
   title: "تواصل معنا | Contact ZOOKA AI",
