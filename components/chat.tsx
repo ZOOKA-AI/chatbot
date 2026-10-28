@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import * as Sentry from "@sentry/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -74,7 +75,7 @@ export function Chat({
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const { isGuest } = useBilling();
+  const { isGuest, lang } = useBilling();
   const guestQuota = useGuestQuota();
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const [agentMode, setAgentMode] = useState(false);
@@ -159,6 +160,9 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
+      Sentry.captureException(new Error("Chat stream failed"), {
+        tags: { area: "chat-stream" },
+      });
       if (error instanceof ChatbotError && error.type === "payment_required") {
         guestQuota.markExhausted();
         setShowPaywall(true);
@@ -169,12 +173,18 @@ export function Chat({
       } else if (error instanceof ChatbotError) {
         toast({
           type: "error",
-          description: error.message,
+          description:
+            lang === "ar"
+              ? "انقطع الرد أو تعذّر إكماله. احتفظنا بالجزء المكتمل؛ أعد المحاولة."
+              : "The response was interrupted. The completed text is preserved; please retry.",
         });
       } else {
         toast({
           type: "error",
-          description: error.message || "Oops, an error occurred!",
+          description:
+            lang === "ar"
+              ? "انقطع الرد أو تعذّر إكماله. احتفظنا بالجزء المكتمل؛ أعد المحاولة."
+              : "The response was interrupted. The completed text is preserved; please retry.",
         });
       }
     },
@@ -258,6 +268,7 @@ export function Chat({
               messages={messages}
               onModelChange={setCurrentModelId}
               onAgentModeChange={setAgentMode}
+              onRetry={() => void regenerate()}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
@@ -280,6 +291,7 @@ export function Chat({
         isReadonly={isReadonly}
         messages={messages}
         onAgentModeChange={setAgentMode}
+        onRetry={() => void regenerate()}
         regenerate={regenerate}
         selectedModelId={currentModelId}
         selectedVisibilityType={visibilityType}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import type Stripe from "stripe";
 import { syncWorkspaceSubscription } from "@/lib/db/queries";
 import { getPlanFromStripePriceId, type WorkspacePlan } from "@/lib/saas/plans";
@@ -121,9 +122,20 @@ export async function POST(request: Request) {
       await syncFromSubscription(event.data.object);
     } else if (event.type === "invoice.payment_failed") {
       await syncFromFailedInvoice(event.data.object);
+    } else if (event.type === "invoice.paid") {
+      const subscriptionId = getStripeId(
+        event.data.object.parent?.subscription_details?.subscription ?? null
+      );
+      if (subscriptionId) {
+        const subscription =
+          await getStripe().subscriptions.retrieve(subscriptionId);
+        await syncFromSubscription(subscription);
+      }
     }
-  } catch (error) {
-    console.error("Failed to synchronize Stripe subscription", error);
+  } catch {
+    Sentry.captureException(new Error("Stripe subscription synchronization failed"), {
+      tags: { area: "stripe-webhook" },
+    });
     return NextResponse.json(
       { error: "Subscription synchronization failed" },
       { status: 500 }

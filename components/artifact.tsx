@@ -71,6 +71,7 @@ function PureArtifact({
   selectedModelId,
   agentMode,
   onAgentModeChange,
+  onRetry,
 }: {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
@@ -90,6 +91,7 @@ function PureArtifact({
   selectedModelId: string;
   agentMode: boolean;
   onAgentModeChange: (enabled: boolean) => void;
+  onRetry: () => void;
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
@@ -346,6 +348,7 @@ function PureArtifact({
                     input={input}
                     messages={messages}
                     onAgentModeChange={onAgentModeChange}
+                    onRetry={onRetry}
                     selectedModelId={selectedModelId}
                     selectedVisibilityType={selectedVisibilityType}
                     sendMessage={sendMessage}

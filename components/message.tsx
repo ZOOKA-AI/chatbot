@@ -168,6 +168,46 @@ const PurePreviewMessage = ({
               }
             }
 
+            if (type === "tool-searchWeb") {
+              const { toolCallId, state } = part;
+              if (state !== "output-available") {
+                return null;
+              }
+              if ("error" in part.output) {
+                return (
+                  <p className="text-sm text-destructive" key={toolCallId}>
+                    {part.output.error}
+                  </p>
+                );
+              }
+              return (
+                <section
+                  aria-label="Web search sources"
+                  className="rounded-lg border p-3"
+                  key={toolCallId}
+                >
+                  <h3 className="mb-2 font-medium text-sm">مصادر البحث</h3>
+                  <ul className="flex flex-col gap-2">
+                    {part.output.results.map((result) => (
+                      <li className="text-sm" key={result.url}>
+                        <a
+                          className="font-medium text-primary underline"
+                          href={result.url}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          {result.title}
+                        </a>
+                        <p className="text-muted-foreground">
+                          {result.content}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            }
+
             if (type === "tool-getWeather") {
               const { toolCallId, state } = part;
               const approvalId = (part as { approval?: { id: string } })

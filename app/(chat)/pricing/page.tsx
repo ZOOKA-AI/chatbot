@@ -25,6 +25,7 @@ const strings = {
         features: [
           "10,000 رسالة شهرياً",
           "500 تشغيل للوكيل شهرياً",
+          "1,000 عملية بحث ويب شهرياً",
           "نماذج متقدمة",
         ],
       },
@@ -33,6 +34,7 @@ const strings = {
         features: [
           "100,000 رسالة شهرياً",
           "5,000 تشغيل للوكيل شهرياً",
+          "10,000 عملية بحث ويب شهرياً",
           "مساحات عمل للفرق",
           "دعم بأولوية",
         ],
@@ -59,6 +61,7 @@ const strings = {
         features: [
           "10,000 messages per month",
           "500 agent runs per month",
+          "1,000 web searches per month",
           "Advanced models",
         ],
       },
@@ -67,6 +70,7 @@ const strings = {
         features: [
           "100,000 messages per month",
           "5,000 agent runs per month",
+          "10,000 web searches per month",
           "Team workspaces",
           "Priority support",
         ],

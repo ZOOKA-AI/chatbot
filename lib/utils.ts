@@ -30,22 +30,81 @@ export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
   init?: RequestInit,
 ) {
-  try {
-    const response = await fetch(input, init);
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException("Chat request timed out", "TimeoutError")),
+    45_000,
+  );
+  const signal = init?.signal
+    ? AbortSignal.any([controller.signal, init.signal])
+    : controller.signal;
 
-    if (!response.ok) {
-      const { code, cause } = await response.json();
-      throw new ChatbotError(code as ErrorCode, cause);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(input, { ...init, signal });
+
+      if (!response.ok) {
+        clearTimeout(timeout);
+        const { code, cause } = await response
+          .json()
+          .catch(() => ({ code: "offline:chat", cause: undefined }));
+        throw new ChatbotError(code as ErrorCode, cause);
+      }
+
+      if (!response.body) {
+        clearTimeout(timeout);
+        return response;
+      }
+
+      const reader = response.body.getReader();
+      const body = new ReadableStream<Uint8Array>({
+        async pull(streamController) {
+          try {
+            const chunk = await reader.read();
+            if (chunk.done) {
+              clearTimeout(timeout);
+              streamController.close();
+            } else {
+              streamController.enqueue(chunk.value);
+            }
+          } catch (error) {
+            clearTimeout(timeout);
+            streamController.error(error);
+          }
+        },
+        async cancel(reason) {
+          clearTimeout(timeout);
+          await reader.cancel(reason);
+        },
+      });
+
+      return new Response(body, {
+        headers: response.headers,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof ChatbotError ||
+        controller.signal.aborted ||
+        init?.signal?.aborted ||
+        !(error instanceof TypeError) ||
+        attempt === 2
+      ) {
+        clearTimeout(timeout);
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          throw new ChatbotError("offline:chat");
+        }
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, 500 * 2 ** attempt + Math.random() * 250)
+      );
     }
-
-    return response;
-  } catch (error: unknown) {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      throw new ChatbotError('offline:chat');
-    }
-
-    throw error;
   }
+
+  clearTimeout(timeout);
+  throw new ChatbotError("offline:chat");
 }
 
 export function getLocalStorage(key: string) {

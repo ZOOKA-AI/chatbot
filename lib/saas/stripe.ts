@@ -9,7 +9,10 @@ export function getStripe() {
     throw new Error("STRIPE_SECRET_KEY is not configured");
   }
 
-  stripeClient ??= new Stripe(process.env.STRIPE_SECRET_KEY);
+  stripeClient ??= new Stripe(process.env.STRIPE_SECRET_KEY, {
+    timeout: 45_000,
+    maxNetworkRetries: 2,
+  });
   return stripeClient;
 }
 

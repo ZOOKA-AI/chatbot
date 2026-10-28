@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo, Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
 import { Toaster } from "sonner";
+import { CookieConsent } from "@/components/cookie-consent";
+import { LegalFooter } from "@/components/legal-footer";
 import { ThemeProvider } from "@/components/theme-provider";
+import { dirOf, getLang } from "@/lib/i18n";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 
@@ -78,11 +80,13 @@ const THEME_COLOR_SCRIPT = `\
   updateThemeColor();
 })();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const lang = await getLang();
+
   return (
     <html
       className={`${geist.variable} ${geistMono.variable} ${cairo.variable}`}
@@ -90,7 +94,8 @@ export default function RootLayout({
       // visual flicker before hydration. Hence the `suppressHydrationWarning`
       // prop is necessary to avoid the React hydration mismatch warning.
       // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
-      lang="en"
+      dir={dirOf(lang)}
+      lang={lang}
       suppressHydrationWarning
     >
       <head>
@@ -110,7 +115,8 @@ export default function RootLayout({
         >
           <Toaster position="top-center" />
           <SessionProvider>{children}</SessionProvider>
-          <Analytics />
+          <LegalFooter lang={lang} />
+          <CookieConsent lang={lang} />
         </ThemeProvider>
       </body>
     </html>

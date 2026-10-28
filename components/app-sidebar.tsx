@@ -171,6 +171,13 @@ export function AppSidebar({
               >
                 {t.integrations}
               </Link>
+              <span className="px-1 text-muted-foreground">·</span>
+              <Link
+                className="text-muted-foreground text-xs underline"
+                href="/settings/account"
+              >
+                {lang === "ar" ? "الحساب" : "Account"}
+              </Link>
             </div>
           )}
           <div className="mx-2 flex flex-col gap-2">

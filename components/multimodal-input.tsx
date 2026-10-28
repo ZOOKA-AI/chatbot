@@ -71,6 +71,7 @@ function PureMultimodalInput({
   onModelChange,
   agentMode,
   onAgentModeChange,
+  onRetry,
 }: {
   chatId: string;
   input: string;
@@ -88,6 +89,7 @@ function PureMultimodalInput({
   onModelChange?: (modelId: string) => void;
   agentMode: boolean;
   onAgentModeChange: (enabled: boolean) => void;
+  onRetry: () => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -329,7 +331,7 @@ function PureMultimodalInput({
           if (!input.trim() && attachments.length === 0) {
             return;
           }
-          if (status !== "ready") {
+          if (status === "submitted" || status === "streaming") {
             toast.error("Please wait for the model to finish its response!");
           } else {
             submitForm();
@@ -367,6 +369,27 @@ function PureMultimodalInput({
                 key={filename}
               />
             ))}
+          </div>
+        )}
+        {status === "error" && (
+          <div
+            className="flex items-center justify-between gap-3 px-2 text-sm text-destructive"
+            role="alert"
+          >
+            <span>
+              {lang === "ar"
+                ? "انقطع الرد. يمكنك إعادة المحاولة؛ سيبقى النص المكتمل."
+                : "Response interrupted. Retry while keeping completed text."}
+            </span>
+            <Button
+              className="shrink-0"
+              data-testid="retry-response"
+              onClick={onRetry}
+              type="button"
+              variant="outline"
+            >
+              {lang === "ar" ? "إعادة المحاولة" : "Retry"}
+            </Button>
           </div>
         )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
@@ -451,6 +474,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.agentMode !== nextProps.agentMode) {
+      return false;
+    }
+    if (prevProps.status !== nextProps.status) {
       return false;
     }
 
