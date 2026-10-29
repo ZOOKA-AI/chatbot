@@ -7,13 +7,13 @@ import {
   switchWorkspace,
 } from "@/app/(chat)/workspace/actions";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { getLang } from "@/lib/i18n";
-import { displayWorkspaceName } from "@/lib/workspace-name";
 import {
   getWorkspaceInvitations,
   getWorkspaceMembers,
   getWorkspacesForUser,
 } from "@/lib/db/queries";
+import { getLang } from "@/lib/i18n";
+import { displayWorkspaceName } from "@/lib/workspace-name";
 
 export default async function WorkspacePage() {
   const context = await getWorkspaceContext();

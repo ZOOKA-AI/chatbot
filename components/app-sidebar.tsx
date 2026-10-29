@@ -11,8 +11,6 @@ import { useBilling } from "@/components/billing-provider";
 import { PlusIcon, TrashIcon } from "@/components/icons";
 import { ManageAccountButton } from "@/components/manage-account-button";
 import { RenameWorkspaceDialog } from "@/components/rename-workspace-dialog";
-import { UpgradeButton } from "@/components/upgrade-button";
-import { copy } from "@/lib/copy";
 import {
   getChatHistoryPaginationKey,
   SidebarHistory,
@@ -27,6 +25,8 @@ import {
   SidebarMenu,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { UpgradeButton } from "@/components/upgrade-button";
+import { copy } from "@/lib/copy";
 import {
   AlertDialog,
   AlertDialogAction,

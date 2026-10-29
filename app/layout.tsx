@@ -1,6 +1,6 @@
+import { Analytics } from "@vercel/analytics/react";
 import type { Metadata, Viewport } from "next";
 import { Cairo, Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 

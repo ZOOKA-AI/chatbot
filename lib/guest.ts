@@ -12,7 +12,8 @@ export const GUEST_COOKIE = "zooka_guest";
 // also capped per day. The cap is higher than the per-visitor cap so shared
 // networks are not locked out after a single visitor.
 const GUEST_IP_DAILY_LIMIT = GUEST_FREE_MESSAGES * 5;
-const GUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const GUEST_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export async function consumeGuestMessage(ip: string | undefined) {
   const cookieStore = await cookies();

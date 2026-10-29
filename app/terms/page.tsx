@@ -1,5 +1,5 @@
-import { Suspense } from "react";
 import Link from "next/link";
+import { Suspense } from "react";
 import { LanguageToggle } from "@/components/language-toggle";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
@@ -61,11 +61,13 @@ async function TermsContent() {
             <h2 className="font-semibold text-lg">الاشتراكات والفوترة</h2>
             <p>
               تتجدد الباقات المدفوعة شهرياً حتى الإلغاء. تُعالَج المدفوعات عبر
-              Stripe. يمكنك الإلغاء في أي وقت، ويستمر وصولك للميزات المدفوعة
-              حتى نهاية الفترة المدفوعة.
+              Stripe. يمكنك الإلغاء في أي وقت، ويستمر وصولك للميزات المدفوعة حتى
+              نهاية الفترة المدفوعة.
             </p>
 
-            <h2 className="font-semibold text-lg">تنبيه بشأن مخرجات الذكاء الاصطناعي</h2>
+            <h2 className="font-semibold text-lg">
+              تنبيه بشأن مخرجات الذكاء الاصطناعي
+            </h2>
             <p>
               قد تكون ردود الذكاء الاصطناعي غير دقيقة أو ناقصة. لا تعتمد عليها
               في قرارات مهنية أو طبية أو قانونية أو مالية.
@@ -98,8 +100,8 @@ async function TermsContent() {
             <h2 className="font-semibold text-lg">The service</h2>
             <p>
               Zooka AI provides AI-powered chatbot conversations. Message limits
-              depend on your plan: Free (1,000 messages per month), Pro ($19
-              per month, 10,000 messages), and Business ($49 per month, 100,000
+              depend on your plan: Free (1,000 messages per month), Pro ($19 per
+              month, 10,000 messages), and Business ($49 per month, 100,000
               messages).
             </p>
 
@@ -114,8 +116,8 @@ async function TermsContent() {
             <p>
               You may not use the service for illegal purposes, to generate
               harmful or abusive content, to attempt to bypass plan limits, or
-              to disrupt the service. We may suspend accounts that violate
-              these rules.
+              to disrupt the service. We may suspend accounts that violate these
+              rules.
             </p>
 
             <h2 className="font-semibold text-lg">Subscriptions and billing</h2>
@@ -135,15 +137,13 @@ async function TermsContent() {
             <p>
               The service is provided &quot;as is&quot; without warranties. To
               the maximum extent permitted by law, Zooka AI is not liable for
-              indirect or consequential damages arising from use of the
-              service.
+              indirect or consequential damages arising from use of the service.
             </p>
 
             <h2 className="font-semibold text-lg">Changes</h2>
             <p>
               We may update these terms; material changes will be reflected in
-              the date above. Continued use after changes means you accept
-              them.
+              the date above. Continued use after changes means you accept them.
             </p>
 
             <h2 className="font-semibold text-lg">Contact</h2>

@@ -315,12 +315,11 @@ export async function incrementGuestUsage(key: string) {
   // once their date suffix has passed and would otherwise accumulate forever.
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   try {
-    await db.delete(guestUsage).where(
-      and(
-        like(guestUsage.key, "ip:%"),
-        lt(guestUsage.updatedAt, cutoff),
-      ),
-    );
+    await db
+      .delete(guestUsage)
+      .where(
+        and(like(guestUsage.key, "ip:%"), lt(guestUsage.updatedAt, cutoff))
+      );
   } catch {
     // Pruning is best-effort; never block the request on it.
   }

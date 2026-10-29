@@ -1,5 +1,5 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { gateway } from "@ai-sdk/gateway";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
   customProvider,
   extractReasoningMiddleware,

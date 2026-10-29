@@ -20,7 +20,6 @@ import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { consumeGuestMessage } from "@/lib/guest";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
@@ -37,6 +36,7 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import { consumeGuestMessage } from "@/lib/guest";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import type { ChatMessage } from "@/lib/types";

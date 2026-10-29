@@ -52,5 +52,8 @@ export function renderOgImage() {
 }
 
 export function renderIcon(size: number) {
-  return new ImageResponse(renderBrandMark(size), { width: size, height: size });
+  return new ImageResponse(renderBrandMark(size), {
+    width: size,
+    height: size,
+  });
 }

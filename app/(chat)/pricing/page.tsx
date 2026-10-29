@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { LanguageToggle } from "@/components/language-toggle";
+import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
 
@@ -19,8 +19,14 @@ const strings = {
     subtitle: "ابدأ مجاناً وارتقِ وقت ما تحتاج فريقك.",
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
-      free: { name: "المجانية", features: ["1,000 رسالة شهرياً", "نماذج قياسية"] },
-      pro: { name: "الاحترافية", features: ["10,000 رسالة شهرياً", "نماذج متقدمة"] },
+      free: {
+        name: "المجانية",
+        features: ["1,000 رسالة شهرياً", "نماذج قياسية"],
+      },
+      pro: {
+        name: "الاحترافية",
+        features: ["10,000 رسالة شهرياً", "نماذج متقدمة"],
+      },
       business: {
         name: "الأعمال",
         features: ["100,000 رسالة شهرياً", "مساحات عمل للفرق", "دعم بأولوية"],
@@ -40,11 +46,21 @@ const strings = {
     subtitle: "Start for free and upgrade whenever your team needs more.",
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
-      free: { name: "Free", features: ["1,000 messages per month", "Standard models"] },
-      pro: { name: "Pro", features: ["10,000 messages per month", "Advanced models"] },
+      free: {
+        name: "Free",
+        features: ["1,000 messages per month", "Standard models"],
+      },
+      pro: {
+        name: "Pro",
+        features: ["10,000 messages per month", "Advanced models"],
+      },
       business: {
         name: "Business",
-        features: ["100,000 messages per month", "Team workspaces", "Priority support"],
+        features: [
+          "100,000 messages per month",
+          "Team workspaces",
+          "Priority support",
+        ],
       },
     },
     perMonth: " / month",
@@ -83,7 +99,9 @@ export default async function PricingPage({
       </header>
 
       {canceled && (
-        <p className="text-center text-sm text-muted-foreground">{t.canceled}</p>
+        <p className="text-center text-sm text-muted-foreground">
+          {t.canceled}
+        </p>
       )}
 
       <section className="grid gap-5 md:grid-cols-3">
@@ -104,7 +122,9 @@ export default async function PricingPage({
               key={planKey}
             >
               <div className="flex flex-col gap-2">
-                <h2 className="font-semibold text-xl">{t.plans[planKey].name}</h2>
+                <h2 className="font-semibold text-xl">
+                  {t.plans[planKey].name}
+                </h2>
                 <p className="text-3xl font-semibold">
                   ${plan.price}
                   <span className="font-normal text-base text-muted-foreground">
@@ -149,8 +169,8 @@ export default async function PricingPage({
         <a
           className="hover:underline"
           href="https://github.com/sponsors/ZOOKA-AI"
-          target="_blank"
           rel="noopener noreferrer"
+          target="_blank"
         >
           {t.support}
         </a>

@@ -15,7 +15,9 @@ export function ManageSubscriptionButton() {
       const response = await fetch("/api/billing/portal", { method: "POST" });
       const data = await response.json();
       if (!response.ok || !data?.url) {
-        throw new Error(data?.error ?? "Unable to open subscription management");
+        throw new Error(
+          data?.error ?? "Unable to open subscription management"
+        );
       }
       window.location.href = data.url;
     } catch (portalError) {

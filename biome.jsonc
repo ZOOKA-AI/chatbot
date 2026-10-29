@@ -20,7 +20,9 @@
       "!ai-sdk",
       "!components/ui",
       "!lib/utils.ts",
-      "!hooks/use-mobile.ts"
+      "!hooks/use-mobile.ts",
+      "!public/embed.js",
+      "!lib/db/migrations"
     ]
   },
   "linter": {

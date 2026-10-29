@@ -6,8 +6,8 @@ import { useActionState, useEffect, useState } from "react";
 
 import {
   type LoginActionState,
-  type RegisterActionState,
   login,
+  type RegisterActionState,
   register,
 } from "@/app/(auth)/actions";
 import { AuthForm } from "@/components/auth-form";
@@ -77,12 +77,14 @@ export function EmbedAuth() {
       <div className="flex w-full max-w-sm flex-col gap-8 overflow-hidden rounded-2xl border p-6">
         <div className="flex flex-col items-center justify-center gap-1 text-center">
           <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">{t.subtitle}</p>
+          <p className="text-gray-500 text-sm dark:text-zinc-400">
+            {t.subtitle}
+          </p>
         </div>
         <AuthForm
           action={mode === "login" ? loginAction : registerAction}
-          labels={{ email: t.email, password: t.password }}
           emailPlaceholder="name@example.com"
+          labels={{ email: t.email, password: t.password }}
         >
           <SubmitButton isSuccessful={false}>
             {mode === "login" ? t.signIn : t.signUp}

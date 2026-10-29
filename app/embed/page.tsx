@@ -5,9 +5,9 @@ import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DataStreamProvider } from "@/components/data-stream-provider";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { generateUUID } from "@/lib/utils";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { EmbedAuth } from "./embed-auth";
 
 export const metadata: Metadata = {

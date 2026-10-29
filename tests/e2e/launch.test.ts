@@ -88,9 +88,15 @@ test.describe("Guest paywall", () => {
 
     const paywall = page.getByTestId("guest-paywall");
     await expect(paywall).toBeVisible();
-    await expect(paywall.getByRole("link", { name: "إنشاء حساب" })).toBeVisible();
-    await expect(paywall.getByRole("link", { name: "تسجيل الدخول" })).toBeVisible();
-    await expect(paywall.getByRole("link", { name: "عرض الخطط" })).toBeVisible();
+    await expect(
+      paywall.getByRole("link", { name: "إنشاء حساب" })
+    ).toBeVisible();
+    await expect(
+      paywall.getByRole("link", { name: "تسجيل الدخول" })
+    ).toBeVisible();
+    await expect(
+      paywall.getByRole("link", { name: "عرض الخطط" })
+    ).toBeVisible();
   });
 
   test("guests see the upgrade button in the header and sidebar", async ({
