@@ -54,6 +54,17 @@ export const organizationMember = pgTable(
   })
 );
 
+export const googleDriveConnection = pgTable("GoogleDriveConnection", {
+  organizationId: uuid("organizationId")
+    .primaryKey()
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  connectionId: uuid("connectionId").notNull().defaultRandom(),
+  encryptedTokens: text("encryptedTokens").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
 export const invitation = pgTable(
   "Invitation",
   {

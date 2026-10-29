@@ -1,30 +1,16 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { GoogleDriveConnectionControl } from "@/components/google-drive-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
+import {
+  isGoogleDriveConfigured,
+  isGoogleDriveConnected,
+} from "@/lib/integrations/google-drive/server";
 
 export const metadata: Metadata = {
   title: "Integrations | Zooka AI",
 };
-
-const connectors = {
-  ar: [
-    {
-      name: "Google Drive",
-      description: "قراءة الملفات وتلخيصها داخل المحادثة.",
-    },
-    { name: "Notion", description: "قراءة الصفحات وقواعد البيانات." },
-    { name: "Shopify", description: "عرض المنتجات والطلبات الأساسية." },
-  ],
-  en: [
-    {
-      name: "Google Drive",
-      description: "Read and summarize files in a conversation.",
-    },
-    { name: "Notion", description: "Read pages and databases." },
-    { name: "Shopify", description: "View products and basic order details." },
-  ],
-} as const;
 
 export default async function IntegrationsPage() {
   const context = await getWorkspaceContext();
@@ -34,6 +20,13 @@ export default async function IntegrationsPage() {
 
   const lang = await getLang();
   const isArabic = lang === "ar";
+  const googleDriveConfigured = isGoogleDriveConfigured();
+  const googleDriveConnected =
+    googleDriveConfigured &&
+    (await isGoogleDriveConnected(context.organizationId));
+  const canManage =
+    context.user.type === "regular" &&
+    ["owner", "admin"].includes(context.role);
 
   return (
     <main
@@ -48,16 +41,50 @@ export default async function IntegrationsPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           {isArabic
-            ? "Google Drive وNotion وShopify غير متاحة حالياً. لا يستطيع الوكيل الوصول إلى حسابات خارجية."
-            : "Google Drive, Notion, and Shopify are currently unavailable. The Agent cannot access external accounts."}
+            ? "يستخدم الوكيل Google Drive للقراءة فقط عند تفعيل الاتصال في مساحة العمل. لا تتوفر تكاملات Notion وShopify."
+            : "The Agent can use Google Drive read-only when connected to this workspace. Notion and Shopify are unavailable."}
         </p>
       </header>
 
       <section
-        aria-label={isArabic ? "التكاملات المتاحة" : "Available integrations"}
+        aria-label={isArabic ? "حالة التكاملات" : "Integration status"}
         className="grid gap-4"
       >
-        {connectors[lang].map((connector) => (
+        <article className="flex items-center justify-between gap-4 rounded-lg border p-5">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium">Google Drive</h2>
+            <p className="text-sm text-muted-foreground">
+              {isArabic
+                ? "البحث عن ملفات Google Docs والنصوص وقراءتها. لا يمكن للوكيل تعديل الملفات."
+                : "Search and read Google Docs and text files. The Agent cannot modify files."}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {isArabic
+                ? "تُحفظ الرموز مشفّرة ومقيّدة بمساحة العمل. يُرسل نص الملف المقروء إلى النموذج ويُحفظ ضمن المحادثة."
+                : "Tokens are encrypted and scoped to this workspace. Read file text is sent to the model and saved with the chat."}
+            </p>
+          </div>
+          <GoogleDriveConnectionControl
+            canManage={canManage}
+            configured={googleDriveConfigured}
+            connected={googleDriveConnected}
+            lang={lang}
+          />
+        </article>
+        {[
+          {
+            name: "Notion",
+            description: isArabic
+              ? "غير متاح؛ لا يستطيع الوكيل الوصول إلى صفحات Notion."
+              : "Unavailable; the Agent cannot access Notion pages.",
+          },
+          {
+            name: "Shopify",
+            description: isArabic
+              ? "غير متاح؛ لا يستطيع الوكيل الوصول إلى بيانات Shopify."
+              : "Unavailable; the Agent cannot access Shopify data.",
+          },
+        ].map((connector) => (
           <article
             className="flex items-center justify-between gap-4 rounded-lg border p-5"
             key={connector.name}
@@ -77,8 +104,8 @@ export default async function IntegrationsPage() {
 
       <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
         {isArabic
-          ? "لا توجد اتصالات خارجية مفعّلة أو مخزّنة. لن يُعرض أي موصل على أنه متصل حتى تكتمل المصادقة الآمنة والوصول المقيّد بمساحة العمل."
-          : "No external connections are enabled or stored. A connector will not be shown as connected until secure authentication and workspace-scoped access are implemented."}
+          ? "لا يظهر Google Drive كمتصل إلا بعد موافقة OAuth وتخزين الرموز مشفّرة لمساحة العمل. البحث والقراءة فقط متاحان للوكيل."
+          : "Google Drive is shown as connected only after OAuth succeeds and tokens are encrypted for this workspace. Agent access is read-only."}
       </p>
     </main>
   );

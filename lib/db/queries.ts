@@ -30,6 +30,7 @@ import {
   chat,
   type DBMessage,
   document,
+  googleDriveConnection,
   guestUsage,
   invitation,
   message,
@@ -1501,4 +1502,78 @@ export function getAdminRecentActivity({
     .where(eq(usageEvent.organizationId, organizationId))
     .orderBy(desc(usageEvent.createdAt))
     .limit(limit);
+}
+
+export async function getGoogleDriveConnection(organizationId: string) {
+  const [connection] = await db
+    .select({
+      connectionId: googleDriveConnection.connectionId,
+      encryptedTokens: googleDriveConnection.encryptedTokens,
+    })
+    .from(googleDriveConnection)
+    .where(eq(googleDriveConnection.organizationId, organizationId))
+    .limit(1);
+  return connection ?? null;
+}
+
+export function saveGoogleDriveConnection({
+  organizationId,
+  connectionId,
+  encryptedTokens,
+}: {
+  organizationId: string;
+  connectionId: string;
+  encryptedTokens: string;
+}) {
+  return db
+    .insert(googleDriveConnection)
+    .values({ organizationId, connectionId, encryptedTokens })
+    .onConflictDoUpdate({
+      target: googleDriveConnection.organizationId,
+      set: { connectionId, encryptedTokens, updatedAt: new Date() },
+    });
+}
+
+export async function updateGoogleDriveConnectionIfUnchanged({
+  organizationId,
+  connectionId,
+  previousEncryptedTokens,
+  encryptedTokens,
+}: {
+  organizationId: string;
+  connectionId: string;
+  previousEncryptedTokens: string;
+  encryptedTokens: string;
+}) {
+  const updated = await db
+    .update(googleDriveConnection)
+    .set({ encryptedTokens, updatedAt: new Date() })
+    .where(
+      and(
+        eq(googleDriveConnection.organizationId, organizationId),
+        eq(googleDriveConnection.connectionId, connectionId),
+        eq(googleDriveConnection.encryptedTokens, previousEncryptedTokens)
+      )
+    )
+    .returning({ organizationId: googleDriveConnection.organizationId });
+  return updated.length > 0;
+}
+
+export async function deleteGoogleDriveConnectionIfUnchanged({
+  organizationId,
+  connectionId,
+}: {
+  organizationId: string;
+  connectionId: string;
+}) {
+  const deleted = await db
+    .delete(googleDriveConnection)
+    .where(
+      and(
+        eq(googleDriveConnection.organizationId, organizationId),
+        eq(googleDriveConnection.connectionId, connectionId)
+      )
+    )
+    .returning({ organizationId: googleDriveConnection.organizationId });
+  return deleted.length > 0;
 }

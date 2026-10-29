@@ -1,28 +1,30 @@
 # Zooka SaaS release plan
 
-This repository change establishes the first reviewable SaaS foundation: the
-existing chat, model routing, workspace billing and quotas, and built-in tools
-remain in place, with navigation grouped into Agents, Work, and Workspace.
-Google Drive, Notion, and Shopify are unavailable in this release. No external
-OAuth credentials are requested or stored, and this work is not deployed.
-Native iOS and Android support is not included.
+This repository change establishes a reviewable SaaS foundation: the existing
+chat, model routing, workspace billing and quotas, and built-in tools remain in
+place, with navigation grouped into Agents, Work, and Workspace. The work
+assistant provides task presets and reports actual tool outcomes. Google Drive
+read-only OAuth is implemented but remains unavailable until its server
+credentials and encryption key are configured. Notion and Shopify remain
+unavailable. This work is not deployed. Native iOS and Android support is not
+included.
 
 Ship each follow-up as an independently deployable, stable increment, targeting
 about 10 days between releases:
 
-1. **Connector expansion and settings:** implement the Google Drive read-only
-   slice before showing a connected state. Use `drive.metadata.readonly` for
-   metadata-only access; reading file contents requires the broader but
-   read-only `drive.readonly` scope. Do not use `drive.file`, which also grants
-   mutation rights. Validate OAuth state and PKCE, use workspace-owned
-   connections, encrypted server-only token storage, safe
-   refresh/revocation/disconnect handling, and tenant-isolation tests. Configure
-   the Google Drive API, consent screen, and callback URI in the provider and
-   deployment consoles. Document environment variable names such as
-   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
-   `INTEGRATION_TOKEN_ENCRYPTION_KEY` without committing their values. Verify
-   scopes against the [Drive API scope reference](https://developers.google.com/drive/api/guides/api-scopes).
-   Add Notion and Shopify only in later reviewed slices.
+1. **Connector configuration and expansion:** for Google Drive, set
+   `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`,
+   `GOOGLE_DRIVE_REDIRECT_URI`, and a fresh 32-byte base64
+   `GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY` in the deployment's secret manager. The
+   OAuth client must enable the Google Drive API, use a configured consent
+   screen, and register the exact callback URI
+   `/api/integrations/google-drive/callback`. Production use may require Google
+   OAuth app verification for the read-only Drive scope. The app requests only
+   `drive.readonly`, validates state and PKCE, stores encrypted tokens per
+   workspace, and attempts revocation on disconnect. Local tokens are removed
+   regardless; if Google does not confirm revocation, the UI directs the admin
+   to remove the grant in Google Account permissions. Add Notion and Shopify
+   only in later reviewed slices.
 2. **Pages builder, public API, and embed:** design access controls, publishing,
    rate limits, and tenant-scoped API behavior before exposing public content.
 3. **PWA and mobile packaging:** evaluate responsive web/PWA behavior first;

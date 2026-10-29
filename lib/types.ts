@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ArtifactKind } from "@/components/artifact";
 import type { createDocument } from "./ai/tools/create-document";
 import type { getWeather } from "./ai/tools/get-weather";
+import type { createGoogleDriveTools } from "./ai/tools/google-drive";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
 import type { updateDocument } from "./ai/tools/update-document";
 import type { createWebSearch } from "./ai/tools/web-search";
@@ -23,6 +24,12 @@ type requestSuggestionsTool = InferUITool<
   ReturnType<typeof requestSuggestions>
 >;
 type webSearchTool = InferUITool<ReturnType<typeof createWebSearch>>;
+type googleDriveSearchTool = InferUITool<
+  ReturnType<typeof createGoogleDriveTools>["searchGoogleDrive"]
+>;
+type googleDriveReadTool = InferUITool<
+  ReturnType<typeof createGoogleDriveTools>["readGoogleDriveFile"]
+>;
 
 export type ChatTools = {
   getWeather: weatherTool;
@@ -30,6 +37,8 @@ export type ChatTools = {
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;
   searchWeb: webSearchTool;
+  searchGoogleDrive: googleDriveSearchTool;
+  readGoogleDriveFile: googleDriveReadTool;
 };
 
 export type CustomUIDataTypes = {
