@@ -64,6 +64,7 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
       value={{
         lang,
         isGuest,
+        organizationId: context?.organizationId ?? null,
         isSubscribed: hasPaidPlan,
         canUseAgentMode: isAgentPlan && agentRunsRemaining > 0,
         hasAgentPlan: isAgentPlan,

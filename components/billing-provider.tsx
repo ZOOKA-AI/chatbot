@@ -9,22 +9,24 @@ type AgentUsageSnapshot = Pick<
   "canUseAgentMode" | "hasAgentPlan" | "agentRunsRemaining"
 >;
 
-export type BillingState = {
+export interface BillingState {
   lang: Lang;
   isGuest: boolean;
+  organizationId: string | null;
   isSubscribed: boolean;
   canUseAgentMode: boolean;
   hasAgentPlan: boolean;
   agentRunsRemaining: number;
   canManageBilling: boolean;
   refreshAgentUsage: () => Promise<void>;
-};
+}
 
 type BillingValue = Omit<BillingState, "refreshAgentUsage">;
 
 const defaultState: BillingState = {
   lang: "ar",
   isGuest: true,
+  organizationId: null,
   isSubscribed: false,
   canUseAgentMode: false,
   hasAgentPlan: false,
@@ -50,16 +52,23 @@ export function BillingProvider({
   value: BillingValue;
   children: React.ReactNode;
 }) {
-  const key = value.isGuest ? null : "/api/billing/agent-usage";
+  const key =
+    value.isGuest || !value.organizationId
+      ? null
+      : (["/api/billing/agent-usage", value.organizationId] as const);
   const initialUsage: AgentUsageSnapshot = {
     canUseAgentMode: value.canUseAgentMode,
     hasAgentPlan: value.hasAgentPlan,
     agentRunsRemaining: value.agentRunsRemaining,
   };
-  const { data: usage = initialUsage, mutate } = useSWR(key, fetchAgentUsage, {
-    fallbackData: initialUsage,
-    revalidateOnMount: false,
-  });
+  const { data: usage = initialUsage, mutate } = useSWR(
+    key,
+    ([url]) => fetchAgentUsage(url),
+    {
+      fallbackData: initialUsage,
+      revalidateOnMount: false,
+    }
+  );
   const refreshAgentUsage = useCallback(async () => {
     if (key) {
       await mutate();

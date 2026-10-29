@@ -21,7 +21,10 @@
       "!ai-sdk",
       "!components/ui",
       "!lib/utils.ts",
-      "!hooks/use-mobile.ts"
+      "!hooks/use-mobile.ts",
+      "!!**/*.md",
+      "!!**/*.yml",
+      "!!**/*.yaml"
     ]
   },
   "linter": {
@@ -30,27 +33,23 @@
         "noExplicitAny": "off",
         "noUnknownAtRules": "off",
         "noConsole": "off",
-        "noBitwiseOperators": "off"
+        "noBitwiseOperators": "off",
+        "useAwait": "off"
       },
       "style": {
         "noMagicNumbers": "off",
-        "noNestedTernary": "off",
-        "useConsistentTypeDefinitions": "off"
-      },
-      "nursery": {
-        "noUnnecessaryConditions": "off",
-        "useSortedClasses": "off"
+        "noNestedTernary": "off"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": "off",
-        "useSimplifiedLogicExpression": "off"
+        "useSimplifiedLogicExpression": "off",
+        "useOptionalChain": "off"
       },
       "a11y": {
         "noSvgWithoutTitle": "off"
       },
       "correctness": {
-        "useUniqueElementIds": "off",
-        "useImageSize": "off"
+        "useUniqueElementIds": "off"
       },
       "performance": {
         "noBarrelFile": "off",
