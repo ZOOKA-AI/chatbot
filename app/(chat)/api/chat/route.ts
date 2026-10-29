@@ -11,6 +11,7 @@ import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import type { UserType } from "@/app/(auth)/auth";
+import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import {
   allowedModelIds,
@@ -177,10 +178,7 @@ export async function POST(request: Request) {
 
     if (!workspaceContext) {
       if (agentMode) {
-        return Response.json(
-          { error: "Agent mode requires a Pro or Business workspace plan." },
-          { status: 403 }
-        );
+        return agentModeErrorResponse("plan_required");
       }
       return await handleGuestMessage({
         request,
@@ -190,13 +188,7 @@ export async function POST(request: Request) {
       });
     }
     if (agentMode && !supportsTools) {
-      return Response.json(
-        {
-          error:
-            "Agent mode is unavailable with this model. Choose a tool-capable model.",
-        },
-        { status: 400 }
-      );
+      return agentModeErrorResponse("unsupported_model");
     }
     const { session } = workspaceContext;
     const isToolApprovalFlow = Boolean(messages);
@@ -235,17 +227,11 @@ export async function POST(request: Request) {
     }
 
     if (agentMode && plan.monthlyAgentRuns === 0) {
-      return Response.json(
-        { error: "Agent mode requires a Pro or Business workspace plan." },
-        { status: 403 }
-      );
+      return agentModeErrorResponse("plan_required");
     }
 
     if (agentMode && billing.usage.agentRuns >= plan.monthlyAgentRuns) {
-      return Response.json(
-        { error: "This workspace has reached its monthly agent run limit." },
-        { status: 429 }
-      );
+      return agentModeErrorResponse("quota");
     }
 
     const messageQuota = await checkQuota(
@@ -264,10 +250,7 @@ export async function POST(request: Request) {
         workspaceContext.organizationId
       );
       if (!agentQuota.allowed) {
-        return Response.json(
-          { error: "This workspace has reached its monthly agent run limit." },
-          { status: 429 }
-        );
+        return agentModeErrorResponse("quota");
       }
     }
 

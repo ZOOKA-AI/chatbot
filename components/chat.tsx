@@ -24,6 +24,7 @@ import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useGuestQuota } from "@/hooks/use-guest-quota";
+import { refreshAgentQuotaIfNeeded } from "@/lib/ai/agent-quota-refresh";
 import { modelSupportsTools } from "@/lib/ai/models";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
@@ -96,6 +97,11 @@ export function Chat({
   useEffect(() => {
     agentModeRef.current = agentMode;
   }, [agentMode]);
+  useEffect(() => {
+    if (!canUseAgentMode && agentMode) {
+      setAgentMode(false);
+    }
+  }, [agentMode, canUseAgentMode]);
 
   const {
     messages,
@@ -159,6 +165,11 @@ export function Chat({
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: () => {
+      refreshAgentQuotaIfNeeded({
+        refresh: () => router.refresh(),
+        agentMode: agentModeRef.current,
+        completed: true,
+      });
       if (isGuest) {
         if (guestQuota.isExhausted()) {
           setShowPaywall(true);
@@ -168,6 +179,11 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
+      refreshAgentQuotaIfNeeded({
+        refresh: () => router.refresh(),
+        agentMode: agentModeRef.current,
+        error,
+      });
       captureException(new Error("Chat stream failed"), {
         tags: { area: "chat-stream" },
       });
@@ -179,12 +195,15 @@ export function Chat({
       ) {
         setShowCreditCardAlert(true);
       } else if (error instanceof ChatbotError) {
+        const cause = error.cause;
         toast({
           type: "error",
           description:
-            lang === "ar"
-              ? "انقطع الرد أو تعذّر إكماله. احتفظنا بالجزء المكتمل؛ أعد المحاولة."
-              : "The response was interrupted. The completed text is preserved; please retry.",
+            typeof cause === "string"
+              ? cause
+              : lang === "ar"
+                ? "انقطع الرد أو تعذّر إكماله. احتفظنا بالجزء المكتمل؛ أعد المحاولة."
+                : "The response was interrupted. The completed text is preserved; please retry.",
         });
       } else {
         toast({
