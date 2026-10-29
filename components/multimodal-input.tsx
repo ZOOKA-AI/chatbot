@@ -28,6 +28,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
+import { modelSupportsTools } from "@/lib/ai/models";
 import {
   chatModels,
   DEFAULT_CHAT_MODEL,
@@ -93,7 +94,34 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
-  const { canUseAgentMode, lang } = useBilling();
+  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang } =
+    useBilling();
+  const agentModeAllowed =
+    canUseAgentMode && modelSupportsTools(selectedModelId);
+  let agentModeUnavailableMessage: string;
+  if (!modelSupportsTools(selectedModelId)) {
+    agentModeUnavailableMessage =
+      lang === "ar"
+        ? "اختر نموذجاً يدعم الأدوات لاستخدام وضع الوكيل."
+        : "Choose a tool-capable model to use Agent mode.";
+  } else if (hasAgentPlan) {
+    agentModeUnavailableMessage =
+      lang === "ar"
+        ? "تم بلوغ الحد الشهري لتشغيلات الوكيل. راجع الباقة والاستخدام."
+        : "Monthly agent run limit reached. See Plan and usage.";
+  } else {
+    agentModeUnavailableMessage =
+      lang === "ar"
+        ? "يتطلب وضع الوكيل خطة Pro أو Business."
+        : "Agent mode requires a Pro or Business plan.";
+  }
+  let agentModeTooltip = agentModeUnavailableMessage;
+  if (agentModeAllowed) {
+    agentModeTooltip =
+      lang === "ar"
+        ? `متبقي ${agentRunsRemaining.toLocaleString(lang)} من تشغيلات الوكيل هذا الشهر.`
+        : `${agentRunsRemaining.toLocaleString(lang)} agent runs remaining this month.`;
+  }
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -412,15 +440,9 @@ function PureMultimodalInput({
               aria-pressed={agentMode}
               className="h-8 px-2"
               data-testid="agent-mode-toggle"
-              disabled={!canUseAgentMode}
+              disabled={!agentModeAllowed}
               onClick={() => onAgentModeChange(!agentMode)}
-              title={
-                canUseAgentMode
-                  ? undefined
-                  : lang === "ar"
-                    ? "يتطلب وضع الوكيل خطة Pro أو Business"
-                    : "Agent mode requires a Pro or Business plan"
-              }
+              title={agentModeTooltip}
               type="button"
               variant={agentMode ? "default" : "ghost"}
             >
@@ -450,6 +472,20 @@ function PureMultimodalInput({
             </PromptInputSubmit>
           )}
         </PromptInputToolbar>
+        {!agentModeAllowed ? (
+          <p className="px-2 pt-2 text-xs text-muted-foreground">
+            {agentModeUnavailableMessage}
+          </p>
+        ) : agentMode ? (
+          <p
+            className="px-2 pt-2 text-xs text-muted-foreground"
+            data-testid="agent-mode-usage"
+          >
+            {lang === "ar"
+              ? `يستخدم هذا الطلب تشغيلاً من حصة مساحة العمل الشهرية. المتبقي: ${agentRunsRemaining.toLocaleString(lang)}.`
+              : `This request uses one workspace agent run. ${agentRunsRemaining.toLocaleString(lang)} remain this month.`}
+          </p>
+        ) : null}
       </PromptInput>
     </div>
   );

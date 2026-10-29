@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { useBilling } from "@/components/billing-provider";
+import { modelSupportsTools } from "@/lib/ai/models";
 import { ChatHeader } from "@/components/chat-header";
 import { GuestPaywallDialog } from "@/components/guest-paywall-dialog";
 import {
@@ -75,10 +76,16 @@ export function Chat({
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const { isGuest, lang } = useBilling();
+  const { isGuest, lang, canUseAgentMode } = useBilling();
+  const searchParams = useSearchParams();
   const guestQuota = useGuestQuota();
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
-  const [agentMode, setAgentMode] = useState(false);
+  const [agentMode, setAgentMode] = useState(
+    () =>
+      searchParams.get("mode") === "work" &&
+      canUseAgentMode &&
+      modelSupportsTools(initialChatModel)
+  );
   const currentModelIdRef = useRef(currentModelId);
   const agentModeRef = useRef(agentMode);
 
@@ -204,7 +211,6 @@ export function Chat({
     [isGuest, guestQuota, rawSendMessage]
   );
 
-  const searchParams = useSearchParams();
   const query = searchParams.get("query");
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
@@ -267,7 +273,12 @@ export function Chat({
               input={input}
               messages={messages}
               onAgentModeChange={setAgentMode}
-              onModelChange={setCurrentModelId}
+              onModelChange={(modelId) => {
+                setCurrentModelId(modelId);
+                if (!modelSupportsTools(modelId)) {
+                  setAgentMode(false);
+                }
+              }}
               onRetry={() => {
                 regenerate().catch(() => undefined);
               }}

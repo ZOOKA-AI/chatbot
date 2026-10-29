@@ -48,8 +48,8 @@ export default async function IntegrationsPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           {isArabic
-            ? "اربط أدوات فريقك ليتمكن الوكيل من استخدامها في المحادثات."
-            : "Connect your team's tools so the Agent can use them in conversations."}
+            ? "Google Drive وNotion وShopify غير متاحة حالياً. لا يستطيع الوكيل الوصول إلى حسابات خارجية."
+            : "Google Drive, Notion, and Shopify are currently unavailable. The Agent cannot access external accounts."}
         </p>
       </header>
 
@@ -69,7 +69,7 @@ export default async function IntegrationsPage() {
               </p>
             </div>
             <span className="shrink-0 rounded-full border px-3 py-1 text-xs text-muted-foreground">
-              {isArabic ? "قريباً" : "Coming soon"}
+              {isArabic ? "غير متاح" : "Unavailable"}
             </span>
           </article>
         ))}
@@ -77,8 +77,8 @@ export default async function IntegrationsPage() {
 
       <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
         {isArabic
-          ? "الاتصالات غير مفعّلة حالياً. لا نطلب أو نخزّن بيانات اعتماد خارجية ولا نصل إلى بيانات هذه الخدمات."
-          : "Connections are not enabled yet. We do not request or store external credentials or access data from these services."}
+          ? "لا توجد اتصالات خارجية مفعّلة أو مخزّنة. لن يُعرض أي موصل على أنه متصل حتى تكتمل المصادقة الآمنة والوصول المقيّد بمساحة العمل."
+          : "No external connections are enabled or stored. A connector will not be shown as connected until secure authentication and workspace-scoped access are implemented."}
       </p>
     </main>
   );

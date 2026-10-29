@@ -64,6 +64,13 @@ export const chatModels: ChatModel[] = [
   },
 ];
 
+export function modelSupportsTools(modelId: string) {
+  return (
+    !modelId.endsWith("-thinking") &&
+    !(modelId.includes("reasoning") && !modelId.includes("non-reasoning"))
+  );
+}
+
 // Group models by provider for UI
 export const allowedModelIds = new Set(chatModels.map((m) => m.id));
 export const paidModelIds = new Set([
