@@ -260,7 +260,7 @@ export async function POST(request: Request) {
       organizationId: workspaceContext.organizationId,
     });
     let messagesFromDb: DBMessage[] = [];
-    let titlePromise: Promise<string> | null = null;
+    let titlePromise: Promise<string | null> | null = null;
 
     if (chat) {
       if (chat.visibility === "private" && chat.userId !== session.user.id) {
@@ -280,7 +280,12 @@ export async function POST(request: Request) {
         title: "New chat",
         visibility: selectedVisibilityType,
       });
-      titlePromise = generateTitleFromUserMessage({ message });
+      titlePromise = generateTitleFromUserMessage({ message }).catch(
+        (error) => {
+          console.error("Failed to generate chat title:", error);
+          return null;
+        }
+      );
     }
 
     const uiMessages = isToolApprovalFlow
@@ -371,12 +376,14 @@ export async function POST(request: Request) {
 
         if (titlePromise) {
           const title = await titlePromise;
-          dataStream.write({ type: "data-chat-title", data: title });
-          updateChatTitleById({
-            chatId: id,
-            title,
-            organizationId: workspaceContext.organizationId,
-          });
+          if (title) {
+            dataStream.write({ type: "data-chat-title", data: title });
+            updateChatTitleById({
+              chatId: id,
+              title,
+              organizationId: workspaceContext.organizationId,
+            });
+          }
         }
       },
       generateId: generateUUID,

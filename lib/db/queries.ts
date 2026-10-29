@@ -54,7 +54,7 @@ import { generateHashedPassword } from "./utils";
 
 // biome-ignore lint: Forbidden non-null assertion.
 const client = postgres(process.env.POSTGRES_URL!);
-const db = drizzle(client);
+export const db = drizzle(client);
 
 async function retryBlobRequest<T>(
   operation: (signal: AbortSignal) => Promise<T>
@@ -1422,4 +1422,83 @@ export async function getStreamIdsByChatId({
       "Failed to get stream ids by chat id"
     );
   }
+}
+
+export async function getAdminOverview(organizationId: string) {
+  const [[members], [chats], [messages], billing] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(organizationMember)
+      .where(eq(organizationMember.organizationId, organizationId)),
+    db
+      .select({ value: count() })
+      .from(chat)
+      .where(eq(chat.organizationId, organizationId)),
+    db
+      .select({ value: count(message.id) })
+      .from(message)
+      .innerJoin(chat, eq(message.chatId, chat.id))
+      .where(eq(chat.organizationId, organizationId)),
+    getWorkspaceBilling(organizationId),
+  ]);
+
+  return {
+    users: members?.value ?? 0,
+    chats: chats?.value ?? 0,
+    messages: messages?.value ?? 0,
+    subscription: billing.subscription
+      ? {
+          plan: billing.subscription.plan,
+          status: billing.subscription.status,
+          periodEnd: billing.subscription.periodEnd,
+        }
+      : null,
+    monthlyMessages: billing.usage.messages,
+  };
+}
+
+export async function getAdminUsers({
+  organizationId,
+  limit,
+  offset,
+}: {
+  organizationId: string;
+  limit: number;
+  offset: number;
+}) {
+  const rows = await db
+    .select({
+      userId: user.id,
+      email: user.email,
+      role: organizationMember.role,
+      joinedAt: organizationMember.createdAt,
+    })
+    .from(organizationMember)
+    .innerJoin(user, eq(organizationMember.userId, user.id))
+    .where(eq(organizationMember.organizationId, organizationId))
+    .orderBy(asc(organizationMember.createdAt), asc(user.id))
+    .limit(limit + 1)
+    .offset(offset);
+
+  return { users: rows.slice(0, limit), hasMore: rows.length > limit };
+}
+
+export function getAdminRecentActivity({
+  organizationId,
+  limit,
+}: {
+  organizationId: string;
+  limit: number;
+}) {
+  return db
+    .select({
+      id: usageEvent.id,
+      event: usageEvent.event,
+      quantity: usageEvent.quantity,
+      createdAt: usageEvent.createdAt,
+    })
+    .from(usageEvent)
+    .where(eq(usageEvent.organizationId, organizationId))
+    .orderBy(desc(usageEvent.createdAt))
+    .limit(limit);
 }

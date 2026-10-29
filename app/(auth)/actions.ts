@@ -1,7 +1,9 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { z } from "zod";
 
+import { REFERRAL_COOKIE, recordReferralEvent } from "@/lib/affiliate";
 import { createUser, getUser } from "@/lib/db/queries";
 
 import { signIn } from "./auth";
@@ -67,6 +69,24 @@ export const register = async (
       return { status: "user_exists" } as RegisterActionState;
     }
     await createUser(validatedData.email, validatedData.password);
+
+    try {
+      const cookieStore = await cookies();
+      const refCode = cookieStore.get(REFERRAL_COOKIE)?.value ?? null;
+      if (refCode) {
+        const [createdUser] = await getUser(validatedData.email);
+        if (createdUser) {
+          await recordReferralEvent({
+            code: refCode,
+            event: "signup",
+            userId: createdUser.id,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to record referral signup", error);
+    }
+
     await signIn("credentials", {
       email: validatedData.email,
       password: validatedData.password,

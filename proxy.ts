@@ -24,6 +24,7 @@ export async function proxy(request: NextRequest) {
     pathname === "/partners" ||
     pathname === "/partners/join" ||
     pathname === "/pricing" ||
+    pathname === "/contact" ||
     pathname === "/privacy" ||
     pathname === "/refund" ||
     pathname === "/terms" ||
@@ -31,7 +32,9 @@ export async function proxy(request: NextRequest) {
     pathname === "/embed.js" ||
     pathname === "/api/webhooks/stripe" ||
     pathname === "/api/stripe/webhook" ||
-    pathname === "/api/admin/backup"
+    pathname === "/api/admin/backup" ||
+    pathname.startsWith("/r/") ||
+    pathname.startsWith("/lp/")
   ) {
     return NextResponse.next();
   }

@@ -1,8 +1,13 @@
 import { captureException } from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { recordReferralEvent } from "@/lib/affiliate";
 import { syncWorkspaceSubscription } from "@/lib/db/queries";
-import { getPlanFromStripePriceId, type WorkspacePlan } from "@/lib/saas/plans";
+import {
+  getPlanFromStripePriceId,
+  workspacePlans,
+  type WorkspacePlan,
+} from "@/lib/saas/plans";
 import { getStripe, getStripeId, mapStripeStatus } from "@/lib/saas/stripe";
 
 function isPaidPlan(plan: WorkspacePlan): plan is "pro" | "business" {
@@ -83,15 +88,19 @@ async function syncFromFailedInvoice(invoice: Stripe.Invoice) {
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
-  if (
-    !signature ||
-    !process.env.STRIPE_SECRET_KEY ||
-    !process.env.STRIPE_WEBHOOK_SECRET
-  ) {
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json(
       { error: "Webhook is not configured" },
       {
         status: 503,
+      }
+    );
+  }
+  if (!signature) {
+    return NextResponse.json(
+      { error: "Missing stripe-signature header" },
+      {
+        status: 400,
       }
     );
   }
@@ -114,7 +123,24 @@ export async function POST(request: Request) {
 
   try {
     if (event.type === "checkout.session.completed") {
-      await syncFromCheckout(event.data.object);
+      const session = event.data.object;
+      await syncFromCheckout(session);
+
+      const affiliateCode = session.metadata?.affiliateCode;
+      const paidPlan = session.metadata?.plan;
+      if (
+        affiliateCode &&
+        (paidPlan === "pro" || paidPlan === "business")
+      ) {
+        await recordReferralEvent({
+          code: affiliateCode,
+          event: "subscribe",
+          organizationId: session.metadata?.organizationId ?? null,
+          plan: paidPlan,
+          amountCents: workspacePlans[paidPlan].price * 100,
+          externalRef: `stripe:${session.id}`,
+        });
+      }
     } else if (
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
