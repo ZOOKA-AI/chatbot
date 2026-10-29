@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import { useState } from "react";
 
 export function ManageSubscriptionButton() {
@@ -9,6 +10,7 @@ export function ManageSubscriptionButton() {
   async function openPortal() {
     setPending(true);
     setError(null);
+    track("manage_subscription_clicked");
     try {
       const response = await fetch("/api/billing/portal", { method: "POST" });
       const data = await response.json();

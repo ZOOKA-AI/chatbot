@@ -18,6 +18,15 @@ test.describe("Chat Page", () => {
     await expect(page.getByTestId("send-button")).toBeVisible();
   });
 
+  test("agent mode is visible but unavailable on the free workspace", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const agentMode = page.getByTestId("agent-mode-toggle");
+    await expect(agentMode).toBeVisible();
+    await expect(agentMode).toBeDisabled();
+  });
+
   test("suggested actions are visible on empty chat", async ({ page }) => {
     await page.goto("/");
     const suggestions = page.locator("[data-testid='suggested-actions']");

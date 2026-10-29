@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import Link from "next/link";
 import { useBilling } from "@/components/billing-provider";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,10 @@ export function UpgradeButton({
       <Link
         data-testid="upgrade-button"
         href="/pricing"
-        onClick={onNavigate}
+        onClick={() => {
+          track("click_upgrade");
+          onNavigate?.();
+        }}
       >
         {copy[lang].upgrade}
       </Link>

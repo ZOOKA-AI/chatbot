@@ -1,6 +1,8 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import Link from "next/link";
+import { useEffect } from "react";
 import { useBilling } from "@/components/billing-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +24,12 @@ export function GuestPaywallDialog({
 }) {
   const { lang } = useBilling();
   const t = copy[lang];
+
+  useEffect(() => {
+    if (open) {
+      track("paywall_shown");
+    }
+  }, [open]);
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>

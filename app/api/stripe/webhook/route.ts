@@ -1,3 +1,4 @@
+import { captureException } from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { recordReferralEvent } from "@/lib/affiliate";
@@ -147,9 +148,20 @@ export async function POST(request: Request) {
       await syncFromSubscription(event.data.object);
     } else if (event.type === "invoice.payment_failed") {
       await syncFromFailedInvoice(event.data.object);
+    } else if (event.type === "invoice.paid") {
+      const subscriptionId = getStripeId(
+        event.data.object.parent?.subscription_details?.subscription ?? null
+      );
+      if (subscriptionId) {
+        const subscription =
+          await getStripe().subscriptions.retrieve(subscriptionId);
+        await syncFromSubscription(subscription);
+      }
     }
-  } catch (error) {
-    console.error("Failed to synchronize Stripe subscription", error);
+  } catch {
+    captureException(new Error("Stripe subscription synchronization failed"), {
+      tags: { area: "stripe-webhook" },
+    });
     return NextResponse.json(
       { error: "Subscription synchronization failed" },
       { status: 500 }

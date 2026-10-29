@@ -4,6 +4,24 @@ const CHAT_URL_REGEX = /\/chat\/[\w-]+/;
 const ERROR_TEXT_REGEX = /error|failed|trouble/i;
 
 test.describe("Chat API Integration", () => {
+  test("guest requests cannot enable paid Agent mode", async ({ request }) => {
+    const response = await request.post("/api/chat", {
+      data: {
+        id: "2c1204b0-e2d8-4bcf-9372-4e3a018e34de",
+        message: {
+          id: "c25a990d-5c63-4f8d-bd6d-31c3a39a6c9e",
+          role: "user",
+          parts: [{ type: "text", text: "Summarize this conversation." }],
+        },
+        selectedChatModel: "openai/gpt-4.1-mini",
+        selectedVisibilityType: "private",
+        agentMode: true,
+      },
+    });
+
+    expect(response.status()).toBe(403);
+  });
+
   test("sends message and receives AI response", async ({ page }) => {
     await page.goto("/");
 

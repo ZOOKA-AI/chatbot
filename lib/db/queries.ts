@@ -1,5 +1,6 @@
 import "server-only";
 
+import { del as deleteBlob, list as listBlobs } from "@vercel/blob";
 import {
   and,
   asc,
@@ -15,6 +16,7 @@ import {
   or,
   type SQL,
   sql,
+  sum,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -31,6 +33,7 @@ import {
   guestUsage,
   invitation,
   message,
+  messageDeprecated,
   organization,
   organizationMember,
   type Suggestion,
@@ -41,6 +44,7 @@ import {
   usageEvent,
   user,
   vote,
+  voteDeprecated,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
@@ -51,6 +55,203 @@ import { generateHashedPassword } from "./utils";
 // biome-ignore lint: Forbidden non-null assertion.
 const client = postgres(process.env.POSTGRES_URL!);
 export const db = drizzle(client);
+
+async function retryBlobRequest<T>(
+  operation: (signal: AbortSignal) => Promise<T>
+) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await operation(AbortSignal.timeout(45_000));
+    } catch (error) {
+      if (attempt === 2) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, 500 * 2 ** attempt + Math.random() * 250)
+      );
+    }
+  }
+  throw new Error("Blob request failed");
+}
+
+export function deleteAccountData(userId: string) {
+  return db.transaction(async (tx) => {
+    const memberships = await tx
+      .select({
+        organizationId: organizationMember.organizationId,
+        role: organizationMember.role,
+      })
+      .from(organizationMember)
+      .where(eq(organizationMember.userId, userId));
+    const ownedOrganizationIds = memberships
+      .filter(({ role }) => role === "owner")
+      .map(({ organizationId }) => organizationId);
+
+    if (ownedOrganizationIds.length > 0) {
+      const [otherMember] = await tx
+        .select({ userId: organizationMember.userId })
+        .from(organizationMember)
+        .where(
+          and(
+            inArray(organizationMember.organizationId, ownedOrganizationIds),
+            ne(organizationMember.userId, userId)
+          )
+        )
+        .limit(1);
+      if (otherMember) {
+        return {
+          deleted: false as const,
+          reason: "workspace_members" as const,
+        };
+      }
+
+      const paidSubscriptions = await tx
+        .select({ status: subscription.status, plan: subscription.plan })
+        .from(subscription)
+        .where(
+          and(
+            inArray(subscription.organizationId, ownedOrganizationIds),
+            ne(subscription.plan, "free")
+          )
+        );
+      if (
+        paidSubscriptions.some(({ status }) =>
+          ["active", "trialing", "past_due"].includes(status)
+        )
+      ) {
+        return {
+          deleted: false as const,
+          reason: "active_subscription" as const,
+        };
+      }
+    }
+
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!blobToken && memberships.length > 0) {
+      return {
+        deleted: false as const,
+        reason: "blob_storage_unavailable" as const,
+      };
+    }
+
+    const blobUrls: string[] = [];
+    if (blobToken) {
+      for (const { organizationId } of memberships) {
+        const prefix = `${organizationId}/${userId}/`;
+        let cursor: string | undefined;
+        do {
+          const result = await retryBlobRequest((abortSignal) =>
+            listBlobs({
+              prefix,
+              cursor,
+              limit: 1000,
+              token: blobToken,
+              abortSignal,
+            })
+          );
+          blobUrls.push(...result.blobs.map(({ url }) => url));
+          if (result.hasMore && !result.cursor) {
+            throw new Error("Blob list pagination is incomplete");
+          }
+          cursor = result.hasMore ? result.cursor : undefined;
+        } while (cursor);
+      }
+
+      for (let index = 0; index < blobUrls.length; index += 500) {
+        const batch = blobUrls.slice(index, index + 500);
+        await retryBlobRequest((abortSignal) =>
+          deleteBlob(batch, { token: blobToken, abortSignal })
+        );
+      }
+    }
+
+    const ownedChatRows = await tx
+      .select({ id: chat.id })
+      .from(chat)
+      .where(
+        ownedOrganizationIds.length > 0
+          ? or(
+              eq(chat.userId, userId),
+              inArray(chat.organizationId, ownedOrganizationIds)
+            )
+          : eq(chat.userId, userId)
+      );
+    const chatIds = ownedChatRows.map(({ id }) => id);
+    const ownedDocuments = await tx
+      .select({ id: document.id })
+      .from(document)
+      .where(
+        ownedOrganizationIds.length > 0
+          ? or(
+              eq(document.userId, userId),
+              inArray(document.organizationId, ownedOrganizationIds)
+            )
+          : eq(document.userId, userId)
+      );
+    const documentIds = [...new Set(ownedDocuments.map(({ id }) => id))];
+
+    if (documentIds.length > 0) {
+      await tx
+        .delete(suggestion)
+        .where(inArray(suggestion.documentId, documentIds));
+    }
+    await tx.delete(suggestion).where(eq(suggestion.userId, userId));
+
+    if (chatIds.length > 0) {
+      await tx.delete(vote).where(inArray(vote.chatId, chatIds));
+      await tx
+        .delete(voteDeprecated)
+        .where(inArray(voteDeprecated.chatId, chatIds));
+      await tx.delete(message).where(inArray(message.chatId, chatIds));
+      await tx
+        .delete(messageDeprecated)
+        .where(inArray(messageDeprecated.chatId, chatIds));
+      await tx.delete(stream).where(inArray(stream.chatId, chatIds));
+      await tx.delete(chat).where(inArray(chat.id, chatIds));
+    }
+    if (ownedOrganizationIds.length > 0) {
+      await tx
+        .delete(invitation)
+        .where(inArray(invitation.organizationId, ownedOrganizationIds));
+      await tx
+        .delete(usageEvent)
+        .where(inArray(usageEvent.organizationId, ownedOrganizationIds));
+      await tx
+        .delete(subscription)
+        .where(inArray(subscription.organizationId, ownedOrganizationIds));
+    }
+    await tx.delete(invitation).where(eq(invitation.invitedBy, userId));
+    await tx.delete(usageEvent).where(eq(usageEvent.userId, userId));
+    await tx
+      .delete(document)
+      .where(
+        ownedOrganizationIds.length > 0
+          ? or(
+              eq(document.userId, userId),
+              inArray(document.organizationId, ownedOrganizationIds)
+            )
+          : eq(document.userId, userId)
+      );
+    await tx
+      .delete(organizationMember)
+      .where(
+        ownedOrganizationIds.length > 0
+          ? or(
+              eq(organizationMember.userId, userId),
+              inArray(organizationMember.organizationId, ownedOrganizationIds)
+            )
+          : eq(organizationMember.userId, userId)
+      );
+    if (ownedOrganizationIds.length > 0) {
+      await tx
+        .delete(organization)
+        .where(inArray(organization.id, ownedOrganizationIds));
+    }
+    await tx.delete(user).where(eq(user.id, userId));
+
+    return { deleted: true as const };
+  });
+}
 
 export async function getWorkspaceForUser(
   userId: string,
@@ -252,7 +453,7 @@ export async function getWorkspaceBilling(organizationId: string) {
     .where(eq(subscription.organizationId, organizationId))
     .limit(1);
   const [usage] = await db
-    .select({ messages: count(usageEvent.id) })
+    .select({ messages: sum(usageEvent.quantity) })
     .from(usageEvent)
     .where(
       and(
@@ -266,10 +467,44 @@ export async function getWorkspaceBilling(organizationId: string) {
         )
       )
     );
+  const [agentUsage] = await db
+    .select({ runs: sum(usageEvent.quantity) })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        eq(usageEvent.event, "agent_run"),
+        gte(
+          usageEvent.createdAt,
+          new Date(
+            Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)
+          )
+        )
+      )
+    );
+  const [webSearchUsage] = await db
+    .select({ searches: sum(usageEvent.quantity) })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        eq(usageEvent.event, "web_search"),
+        gte(
+          usageEvent.createdAt,
+          new Date(
+            Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)
+          )
+        )
+      )
+    );
 
   return {
     subscription: currentSubscription ?? null,
-    usage: { messages: usage?.messages ?? 0 },
+    usage: {
+      messages: Number(usage?.messages ?? 0),
+      agentRuns: Number(agentUsage?.runs ?? 0),
+      webSearches: Number(webSearchUsage?.searches ?? 0),
+    },
   };
 }
 
@@ -315,12 +550,11 @@ export async function incrementGuestUsage(key: string) {
   // once their date suffix has passed and would otherwise accumulate forever.
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   try {
-    await db.delete(guestUsage).where(
-      and(
-        like(guestUsage.key, "ip:%"),
-        lt(guestUsage.updatedAt, cutoff),
-      ),
-    );
+    await db
+      .delete(guestUsage)
+      .where(
+        and(like(guestUsage.key, "ip:%"), lt(guestUsage.updatedAt, cutoff))
+      );
   } catch {
     // Pruning is best-effort; never block the request on it.
   }

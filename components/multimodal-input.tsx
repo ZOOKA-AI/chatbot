@@ -27,6 +27,7 @@ import {
   ModelSelectorName,
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
+import { useBilling } from "@/components/billing-provider";
 import {
   chatModels,
   DEFAULT_CHAT_MODEL,
@@ -68,6 +69,9 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  agentMode,
+  onAgentModeChange,
+  onRetry,
 }: {
   chatId: string;
   input: string;
@@ -83,9 +87,13 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  agentMode: boolean;
+  onAgentModeChange: (enabled: boolean) => void;
+  onRetry: () => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+  const { canUseAgentMode, lang } = useBilling();
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -323,7 +331,7 @@ function PureMultimodalInput({
           if (!input.trim() && attachments.length === 0) {
             return;
           }
-          if (status !== "ready") {
+          if (status === "submitted" || status === "streaming") {
             toast.error("Please wait for the model to finish its response!");
           } else {
             submitForm();
@@ -363,6 +371,27 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
+        {status === "error" && (
+          <div
+            className="flex items-center justify-between gap-3 px-2 text-sm text-destructive"
+            role="alert"
+          >
+            <span>
+              {lang === "ar"
+                ? "انقطع الرد. يمكنك إعادة المحاولة؛ سيبقى النص المكتمل."
+                : "Response interrupted. Retry while keeping completed text."}
+            </span>
+            <Button
+              className="shrink-0"
+              data-testid="retry-response"
+              onClick={onRetry}
+              type="button"
+              variant="outline"
+            >
+              {lang === "ar" ? "إعادة المحاولة" : "Retry"}
+            </Button>
+          </div>
+        )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
@@ -379,6 +408,24 @@ function PureMultimodalInput({
         </div>
         <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
+            <Button
+              aria-pressed={agentMode}
+              className="h-8 px-2"
+              data-testid="agent-mode-toggle"
+              disabled={!canUseAgentMode}
+              onClick={() => onAgentModeChange(!agentMode)}
+              title={
+                canUseAgentMode
+                  ? undefined
+                  : lang === "ar"
+                    ? "يتطلب وضع الوكيل خطة Pro أو Business"
+                    : "Agent mode requires a Pro or Business plan"
+              }
+              type="button"
+              variant={agentMode ? "default" : "ghost"}
+            >
+              {lang === "ar" ? "الوكيل" : "Agent"}
+            </Button>
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
@@ -424,6 +471,12 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+      return false;
+    }
+    if (prevProps.agentMode !== nextProps.agentMode) {
+      return false;
+    }
+    if (prevProps.status !== nextProps.status) {
       return false;
     }
 

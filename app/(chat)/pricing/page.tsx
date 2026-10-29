@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { LanguageToggle } from "@/components/language-toggle";
+import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
 
@@ -19,11 +19,28 @@ const strings = {
     subtitle: "ابدأ مجاناً وارتقِ وقت ما تحتاج فريقك.",
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
-      free: { name: "المجانية", features: ["نماذج قياسية"] },
-      pro: { name: "الاحترافية", features: ["نماذج متقدمة"] },
+      free: {
+        name: "المجانية",
+        features: ["1,000 رسالة شهرياً", "نماذج قياسية"],
+      },
+      pro: {
+        name: "الاحترافية",
+        features: [
+          "10,000 رسالة شهرياً",
+          "500 تشغيل للوكيل شهرياً",
+          "1,000 عملية بحث ويب شهرياً",
+          "نماذج متقدمة",
+        ],
+      },
       business: {
         name: "الأعمال",
-        features: ["مساحات عمل للفرق", "دعم بأولوية"],
+        features: [
+          "100,000 رسالة شهرياً",
+          "5,000 تشغيل للوكيل شهرياً",
+          "10,000 عملية بحث ويب شهرياً",
+          "مساحات عمل للفرق",
+          "دعم بأولوية",
+        ],
       },
     },
     perMonth: " / شهرياً",
@@ -33,6 +50,7 @@ const strings = {
     privacy: "سياسة الخصوصية",
     terms: "شروط الخدمة",
     support: "ادعم العمل المفتوح ❤️",
+    billingSetup: "الفوترة غير متاحة حالياً. يرجى المحاولة لاحقاً.",
   },
   en: {
     eyebrow: "Simple, transparent plans",
@@ -40,11 +58,28 @@ const strings = {
     subtitle: "Start for free and upgrade whenever your team needs more.",
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
-      free: { name: "Free", features: ["Standard models"] },
-      pro: { name: "Pro", features: ["Advanced models"] },
+      free: {
+        name: "Free",
+        features: ["1,000 messages per month", "Standard models"],
+      },
+      pro: {
+        name: "Pro",
+        features: [
+          "10,000 messages per month",
+          "500 agent runs per month",
+          "1,000 web searches per month",
+          "Advanced models",
+        ],
+      },
       business: {
         name: "Business",
-        features: ["Team workspaces", "Priority support"],
+        features: [
+          "100,000 messages per month",
+          "5,000 agent runs per month",
+          "10,000 web searches per month",
+          "Team workspaces",
+          "Priority support",
+        ],
       },
     },
     perMonth: " / month",
@@ -54,6 +89,7 @@ const strings = {
     privacy: "Privacy Policy",
     terms: "Terms of Service",
     support: "Support Open Source ❤️",
+    billingSetup: "Billing is unavailable. Please try again later.",
   },
 } as const;
 
@@ -83,7 +119,9 @@ export default async function PricingPage({
       </header>
 
       {canceled && (
-        <p className="text-center text-sm text-muted-foreground">{t.canceled}</p>
+        <p className="text-center text-sm text-muted-foreground">
+          {t.canceled}
+        </p>
       )}
 
       <section className="grid gap-5 md:grid-cols-3">
@@ -96,15 +134,17 @@ export default async function PricingPage({
               : process.env.STRIPE_SECRET_KEY
                 ? getStripePriceId(planKey)
                   ? undefined
-                  : `Billing setup required: configure STRIPE_PRICE_${planKey.toUpperCase()} with its Stripe Price ID.`
-                : "Billing setup required: configure STRIPE_SECRET_KEY.";
+                  : t.billingSetup
+                : t.billingSetup;
           return (
             <article
               className="flex flex-col gap-6 rounded-xl border p-6"
               key={planKey}
             >
               <div className="flex flex-col gap-2">
-                <h2 className="font-semibold text-xl">{t.plans[planKey].name}</h2>
+                <h2 className="font-semibold text-xl">
+                  {t.plans[planKey].name}
+                </h2>
                 <p className="text-3xl font-semibold">
                   ${plan.price}
                   <span className="font-normal text-base text-muted-foreground">
@@ -152,8 +192,8 @@ export default async function PricingPage({
         <a
           className="hover:underline"
           href="https://github.com/sponsors/ZOOKA-AI"
-          target="_blank"
           rel="noopener noreferrer"
+          target="_blank"
         >
           {t.support}
         </a>

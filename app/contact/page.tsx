@@ -46,8 +46,9 @@ export default function ContactPage() {
       <section className="flex flex-col gap-2 text-sm">
         <h2 className="font-semibold text-base">English</h2>
         <p className="text-muted-foreground">
-          For account, billing, or subscription questions, message us on WhatsApp
-          and we will reply during UAE business hours (Sunday to Thursday).
+          For account, billing, or subscription questions, message us on
+          WhatsApp and we will reply during UAE business hours (Sunday to
+          Thursday).
         </p>
       </section>
 

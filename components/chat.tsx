@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { captureException } from "@sentry/nextjs";
 import { DefaultChatTransport } from "ai";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -74,14 +75,19 @@ export function Chat({
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const { isGuest } = useBilling();
+  const { isGuest, lang } = useBilling();
   const guestQuota = useGuestQuota();
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
+  const [agentMode, setAgentMode] = useState(false);
   const currentModelIdRef = useRef(currentModelId);
+  const agentModeRef = useRef(agentMode);
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
+  useEffect(() => {
+    agentModeRef.current = agentMode;
+  }, [agentMode]);
 
   const {
     messages,
@@ -135,6 +141,7 @@ export function Chat({
               : {}),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
+            agentMode: agentModeRef.current,
             ...request.body,
           },
         };
@@ -153,6 +160,9 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
+      captureException(new Error("Chat stream failed"), {
+        tags: { area: "chat-stream" },
+      });
       if (error instanceof ChatbotError && error.type === "payment_required") {
         guestQuota.markExhausted();
         setShowPaywall(true);
@@ -163,12 +173,18 @@ export function Chat({
       } else if (error instanceof ChatbotError) {
         toast({
           type: "error",
-          description: error.message,
+          description:
+            lang === "ar"
+              ? "انقطع الرد أو تعذّر إكماله. احتفظنا بالجزء المكتمل؛ أعد المحاولة."
+              : "The response was interrupted. The completed text is preserved; please retry.",
         });
       } else {
         toast({
           type: "error",
-          description: error.message || "Oops, an error occurred!",
+          description:
+            lang === "ar"
+              ? "انقطع الرد أو تعذّر إكماله. احتفظنا بالجزء المكتمل؛ أعد المحاولة."
+              : "The response was interrupted. The completed text is preserved; please retry.",
         });
       }
     },
@@ -245,11 +261,16 @@ export function Chat({
         <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
           {!isReadonly && (
             <MultimodalInput
+              agentMode={agentMode}
               attachments={attachments}
               chatId={id}
               input={input}
               messages={messages}
+              onAgentModeChange={setAgentMode}
               onModelChange={setCurrentModelId}
+              onRetry={() => {
+                regenerate().catch(() => undefined);
+              }}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
@@ -265,11 +286,16 @@ export function Chat({
 
       <Artifact
         addToolApprovalResponse={addToolApprovalResponse}
+        agentMode={agentMode}
         attachments={attachments}
         chatId={id}
         input={input}
         isReadonly={isReadonly}
         messages={messages}
+        onAgentModeChange={setAgentMode}
+        onRetry={() => {
+          regenerate().catch(() => undefined);
+        }}
         regenerate={regenerate}
         selectedModelId={currentModelId}
         selectedVisibilityType={visibilityType}
