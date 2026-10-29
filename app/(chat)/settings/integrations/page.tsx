@@ -7,12 +7,17 @@ import {
   isGoogleDriveConfigured,
   isGoogleDriveConnected,
 } from "@/lib/integrations/google-drive/server";
+import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
 
 export const metadata: Metadata = {
   title: "Integrations | Zooka AI",
 };
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ googleDrive?: string }>;
+}) {
   const context = await getWorkspaceContext();
   if (!context) {
     redirect("/login");
@@ -20,6 +25,8 @@ export default async function IntegrationsPage() {
 
   const lang = await getLang();
   const isArabic = lang === "ar";
+  const { googleDrive } = await searchParams;
+  const feedback = getGoogleDriveCallbackFeedback(googleDrive, lang);
   const googleDriveConfigured = isGoogleDriveConfigured();
   const googleDriveConnected =
     googleDriveConfigured &&
@@ -45,6 +52,21 @@ export default async function IntegrationsPage() {
             : "The Agent can use Google Drive read-only when connected to this workspace. Notion and Shopify are unavailable."}
         </p>
       </header>
+
+      {feedback && (
+        <p
+          aria-live="polite"
+          className="rounded-md border px-4 py-3 text-sm"
+          data-testid="google-drive-callback-feedback"
+          role={
+            googleDrive === "error" || googleDrive === "unavailable"
+              ? "alert"
+              : "status"
+          }
+        >
+          {feedback}
+        </p>
+      )}
 
       <section
         aria-label={isArabic ? "حالة التكاملات" : "Integration status"}

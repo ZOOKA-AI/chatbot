@@ -78,7 +78,8 @@ export function Chat({
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const { isGuest, lang, canUseAgentMode } = useBilling();
+  const [responseStopped, setResponseStopped] = useState(false);
+  const { isGuest, lang, canUseAgentMode, refreshAgentUsage } = useBilling();
   const searchParams = useSearchParams();
   const guestQuota = useGuestQuota();
   const isWorkAssistant = searchParams.get("mode") === "work";
@@ -166,14 +167,19 @@ export function Chat({
     onData: (dataPart) => {
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
-    onFinish: () => {
+    onFinish: ({ isAbort, isDisconnect, isError }) => {
+      const interrupted = isAbort || isDisconnect || isError;
+      setResponseStopped(interrupted);
       const completedAgentRun =
         agentRunPendingRef.current || agentModeRef.current;
       agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
-        refresh: () => router.refresh(),
+        refresh: () => {
+          void refreshAgentUsage().catch(() => undefined);
+        },
         agentMode: completedAgentRun,
-        completed: true,
+        completed: !interrupted,
+        interrupted,
       });
       if (isGuest) {
         if (guestQuota.isExhausted()) {
@@ -184,10 +190,13 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
+      setResponseStopped(true);
       const failedAgentRun = agentRunPendingRef.current || agentModeRef.current;
       agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
-        refresh: () => router.refresh(),
+        refresh: () => {
+          void refreshAgentUsage().catch(() => undefined);
+        },
         agentMode: failedAgentRun,
         error,
       });
@@ -226,6 +235,7 @@ export function Chat({
 
   const sendMessage = useCallback<typeof rawSendMessage>(
     (...args) => {
+      setResponseStopped(false);
       if (isGuest) {
         if (guestQuota.isExhausted()) {
           setShowPaywall(true);
@@ -292,6 +302,7 @@ export function Chat({
           lang={lang}
           messages={messages}
           onSelectWorkPrompt={setInput}
+          responseStopped={responseStopped}
           regenerate={regenerate}
           selectedModelId={initialChatModel}
           setMessages={setMessages}
@@ -315,6 +326,7 @@ export function Chat({
                 }
               }}
               onRetry={() => {
+                setResponseStopped(false);
                 regenerate().catch(() => undefined);
               }}
               selectedModelId={currentModelId}
@@ -340,6 +352,7 @@ export function Chat({
         messages={messages}
         onAgentModeChange={setAgentMode}
         onRetry={() => {
+          setResponseStopped(false);
           regenerate().catch(() => undefined);
         }}
         regenerate={regenerate}

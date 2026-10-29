@@ -12,6 +12,7 @@ type MessagesProps = {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
   status: UseChatHelpers<ChatMessage>["status"];
+  responseStopped: boolean;
   votes: Vote[] | undefined;
   messages: ChatMessage[];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
@@ -30,6 +31,7 @@ function PureMessages({
   addToolApprovalResponse,
   chatId,
   status,
+  responseStopped,
   votes,
   messages,
   setMessages,
@@ -78,6 +80,7 @@ function PureMessages({
               lang={lang}
               messages={messages}
               status={status}
+              stopped={responseStopped}
             />
           )}
 

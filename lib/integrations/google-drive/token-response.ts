@@ -12,6 +12,10 @@ const tokensSchema = z.object({
 
 export type GoogleDriveTokens = z.infer<typeof tokensSchema>;
 
+export function isRevokedGoogleDriveGrant(errorCode: unknown) {
+  return errorCode === "invalid_grant";
+}
+
 export function parseGoogleDriveTokens(
   value: unknown,
   previousRefreshToken?: string

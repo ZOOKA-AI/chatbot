@@ -15,7 +15,9 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "test": "pnpm test:unit && pnpm test:e2e",
+    "test:e2e": "pnpm exec playwright test",
+    "test:unit": "tsx --test tests/unit/agent-workflow.test.ts tests/unit/google-drive-security.test.ts lib/ai/models.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.15",
