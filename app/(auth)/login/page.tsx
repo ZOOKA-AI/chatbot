@@ -3,7 +3,7 @@ import { getLang } from "@/lib/i18n";
 import { LoginClient } from "./login-client";
 
 export const metadata: Metadata = {
-  title: "تسجيل الدخول | Zooka AI",
+  title: "تسجيل الدخول",
 };
 
 export default async function Page() {
