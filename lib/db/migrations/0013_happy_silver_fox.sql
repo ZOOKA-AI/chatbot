@@ -1,0 +1,1 @@
+ALTER TABLE "GoogleDriveConnection" ADD COLUMN "connectionId" uuid DEFAULT gen_random_uuid() NOT NULL;

@@ -79,6 +79,7 @@ export function Chat({
   const { isGuest, lang, canUseAgentMode } = useBilling();
   const searchParams = useSearchParams();
   const guestQuota = useGuestQuota();
+  const isWorkAssistant = searchParams.get("mode") === "work";
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const [agentMode, setAgentMode] = useState(
     () =>
@@ -253,10 +254,15 @@ export function Chat({
 
         <Messages
           addToolApprovalResponse={addToolApprovalResponse}
+          agentModeEnabled={agentMode && modelSupportsTools(currentModelId)}
+          canUseAgentMode={canUseAgentMode}
           chatId={id}
           isArtifactVisible={isArtifactVisible}
           isReadonly={isReadonly}
+          isWorkAssistant={isWorkAssistant}
+          lang={lang}
           messages={messages}
+          onSelectWorkPrompt={setInput}
           regenerate={regenerate}
           selectedModelId={initialChatModel}
           setMessages={setMessages}

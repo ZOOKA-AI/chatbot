@@ -208,6 +208,122 @@ const PurePreviewMessage = ({
               );
             }
 
+            if (type === "tool-searchGoogleDrive") {
+              const { toolCallId, state } = part;
+              if (state !== "output-available") {
+                return (
+                  <Tool defaultOpen={true} key={toolCallId}>
+                    <ToolHeader state={state} type="tool-searchGoogleDrive" />
+                  </Tool>
+                );
+              }
+              if ("error" in part.output) {
+                return (
+                  <p className="text-sm text-destructive" key={toolCallId}>
+                    {part.output.error}
+                  </p>
+                );
+              }
+              return (
+                <section
+                  aria-label="Google Drive search results"
+                  className="rounded-lg border p-3"
+                  key={toolCallId}
+                >
+                  <h3 className="mb-2 font-medium text-sm">
+                    Google Drive results
+                  </h3>
+                  {part.output.files.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No matching files were returned.
+                    </p>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {part.output.files.map((file) => (
+                        <li className="text-sm" key={file.id}>
+                          {file.webViewLink ? (
+                            <a
+                              className="font-medium text-primary underline"
+                              href={file.webViewLink}
+                              rel="noopener noreferrer"
+                              target="_blank"
+                            >
+                              {file.name}
+                            </a>
+                          ) : (
+                            <span className="font-medium">{file.name}</span>
+                          )}
+                          <p className="text-muted-foreground">
+                            {file.mimeType}
+                            {file.modifiedTime ? ` · ${file.modifiedTime}` : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {part.output.warning}
+                  </p>
+                </section>
+              );
+            }
+
+            if (type === "tool-readGoogleDriveFile") {
+              const { toolCallId, state } = part;
+              if (state !== "output-available") {
+                return (
+                  <Tool defaultOpen={true} key={toolCallId}>
+                    <ToolHeader state={state} type="tool-readGoogleDriveFile" />
+                  </Tool>
+                );
+              }
+              if ("error" in part.output) {
+                return (
+                  <p className="text-sm text-destructive" key={toolCallId}>
+                    {part.output.error}
+                  </p>
+                );
+              }
+              return (
+                <section
+                  aria-label="Google Drive file contents"
+                  className="rounded-lg border p-3"
+                  key={toolCallId}
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="font-medium text-sm">
+                      {part.output.webViewLink ? (
+                        <a
+                          className="text-primary underline"
+                          href={part.output.webViewLink}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          {part.output.fileName}
+                        </a>
+                      ) : (
+                        part.output.fileName
+                      )}
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                      {part.output.mimeType}
+                    </span>
+                  </div>
+                  <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm">
+                    {part.output.content}
+                  </pre>
+                  {part.output.truncated && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      File content was truncated.
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {part.output.warning}
+                  </p>
+                </section>
+              );
+            }
+
             if (type === "tool-getWeather") {
               const { toolCallId, state } = part;
               const approvalId = (part as { approval?: { id: string } })
