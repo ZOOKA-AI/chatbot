@@ -13,7 +13,10 @@ import {
   encryptGoogleDriveTokens,
   isGoogleDriveEncryptionKeyValid,
 } from "@/lib/integrations/google-drive/crypto";
-import type { GoogleDriveTokens } from "@/lib/integrations/google-drive/token-response";
+import {
+  isRevokedGoogleDriveGrant,
+  type GoogleDriveTokens,
+} from "@/lib/integrations/google-drive/token-response";
 
 export function getGoogleDriveOAuthConfig() {
   const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET } = process.env;
@@ -168,7 +171,13 @@ export async function getGoogleDriveAccessToken(organizationId: string) {
     });
     const result = await response.json();
     if (!response.ok) {
-      if (response.status === 400 || response.status === 401) {
+      const errorCode =
+        typeof result === "object" &&
+        result !== null &&
+        "error" in result
+          ? result.error
+          : undefined;
+      if (isRevokedGoogleDriveGrant(errorCode)) {
         await deleteGoogleDriveConnectionIfUnchanged({
           organizationId,
           connectionId: connection.connectionId,

@@ -127,10 +127,12 @@ export function WorkAssistantOverview({
 export function WorkAssistantProgress({
   messages,
   status,
+  stopped,
   lang,
 }: {
   messages: ChatMessage[];
   status: UseChatHelpers<ChatMessage>["status"];
+  stopped?: boolean;
   lang: "ar" | "en";
 }) {
   return (
@@ -139,7 +141,7 @@ export function WorkAssistantProgress({
       className="mx-auto w-full max-w-3xl rounded-md border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
       data-testid="work-assistant-progress"
     >
-      {getWorkAssistantProgress({ lang, messages, status })}
+      {getWorkAssistantProgress({ lang, messages, status, stopped })}
     </output>
   );
 }

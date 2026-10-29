@@ -64,6 +64,24 @@ test("work assistant does not imply a tool-verified result without tools", () =>
   ).toContain("has not been checked against external sources");
 });
 
+test("work assistant labels a stopped response as partial", () => {
+  const message = {
+    id: "assistant-stopped",
+    role: "assistant",
+    parts: [{ type: "text", text: "A partial answer." }],
+  } as unknown as ChatMessage;
+
+  const progress = getWorkAssistantProgress({
+    messages: [message],
+    status: "ready",
+    stopped: true,
+    lang: "en",
+  });
+
+  expect(progress).toContain("stopped early");
+  expect(progress).not.toContain("response is complete");
+});
+
 test("work assistant summary counts only the latest task", () => {
   const messages = [
     {

@@ -13,10 +13,12 @@ function isToolError(output: unknown) {
 export function getWorkAssistantProgress({
   messages,
   status,
+  stopped,
   lang,
 }: {
   messages: ChatMessage[];
   status: UseChatHelpers<ChatMessage>["status"];
+  stopped?: boolean;
   lang: "ar" | "en";
 }) {
   const lastUserIndex = messages.reduce(
@@ -58,6 +60,11 @@ export function getWorkAssistantProgress({
     return isArabic
       ? "توقف الطلب قبل اكتماله. قد يظهر جزء من الرد والنتائج أعلاه."
       : "The request stopped before completion. Partial output and results may appear above.";
+  }
+  if (stopped) {
+    return isArabic
+      ? "أوقفتَ الرد قبل اكتماله. قد يكون النص الظاهر جزئيًا؛ راجعه قبل المتابعة."
+      : "The response stopped early. The visible text may be partial; review it before continuing.";
   }
   if (status === "submitted" || status === "streaming") {
     return isArabic

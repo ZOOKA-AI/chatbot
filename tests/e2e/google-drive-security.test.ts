@@ -13,6 +13,7 @@ import {
 } from "@/lib/integrations/google-drive/oauth-state";
 import {
   GOOGLE_DRIVE_SCOPE,
+  isRevokedGoogleDriveGrant,
   parseGoogleDriveTokens,
 } from "@/lib/integrations/google-drive/token-response";
 
@@ -100,4 +101,10 @@ test("Google Drive OAuth accepts only read-only bearer tokens", () => {
       refresh_token: undefined,
     })
   ).toThrow();
+});
+
+test("refresh errors only invalidate credentials after an explicit grant revocation", () => {
+  expect(isRevokedGoogleDriveGrant("invalid_grant")).toBe(true);
+  expect(isRevokedGoogleDriveGrant("invalid_client")).toBe(false);
+  expect(isRevokedGoogleDriveGrant("invalid_scope")).toBe(false);
 });
