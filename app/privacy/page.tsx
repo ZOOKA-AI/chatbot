@@ -1,4 +1,12 @@
 import { Suspense } from "react";
+
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: `سياسة الخصوصية`,
+  description: `سياسة الخصوصية في Zooka AI: كيف نجمع بياناتك ونحميها.`,
+  alternates: { canonical: "./" },
+};
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
