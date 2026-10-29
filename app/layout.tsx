@@ -3,7 +3,6 @@ import { Cairo, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { GlobalSiteComponents } from "@/components/global-site-components";
 import { ThemeProvider } from "@/components/theme-provider";
-import { dirOf, getLang } from "@/lib/i18n";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 
@@ -64,6 +63,13 @@ const DARK_THEME_COLOR = "hsl(240deg 10% 3.92%)";
 const THEME_COLOR_SCRIPT = `\
 (function() {
   var html = document.documentElement;
+  var isEnglish = document.cookie.split(';').some(function(cookie) {
+    return cookie.trim() === 'zooka_lang=en';
+  });
+  if (isEnglish) {
+    html.dir = 'ltr';
+    html.lang = 'en';
+  }
   var meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) {
     meta = document.createElement('meta');
@@ -79,13 +85,11 @@ const THEME_COLOR_SCRIPT = `\
   updateThemeColor();
 })();`;
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const lang = await getLang();
-
   return (
     <html
       className={`${geist.variable} ${geistMono.variable} ${cairo.variable}`}
@@ -93,8 +97,8 @@ export default async function RootLayout({
       // visual flicker before hydration. Hence the `suppressHydrationWarning`
       // prop is necessary to avoid the React hydration mismatch warning.
       // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
-      dir={dirOf(lang)}
-      lang={lang}
+      dir="rtl"
+      lang="ar"
       suppressHydrationWarning
     >
       <head>

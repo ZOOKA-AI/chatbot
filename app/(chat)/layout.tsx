@@ -48,10 +48,7 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
     !!subscription &&
     subscription.plan !== "free" &&
     ["active", "trialing"].includes(subscription.status);
-  const planKey =
-    isAgentPlan && subscription
-      ? subscription.plan
-      : "free";
+  const planKey = isAgentPlan && subscription ? subscription.plan : "free";
   const plan = workspacePlans[planKey];
   const agentRunsRemaining = Math.max(
     0,

@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { useBilling } from "@/components/billing-provider";
-import { modelSupportsTools } from "@/lib/ai/models";
 import { ChatHeader } from "@/components/chat-header";
 import { GuestPaywallDialog } from "@/components/guest-paywall-dialog";
 import {
@@ -25,6 +24,7 @@ import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useGuestQuota } from "@/hooks/use-guest-quota";
+import { modelSupportsTools } from "@/lib/ai/models";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
