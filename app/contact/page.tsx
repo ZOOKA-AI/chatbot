@@ -7,7 +7,7 @@ const WHATSAPP_NUMBER = "971566047579";
 const DISPLAY_NUMBERS = "0566047579";
 
 export const metadata: Metadata = {
-  title: "تواصل معنا | Contact ZOOKA AI",
+  title: "تواصل معنا",
   description:
     "الدعم الفني لـ ZOOKA AI عبر واتساب فقط. Contact ZOOKA AI support on WhatsApp only.",
 };
