@@ -11,7 +11,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { EmbedAuth } from "./embed-auth";
 
 export const metadata: Metadata = {
-  title: "Zooka AI — محادثة",
+  title: "محادثة",
 };
 
 async function EmbedContent() {
