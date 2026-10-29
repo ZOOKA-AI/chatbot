@@ -1,36 +1,70 @@
-import { ChatbotError } from "@/lib/errors";
+import { ChatbotError, type ErrorCode } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
 
-export type AgentModeError = "unsupported_model" | "plan_required" | "quota";
+export type AgentModeError =
+  | "paid_model_required"
+  | "unsupported_model"
+  | "plan_required"
+  | "quota";
 
-const agentModeErrors = {
-  unsupported_model: {
-    code: "bad_request:api",
-    cause:
+const errorCodes: Record<AgentModeError, ErrorCode> = {
+  paid_model_required: "forbidden:chat",
+  unsupported_model: "bad_request:api",
+  plan_required: "forbidden:chat",
+  quota: "rate_limit:chat",
+};
+
+const errorMessages: Record<Lang, Record<AgentModeError, string>> = {
+  ar: {
+    paid_model_required:
+      "يتطلب هذا النموذج خطة Pro أو Business في مساحة العمل.",
+    unsupported_model:
+      "النموذج المحدد لا يدعم أدوات الوكيل. اختر نموذجاً يدعم استخدام الأدوات.",
+    plan_required: "يتطلب وضع الوكيل خطة Pro أو Business في مساحة العمل.",
+    quota: "وصلت مساحة العمل إلى حد تشغيلات الوكيل الشهري.",
+  },
+  en: {
+    paid_model_required:
+      "This model requires a Pro or Business workspace plan.",
+    unsupported_model:
       "Agent mode is unavailable with this model. Choose a tool-capable model.",
-    arabicCause:
-      "وضع الوكيل غير متاح مع هذا النموذج. اختر نموذجاً يدعم الأدوات.",
+    plan_required: "Agent mode requires a Pro or Business workspace plan.",
+    quota: "This workspace has reached its monthly agent run limit.",
   },
-  plan_required: {
-    code: "forbidden:chat",
-    cause: "Agent mode requires a Pro or Business workspace plan.",
-    arabicCause: "يتطلب وضع الوكيل خطة Pro أو Business لمساحة العمل.",
-  },
-  quota: {
-    code: "rate_limit:chat",
-    cause: "This workspace has reached its monthly agent run limit.",
-    arabicCause: "وصلت مساحة العمل إلى الحد الشهري لتشغيلات الوكيل.",
-  },
-} as const;
+};
 
-export function agentModeErrorResponse(error: AgentModeError) {
-  const { code, cause } = agentModeErrors[error];
-  return new ChatbotError(code, cause).toResponse();
+export function agentModeErrorResponse(
+  error: AgentModeError,
+  lang: Lang = "en",
+  modelId?: string
+) {
+  const cause =
+    error === "unsupported_model" && modelId
+      ? lang === "ar"
+        ? `النموذج ${modelId} لا يدعم أدوات الوكيل. اختر نموذجاً يدعم استخدام الأدوات.`
+        : `The ${modelId} model does not support Agent tools. Choose a tool-capable model.`
+      : errorMessages[lang][error];
+
+  return new ChatbotError(errorCodes[error], cause).toResponse();
 }
 
 export function localizeAgentModeErrorCause(cause: unknown, lang: Lang) {
-  const error = Object.values(agentModeErrors).find(
-    (agentModeError) => agentModeError.cause === cause
+  if (lang !== "ar" || typeof cause !== "string") {
+    return cause;
+  }
+
+  const error = (Object.keys(errorMessages.en) as AgentModeError[]).find(
+    (key) => errorMessages.en[key] === cause
   );
-  return error && lang === "ar" ? error.arabicCause : cause;
+  if (error) {
+    return errorMessages.ar[error];
+  }
+
+  const unsupportedModel =
+    /^The (.+) model does not support Agent tools\. Choose a tool-capable model\.$/.exec(
+      cause
+    );
+  return unsupportedModel
+    ? `النموذج ${unsupportedModel[1]} لا يدعم أدوات الوكيل. اختر نموذجاً يدعم استخدام الأدوات.`
+    : cause;
 }

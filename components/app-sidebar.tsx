@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/sidebar";
 import { UpgradeButton } from "@/components/upgrade-button";
 import { copy } from "@/lib/copy";
+import { SITE_NAME } from "@/lib/site";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -175,7 +176,7 @@ export function AppSidebar({
                 }}
               >
                 <span className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
-                  Chatbot
+                  {SITE_NAME}
                 </span>
               </Link>
               <div className="flex flex-row gap-1">

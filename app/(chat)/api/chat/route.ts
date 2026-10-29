@@ -44,6 +44,7 @@ import {
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { consumeGuestMessage } from "@/lib/guest";
+import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
@@ -85,20 +86,19 @@ async function handleGuestMessage({
   message,
   history,
   selectedChatModel,
+  lang,
 }: {
   request: Request;
   message: PostRequestBody["message"];
   history: PostRequestBody["history"];
   selectedChatModel: string;
+  lang: "ar" | "en";
 }) {
   if (message?.role !== "user") {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
   if (paidModelIds.has(selectedChatModel)) {
-    return Response.json(
-      { error: "This model requires a Pro or Business workspace plan." },
-      { status: 403 }
-    );
+    return agentModeErrorResponse("paid_model_required", lang);
   }
 
   if (process.env.GUEST_PAYWALL_ENABLED !== "true") {
@@ -150,6 +150,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    const lang = await getLang();
     const {
       id,
       message,
@@ -178,17 +179,22 @@ export async function POST(request: Request) {
 
     if (!workspaceContext) {
       if (agentMode) {
-        return agentModeErrorResponse("plan_required");
+        return agentModeErrorResponse("plan_required", lang);
       }
       return await handleGuestMessage({
         request,
         message,
         history,
         selectedChatModel,
+        lang,
       });
     }
     if (agentMode && !supportsTools) {
-      return agentModeErrorResponse("unsupported_model");
+      return agentModeErrorResponse(
+        "unsupported_model",
+        lang,
+        selectedChatModel
+      );
     }
     const { session } = workspaceContext;
     const isToolApprovalFlow = Boolean(messages);
@@ -220,18 +226,15 @@ export async function POST(request: Request) {
     }
 
     if (effectivePlan === "free" && paidModelIds.has(selectedChatModel)) {
-      return Response.json(
-        { error: "This model requires a Pro or Business workspace plan." },
-        { status: 403 }
-      );
+      return agentModeErrorResponse("paid_model_required", lang);
     }
 
     if (agentMode && plan.monthlyAgentRuns === 0) {
-      return agentModeErrorResponse("plan_required");
+      return agentModeErrorResponse("plan_required", lang);
     }
 
     if (agentMode && billing.usage.agentRuns >= plan.monthlyAgentRuns) {
-      return agentModeErrorResponse("quota");
+      return agentModeErrorResponse("quota", lang);
     }
 
     const messageQuota = await checkQuota(
@@ -250,7 +253,7 @@ export async function POST(request: Request) {
         workspaceContext.organizationId
       );
       if (!agentQuota.allowed) {
-        return agentModeErrorResponse("quota");
+        return agentModeErrorResponse("quota", lang);
       }
     }
 

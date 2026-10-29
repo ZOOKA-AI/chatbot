@@ -61,5 +61,5 @@ test("refreshes authoritative agent quota after completion or quota rejection", 
     error: new ChatbotError("bad_request:api"),
   });
   refreshAgentQuotaIfNeeded({ refresh, agentMode: false, completed: true });
-  expect(refreshes).toBe(2);
+  expect(refreshes).toBe(3);
 });

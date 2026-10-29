@@ -1,5 +1,3 @@
-import { ChatbotError } from "@/lib/errors";
-
 export function refreshAgentQuotaIfNeeded({
   refresh,
   agentMode,
@@ -11,11 +9,7 @@ export function refreshAgentQuotaIfNeeded({
   completed?: boolean;
   error?: unknown;
 }) {
-  if (
-    agentMode &&
-    (completed ||
-      (error instanceof ChatbotError && error.type === "rate_limit"))
-  ) {
+  if (agentMode && (completed || error !== undefined)) {
     refresh();
   }
 }
