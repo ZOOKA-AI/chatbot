@@ -1,11 +1,21 @@
 import { motion } from "framer-motion";
+import { Globe3D } from "@/components/globe-3d";
 
 export const Greeting = () => {
   return (
     <div
-      className="mx-auto mt-4 flex size-full max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
+      className="mx-auto mt-4 flex size-full max-w-3xl flex-col items-center justify-center px-4 md:mt-16 md:px-8"
       key="overview"
     >
+      <motion.div
+        animate={{ opacity: 1, scale: 1 }}
+        className="mb-2"
+        exit={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 0, scale: 0.96 }}
+        transition={{ delay: 0.35, duration: 0.6 }}
+      >
+        <Globe3D size={240} />
+      </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
         className="font-semibold text-xl md:text-2xl"
@@ -17,7 +27,7 @@ export const Greeting = () => {
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
-        className="text-xl text-zinc-500 md:text-2xl"
+        className="text-center text-xl text-zinc-500 md:text-2xl"
         exit={{ opacity: 0, y: 10 }}
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.6 }}
