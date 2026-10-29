@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Globe3D } from "@/components/globe-3d";
+import { IntegrationOrbit } from "@/components/integration-orbit";
 
 export const Greeting = () => {
   return (
@@ -9,12 +10,15 @@ export const Greeting = () => {
     >
       <motion.div
         animate={{ opacity: 1, scale: 1 }}
-        className="mb-2"
+        className="relative mb-2 flex items-center justify-center"
         exit={{ opacity: 0, scale: 0.96 }}
         initial={{ opacity: 0, scale: 0.96 }}
         transition={{ delay: 0.35, duration: 0.6 }}
       >
-        <Globe3D size={240} />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <IntegrationOrbit size={220} />
+        </div>
+        <Globe3D size={210} />
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
