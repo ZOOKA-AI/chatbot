@@ -28,6 +28,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
+import { agentPresets } from "@/lib/ai/agent-presets";
 import {
   chatModels,
   DEFAULT_CHAT_MODEL,
@@ -338,6 +339,7 @@ function PureMultimodalInput({
   return (
     <div className={cn("relative flex w-full flex-col gap-4", className)}>
       {messages.length === 0 &&
+        !agentMode &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
           <SuggestedActions
@@ -370,6 +372,49 @@ function PureMultimodalInput({
           }
         }}
       >
+        {agentMode && messages.length === 0 && (
+          <div className="grid gap-2" data-testid="agent-presets">
+            <p className="px-2 text-sm font-medium">
+              {lang === "ar"
+                ? "ابدأ بمهمة جاهزة، وعدّلها قبل الإرسال:"
+                : "Start with a task template and edit it before sending:"}
+            </p>
+            <fieldset
+              aria-label={
+                lang === "ar" ? "مهام الوكيل الجاهزة" : "Agent task templates"
+              }
+              className="flex flex-wrap gap-2 px-2"
+            >
+              {agentPresets.map((preset) => {
+                const modelName = chatModels.find(
+                  (model) => model.id === preset.modelId
+                )?.name;
+
+                return (
+                  <Button
+                    data-testid={`agent-preset-${preset.id}`}
+                    key={preset.id}
+                    onClick={() => {
+                      onModelChange?.(preset.modelId);
+                      setInput(preset.prompt[lang]);
+                      textareaRef.current?.focus();
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {preset.label[lang]}
+                    {modelName ? (
+                      <span className="text-muted-foreground text-xs">
+                        · {modelName}
+                      </span>
+                    ) : null}
+                  </Button>
+                );
+              })}
+            </fieldset>
+          </div>
+        )}
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
             className="flex flex-row items-end gap-2 overflow-x-scroll"
@@ -492,6 +537,31 @@ function PureMultimodalInput({
             {agentModeUnavailableMessage}
           </p>
         )}
+        {agentMode ? (
+          <p
+            className="px-2 pt-1 text-xs text-muted-foreground"
+            data-testid="agent-workflow-guidance"
+          >
+            {lang === "ar"
+              ? "سيفهم الوكيل المطلوب، ويستخدم الأدوات المتاحة عند الحاجة، ثم يوضح ما اكتمل وما تعذّر."
+              : "The Agent will understand the request, use available tools when needed, and explain what succeeded or could not be completed."}
+          </p>
+        ) : null}
+        {agentMode && (status === "submitted" || status === "streaming") ? (
+          <output
+            aria-live="polite"
+            className="px-2 pt-1 text-sm text-muted-foreground"
+            data-testid="agent-work-progress"
+          >
+            {status === "submitted"
+              ? lang === "ar"
+                ? "وصلت المهمة، ويبدأ الوكيل العمل عليها…"
+                : "Task received. The Agent is getting started…"
+              : lang === "ar"
+                ? "الوكيل يعمل على المهمة. سيظهر الرد والنتيجة هنا."
+                : "The Agent is working on the task. Its response and result will appear here."}
+          </output>
+        ) : null}
       </PromptInput>
     </div>
   );

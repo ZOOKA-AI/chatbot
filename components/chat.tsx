@@ -91,6 +91,7 @@ export function Chat({
   );
   const currentModelIdRef = useRef(currentModelId);
   const agentModeRef = useRef(agentMode);
+  const agentRunPendingRef = useRef(false);
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
@@ -166,9 +167,12 @@ export function Chat({
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: () => {
+      const completedAgentRun =
+        agentRunPendingRef.current || agentModeRef.current;
+      agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
         refresh: () => router.refresh(),
-        agentMode: agentModeRef.current,
+        agentMode: completedAgentRun,
         completed: true,
       });
       if (isGuest) {
@@ -180,9 +184,11 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
+      const failedAgentRun = agentRunPendingRef.current || agentModeRef.current;
+      agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
         refresh: () => router.refresh(),
-        agentMode: agentModeRef.current,
+        agentMode: failedAgentRun,
         error,
       });
       captureException(new Error("Chat stream failed"), {
@@ -226,6 +232,9 @@ export function Chat({
           return Promise.resolve();
         }
         guestQuota.consume();
+      }
+      if (!isGuest && agentModeRef.current) {
+        agentRunPendingRef.current = true;
       }
       return rawSendMessage(...args);
     },

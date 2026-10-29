@@ -53,7 +53,9 @@ test.describe("Chat API Integration", () => {
         "Agent mode is unavailable with this model. Choose a tool-capable model.",
         "ar"
       )
-    ).toBe("وضع الوكيل غير متاح مع هذا النموذج. اختر نموذجاً يدعم الأدوات.");
+    ).toBe(
+      "النموذج المحدد لا يدعم أدوات الوكيل. اختر نموذجاً يدعم استخدام الأدوات."
+    );
     expect(
       localizeAgentModeErrorCause(
         "Agent mode is unavailable with this model. Choose a tool-capable model.",

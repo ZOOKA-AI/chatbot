@@ -8,6 +8,14 @@ read-only OAuth is implemented but remains unavailable until its server
 credentials and encryption key are configured. Notion and Shopify remain
 unavailable. This work is not deployed. Native iOS and Android support is not
 included.
+Agent mode also includes task templates tied to configured tool-capable models,
+clear progress guidance, localized API errors, and a server refresh of
+workspace quota state after an Agent run or quota rejection.
+
+The build command runs database migrations. Before using Vercel Preview for
+this branch, set its `POSTGRES_URL` to an isolated preview database rather than
+the production database; this project's Vercel database settings could not be
+verified during this review.
 
 Ship each follow-up as an independently deployable, stable increment, targeting
 about 10 days between releases:
@@ -34,5 +42,7 @@ about 10 days between releases:
    schema, and data responsibilities have been verified; then plan a reviewed,
    reversible migration.
 
-No production infrastructure, secrets, or database changes are part of this
-foundation release.
+No production infrastructure or secrets were changed as part of this
+foundation release. The branch contains additive database migrations; do not
+run them against production until the preview database isolation and migration
+plan are confirmed.
