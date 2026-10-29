@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useBilling } from "@/components/billing-provider";
 import { toast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
+import { trackEvent } from "@/lib/analytics";
 import { copy } from "@/lib/copy";
 
 export function ManageAccountButton({ className }: { className?: string }) {
@@ -15,6 +16,7 @@ export function ManageAccountButton({ className }: { className?: string }) {
   }
 
   async function openPortal() {
+    trackEvent("manage_subscription_clicked", { source: "chat" });
     setPending(true);
     try {
       const response = await fetch("/api/billing/portal", { method: "POST" });

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 
 export function ManageSubscriptionButton() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function openPortal() {
+    trackEvent("manage_subscription_clicked", { source: "billing" });
     setPending(true);
     setError(null);
     try {

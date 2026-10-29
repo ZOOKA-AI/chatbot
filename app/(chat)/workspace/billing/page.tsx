@@ -6,6 +6,7 @@ import { getLang } from "@/lib/i18n";
 import { workspacePlans } from "@/lib/saas/plans";
 import { displayWorkspaceName } from "@/lib/workspace-name";
 
+import { CheckoutSuccessTracker } from "./checkout-success-tracker";
 import { ManageSubscriptionButton } from "./manage-subscription";
 
 export default async function WorkspaceBillingPage({
@@ -38,10 +39,13 @@ export default async function WorkspaceBillingPage({
         <h1 className="font-semibold text-2xl">Plan and usage</h1>
       </div>
       {success === "1" && (
-        <p className="rounded-md border border-green-600 p-3 text-sm">
-          Checkout completed. Your workspace plan will update as soon as Stripe
-          confirms the subscription.
-        </p>
+        <>
+          <CheckoutSuccessTracker />
+          <p className="rounded-md border border-green-600 p-3 text-sm">
+            Checkout completed. Your workspace plan will update as soon as
+            Stripe confirms the subscription.
+          </p>
+        </>
       )}
       <section className="flex flex-col gap-3 rounded-lg border p-5">
         <h2 className="font-medium text-lg">{plan.name} plan</h2>

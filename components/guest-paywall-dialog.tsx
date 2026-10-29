@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useBilling } from "@/components/billing-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { trackEvent } from "@/lib/analytics";
 import { copy } from "@/lib/copy";
 
 export function GuestPaywallDialog({
@@ -22,6 +24,12 @@ export function GuestPaywallDialog({
 }) {
   const { lang } = useBilling();
   const t = copy[lang];
+
+  useEffect(() => {
+    if (open) {
+      trackEvent("paywall_shown", { type: "guest" });
+    }
+  }, [open]);
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 import type { PaidWorkspacePlan } from "@/lib/saas/plans";
 
 export function PricingCheckoutButton({
@@ -16,6 +17,7 @@ export function PricingCheckoutButton({
   const [error, setError] = useState("");
 
   async function beginCheckout() {
+    trackEvent("click_upgrade", { plan });
     setIsLoading(true);
     setError("");
     try {
@@ -37,6 +39,7 @@ export function PricingCheckoutButton({
         setError(result.error ?? "Unable to start checkout");
         return;
       }
+      trackEvent("checkout_started", { plan });
       window.location.assign(result.url);
     } catch {
       setError("Unable to connect to billing");
