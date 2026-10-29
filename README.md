@@ -64,9 +64,14 @@ You will need to use the environment variables [defined in `.env.example`](.env.
 
 ```bash
 pnpm install
-pnpm db:migrate # Setup database or apply latest database changes
+pnpm db:migrate # Apply database migrations explicitly to POSTGRES_URL
 pnpm dev
 ```
+
+`pnpm build` only compiles the application; it never changes a database. Run
+`pnpm db:migrate` as a deliberate release step against the database for the
+target environment. Preview deployments must use an isolated preview database.
+Do not point a preview migration at production.
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
 
@@ -146,8 +151,9 @@ canonical, Open Graph, Twitter `summary_large_image`, icons, theme color).
 2. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_APP_URL=https://zooka-ai.com`.
 3. Add the webhook endpoint `https://zooka-ai.com/api/stripe/webhook` and the
    events listed above; enable the Customer Portal.
-4. Run `pnpm db:migrate` (the Vercel build already runs it) to apply migration
-   `0010_guest_usage_workspace_names`.
+4. Confirm the target environment's `POSTGRES_URL` and a current backup, then
+   run `pnpm db:migrate` as a deliberate release step to apply migration
+   `0010_guest_usage_workspace_names`. Vercel builds do not run migrations.
 
 ## ✨ Sponsors
 
