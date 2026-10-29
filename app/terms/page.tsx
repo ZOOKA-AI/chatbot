@@ -1,4 +1,12 @@
 import { Suspense } from "react";
+
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: `شروط الاستخدام`,
+  description: `شروط استخدام منصة Zooka AI: الاشتراكات والاستخدام العادل.`,
+  alternates: { canonical: "./" },
+};
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
