@@ -1,178 +1,104 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
-import { z } from "zod";
-import { useBilling } from "@/components/billing-provider";
+import { LanguageToggle } from "@/components/language-toggle";
+import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
-const formSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  email: z.string().trim().email().max(254),
-  platform: z.string().trim().max(120),
-  code: z.string().trim().max(40),
-  notes: z.string().trim().max(2000),
-});
-
-type PartnerForm = z.infer<typeof formSchema>;
-
-const emptyForm: PartnerForm = {
-  name: "",
-  email: "",
-  platform: "",
-  code: "",
-  notes: "",
+export const metadata: Metadata = {
+  title: "طلب انضمام | Join",
+  description:
+    "قدّم طلب انضمام لشبكة شركاء Zooka AI: عمولة على الاشتراكات، وكالة white-label، أو امتياز منطقة. Apply to the Zooka AI partner network.",
 };
 
-const partnerContact = "zookaalmrzwq@gmail.com";
+const WHATSAPP = "971566047579";
 
-export default function PartnerJoinPage() {
-  const { lang } = useBilling();
+export default async function PartnerJoinPage() {
+  const lang = await getLang();
   const isAr = lang === "ar";
-  const [form, setForm] = useState(emptyForm);
-  const [error, setError] = useState("");
-  const [emailOpened, setEmailOpened] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
+  const tracks = isAr
+    ? [
+        "موزّع بالعمولة: 20% على الاشتراكات المؤهلة",
+        "وكيل / White-label: الشات باسم شركتك على نطاقك",
+        "امتياز منطقة: تشغيل كامل باسم منطقتك",
+      ]
+    : [
+        "Affiliate: 20% recurring on eligible subscriptions",
+        "White-label agent: the bot under your brand and domain",
+        "Franchise: full operation for your city or region",
+      ];
 
-    const parsed = formSchema.safeParse(form);
-    if (!parsed.success) {
-      setError(
-        isAr
-          ? "تحقق من الاسم والبريد الإلكتروني وأطوال الحقول."
-          : "Check the name, email, and field lengths."
-      );
-      return;
-    }
-
-    const subject = encodeURIComponent("طلب شراكة - Zooka AI");
-    const body = encodeURIComponent(
-      `الاسم: ${parsed.data.name}\nالبريد: ${parsed.data.email}\nالمنصة: ${parsed.data.platform || "—"}\nالكود المقترح: ${parsed.data.code || "—"}\nملاحظات: ${parsed.data.notes || "—"}`
-    );
-    window.location.href = `mailto:${partnerContact}?subject=${subject}&body=${body}`;
-    setEmailOpened(true);
-  }
-
-  function updateForm(field: keyof PartnerForm, value: string) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
+  const message = encodeURIComponent(
+    isAr
+      ? "طلب انضمام لشبكة شركاء ZOOKA AI\n\nالاسم:\nالشركة أو النشاط:\nالمدينة والبلد:\nالمسار المطلوب (موزّع / وكيل / امتياز):\nعدد العملاء المتوقع في أول 3 شهور:\nرقم التواصل:"
+      : "Zooka AI partner application\n\nName:\nCompany or business:\nCity and country:\nTrack (affiliate / white-label / franchise):\nExpected clients in first 3 months:\nContact number:"
+  );
 
   return (
     <main
-      className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 p-6 py-16"
-      dir={isAr ? "rtl" : "ltr"}
+      className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 p-6 py-16"
+      dir={dirOf(lang)}
       lang={lang}
+      style={{ fontFamily: fontOf(lang) }}
     >
+      <div className="absolute end-4 top-4 z-10">
+        <LanguageToggle lang={lang} />
+      </div>
+
       <header className="text-center">
-        <h1 className="font-semibold text-3xl">
-          {isAr ? "تسجيل شريك" : "Partner application"}
+        <p className="font-medium text-primary text-sm">
+          {isAr ? "شبكة الشركاء" : "Partner Network"}
+        </p>
+        <h1 className="mt-2 font-bold text-4xl md:text-5xl">
+          {isAr ? "طلب انضمام" : "Apply to join"}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
           {isAr
-            ? "املأ البيانات وسيفتح تطبيق البريد لإرسال طلبك للمراجعة."
-            : "Fill in the details; your email app will open to send your application for review."}
+            ? "أرسل بياناتك على واتساب بضغطة واحدة، ونرد عليك بمسار الشراكة والعمولة أو سعر الامتياز خلال يوم عمل."
+            : "Send your details on WhatsApp in one tap; we reply with the partner track, commission rate or franchise price within one business day."}
         </p>
       </header>
 
-      {emailOpened ? (
-        <section className="rounded-xl border p-6 text-center">
-          <p className="font-medium text-green-600">
-            {isAr ? "تم فتح تطبيق البريد" : "Email app opened"}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {isAr
-              ? "أرسل الرسالة من تطبيق البريد لإكمال طلبك. لم يُرسل الطلب تلقائياً."
-              : "Send the message from your email app to complete your application. It has not been sent automatically."}
-          </p>
-          <Link
-            className="mt-4 inline-block text-sm underline"
-            href="/partners"
-          >
-            {isAr ? "العودة إلى صفحة الشركاء" : "Back to partners"}
-          </Link>
-        </section>
-      ) : (
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <label className="flex flex-col gap-1 text-sm">
-            {isAr ? "الاسم الكامل" : "Full name"}
-            <input
-              autoComplete="name"
-              className="rounded-md border bg-background px-3 py-2"
-              maxLength={120}
-              minLength={2}
-              onChange={(event) => updateForm("name", event.target.value)}
-              required
-              value={form.name}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {isAr ? "البريد الإلكتروني" : "Email"}
-            <input
-              autoComplete="email"
-              className="rounded-md border bg-background px-3 py-2"
-              maxLength={254}
-              onChange={(event) => updateForm("email", event.target.value)}
-              required
-              type="email"
-              value={form.email}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {isAr ? "المنصة" : "Platform"}
-            <input
-              className="rounded-md border bg-background px-3 py-2"
-              maxLength={120}
-              onChange={(event) => updateForm("platform", event.target.value)}
-              placeholder={
-                isAr
-                  ? "إنستغرام، يوتيوب، تيك توك..."
-                  : "Instagram, YouTube, TikTok..."
-              }
-              value={form.platform}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {isAr ? "الكود المقترح (اختياري)" : "Suggested code (optional)"}
-            <input
-              className="rounded-md border bg-background px-3 py-2 uppercase"
-              maxLength={40}
-              onChange={(event) =>
-                updateForm("code", event.target.value.toUpperCase())
-              }
-              placeholder="AHMED20"
-              value={form.code}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {isAr
-              ? "ملاحظات أو عدد المتابعين التقريبي"
-              : "Notes or approximate audience size"}
-            <textarea
-              className="rounded-md border bg-background px-3 py-2"
-              maxLength={2000}
-              onChange={(event) => updateForm("notes", event.target.value)}
-              rows={3}
-              value={form.notes}
-            />
-          </label>
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            className="rounded-md bg-primary py-2.5 font-medium text-primary-foreground"
-            type="submit"
-          >
-            {isAr ? "إرسال الطلب بالبريد" : "Prepare application email"}
-          </button>
-        </form>
-      )}
+      <section className="rounded-2xl border p-6">
+        <h2 className="font-semibold text-xl">
+          {isAr ? "المسارات المتاحة" : "Available tracks"}
+        </h2>
+        <ul className="mt-3 flex flex-col gap-2 text-muted-foreground">
+          {tracks.map((t) => (
+            <li key={t} className="flex gap-2">
+              <span aria-hidden>•</span>
+              <span>{t}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <section className="flex flex-col items-center gap-4 rounded-2xl border bg-muted/30 p-6">
+        <a
+          className="w-full rounded-lg bg-primary px-6 py-3 text-center font-medium text-primary-foreground"
+          href={`https://wa.me/${WHATSAPP}?text=${message}`}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {isAr ? "أرسل الطلب على واتساب" : "Send the request on WhatsApp"}
+        </a>
+        <p className="text-xs text-muted-foreground">
+          {isAr
+            ? "الدعم عبر واتساب فقط، ولا نستقبل مكالمات على هذا الرقم."
+            : "Support is WhatsApp only; no calls are received on this number."}
+        </p>
+      </section>
+
+      <p className="text-center text-sm text-muted-foreground">
         <Link className="underline" href="/partners">
-          {isAr ? "صفحة الشركاء" : "Partner program"}
+          {isAr ? "برنامج الشراكة" : "Partner program"}
+        </Link>
+        {" · "}
+        <Link className="underline" href="/pricing">
+          {isAr ? "الأسعار" : "Pricing"}
+        </Link>
+        {" · "}
+        <Link className="underline" href="/terms">
+          {isAr ? "شروط الاستخدام" : "Terms"}
         </Link>
       </p>
     </main>

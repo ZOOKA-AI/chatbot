@@ -72,8 +72,8 @@ export default async function PartnersPage() {
         </div>
         <p className="mx-auto mt-4 max-w-2xl text-xs text-muted-foreground">
           {isAr
-            ? "يُراجع الفريق الطلبات يدوياً. روابط الإحالة وتتبع العمولات غير مفعّلة بعد؛ تُحدد تفاصيل الإسناد والدفع عند قبول الطلب."
-            : "Applications are reviewed manually. Referral links and commission tracking are not active yet; attribution and payout terms will be confirmed upon approval."}
+            ? "يُراجع الفريق الطلبات يدوياً. روابط الإحالة جاهزة وتتبّع النقرات والاشتراكات مفعّل؛ تُحدد تفاصيل الدفع عند قبول الطلب."
+            : "Applications are reviewed manually. Referral links are live with click and subscription tracking; payout terms are confirmed upon approval."}
         </p>
       </header>
 
