@@ -17,7 +17,7 @@
     "db:up": "drizzle-kit up",
     "test": "pnpm test:unit && pnpm test:e2e",
     "test:e2e": "pnpm exec playwright test",
-    "test:unit": "tsx --test tests/unit/agent-workflow.test.ts tests/unit/google-drive-security.test.ts lib/ai/models.test.ts"
+    "test:unit": "vitest run tests/unit && tsx --test lib/ai/models.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.15",
@@ -122,7 +122,13 @@
     "tailwindcss": "^4.1.13",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
-    "ultracite": "^7.0.11"
+    "ultracite": "^7.0.11",
+    "vitest": "5.0.5"
   },
-  "packageManager": "pnpm@9.12.3"
+  "packageManager": "pnpm@9.12.3",
+  "pnpm": {
+    "patchedDependencies": {
+      "ultracite@7.0.11": "patches/ultracite@7.0.11.patch"
+    }
+  }
 }

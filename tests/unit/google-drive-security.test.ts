@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
 import { isRevokedGoogleDriveGrant } from "@/lib/integrations/google-drive/token-response";
 
@@ -11,10 +11,7 @@ test("only an invalid_grant refresh failure marks a Drive grant revoked", () => 
 });
 
 test("Google Drive callback feedback is localized and ignores unknown values", () => {
-  assert.match(
-    getGoogleDriveCallbackFeedback("error", "ar") ?? "",
-    /OAuth/
-  );
+  assert.match(getGoogleDriveCallbackFeedback("error", "ar") ?? "", /OAuth/);
   assert.match(
     getGoogleDriveCallbackFeedback("cancelled", "en") ?? "",
     /cancelled/

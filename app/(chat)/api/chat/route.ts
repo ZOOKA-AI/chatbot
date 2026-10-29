@@ -15,6 +15,7 @@ import type { UserType } from "@/app/(auth)/auth";
 import {
   hasApprovedGoogleDriveCall,
   hasPendingToolApproval,
+  hasUnverifiedApprovedGoogleDriveCall,
   isAgentAccessAuthorized,
 } from "@/lib/ai/agent-access";
 import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
@@ -287,12 +288,10 @@ export async function POST(request: Request) {
       if (chat.visibility === "private" && chat.userId !== session.user.id) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
-      if (!isToolApprovalFlow) {
-        messagesFromDb = await getMessagesByChatId({
-          id,
-          organizationId: workspaceContext.organizationId,
-        });
-      }
+      messagesFromDb = await getMessagesByChatId({
+        id,
+        organizationId: workspaceContext.organizationId,
+      });
     } else if (message?.role === "user") {
       await saveChat({
         id,
@@ -307,6 +306,13 @@ export async function POST(request: Request) {
           return null;
         }
       );
+    }
+
+    if (
+      isToolApprovalFlow &&
+      (!chat || hasUnverifiedApprovedGoogleDriveCall(messages, messagesFromDb))
+    ) {
+      return new ChatbotError("forbidden:chat").toResponse();
     }
 
     const uiMessages = isToolApprovalFlow
@@ -447,7 +453,10 @@ export async function POST(request: Request) {
           }
           if (
             agentAccessAuthorized &&
-            !hasPendingToolApproval(finishedMessages)
+            !hasPendingToolApproval(
+              finishedMessages,
+              new Set(uiMessages.map((currentMessage) => currentMessage.id))
+            )
           ) {
             await recordUsage(
               session.user.id,
@@ -475,7 +484,10 @@ export async function POST(request: Request) {
             );
             if (
               agentAccessAuthorized &&
-              !hasPendingToolApproval(finishedMessages)
+              !hasPendingToolApproval(
+                finishedMessages,
+                new Set(uiMessages.map((currentMessage) => currentMessage.id))
+              )
             ) {
               await recordUsage(
                 session.user.id,

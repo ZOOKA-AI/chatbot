@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import {
   hasApprovedGoogleDriveCall,
   hasPendingToolApproval,
+  hasUnverifiedApprovedGoogleDriveCall,
   isAgentAccessAuthorized,
 } from "@/lib/ai/agent-access";
 import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
@@ -34,7 +35,10 @@ test("Google Drive approval parts are detected and denied outside Agent mode", (
 
   assert.equal(hasApprovedGoogleDriveCall(messages), true);
   assert.equal(hasPendingToolApproval(messages), false);
-  assert.equal(hasApprovedGoogleDriveCall([{ parts: [{ type: "text" }] }]), false);
+  assert.equal(
+    hasApprovedGoogleDriveCall([{ parts: [{ type: "text" }] }]),
+    false
+  );
   assert.equal(
     isAgentAccessAuthorized({
       agentMode: false,
@@ -47,10 +51,60 @@ test("Google Drive approval parts are detected and denied outside Agent mode", (
   );
 });
 
+test("Google Drive approval continuations must match a persisted request", () => {
+  const pending = {
+    id: "assistant-1",
+    role: "assistant",
+    parts: [
+      {
+        type: "tool-readGoogleDriveFile",
+        toolCallId: "tool-1",
+        state: "approval-requested",
+        input: { fileId: "file-123456789" },
+        approval: { id: "approval-1" },
+      },
+    ],
+  };
+  const approved = {
+    ...pending,
+    parts: [
+      {
+        ...pending.parts[0],
+        state: "approval-responded",
+        approval: { id: "approval-1", approved: true },
+      },
+    ],
+  };
+
+  assert.equal(
+    hasUnverifiedApprovedGoogleDriveCall([approved], [pending]),
+    false
+  );
+  assert.equal(hasUnverifiedApprovedGoogleDriveCall([approved], []), true);
+  assert.equal(
+    hasUnverifiedApprovedGoogleDriveCall(
+      [
+        {
+          ...approved,
+          parts: [
+            {
+              ...approved.parts[0],
+              input: { fileId: "other-file-123456" },
+            },
+          ],
+        },
+      ],
+      [pending]
+    ),
+    true
+  );
+});
+
 test("pending tool approvals defer the single Agent run charge", () => {
   assert.equal(
     hasPendingToolApproval([
       {
+        id: "assistant-generated",
         role: "assistant",
         parts: [{ type: "tool-getWeather", state: "approval-requested" }],
       },
@@ -64,6 +118,18 @@ test("pending tool approvals defer the single Agent run charge", () => {
         parts: [{ type: "tool-getWeather", state: "approval-responded" }],
       },
     ]),
+    false
+  );
+  assert.equal(
+    hasPendingToolApproval(
+      [
+        {
+          id: "assistant-client",
+          parts: [{ type: "tool-getWeather", state: "approval-requested" }],
+        },
+      ],
+      new Set(["assistant-client"])
+    ),
     false
   );
 });
@@ -86,8 +152,14 @@ test("Agent tools require a supported model, paid quota, and remaining usage", (
     isAgentAccessAuthorized({ ...access, agentRunsUsed: 500 }),
     false
   );
-  assert.equal(isAgentAccessAuthorized({ ...access, quotaAllowed: false }), false);
-  assert.equal(isAgentAccessAuthorized({ ...access, supportsTools: false }), false);
+  assert.equal(
+    isAgentAccessAuthorized({ ...access, quotaAllowed: false }),
+    false
+  );
+  assert.equal(
+    isAgentAccessAuthorized({ ...access, supportsTools: false }),
+    false
+  );
 });
 
 test("Agent errors keep the response envelope expected by chat clients", async () => {
