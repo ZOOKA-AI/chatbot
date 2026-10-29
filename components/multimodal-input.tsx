@@ -28,10 +28,10 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
-import { modelSupportsTools } from "@/lib/ai/models";
 import {
   chatModels,
   DEFAULT_CHAT_MODEL,
+  modelSupportsTools,
   modelsByProvider,
 } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -472,20 +472,22 @@ function PureMultimodalInput({
             </PromptInputSubmit>
           )}
         </PromptInputToolbar>
-        {!agentModeAllowed ? (
+        {agentModeAllowed ? (
+          agentMode ? (
+            <p
+              className="px-2 pt-2 text-xs text-muted-foreground"
+              data-testid="agent-mode-usage"
+            >
+              {lang === "ar"
+                ? `يستخدم هذا الطلب تشغيلاً من حصة مساحة العمل الشهرية. المتبقي: ${agentRunsRemaining.toLocaleString(lang)}.`
+                : `This request uses one workspace agent run. ${agentRunsRemaining.toLocaleString(lang)} remain this month.`}
+            </p>
+          ) : null
+        ) : (
           <p className="px-2 pt-2 text-xs text-muted-foreground">
             {agentModeUnavailableMessage}
           </p>
-        ) : agentMode ? (
-          <p
-            className="px-2 pt-2 text-xs text-muted-foreground"
-            data-testid="agent-mode-usage"
-          >
-            {lang === "ar"
-              ? `يستخدم هذا الطلب تشغيلاً من حصة مساحة العمل الشهرية. المتبقي: ${agentRunsRemaining.toLocaleString(lang)}.`
-              : `This request uses one workspace agent run. ${agentRunsRemaining.toLocaleString(lang)} remain this month.`}
-          </p>
-        ) : null}
+        )}
       </PromptInput>
     </div>
   );

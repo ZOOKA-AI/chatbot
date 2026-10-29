@@ -31,7 +31,9 @@ test("English navigation uses LTR direction", async ({ page }) => {
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   await expect(navigation.getByText("Agents", { exact: true })).toBeVisible();
   await expect(navigation.getByText("Work", { exact: true })).toBeVisible();
-  await expect(navigation.getByText("Workspace", { exact: true })).toBeVisible();
+  await expect(
+    navigation.getByText("Workspace", { exact: true })
+  ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
 });

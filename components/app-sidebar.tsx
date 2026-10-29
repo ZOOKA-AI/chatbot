@@ -1,8 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { User } from "next-auth";
 import {
   Bot,
   BriefcaseBusiness,
@@ -12,6 +9,9 @@ import {
   Settings,
   UserRound,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { User } from "next-auth";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -30,10 +30,10 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarHeader,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -254,10 +254,7 @@ export function AppSidebar({
                   <SidebarMenu>
                     {section.items.map((item) => (
                       <SidebarMenuItem key={item.href + item.label}>
-                        <SidebarMenuButton
-                          asChild
-                          tooltip={item.label}
-                        >
+                        <SidebarMenuButton asChild tooltip={item.label}>
                           <Link
                             href={item.href}
                             onClick={() => setOpenMobile(false)}
