@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
+import {
+  agentModeErrorResponse,
+  localizeAgentModeErrorCause,
+} from "@/lib/ai/agent-mode-errors";
 import { fetchWithErrorHandlers } from "@/lib/utils";
 
 const CHAT_URL_REGEX = /\/chat\/[\w-]+/;
@@ -45,6 +48,20 @@ test.describe("Chat API Integration", () => {
       cause:
         "Agent mode is unavailable with this model. Choose a tool-capable model.",
     });
+    expect(
+      localizeAgentModeErrorCause(
+        "Agent mode is unavailable with this model. Choose a tool-capable model.",
+        "ar"
+      )
+    ).toBe("وضع الوكيل غير متاح مع هذا النموذج. اختر نموذجاً يدعم الأدوات.");
+    expect(
+      localizeAgentModeErrorCause(
+        "Agent mode is unavailable with this model. Choose a tool-capable model.",
+        "en"
+      )
+    ).toBe(
+      "Agent mode is unavailable with this model. Choose a tool-capable model."
+    );
   });
 
   test("guest requests cannot enable paid Agent mode", async ({ request }) => {
