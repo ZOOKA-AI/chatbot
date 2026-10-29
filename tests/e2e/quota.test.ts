@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { refreshAgentQuotaIfNeeded } from "@/lib/ai/agent-quota-refresh";
 import { chatModels, modelSupportsTools } from "@/lib/ai/models";
+import { ChatbotError } from "@/lib/errors";
 import { getQuotaStatus } from "@/lib/saas/quota-utils";
 
 test("quota limits stop usage at the plan boundary", () => {
@@ -35,4 +37,29 @@ test("Agent mode only uses models that support tools", () => {
   for (const model of chatModels) {
     expect(modelSupportsTools(model.id)).toBe(!model.id.endsWith("-thinking"));
   }
+});
+
+test("refreshes authoritative agent quota after completion or quota rejection", () => {
+  let refreshes = 0;
+  const refresh = () => {
+    refreshes += 1;
+  };
+
+  refreshAgentQuotaIfNeeded({ refresh, agentMode: true, completed: true });
+  expect(refreshes).toBe(1);
+
+  refreshAgentQuotaIfNeeded({
+    refresh,
+    agentMode: true,
+    error: new ChatbotError("rate_limit:chat"),
+  });
+  expect(refreshes).toBe(2);
+
+  refreshAgentQuotaIfNeeded({
+    refresh,
+    agentMode: true,
+    error: new ChatbotError("bad_request:api"),
+  });
+  refreshAgentQuotaIfNeeded({ refresh, agentMode: false, completed: true });
+  expect(refreshes).toBe(2);
 });

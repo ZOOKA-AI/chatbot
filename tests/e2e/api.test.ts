@@ -1,9 +1,52 @@
 import { expect, test } from "@playwright/test";
+import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
+import { fetchWithErrorHandlers } from "@/lib/utils";
 
 const CHAT_URL_REGEX = /\/chat\/[\w-]+/;
 const ERROR_TEXT_REGEX = /error|failed|trouble/i;
 
 test.describe("Chat API Integration", () => {
+  test("unsupported Agent model errors use the retry-safe ChatbotError envelope", async () => {
+    const originalFetch = globalThis.fetch;
+    const navigatorDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "navigator"
+    );
+    let attempts = 0;
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: { onLine: true },
+    });
+    globalThis.fetch = () => {
+      attempts += 1;
+      return Promise.resolve(agentModeErrorResponse("unsupported_model"));
+    };
+
+    try {
+      await expect(fetchWithErrorHandlers("/api/chat")).rejects.toMatchObject({
+        type: "bad_request",
+        cause:
+          "Agent mode is unavailable with this model. Choose a tool-capable model.",
+      });
+      expect(attempts).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (navigatorDescriptor) {
+        Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, "navigator");
+      }
+    }
+
+    const response = agentModeErrorResponse("unsupported_model");
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "bad_request:api",
+      cause:
+        "Agent mode is unavailable with this model. Choose a tool-capable model.",
+    });
+  });
+
   test("guest requests cannot enable paid Agent mode", async ({ request }) => {
     const response = await request.post("/api/chat", {
       data: {
