@@ -8,6 +8,8 @@ export type BillingState = {
   isGuest: boolean;
   isSubscribed: boolean;
   canUseAgentMode: boolean;
+  hasAgentPlan: boolean;
+  agentRunsRemaining: number;
   canManageBilling: boolean;
 };
 
@@ -16,6 +18,8 @@ const defaultState: BillingState = {
   isGuest: true,
   isSubscribed: false,
   canUseAgentMode: false,
+  hasAgentPlan: false,
+  agentRunsRemaining: 0,
   canManageBilling: false,
 };
 

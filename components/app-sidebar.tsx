@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
+import {
+  Bot,
+  BriefcaseBusiness,
+  Cable,
+  CreditCard,
+  FileText,
+  Settings,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -22,7 +31,12 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { UpgradeButton } from "@/components/upgrade-button";
@@ -50,14 +64,84 @@ export function AppSidebar({
   role?: "owner" | "admin" | "member";
   isGuest?: boolean;
 }) {
-  const { lang } = useBilling();
+  const { lang, canUseAgentMode, hasAgentPlan, agentRunsRemaining } =
+    useBilling();
   const t = copy[lang];
+  const isArabic = lang === "ar";
   const canRename = role === "owner" || role === "admin";
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
   const { mutate } = useSWRConfig();
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const workAssistantHref = canUseAgentMode
+    ? "/?mode=work"
+    : isGuest
+      ? "/pricing"
+      : "/workspace/billing";
+  const navigationSections = [
+    {
+      label: isArabic ? "الوكلاء" : "Agents",
+      items: [
+        {
+          href: "/",
+          icon: <Bot />,
+          label: isArabic ? "الدردشة والنماذج" : "Chat and models",
+        },
+      ],
+    },
+    {
+      label: isArabic ? "العمل" : "Work",
+      items: [
+        {
+          href: workAssistantHref,
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "مساعد العمل" : "Work assistant",
+          title: canUseAgentMode
+            ? isArabic
+              ? `متبقي ${agentRunsRemaining.toLocaleString(lang)} من تشغيلات الوكيل هذا الشهر.`
+              : `${agentRunsRemaining.toLocaleString(lang)} agent runs remaining this month.`
+            : hasAgentPlan
+              ? isArabic
+                ? "تم بلوغ الحد الشهري لتشغيلات الوكيل. راجع الباقة والاستخدام."
+                : "Monthly agent run limit reached. See Plan and usage."
+              : isArabic
+                ? "يتطلب مساعد العمل خطة Pro أو Business."
+                : "Work assistant requires a Pro or Business plan.",
+        },
+        {
+          href: "/settings/integrations",
+          icon: <Cable />,
+          label: isArabic ? "التكاملات" : "Integrations",
+        },
+      ],
+    },
+    {
+      label: isArabic ? "مساحة العمل" : "Workspace",
+      items: [
+        {
+          href: "/",
+          icon: <FileText />,
+          label: isArabic ? "المحادثات والمحتوى" : "Chats and content",
+        },
+        {
+          href: "/workspace",
+          icon: <Settings />,
+          label: t.workspaceSettings,
+        },
+        {
+          href: "/workspace/billing",
+          icon: <CreditCard />,
+          label: isArabic ? "الباقة والاستخدام" : "Plan and usage",
+        },
+        {
+          href: "/settings/account",
+          icon: <UserRound />,
+          label: isArabic ? "الحساب" : "Account",
+        },
+      ],
+    },
+  ];
 
   const handleDeleteAll = () => {
     const deletePromise = fetch("/api/history", {
@@ -157,29 +241,39 @@ export function AppSidebar({
                   </button>
                 )}
               </div>
-              <Link
-                className="text-muted-foreground text-xs underline"
-                href="/workspace"
-                onClick={() => setOpenMobile(false)}
-              >
-                {t.workspaceSettings}
-              </Link>
-              <span className="px-1 text-muted-foreground">·</span>
-              <Link
-                className="text-muted-foreground text-xs underline"
-                href="/settings/integrations"
-              >
-                {t.integrations}
-              </Link>
-              <span className="px-1 text-muted-foreground">·</span>
-              <Link
-                className="text-muted-foreground text-xs underline"
-                href="/settings/account"
-              >
-                {lang === "ar" ? "الحساب" : "Account"}
-              </Link>
             </div>
           )}
+          <nav
+            aria-label={isArabic ? "التنقل الرئيسي" : "Main navigation"}
+            className="flex flex-col"
+          >
+            {navigationSections.map((section) => (
+              <SidebarGroup key={section.label}>
+                <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {section.items.map((item) => (
+                      <SidebarMenuItem key={item.href + item.label}>
+                        <SidebarMenuButton
+                          asChild
+                          tooltip={item.label}
+                        >
+                          <Link
+                            href={item.href}
+                            onClick={() => setOpenMobile(false)}
+                            title={"title" in item ? item.title : undefined}
+                          >
+                            {item.icon}
+                            <span>{item.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
+          </nav>
           <div className="mx-2 flex flex-col gap-2">
             <UpgradeButton
               className="w-full"
