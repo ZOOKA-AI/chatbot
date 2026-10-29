@@ -12,10 +12,14 @@ Agent mode also includes task templates tied to configured tool-capable models,
 clear progress guidance, localized API errors, and a server refresh of
 workspace quota state after an Agent run or quota rejection.
 
-The build command runs database migrations. Before using Vercel Preview for
-this branch, set its `POSTGRES_URL` to an isolated preview database rather than
-the production database; this project's Vercel database settings could not be
-verified during this review.
+The build command compiles the app and does not run database migrations.
+Run `pnpm db:migrate` only as a deliberate release step after verifying the
+target environment and its `POSTGRES_URL`; Preview migrations must use an
+isolated Preview database. A Preview build on an earlier revision ran the
+migration command, and its database target and migration history have not been
+verified because the Vercel project settings were unavailable during review.
+Check the Preview database's migration history before running migrations or
+promoting a release.
 
 Ship each follow-up as an independently deployable, stable increment, targeting
 about 10 days between releases:
