@@ -19,6 +19,7 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
+import { createReadUrl } from "@/lib/ai/tools/read-url";
 import { createWebSearch } from "@/lib/ai/tools/web-search";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { isProductionEnvironment } from "@/lib/constants";
@@ -346,6 +347,7 @@ export async function POST(request: Request) {
                 "updateDocument",
                 "requestSuggestions",
                 "searchWeb",
+                "readUrl",
               ],
           providerOptions: isReasoningModel
             ? {
@@ -360,6 +362,10 @@ export async function POST(request: Request) {
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({ session, dataStream }),
             searchWeb: createWebSearch({
+              userId: session.user.id,
+              organizationId: workspaceContext.organizationId,
+            }),
+            readUrl: createReadUrl({
               userId: session.user.id,
               organizationId: workspaceContext.organizationId,
             }),
