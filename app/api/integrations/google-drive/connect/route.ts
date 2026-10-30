@@ -9,7 +9,10 @@ import {
   GOOGLE_DRIVE_VERIFIER_COOKIE,
 } from "@/lib/integrations/google-drive/oauth-state";
 import { getGoogleDriveOAuthConfig } from "@/lib/integrations/google-drive/server";
-import { GOOGLE_DRIVE_SCOPE } from "@/lib/integrations/google-drive/token-response";
+import {
+  GOOGLE_GMAIL_SCOPE,
+  GOOGLE_DRIVE_SCOPE,
+} from "@/lib/integrations/google-drive/token-response";
 
 export async function GET() {
   const context = await requireWorkspaceRole("admin");
@@ -43,7 +46,7 @@ export async function GET() {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: "code",
-    scope: GOOGLE_DRIVE_SCOPE,
+    scope: `${GOOGLE_DRIVE_SCOPE} ${GOOGLE_GMAIL_SCOPE}`,
     access_type: "offline",
     prompt: "consent",
     state: nonce,

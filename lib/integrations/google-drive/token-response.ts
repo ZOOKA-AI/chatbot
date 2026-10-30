@@ -3,6 +3,12 @@ import { z } from "zod";
 export const GOOGLE_DRIVE_SCOPE =
   "https://www.googleapis.com/auth/drive.readonly";
 
+export const GOOGLE_GMAIL_SCOPE =
+  "https://www.googleapis.com/auth/gmail.readonly";
+
+/** Scopes the workspace Google connection may request. */
+export const GOOGLE_READ_SCOPES = [GOOGLE_DRIVE_SCOPE, GOOGLE_GMAIL_SCOPE];
+
 const tokensSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),
@@ -30,12 +36,16 @@ export function parseGoogleDriveTokens(
     })
     .parse(value);
   const scopes = (parsed.scope ?? GOOGLE_DRIVE_SCOPE).split(/\s+/);
+  const unauthorizedScope = scopes.find(
+    (scope) => !GOOGLE_READ_SCOPES.includes(scope)
+  );
   if (
-    scopes.length !== 1 ||
-    scopes[0] !== GOOGLE_DRIVE_SCOPE ||
+    scopes.length === 0 ||
+    unauthorizedScope ||
+    !scopes.includes(GOOGLE_DRIVE_SCOPE) ||
     (parsed.token_type && parsed.token_type.toLowerCase() !== "bearer")
   ) {
-    throw new Error("Google Drive read-only access was not granted");
+    throw new Error("Google read-only access was not granted");
   }
   const refreshToken = parsed.refresh_token ?? previousRefreshToken;
   if (!refreshToken) {

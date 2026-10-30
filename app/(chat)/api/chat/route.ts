@@ -35,6 +35,7 @@ import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
+import { createGmailTools } from "@/lib/ai/tools/google-gmail";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
@@ -337,6 +338,9 @@ export async function POST(request: Request) {
       : [...convertToUIMessages(messagesFromDb), message as ChatMessage];
 
     const { longitude, latitude, city, country } = geolocation(request);
+    const gmailTools = agentAccessAuthorized
+      ? createGmailTools(workspaceContext.organizationId)
+      : {};
     const googleDriveTools = agentAccessAuthorized
       ? createGoogleDriveTools(workspaceContext.organizationId)
       : {};
@@ -385,6 +389,7 @@ export async function POST(request: Request) {
             organizationId: workspaceContext.organizationId,
           }),
           ...googleDriveTools,
+          ...gmailTools,
         };
 
         const result = streamText({
@@ -412,7 +417,12 @@ export async function POST(request: Request) {
                 ...(process.env.TAVILY_API_KEY ? ["searchWeb"] : []),
                 "readUrl",
                 ...(agentAccessAuthorized
-                  ? (["searchGoogleDrive", "readGoogleDriveFile"] as const)
+                  ? ([
+                      "searchGoogleDrive",
+                      "readGoogleDriveFile",
+                      "searchGmail",
+                      "readGmailMessage",
+                    ] as const)
                   : []),
               ],
           providerOptions: isReasoningModel
