@@ -9,6 +9,14 @@ export async function proxy(request: NextRequest) {
    * Playwright starts the dev server and requires a 200 status to
    * begin the tests, so this ensures that the tests can start
    */
+  /*
+   * Google Search Console / OAuth ownership verification serves a static
+   * google<token>.html file at the site root and must return it without auth.
+   */
+  if (/^\/google[0-9a-zA-Z]+\.html$/.test(pathname)) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
   }
