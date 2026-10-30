@@ -12,13 +12,16 @@ import {
 } from "@/lib/integrations/google-drive/server";
 import { parseGoogleDriveTokens } from "@/lib/integrations/google-drive/token-response";
 
-function finish(result: string) {
+function finish(result: string, stage?: string) {
   const config = getGoogleDriveOAuthConfig();
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
     (config ? new URL(config.redirectUri).origin : "http://localhost:3000");
   const response = NextResponse.redirect(
-    new URL(`/settings/integrations?googleDrive=${result}`, appUrl)
+    new URL(
+      `/settings/integrations?googleDrive=${result}${stage ? `&stage=${stage}` : ""}`,
+      appUrl
+    )
   );
   const cookieOptions = {
     httpOnly: true,
@@ -53,7 +56,7 @@ export async function GET(request: Request) {
     return finish("cancelled");
   }
   if (!state || !code || !stateCookie || !verifier) {
-    return finish("error");
+    return finish("error", !state ? "no_state" : !code ? "no_code" : !stateCookie ? "no_state_cookie" : "no_verifier");
   }
 
   let stateBinding: ReturnType<typeof verifyGoogleDriveOAuthState>;
@@ -64,14 +67,14 @@ export async function GET(request: Request) {
       config.authSecret
     );
   } catch {
-    return finish("error");
+    return finish("error", "state_verify");
   }
   if (
     !stateBinding ||
     stateBinding.organizationId !== context.organizationId ||
     stateBinding.userId !== context.user.id
   ) {
-    return finish("error");
+    return finish("error", "state_binding");
   }
 
   try {
@@ -89,16 +92,29 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
-      return finish("error");
+      const body = await response.text();
+      console.error("Google token exchange rejected", {
+        status: response.status,
+        body: body.slice(0, 300),
+      });
+      return finish("error", `token_${response.status}`);
     }
     const value = await response.json();
     const tokens = parseGoogleDriveTokens(value);
-    await saveGoogleDriveTokens(stateBinding.organizationId, tokens);
+    try {
+      await saveGoogleDriveTokens(stateBinding.organizationId, tokens);
+    } catch (error) {
+      console.error("Google Drive token storage failed", {
+        reason: error instanceof Error ? error.message : "unknown",
+      });
+      return finish("error", "save");
+    }
     return finish("connected");
   } catch (error) {
     console.error("Google Drive OAuth callback failed", {
       reason: error instanceof Error ? error.name : "unknown",
+      message: error instanceof Error ? error.message : undefined,
     });
-    return finish("error");
+    return finish("error", "exception");
   }
 }
