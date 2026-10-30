@@ -2,6 +2,22 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
+/**
+ * Routes that require an authenticated session. Anything not listed here is
+ * either public or a genuine 404, so unknown URLs reach Next.js and render the
+ * not-found page instead of bouncing visitors to the login screen.
+ */
+const PROTECTED_PREFIXES = [
+  "/chat",
+  "/settings",
+  "/workspace",
+  "/account",
+  "/agents",
+  "/work",
+  "/admin",
+  "/api",
+];
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -34,6 +50,8 @@ export async function proxy(request: NextRequest) {
     pathname === "/pricing" ||
     pathname === "/contact" ||
     pathname === "/privacy" ||
+    pathname === "/privacy-policy" ||
+    pathname === "/terms-of-use" ||
     pathname === "/refund" ||
     pathname === "/terms" ||
     pathname === "/embed" ||
@@ -76,7 +94,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!token && !["/login", "/register"].includes(pathname)) {
+  const isProtectedRoute = PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+
+  if (!token && isProtectedRoute) {
     // Guest auto-provisioning disabled: require real sign-up
     return NextResponse.redirect(new URL("/login", request.url));
   }
