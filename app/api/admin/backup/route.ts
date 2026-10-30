@@ -25,11 +25,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  if (!process.env.POSTGRES_URL) {
+  if (!(process.env.DATABASE_URL ?? process.env.POSTGRES_URL)) {
     return NextResponse.json({ error: "db_not_configured" }, { status: 500 });
   }
 
-  const client = postgres(process.env.POSTGRES_URL, { max: 1 });
+  const client = postgres(
+    (process.env.DATABASE_URL ?? process.env.POSTGRES_URL) as string,
+    { max: 1, prepare: false },
+  );
   try {
     const tables: Record<string, unknown[]> = {};
     for (const table of TABLES) {

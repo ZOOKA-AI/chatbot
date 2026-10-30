@@ -54,7 +54,11 @@ import { generateHashedPassword } from "./utils";
 // https://authjs.dev/reference/adapter/drizzle
 
 // biome-ignore lint: Forbidden non-null assertion.
-const client = postgres(process.env.POSTGRES_URL!);
+// CUTOVER: DATABASE_URL (Supabase pooler) يتقدم على POSTGRES_URL القديم —
+// حذف DATABASE_URL من Vercel يعيد التطبيق للقاعدة القديمة فورًا (rollback بمتغير واحد).
+const connectionString =
+  process.env.DATABASE_URL ?? (process.env.POSTGRES_URL as string);
+const client = postgres(connectionString, { prepare: false, max: 1 });
 export const db = drizzle(client);
 
 async function retryBlobRequest<T>(
