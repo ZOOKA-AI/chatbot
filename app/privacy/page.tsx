@@ -33,7 +33,7 @@ async function PrivacyContent() {
           {ar ? "سياسة الخصوصية" : "Privacy Policy"}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {ar ? "آخر تحديث: 23 أكتوبر 2026" : "Last updated: October 23, 2026"}
+          {ar ? "آخر تحديث: 30 أكتوبر 2026" : "Last updated: October 30, 2026"}
         </p>
       </header>
 
@@ -75,6 +75,41 @@ async function PrivacyContent() {
               جهات خارجية. لا تشارك معلومات شخصية أو مالية أو سرية حساسة في
               المحادثات.
             </p>
+
+            <h2 className="font-semibold text-lg">بيانات Google (Gmail وGoogle Drive)</h2>
+            <p>
+              عند ربط حساب Google بمساحة عملك، يطلب التطبيق صلاحيتين للقراءة
+              فقط: قراءة Gmail (gmail.readonly) وقراءة Google Drive
+              (drive.readonly). يستخدم الوكيل هذه الصلاحيات للبحث عن رسائل
+              البريد وقراءتها، وللبحث عن ملفات Drive وقراءة نصها عند طلبك فقط.
+            </p>
+            <ul className="flex list-disc flex-col gap-2 ps-5">
+              <li>
+                الوصول للقراءة فقط: لا يستطيع التطبيق إرسال بريد أو حذفه أو
+                تعديله، ولا إنشاء ملفات في Drive أو تعديلها أو حذفها.
+              </li>
+              <li>
+                تُخزَّن رموز OAuth (access وrefresh token) مشفّرة بمفتاح خاص
+                بالخادم، ومرتبطة بمساحة عملك وحدها.
+              </li>
+              <li>
+                يمكنك إلغاء الربط في أي وقت من صفحة التكاملات، فيُحذف الاتصال
+                المشفّر ويُطلب إبطال التفويض من Google.
+              </li>
+              <li>
+                لا نبيع بيانات Google الخاصة بك، ولا نستخدمها للإعلانات، ولا
+                لتدريب نماذج ذكاء اصطناعي عامة.
+              </li>
+              <li>
+                نص الرسالة أو الملف الذي يطلبه الوكيل يُرسل إلى مزوّد النموذج
+                لتوليد الرد، ويُحفظ ضمن سجل المحادثة كما هو موضح أعلاه. لا
+                يُخزَّن محتوى بريدك أو ملفاتك بشكل منفصل على خوادمنا.
+              </li>
+              <li>
+                استخدام التطبيق لبيانات Google يلتزم بسياسة بيانات مستخدمي
+                Google، بما في ذلك متطلبات الاستخدام المحدود (Limited Use).
+              </li>
+            </ul>
 
             <h2 className="font-semibold text-lg">المدفوعات</h2>
             <p>
@@ -135,6 +170,44 @@ async function PrivacyContent() {
               AI model providers. Do not share sensitive personal, financial,
               or confidential information in chats.
             </p>
+
+            <h2 className="font-semibold text-lg">Google user data (Gmail and Google Drive)</h2>
+            <p>
+              When you connect a Google account to your workspace, the app
+              requests two read-only scopes: Gmail read access
+              (gmail.readonly) and Google Drive read access (drive.readonly).
+              The Agent uses them to search and read email messages, and to
+              search Drive files and read their text, only when you ask.
+            </p>
+            <ul className="flex list-disc flex-col gap-2 pl-5">
+              <li>
+                Read-only access: the app cannot send, delete, or modify email,
+                and cannot create, edit, or delete Drive files.
+              </li>
+              <li>
+                OAuth tokens (access and refresh) are stored encrypted with a
+                server-held key and scoped to your workspace only.
+              </li>
+              <li>
+                You can disconnect at any time from the integrations page,
+                which removes the encrypted connection and asks Google to
+                revoke the grant.
+              </li>
+              <li>
+                We do not sell your Google data, use it for advertising, or use
+                it to train generalized AI models.
+              </li>
+              <li>
+                The email or file text the Agent reads is sent to the model
+                provider to produce the answer and is retained in your chat
+                history as described above. Your mail or file content is not
+                stored separately on our servers.
+              </li>
+              <li>
+                This app&apos;s use of Google data complies with the Google API
+                Services User Data Policy, including Limited Use requirements.
+              </li>
+            </ul>
 
             <h2 className="font-semibold text-lg">Payments</h2>
             <p>
