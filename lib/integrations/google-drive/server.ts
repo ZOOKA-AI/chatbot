@@ -19,7 +19,13 @@ import {
 } from "@/lib/integrations/google-drive/token-response";
 
 export function getGoogleDriveOAuthConfig() {
-  const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET } = process.env;
+  // Prefer the rotated credential names; fall back to the legacy ones so an
+  // existing deployment keeps working while the old values are phased out.
+  const GOOGLE_DRIVE_CLIENT_ID =
+    process.env.GOOGLE_OAUTH_CLIENT_ID ?? process.env.GOOGLE_DRIVE_CLIENT_ID;
+  const GOOGLE_DRIVE_CLIENT_SECRET =
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET ??
+    process.env.GOOGLE_DRIVE_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI;
   const encryptionKey = process.env.GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY;
   const authSecret = process.env.AUTH_SECRET;
