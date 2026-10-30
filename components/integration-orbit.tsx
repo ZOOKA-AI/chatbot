@@ -39,7 +39,7 @@ export function IntegrationOrbit({ size = 300 }: { size?: number }) {
     <div
       aria-hidden="true"
       className="zoka-orbit-root"
-      style={{ height: outer + 24, width: outer + 24 }}
+      style={{ height: outer + 96, width: outer + 24 }}
     >
       <style>{`
         .zoka-orbit-root { position: relative; display: flex; align-items: center; justify-content: center; }
