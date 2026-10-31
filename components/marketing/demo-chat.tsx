@@ -48,9 +48,9 @@ const SECTORS: { key: string; ar: string; en: string; promptAr: string; promptEn
     ar: "🧽 تنظيف",
     en: "🧽 Cleaning",
     promptAr:
-      "عندي شركة تنظيف في أبوظبي. اكتب لي رد على عميل يسأل عن سعر تنظيف فيلا 4 غرف، مع الأسعار والشروط.",
+      "عندي شركة تنظيف في أبوظبي. اكتب لي رد على عميل يسأل عن سعر تنظيف فيلا 4 غرف: صيغة الرد، والبنود، والأسعار سيبها [السعر] عشان أعدّلها.",
     promptEn:
-      "I run a cleaning company in Abu Dhabi. Write a reply to a customer asking the price for cleaning a 4-bedroom villa, with pricing and terms.",
+      "I run a cleaning company in Abu Dhabi. Write a reply to a customer asking the price for cleaning a 4-bedroom villa: the structure, the line items, and leave the amounts as [price] for me to fill in.",
   },
   {
     key: "restaurant",
