@@ -57,7 +57,6 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
-import { consumeGuestMessage } from "@/lib/guest";
 import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
@@ -78,83 +77,6 @@ function getStreamContext() {
 }
 
 export { getStreamContext };
-
-function toGuestTextMessage(
-  input: { role: string; parts: unknown[] },
-  role: "user" | "assistant"
-): ChatMessage {
-  const parts = input.parts
-    .filter(
-      (part): part is { type: "text"; text: string } =>
-        typeof part === "object" &&
-        part !== null &&
-        (part as { type?: unknown }).type === "text" &&
-        typeof (part as { text?: unknown }).text === "string"
-    )
-    .map((part) => ({ type: "text" as const, text: part.text.slice(0, 4000) }));
-  return { id: generateUUID(), role, parts };
-}
-
-async function handleGuestMessage({
-  request,
-  message,
-  history,
-  selectedChatModel,
-  lang,
-}: {
-  request: Request;
-  message: PostRequestBody["message"];
-  history: PostRequestBody["history"];
-  selectedChatModel: string;
-  lang: "ar" | "en";
-}) {
-  if (message?.role !== "user") {
-    return new ChatbotError("unauthorized:chat").toResponse();
-  }
-  if (paidModelIds.has(selectedChatModel)) {
-    return agentModeErrorResponse("paid_model_required", lang);
-  }
-
-  if (process.env.GUEST_PAYWALL_ENABLED !== "true") {
-    return new ChatbotError("unauthorized:chat").toResponse();
-  }
-
-  await consumeGuestMessage(ipAddress(request));
-
-  const previousMessages = (history ?? [])
-    .filter((entry) => entry.role === "user" || entry.role === "assistant")
-    .slice(-6)
-    .map((entry) =>
-      toGuestTextMessage(entry, entry.role === "user" ? "user" : "assistant")
-    )
-    .filter((entry) => entry.parts.length > 0);
-  const modelMessages = await convertToModelMessages([
-    ...previousMessages,
-    toGuestTextMessage(message, "user"),
-  ]);
-
-  const { longitude, latitude, city, country } = geolocation(request);
-  const requestHints: RequestHints = { longitude, latitude, city, country };
-
-  const stream = createUIMessageStream({
-    execute: ({ writer: dataStream }) => {
-      const result = streamText({
-        model: getLanguageModel(selectedChatModel),
-        system: systemPrompt({ selectedChatModel, requestHints }),
-        messages: modelMessages,
-        experimental_activeTools: [],
-      });
-      dataStream.merge(result.toUIMessageStream());
-    },
-    generateId: generateUUID,
-    onError: (error) => {
-      logModelProviderFailure(error, selectedChatModel, "guest-chat");
-      return describeModelProviderFailure(error, lang);
-    },
-  });
-
-  return createUIMessageStreamResponse({ stream });
-}
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
@@ -203,17 +125,12 @@ export async function POST(request: Request) {
 
     await checkIpRateLimit(ipAddress(request));
 
+    /*
+     * `/api/chat` is session-only. Anonymous visitors use `/api/demo-chat`,
+     * a narrow preview that cannot read another user's chatId or write rows.
+     */
     if (!workspaceContext) {
-      if (agentMode) {
-        return agentModeErrorResponse("plan_required", lang);
-      }
-      return await handleGuestMessage({
-        request,
-        message,
-        history,
-        selectedChatModel,
-        lang,
-      });
+      return new ChatbotError("unauthorized:chat").toResponse();
     }
     if (!agentMode && hasApprovedGoogleDriveCall(messages)) {
       return new ChatbotError("forbidden:chat").toResponse();

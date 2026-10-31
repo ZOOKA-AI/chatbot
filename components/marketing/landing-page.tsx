@@ -14,6 +14,8 @@ import { DemoChat } from "@/components/marketing/demo-chat";
 import { TaskTemplates } from "@/components/marketing/task-templates";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf } from "@/lib/i18n";
+import { planFeatures } from "@/lib/billing/entitlements";
+import { CTA } from "@/lib/marketing/cta";
 
 type Lang = "ar" | "en";
 
@@ -25,18 +27,8 @@ export const plans = [
     period: { ar: "للأبد", en: "forever" },
     tag: { ar: "للتجربة", en: "Start here" },
     features: {
-      ar: [
-        "1,000 رسالة شهريًا",
-        "النماذج الأساسية",
-        "ربط جيميل ودرايف بحسابك",
-        "مساحة عمل واحدة",
-      ],
-      en: [
-        "1,000 messages / month",
-        "Standard models",
-        "Connect your own Gmail & Drive",
-        "One workspace",
-      ],
+      ar: planFeatures("ar").free,
+      en: planFeatures("en").free,
     },
     cta: { ar: "ابدأ مجانًا", en: "Start free" },
     href: "/register",
@@ -49,20 +41,8 @@ export const plans = [
     period: { ar: "شهريًا", en: "per month" },
     tag: { ar: "للفرد والمستقل", en: "Solo & freelance" },
     features: {
-      ar: [
-        "10,000 رسالة شهريًا",
-        "500 تشغيل وكيل (Agent)",
-        "1,000 بحث ويب",
-        "النماذج المتقدمة",
-        "كل التكاملات المتاحة",
-      ],
-      en: [
-        "10,000 messages / month",
-        "500 agent runs",
-        "1,000 web searches",
-        "Advanced models",
-        "Every available integration",
-      ],
+      ar: planFeatures("ar").pro,
+      en: planFeatures("en").pro,
     },
     cta: { ar: "اختر الاحترافي", en: "Choose Pro" },
     href: "/register?plan=pro",
@@ -76,17 +56,13 @@ export const plans = [
     tag: { ar: "للشركات والمكاتب", en: "Companies & offices" },
     features: {
       ar: [
-        "100,000 رسالة شهريًا",
-        "5,000 تشغيل وكيل",
-        "10,000 بحث ويب",
+        ...planFeatures("ar").business,
         "مساحات عمل للفريق وأعضاء متعددون",
         "سجل تدقيق للتكاملات",
         "دعم بأولوية",
       ],
       en: [
-        "100,000 messages / month",
-        "5,000 agent runs",
-        "10,000 web searches",
+        ...planFeatures("en").business,
         "Team workspaces & multiple members",
         "Integration audit log",
         "Priority support",
@@ -271,15 +247,15 @@ export function LandingPage({ lang }: { lang: Lang }) {
               <div className="flex flex-wrap items-center gap-3">
                 <a
                   className="rounded-lg bg-foreground px-6 py-3 font-medium text-background"
-                  href="#demo"
+                  href={CTA.demo.href}
                 >
-                  {t("جرّب الآن بدون حساب ↓", "Try it now, no account ↓")}
+                  {isArabic ? CTA.demo.ar : CTA.demo.en} ↓
                 </a>
                 <Link
                   className="rounded-lg border px-6 py-3 font-medium"
-                  href="/register"
+                  href={CTA.workspace.href}
                 >
-                  {t("أنشئ مساحة عملك", "Create your workspace")}
+                  {isArabic ? CTA.workspace.ar : CTA.workspace.en}
                 </Link>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -541,16 +517,16 @@ export function LandingPage({ lang }: { lang: Lang }) {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
             {t(
-              "ابدأ بالمجاني، اربط حسابك، وأعطِ الوكيل أول مهمة. الباقات تُرقّى من داخل التطبيق متى شئت.",
-              "Start free, connect your account, give the agent its first task. Upgrade from inside the app whenever you like."
+              "ابدأ بالمجاني للكتابة. ربط الأدوات ووضع الوكيل يتفعّلان على الاحترافي والأعمال. الباقات تُرقّى من داخل التطبيق متى شئت.",
+              "Start on the free plan for writing. Tool connections and Agent mode unlock on Pro and Business. Upgrade from inside the app whenever you like."
             )}
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <Link
               className="rounded-lg bg-foreground px-6 py-3 font-medium text-background"
-              href="/register"
+              href={CTA.workspace.href}
             >
-              {t("ابدأ مجانًا", "Start free")}
+              {isArabic ? CTA.workspace.ar : CTA.workspace.en}
             </Link>
             <Link className="rounded-lg border px-6 py-3 font-medium" href="/login">
               {t("تسجيل الدخول", "Sign in")}
@@ -561,22 +537,6 @@ export function LandingPage({ lang }: { lang: Lang }) {
           </div>
         </section>
       </main>
-
-      <footer className="border-t">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-          <p>© {new Date().getFullYear()} Zooka AI</p>
-          <nav className="flex flex-wrap gap-5">
-            <Link href="/compare/chatgpt">
-              {t("زوكا مقابل ChatGPT", "Zooka vs ChatGPT")}
-            </Link>
-            <Link href="/about">{t("من نحن", "About")}</Link>
-            <Link href="/privacy">{t("سياسة الخصوصية", "Privacy")}</Link>
-            <Link href="/terms">{t("شروط الخدمة", "Terms")}</Link>
-            <Link href="/refund">{t("سياسة الاسترداد", "Refunds")}</Link>
-            <Link href="/contact">{t("تواصل معنا", "Contact")}</Link>
-          </nav>
-        </div>
-      </footer>
 
       <script
         dangerouslySetInnerHTML={{

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { LanguageToggle } from "@/components/language-toggle";
+import { CTA } from "@/lib/marketing/cta";
 
 type Lang = "ar" | "en";
 
@@ -160,9 +161,9 @@ export function SiteHeader({ lang }: { lang: Lang }) {
           </Link>
           <Link
             className="rounded-lg bg-foreground px-4 py-2 font-medium text-background text-sm"
-            href="/register"
+            href={CTA.workspace.href}
           >
-            {t("ابدأ مجانًا", "Start free")}
+            {isArabic ? CTA.workspace.ar : CTA.workspace.en}
           </Link>
           <button
             aria-expanded={open}

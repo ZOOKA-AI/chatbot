@@ -58,6 +58,8 @@ export async function proxy(request: NextRequest) {
     pathname === "/terms" ||
     pathname === "/embed" ||
     pathname === "/embed.js" ||
+    pathname === "/api/demo-chat" ||
+    pathname === "/api/guest-quota" ||
     pathname === "/api/webhooks/stripe" ||
     pathname === "/api/stripe/webhook" ||
     pathname === "/api/admin/backup" ||

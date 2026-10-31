@@ -372,6 +372,14 @@ export function Compare({ lang }: { lang: Lang }) {
         <h2 className="font-semibold text-3xl">
           {ar ? "إيه الفرق عن مساعد محادثة عادي؟" : "What makes this different from a chat assistant?"}
         </h2>
+        <p className="mt-3 text-muted-foreground text-sm">
+          {ar
+            ? "هذا الفرق بين المنتج ومساعد محادثة عام. الربط وسجل التدقيق ووضع الوكيل ليست ضمن التجربة المجانية ولا الباقة المجانية."
+            : "This is the difference between the product and a general chat assistant. Connections, the audit trail and Agent mode are not part of the free preview or the free plan."}{" "}
+          <Link className="underline" href="/compare/chatgpt">
+            {ar ? "التفصيل" : "Details"}
+          </Link>
+        </p>
         <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
           <table className="w-full text-sm">
             <thead className="bg-white/[0.04] text-muted-foreground">

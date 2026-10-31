@@ -14,6 +14,7 @@ import {
   GOOGLE_GMAIL_SCOPE,
   GOOGLE_GMAIL_SEND_SCOPE,
 } from "@/lib/integrations/google-drive/token-response";
+import { assertCanConnect } from "@/lib/billing/assert-entitlement";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
 export async function GET(request: Request) {
@@ -28,7 +29,17 @@ export async function GET(request: Request) {
   }
 
   const entitlements = await getWorkspaceEntitlements(context.organizationId);
-  if (!entitlements.canConnectIntegrations) {
+  /*
+   * The billing status and the plan contract must agree before a connector is
+   * opened; assertCanConnect is the same rule the marketing page promises.
+   */
+  let allowedToConnect = entitlements.canConnectIntegrations;
+  try {
+    assertCanConnect(entitlements.plan, "drive");
+  } catch {
+    allowedToConnect = false;
+  }
+  if (!allowedToConnect) {
     return NextResponse.redirect(
       new URL("/settings/integrations?googleDrive=upgrade", request.url)
     );

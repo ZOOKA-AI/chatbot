@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CookieConsent } from "@/components/cookie-consent";
-import { LegalFooter } from "@/components/legal-footer";
+import { SiteFooter } from "@/components/site-footer";
 import type { Lang } from "@/lib/i18n";
 
 export function GlobalSiteComponents() {
@@ -21,7 +21,7 @@ export function GlobalSiteComponents() {
 
   return (
     <>
-      <LegalFooter lang={lang} />
+      <SiteFooter lang={lang} />
       <CookieConsent lang={lang} />
     </>
   );

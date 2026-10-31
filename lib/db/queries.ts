@@ -576,6 +576,37 @@ export async function incrementGuestUsage(key: string) {
   return row.count;
 }
 
+/*
+ * Atomically claim one unit of a daily allowance. A single statement, so ten
+ * parallel requests can never overshoot the cap: when the row is already at the
+ * limit the conditional update matches nothing and no row is returned.
+ */
+export async function tryClaimGuestUsage(key: string, limit: number) {
+  const rows = (await db.execute(sql`
+    INSERT INTO "GuestUsage" ("key", "count", "updatedAt")
+    VALUES (${key}, 1, now())
+    ON CONFLICT ("key") DO UPDATE
+      SET "count" = "GuestUsage"."count" + 1, "updatedAt" = now()
+      WHERE "GuestUsage"."count" < ${limit}
+    RETURNING "count"
+  `)) as unknown as { count?: number }[];
+  const claimed = rows?.[0]?.count;
+  return typeof claimed === "number" ? claimed : null;
+}
+
+/* Hand a claimed unit back, e.g. when the reply failed before its first token. */
+export async function releaseGuestUsage(key: string) {
+  try {
+    await db.execute(sql`
+      UPDATE "GuestUsage"
+      SET "count" = GREATEST("count" - 1, 0), "updatedAt" = now()
+      WHERE "key" = ${key}
+    `);
+  } catch {
+    // Bookkeeping must never block or fail a visitor's reply.
+  }
+}
+
 export async function getGuestUsage(key: string) {
   try {
     const [row] = await db

@@ -9,7 +9,8 @@ import { Response } from "@/components/elements/response";
 import { DEMO_ASK_EVENT } from "@/components/marketing/task-templates";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { GUEST_FREE_MESSAGES } from "@/lib/copy";
+import { PLANS } from "@/lib/billing/entitlements";
+import { freeUpsell } from "@/lib/billing/entitlements";
 import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { generateUUID } from "@/lib/utils";
 
@@ -110,7 +111,6 @@ export function DemoChat({ lang }: { lang: Lang }) {
   const [chatId] = useState(() => generateUUID());
   const [input, setInput] = useState("");
   const quota = useGuestQuota();
-  const [sent, setSent] = useState(0);
   const [lastTask, setLastTask] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [limitHit, setLimitHit] = useState(false);
@@ -120,45 +120,63 @@ export function DemoChat({ lang }: { lang: Lang }) {
   const [voiceOn, setVoiceOn] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const firstPrompt = useRef<string>("");
+  const lastPrompt = useRef<string>("");
 
   const { messages, sendMessage, status, stop } = useChat({
     id: chatId,
     generateId: generateUUID,
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: "/api/demo-chat",
+      // Read `code` from the JSON body instead of guessing from the message.
+      async fetch(input, init) {
+        const response = await fetch(input, init);
+        if (!response.ok) {
+          const body = (await response.clone().json().catch(() => null)) as
+            | { code?: string; message?: string }
+            | null;
+          const failure = new Error(body?.message ?? "offline:chat");
+          failure.name = body?.code ?? "offline:chat";
+          throw failure;
+        }
+        return response;
+      },
       prepareSendMessagesRequest(request) {
-        const last = request.messages.at(-1);
         return {
           body: {
             id: request.id,
-            message: last,
+            message: request.messages.at(-1),
             history: request.messages.slice(0, -1),
-            selectedChatModel: DEFAULT_CHAT_MODEL,
-            selectedVisibilityType: "private",
             agentMode: false,
           },
         };
       },
     }),
+    onFinish: () => {
+      quota.reload();
+    },
     onError: (error) => {
-      const message = String(error?.message ?? "");
-      if (/payment_required|402|paywall|limit/i.test(message)) {
+      quota.reload();
+      const code = String((error as Error | undefined)?.name ?? "offline:chat");
+      if (code === "payment_required:chat" || code === "rate_limit:chat") {
         setLimitHit(true);
-      } else {
-        setErrorText(
-          t(
-            "حصل عطل بسيط في الاتصال. جرّب مرة ثانية.",
-            "A small connection hiccup. Please try again."
-          )
-        );
+        track("demo_limit_hit");
+        return;
       }
+      setErrorText(
+        code === "offline:chat"
+          ? t(
+              "انقطع الرد قبل ما يكتمل. أعد المحاولة، ولن يُحسب من رصيدك.",
+              "The reply stopped early. Try again, and it will not use one of your messages."
+            )
+          : t("تعذّر إرسال الرسالة. أعد المحاولة.", "Could not send the message. Please try again.")
+      );
     },
   });
 
   const busy = status === "submitted" || status === "streaming";
   const remaining = quota.loaded
-    ? Math.min(quota.remaining, Math.max(0, GUEST_FREE_MESSAGES - sent))
-    : Math.max(0, GUEST_FREE_MESSAGES - sent);
+    ? quota.remaining
+    : PLANS.guest.dailyMessages;
 
   useEffect(() => {
     try {
@@ -235,9 +253,7 @@ export function DemoChat({ lang }: { lang: Lang }) {
     } catch {
       // storage unavailable: the hand-off is a nice-to-have
     }
-    setSent((n) => n + 1);
-    quota.consume();
-    if (sent === 0) {
+    if (messages.length === 0) {
       track("demo_started");
     }
     setLastTask(value);
@@ -247,6 +263,7 @@ export function DemoChat({ lang }: { lang: Lang }) {
       // ignore storage failures
     }
     setInput("");
+    lastPrompt.current = value;
     void sendMessage({ text: value });
     if (/جيميل|درايف|ربط|اربط|gmail|drive|connect|integrat/i.test(value)) {
       setAgentRun(true);
@@ -267,7 +284,7 @@ export function DemoChat({ lang }: { lang: Lang }) {
 
   const empty = messages.length === 0;
   const nudgeAt = 3;
-  const usedCount = Math.max(quota.used, sent);
+  const usedCount = quota.used;
   const showSoftNudge =
     !limitHit && messages.length > 0 && usedCount >= nudgeAt && remaining > 0;
 
@@ -316,8 +333,8 @@ export function DemoChat({ lang }: { lang: Lang }) {
           </button>
           <span className="rounded-full border border-white/15 px-2.5 py-1 text-muted-foreground">
             {t(
-              `مجانًا اليوم ${remaining}/${GUEST_FREE_MESSAGES}`,
-              `Free today ${remaining}/${GUEST_FREE_MESSAGES}`
+              `مجانًا اليوم ${remaining}/${PLANS.guest.dailyMessages}`,
+              `Free today ${remaining}/${PLANS.guest.dailyMessages}`
             )}
           </span>
         </div>
@@ -332,8 +349,8 @@ export function DemoChat({ lang }: { lang: Lang }) {
               </p>
               <p className="mt-1 text-muted-foreground text-sm">
                 {t(
-                  "اختر طلبًا جاهزًا أو اكتب طلبك. لو ذكرت «جيميل» أو «درايف» هتشوف كيف يتصرف الوكيل بعد الربط.",
-                  "Pick a ready request or type your own. Mention Gmail or Drive to see how the agent behaves once connected."
+                  "اختر طلبًا جاهزًا أو اكتب طلبك. لو ذكرت «جيميل» أو «درايف» تشوف محاكاة للخطوات. الربط الحقيقي من باقة الاحترافي بعد التسجيل.",
+                  "Pick a ready request or type your own. Mentioning Gmail or Drive runs a preview of the steps; real connections start on Pro after sign-up."
                 )}
               </p>
             </div>
@@ -430,7 +447,7 @@ export function DemoChat({ lang }: { lang: Lang }) {
           })
         )}
 
-        {status === "submitted" ? (
+        {busy && !lastAssistantText ? (
           <div className="flex justify-start">
             <div className="flex gap-1 rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-3">
               <span className="size-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.2s]" />
@@ -447,7 +464,10 @@ export function DemoChat({ lang }: { lang: Lang }) {
                 {t("🧭 معاينة وضع الوكيل", "🧭 Agent-mode preview")}
               </span>
               <span className="text-muted-foreground">
-                {t("محاكاة توضيحية — الربط الحقيقي بعد التسجيل", "Illustrative — real connections after sign-up")}
+                {t(
+                  "محاكاة توضيحية — الربط الحقيقي بعد التسجيل وعلى باقة الاحترافي",
+                  "Illustrative — real connections after sign-up, on the Pro plan"
+                )}
               </span>
             </div>
             <ul className="grid gap-1.5 text-xs">
@@ -477,9 +497,18 @@ export function DemoChat({ lang }: { lang: Lang }) {
         ) : null}
 
         {errorText ? (
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-200 text-xs">
-            {errorText}
-          </p>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-200 text-xs">
+            <p>{errorText}</p>
+            {lastPrompt.current ? (
+              <button
+                className="mt-2 underline"
+                onClick={() => submit(lastPrompt.current)}
+                type="button"
+              >
+                {t("إعادة المحاولة", "Try again")}
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {showSoftNudge ? (
@@ -505,9 +534,10 @@ export function DemoChat({ lang }: { lang: Lang }) {
               {t("عجبك؟ كمّل من حيث وقفت", "Liked it? Pick up right where you stopped")}
             </p>
             <p className="mt-1 text-muted-foreground text-xs">
+              {freeUpsell(lang)}{" "}
               {t(
-                "حسابك المجاني يحفظ هذه المحادثة، ويفتح لك ربط جيميل ودرايف ووضع الوكيل الكامل. رسائلك المجانية بتترجع من جديد بكرة الصبح.",
-                "A free account keeps this conversation and unlocks Gmail, Drive and full agent mode. Your free messages refresh tomorrow morning."
+                "رسائلك المجانية بتترجع من جديد بكرة الصبح.",
+                "Your free messages refresh tomorrow morning."
               )}
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
