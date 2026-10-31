@@ -31,6 +31,7 @@ import {
   type DBMessage,
   document,
   googleDriveConnection,
+  passwordResetToken,
   guestUsage,
   invitation,
   message,
@@ -1580,4 +1581,33 @@ export async function deleteGoogleDriveConnectionIfUnchanged({
     )
     .returning({ organizationId: googleDriveConnection.organizationId });
   return deleted.length > 0;
+}
+
+
+export async function createPasswordResetToken(userId: string, tokenHash: string) {
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  await db.insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
+}
+
+export async function consumePasswordResetToken(
+  tokenHash: string,
+  newPassword: string
+): Promise<boolean> {
+  const [row] = await db
+    .select()
+    .from(passwordResetToken)
+    .where(eq(passwordResetToken.tokenHash, tokenHash))
+    .limit(1);
+  if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+    return false;
+  }
+  await db
+    .update(user)
+    .set({ password: generateHashedPassword(newPassword) })
+    .where(eq(user.id, row.userId));
+  await db
+    .update(passwordResetToken)
+    .set({ usedAt: new Date() })
+    .where(eq(passwordResetToken.tokenHash, tokenHash));
+  return true;
 }

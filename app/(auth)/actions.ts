@@ -4,7 +4,14 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { REFERRAL_COOKIE, recordReferralEvent } from "@/lib/affiliate";
-import { createUser, getUser } from "@/lib/db/queries";
+import {
+  consumePasswordResetToken,
+  createPasswordResetToken,
+  createUser,
+  getUser,
+} from "@/lib/db/queries";
+import { sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/email/send";
+import { createHash, randomBytes } from "node:crypto";
 
 import { signIn } from "./auth";
 
@@ -69,6 +76,8 @@ export const register = async (
       return { status: "user_exists" } as RegisterActionState;
     }
     await createUser(validatedData.email, validatedData.password);
+    // Fire and forget: a mail outage must never block signup.
+    void sendWelcomeEmail(validatedData.email, "ar");
 
     try {
       const cookieStore = await cookies();
@@ -101,4 +110,48 @@ export const register = async (
 
     return { status: "failed" };
   }
+};
+
+
+export type ForgotPasswordState = { status: "idle" | "sent" | "invalid" };
+
+export const requestPasswordReset = async (
+  _: ForgotPasswordState,
+  formData: FormData
+): Promise<ForgotPasswordState> => {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!z.string().email().safeParse(email).success) {
+    return { status: "invalid" };
+  }
+  try {
+    const [existing] = await getUser(email);
+    if (existing) {
+      const token = randomBytes(32).toString("hex");
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      await createPasswordResetToken(existing.id, tokenHash);
+      await sendPasswordResetEmail(email, token, "ar");
+    }
+  } catch (error) {
+    console.error("password reset request failed", error);
+  }
+  // Same answer whether or not the account exists (no user enumeration).
+  return { status: "sent" };
+};
+
+export type ResetPasswordState = {
+  status: "idle" | "success" | "invalid_token" | "invalid_data";
+};
+
+export const resetPassword = async (
+  _: ResetPasswordState,
+  formData: FormData
+): Promise<ResetPasswordState> => {
+  const token = String(formData.get("token") ?? "");
+  const password = String(formData.get("password") ?? "");
+  if (!/^[a-f0-9]{64}$/.test(token) || password.length < 6) {
+    return { status: "invalid_data" };
+  }
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const ok = await consumePasswordResetToken(tokenHash, password);
+  return { status: ok ? "success" : "invalid_token" };
 };

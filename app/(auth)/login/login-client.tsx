@@ -81,6 +81,9 @@ export function LoginClient({ lang }: { lang: "ar" | "en" }) {
           <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {`${t.noAccount} `}
+            <Link className="text-muted-foreground text-xs underline" href="/forgot-password">
+              {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
+            </Link>{" "}
             <Link
               className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
               href="/register"

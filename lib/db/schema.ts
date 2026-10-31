@@ -75,6 +75,16 @@ export const n8nConnection = pgTable("N8nConnection", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
 
+export const passwordResetToken = pgTable("PasswordResetToken", {
+  tokenHash: varchar("tokenHash", { length: 64 }).primaryKey().notNull(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
 export const invitation = pgTable(
   "Invitation",
   {
