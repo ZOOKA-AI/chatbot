@@ -75,6 +75,28 @@ export const n8nConnection = pgTable("N8nConnection", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
 
+export const oauthConnection = pgTable(
+  "OAuthConnection",
+  {
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    encryptedTokens: text("encryptedTokens").notNull(),
+    accountId: text("accountId"),
+    accountName: text("accountName"),
+    avatarUrl: text("avatarUrl"),
+    scopes: text("scopes"),
+    tokenExpiresAt: timestamp("tokenExpiresAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.organizationId, table.provider] }),
+    providerIndex: index("OAuthConnection_provider_idx").on(table.provider),
+  })
+);
+
 export const passwordResetToken = pgTable("PasswordResetToken", {
   tokenHash: varchar("tokenHash", { length: 64 }).primaryKey().notNull(),
   userId: uuid("userId")

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GoogleDriveConnectionControl } from "@/components/google-drive-connection-control";
 import { N8nConnectionControl } from "@/components/n8n-connection-control";
+import { OAuthConnectionControl } from "@/components/oauth-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ googleDrive?: string }>;
+  searchParams: Promise<{ googleDrive?: string; github?: string; vercel?: string }>;
 }) {
   const context = await getWorkspaceContext();
   if (!context) {
@@ -34,7 +35,49 @@ export default async function IntegrationsPage({
   const lang = await getLang();
   const isArabic = lang === "ar";
   const entitlements = await getWorkspaceEntitlements(context.organizationId);
-  const { googleDrive } = await searchParams;
+  const { googleDrive, github, vercel } = await searchParams;
+  const oauthFeedback = (() => {
+    const entries: Array<[string, string | undefined]> = [
+      ["GitHub", github],
+      ["Vercel", vercel],
+    ];
+    const active = entries.find(([, value]) => value);
+    if (!active) {
+      return null;
+    }
+    const [label, outcome] = active;
+    const messages: Record<string, { ar: string; en: string }> = {
+      success: {
+        ar: `تم ربط ${label} بهذه المساحة. الرموز محفوظة مشفّرة.`,
+        en: `${label} is connected to this workspace. Tokens are stored encrypted.`,
+      },
+      upgrade: {
+        ar: `ربط ${label} متاح في الباقات المدفوعة.`,
+        en: `Connecting ${label} requires a paid plan.`,
+      },
+      unavailable: {
+        ar: `إعدادات ${label} غير مكتملة على السيرفر.`,
+        en: `${label} is not configured on the server.`,
+      },
+      token_failed: {
+        ar: `رفض ${label} تبادل الرمز. أعد المحاولة.`,
+        en: `${label} rejected the token exchange. Try again.`,
+      },
+      storage_failed: {
+        ar: `تعذّر حفظ رموز ${label} بأمان.`,
+        en: `Could not store the ${label} tokens securely.`,
+      },
+      error: {
+        ar: `لم يكتمل ربط ${label}.`,
+        en: `Connecting ${label} did not complete.`,
+      },
+    };
+    const message = messages[outcome ?? "error"] ?? messages.error;
+    return {
+      isError: outcome !== "success",
+      text: isArabic ? message.ar : message.en,
+    };
+  })();
   const feedback = getGoogleDriveCallbackFeedback(googleDrive, lang);
   const googleDriveConfigured = isGoogleDriveConfigured();
   const googleDriveConnected =
@@ -92,6 +135,17 @@ export default async function IntegrationsPage({
           }
         >
           {feedback}
+        </p>
+      )}
+
+      {oauthFeedback && (
+        <p
+          aria-live="polite"
+          className="rounded-md border px-4 py-3 text-sm"
+          data-testid="oauth-callback-feedback"
+          role={oauthFeedback.isError ? "alert" : "status"}
+        >
+          {oauthFeedback.text}
         </p>
       )}
 
@@ -161,6 +215,32 @@ export default async function IntegrationsPage({
                 : "Available on paid plans."}
             </p>
           )}
+        </article>
+        <article className="flex flex-col gap-3 rounded-lg border p-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium">
+              {isArabic ? "GitHub و Vercel" : "GitHub & Vercel"}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {isArabic
+                ? "اربط حسابك على GitHub وVercel بضغطة، ويستخدم الوكيل الرموز المشفّرة لقراءة الكود ومتابعة النشر والنطاقات. لا تُحفظ أي كلمة مرور."
+                : "Connect your GitHub and Vercel accounts with one click. The Agent uses the encrypted tokens to read code and follow deploys and domains. No password is ever stored."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <OAuthConnectionControl
+              canManage={canManage}
+              label="GitHub"
+              lang={lang}
+              provider="github"
+            />
+            <OAuthConnectionControl
+              canManage={canManage}
+              label="Vercel"
+              lang={lang}
+              provider="vercel"
+            />
+          </div>
         </article>
         {Object.entries(grouped).map(([category, items]) => (
           <div className="flex flex-col gap-3" key={category}>
