@@ -19,7 +19,7 @@ function posters(lang: Lang): Poster[] {
     },
     {
       src: "/images/posters/poster-2.jpg",
-      tag: ar ? "EMAIL + DRIVE" : "EMAIL + DRIVE",
+      tag: ar ? "البريد والدرايف" : "EMAIL + DRIVE",
       title: t("بريدك وملفاتك في المحادثة", "Your email and files inside the chat"),
       body: t(
         "يقرأ ويبحث ويرسل من حسابك بعد موافقتك، والرموز مشفّرة لمساحتك.",
@@ -28,7 +28,7 @@ function posters(lang: Lang): Poster[] {
     },
     {
       src: "/images/posters/poster-3.jpg",
-      tag: ar ? "AGENT MODE" : "AGENT MODE",
+      tag: ar ? "وضع الوكيل" : "AGENT MODE",
       title: t("خطوة بخطوة حتى الإنجاز", "Step by step until it is done"),
       body: t(
         "يفتح الموافقة، يربط، ينفّذ، ثم يعود لك للقرار الحساس فقط.",
@@ -37,7 +37,7 @@ function posters(lang: Lang): Poster[] {
     },
     {
       src: "/images/posters/poster-4.jpg",
-      tag: ar ? "26 INTEGRATIONS" : "26 INTEGRATIONS",
+      tag: ar ? "26 في الكتالوج · 11 جاهز الآن" : "26 IN THE CATALOG · 11 LIVE",
       title: t("كل أدواتك في مكان واحد", "Every tool in one place"),
       body: t(
         "جيميل ودرايف وجيت هب وفيرسل وn8n وسوبابيس — بضغطة واحدة.",
@@ -46,7 +46,7 @@ function posters(lang: Lang): Poster[] {
     },
     {
       src: "/images/posters/poster-5.jpg",
-      tag: ar ? "VOICE" : "VOICE",
+      tag: ar ? "الصوت" : "VOICE",
       title: t("اتكلم… وهو يكتب وينفّذ", "Speak, it writes and executes"),
       body: t(
         "محادثة صوتية بالعربي: تسجيل، تحويل لنص، ورد مقروء بصوت عالٍ.",
@@ -55,7 +55,7 @@ function posters(lang: Lang): Poster[] {
     },
     {
       src: "/images/posters/poster-6.jpg",
-      tag: ar ? "SHIP FASTER" : "SHIP FASTER",
+      tag: ar ? "النشر" : "SHIP FASTER",
       title: t("من الفكرة إلى النشر", "From idea to deployment"),
       body: t(
         "مراجعة كود ونشر على فيرسل من داخل المحادثة نفسها.",
@@ -111,7 +111,9 @@ export function PostersSection({ lang }: { lang: Lang }) {
                 width={360}
               />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 pt-10">
-                <p className="text-[11px] text-blue-300 uppercase tracking-widest">
+                <p
+                  className={`text-[11px] text-blue-300 tracking-widest ${ar ? "" : "uppercase"}`}
+                >
                   {poster.tag}
                 </p>
                 <h3 className="mt-1 font-medium text-white">{poster.title}</h3>

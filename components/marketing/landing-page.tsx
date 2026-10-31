@@ -238,10 +238,10 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   "Zooka AI connects your tools and finishes the job"
                 )}
               </h1>
-              <p className="max-w-2xl text-lg text-muted-foreground">
+              <p className="max-w-xl text-lg text-muted-foreground">
                 {t(
-                  "بريدك، ملفاتك، كودك، بياناتك، وأتمتتك — داخل محادثة واحدة بالعربي والإنجليزي. الوكيل يفتح صفحة الموافقة بنفسه، يربط الحساب، ينفّذ الخطوات، ولا يرجع لك إلا للقرار الحساس.",
-                  "Your email, files, code, data and automation — inside one conversation in Arabic and English. The agent opens the consent screen itself, connects the account, runs the steps, and only comes back to you for the sensitive decision."
+                  "بريدك وملفاتك وكودك وبياناتك — في محادثة واحدة، والوكيل ينفّذ الخطوات بنفسه.",
+                  "Your email, files, code and data in one conversation, and the agent runs the steps itself."
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -260,9 +260,17 @@ export function LandingPage({ lang }: { lang: Lang }) {
               </div>
               <p className="text-sm text-muted-foreground">
                 {t(
-                  "10 رسائل مجانية كل يوم بدون تسجيل — تكفي مهمة كاملة · بدون بطاقة",
-                  "10 free messages every day, no sign-up — enough for a whole task · no card"
+                  "10 رسائل مجانية كل يوم بدون تسجيل · بدون بطاقة",
+                  "10 free messages every day, no sign-up · no card"
                 )}
+              </p>
+              <p className="-mt-4 text-sm">
+                <Link className="text-blue-300 underline-offset-4 hover:underline" href="/pricing">
+                  {t(
+                    "ربط الأدوات ووضع الوكيل من باقة الاحترافي — 19$ شهريًا",
+                    "Tool connections and Agent mode start on Pro — $19 a month"
+                  )}
+                </Link>
               </p>
             </div>
             <div className="relative">
@@ -365,8 +373,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 </h2>
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
-                    "تربطها من داخل التطبيق بضغطة، والوكيل يستخدمها مباشرة. الباقي في الكتالوج يُفتح تِباعًا بعد موافقات المزوّد.",
-                    "Connect them inside the app in one click and the agent uses them straight away. The rest open up as provider approvals land."
+                    `تربطها من داخل التطبيق بضغطة، والوكيل يستخدمها مباشرة. ${available.length} متاحة الآن من ${INTEGRATION_PROVIDERS.length} في الكتالوج، والباقي يُفتح تِباعًا بعد موافقات المزوّد.`,
+                    `Connect them inside the app in one click and the agent uses them straight away. ${available.length} of ${INTEGRATION_PROVIDERS.length} in the catalog are live today; the rest open up as provider approvals land.`
                   )}
                 </p>
               </div>

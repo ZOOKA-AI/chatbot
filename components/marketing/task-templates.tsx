@@ -149,6 +149,9 @@ export function TaskTemplates({ lang }: { lang: Lang }) {
                 "Pick a template and it runs instantly in the demo above, with no sign-up and no blank-page moment."
               )}
             </p>
+            <p className="mt-2 text-blue-300 text-sm">
+              {t("اضغط أي قالب — يشتغل فوق على طول ↑", "Tap any card and it runs above ↑")}
+            </p>
           </div>
           <span className="rounded-full border border-white/15 px-3 py-1 text-muted-foreground text-xs">
             {t("10 رسائل مجانية كل يوم", "10 free messages every day")}
@@ -159,37 +162,38 @@ export function TaskTemplates({ lang }: { lang: Lang }) {
           {TEMPLATES.map((template, index) => {
             const prompt = isArabic ? template.promptAr : template.promptEn;
             return (
-              <article
-                className="group flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-blue-400/50 hover:bg-blue-500/[0.07]"
+              <button
+                aria-label={t(`نفّذ: ${template.ar}`, `Run: ${template.en}`)}
+                className={`group flex flex-col rounded-2xl border p-5 text-start transition-colors hover:border-blue-400/60 hover:bg-blue-500/[0.07] ${
+                  active === index
+                    ? "border-blue-400/60 bg-blue-500/[0.07]"
+                    : "border-white/10 bg-white/[0.03]"
+                }`}
                 key={template.en}
+                onClick={() => {
+                  setActive(index);
+                  askDemo(prompt);
+                }}
+                type="button"
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{template.icon}</span>
-                    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] text-muted-foreground">
-                      {isArabic ? template.tagAr : template.tagEn}
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{template.icon}</span>
+                  <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] text-muted-foreground">
+                    {isArabic ? template.tagAr : template.tagEn}
+                  </span>
+                  {active === index ? (
+                    <span className="ms-auto text-[11px] text-blue-300">
+                      {t("اتنفّذ فوق ↑", "Running above ↑")}
                     </span>
-                  </div>
-                  <h3 className="mt-3 font-medium">
-                    {isArabic ? template.ar : template.en}
-                  </h3>
-                  <p className="mt-2 line-clamp-2 text-muted-foreground text-sm">
-                    {prompt}
-                  </p>
+                  ) : null}
                 </div>
-                <button
-                  className="mt-4 w-fit rounded-lg border border-white/15 px-3 py-1.5 text-sm transition-colors group-hover:border-blue-400/60 group-hover:bg-blue-500/15"
-                  onClick={() => {
-                    setActive(index);
-                    askDemo(prompt);
-                  }}
-                  type="button"
-                >
-                  {active === index
-                    ? t("اتنفّذ فوق ↑", "Running above ↑")
-                    : t("جرّبها الآن ←", "Run it now →")}
-                </button>
-              </article>
+                <h3 className="mt-3 font-medium">
+                  {isArabic ? template.ar : template.en}
+                </h3>
+                <p className="mt-2 line-clamp-2 text-muted-foreground text-sm">
+                  {prompt}
+                </p>
+              </button>
             );
           })}
         </div>
