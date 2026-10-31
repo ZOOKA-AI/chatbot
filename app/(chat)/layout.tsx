@@ -59,6 +59,11 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
     !!subscription?.externalCustomerId &&
     (context?.role === "owner" || context?.role === "admin");
 
+  // Anonymous visitors get the public marketing page with no app chrome.
+  if (!context) {
+    return <>{children}</>;
+  }
+
   return (
     <BillingProvider
       value={{
