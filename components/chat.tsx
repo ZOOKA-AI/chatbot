@@ -31,6 +31,8 @@ import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import { speakText, useVoiceMode } from "@/hooks/use-voice-mode";
+import { AgentActivity } from "./agent-activity";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
@@ -80,6 +82,8 @@ export function Chat({
   const [showPaywall, setShowPaywall] = useState(false);
   const [responseStopped, setResponseStopped] = useState(false);
   const { isGuest, lang, canUseAgentMode, refreshAgentUsage } = useBilling();
+  const { voiceMode } = useVoiceMode();
+  const lastSpokenRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const guestQuota = useGuestQuota();
   const isWorkAssistant = searchParams.get("mode") === "work";
@@ -282,6 +286,37 @@ export function Chat({
     setMessages,
   });
 
+  // Voice chat: read a finished assistant reply out loud when voice mode is on.
+  useEffect(() => {
+    if (!voiceMode || status !== "ready") {
+      return;
+    }
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    if (!lastAssistant) {
+      return;
+    }
+    const parts = (lastAssistant.parts ?? []) as {
+      type: string;
+      text?: string;
+    }[];
+    const text = parts
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text as string)
+      .join(" ")
+      .trim();
+    if (!text) {
+      return;
+    }
+    const key = `${lastAssistant.id}:${text.length}`;
+    if (lastSpokenRef.current === key) {
+      return;
+    }
+    lastSpokenRef.current = key;
+    speakText(text, lang);
+  }, [voiceMode, status, messages, lang]);
+
   return (
     <>
       <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
@@ -366,6 +401,8 @@ export function Chat({
         stop={stop}
         votes={votes}
       />
+
+      <AgentActivity lang={lang} messages={messages} status={status} />
 
       <GuestPaywallDialog onOpenChange={setShowPaywall} open={showPaywall} />
 

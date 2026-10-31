@@ -29,6 +29,8 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
+import { VoiceInputButton } from "@/components/voice-input-button";
+import { useVoiceMode } from "@/hooks/use-voice-mode";
 import { agentPresets } from "@/lib/ai/agent-presets";
 import {
   chatModels,
@@ -98,6 +100,7 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
   const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang } =
     useBilling();
+  const { voiceMode, toggleVoiceMode } = useVoiceMode();
   const agentModeAllowed =
     canUseAgentMode && modelSupportsTools(selectedModelId);
   let agentModeUnavailableMessage: string;
@@ -224,6 +227,44 @@ function PureMultimodalInput({
     chatId,
     resetHeight,
   ]);
+
+  const submitText = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+      sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: trimmed }],
+      });
+      setAttachments([]);
+      setLocalStorageInput("");
+      resetHeight();
+      setInput("");
+    },
+    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput]
+  );
+
+  const handleVoiceTranscript = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+      if (voiceMode && status !== "streaming" && status !== "submitted") {
+        submitText(trimmed);
+        return;
+      }
+      setInput((previous) =>
+        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed
+      );
+      if (width && width > 768) {
+        textareaRef.current?.focus();
+      }
+    },
+    [voiceMode, status, submitText, setInput, width]
+  );
 
   const uploadFile = useCallback(async (file: File) => {
     const formData = new FormData();
@@ -506,6 +547,26 @@ function PureMultimodalInput({
                 {lang === "ar" ? "رقّي للوكيل" : "Unlock agent"}
               </Link>
             )}
+            <VoiceInputButton
+              disabled={uploadQueue.length > 0}
+              lang={lang}
+              onTranscript={handleVoiceTranscript}
+            />
+            <Button
+              aria-pressed={voiceMode}
+              className="h-8 px-2 text-xs"
+              data-testid="voice-mode-toggle"
+              onClick={toggleVoiceMode}
+              title={
+                lang === "ar"
+                  ? "المحادثة الصوتية: إرسال تلقائي بعد التسجيل وقراءة الرد بصوت عالٍ"
+                  : "Voice chat: auto-send recordings and read replies aloud"
+              }
+              type="button"
+              variant={voiceMode ? "default" : "ghost"}
+            >
+              {lang === "ar" ? "صوتي" : "Voice"}
+            </Button>
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
