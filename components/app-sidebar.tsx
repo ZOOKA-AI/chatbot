@@ -96,6 +96,11 @@ export function AppSidebar({
       label: isArabic ? "العمل" : "Work",
       items: [
         {
+          href: "/studio",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "Zooka Studio · معاينة" : "Zooka Studio · Review",
+        },
+        {
           href: workAssistantHref,
           icon: <BriefcaseBusiness />,
           label: isArabic ? "مساعد العمل" : "Work assistant",
@@ -121,6 +126,16 @@ export function AppSidebar({
     {
       label: isArabic ? "مساحة العمل" : "Workspace",
       items: [
+        {
+          href: "/explore",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "اكتشف المنصة" : "Explore platform",
+        },
+        {
+          href: "/platform-readiness",
+          icon: <Settings />,
+          label: isArabic ? "الجاهزية والحدود" : "Readiness and limits",
+        },
         {
           href: "/",
           icon: <FileText />,
