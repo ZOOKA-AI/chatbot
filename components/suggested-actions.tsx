@@ -2,7 +2,7 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import type { ChatMessage } from "@/lib/types";
 import { Suggestion } from "./elements/suggestion";
 import type { VisibilityType } from "./visibility-selector";
@@ -13,13 +13,33 @@ type SuggestedActionsProps = {
   selectedVisibilityType: VisibilityType;
 };
 
+const SUGGESTIONS_AR = [
+  "اكتب لي رد احترافي على عميل يشتكي من تأخر الطلب",
+  "لخّص آخر الإيميلات المهمة في بريدي واقترح الردود",
+  "حضّر خطة محتوى لأسبوع لمنصات التواصل لشركتي",
+  "حلّل ملف مبيعات الشهر وأعطني أهم 5 ملاحظات",
+];
+
+const SUGGESTIONS_EN = [
+  "Draft a professional reply to a customer complaining about a late order",
+  "Summarize my important recent emails and suggest replies",
+  "Plan a week of social media content for my business",
+  "Analyze this month's sales file and give me the top 5 insights",
+];
+
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
-  const suggestedActions = [
-    "What are the advantages of using Next.js?",
-    "Write code to demonstrate Dijkstra's algorithm",
-    "Help me write an essay about Silicon Valley",
-    "What is the weather in San Francisco?",
-  ];
+  const [lang, setLang] = useState<"ar" | "en">("ar");
+
+  useEffect(() => {
+    const savedLang = document.cookie
+      .split("; ")
+      .find((cookie) => cookie.startsWith("zooka_lang="))
+      ?.split("=")[1];
+    setLang(savedLang === "en" ? "en" : "ar");
+  }, []);
+
+  const suggestedActions =
+    lang === "en" ? SUGGESTIONS_EN : SUGGESTIONS_AR;
 
   return (
     <div
@@ -35,7 +55,7 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
           transition={{ delay: 0.05 * index }}
         >
           <Suggestion
-            className="h-auto w-full whitespace-normal p-3 text-left"
+            className="h-auto w-full whitespace-normal p-3 text-start"
             onClick={(suggestion) => {
               window.history.pushState({}, "", `/chat/${chatId}`);
               sendMessage({
