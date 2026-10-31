@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { isLeadStatus, LEAD_STATUSES, updateLeadStatus } from "@/lib/db/leads";
+import { updateLeadStatus } from "@/lib/db/leads";
+import { isLeadStatus, LEAD_STATUSES } from "@/lib/leads/status";
 
 const bodySchema = z.object({
   status: z.enum(LEAD_STATUSES),

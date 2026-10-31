@@ -2,6 +2,7 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
+import type { LeadStatus } from "@/lib/leads/status";
 
 export type Lead = {
   id: string;
@@ -55,20 +56,6 @@ export async function listLeads(
     notes: row.notes,
     lastContactAt: row.last_contact_at,
   }));
-}
-
-export const LEAD_STATUSES = [
-  "new",
-  "qualified",
-  "booked",
-  "won",
-  "lost",
-] as const;
-
-export type LeadStatus = (typeof LEAD_STATUSES)[number];
-
-export function isLeadStatus(value: string): value is LeadStatus {
-  return (LEAD_STATUSES as readonly string[]).includes(value);
 }
 
 /**

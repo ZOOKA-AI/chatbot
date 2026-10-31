@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { LEAD_STATUSES, type LeadStatus } from "@/lib/db/leads";
+import { LEAD_STATUSES, type LeadStatus } from "@/lib/leads/status";
 
 const LABELS: Record<LeadStatus, { ar: string; en: string }> = {
   new: { ar: "جديد", en: "New" },

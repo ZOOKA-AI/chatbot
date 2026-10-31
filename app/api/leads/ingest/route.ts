@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isLeadStatus, upsertLead } from "@/lib/db/leads";
+import { upsertLead } from "@/lib/db/leads";
+import { isLeadStatus } from "@/lib/leads/status";
 import { isLeadsIngestKeyValid } from "@/lib/integrations/leads/ingest-key";
 
 /**
