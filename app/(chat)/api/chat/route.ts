@@ -36,6 +36,7 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
+import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
 import { createGmailTools } from "@/lib/ai/tools/google-gmail";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
@@ -265,6 +266,9 @@ export async function POST(request: Request) {
     const n8nTools = agentAccessAuthorized
       ? createN8nTools(workspaceContext.organizationId)
       : {};
+    const calendarTools = agentAccessAuthorized
+      ? createCalendarTools(workspaceContext.organizationId)
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -311,6 +315,7 @@ export async function POST(request: Request) {
           }),
           ...googleDriveTools,
           ...gmailTools,
+          ...calendarTools,
           ...n8nTools,
         };
 
@@ -345,6 +350,8 @@ export async function POST(request: Request) {
                       "searchGmail",
                       "readGmailMessage",
                       "sendGmailMessage",
+                      "listCalendarEvents",
+                      "createCalendarEvent",
                     ] as const)
                   : []),
               ],

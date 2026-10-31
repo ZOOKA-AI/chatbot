@@ -8,6 +8,7 @@ import {
   FileText,
   Settings,
   UserRound,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -134,6 +135,16 @@ export function AppSidebar({
           href: "/workspace/billing",
           icon: <CreditCard />,
           label: isArabic ? "الباقة والاستخدام" : "Plan and usage",
+        },
+        {
+          href: "/settings/usage",
+          icon: <CreditCard />,
+          label: isArabic ? "الاستخدام والحدود" : "Usage and limits",
+        },
+        {
+          href: "/settings/leads",
+          icon: <Users />,
+          label: isArabic ? "الليدز" : "Leads",
         },
         {
           href: "/settings/account",

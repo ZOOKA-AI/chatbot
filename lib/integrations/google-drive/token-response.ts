@@ -10,11 +10,19 @@ export const GOOGLE_GMAIL_SCOPE =
 export const GOOGLE_GMAIL_SEND_SCOPE =
   "https://www.googleapis.com/auth/gmail.send";
 
+/**
+ * Calendar events only, not the whole calendar list: enough for the agent to
+ * read the day and create an appointment without touching sharing settings.
+ */
+export const GOOGLE_CALENDAR_SCOPE =
+  "https://www.googleapis.com/auth/calendar.events";
+
 /** Scopes the workspace Google connection may request. */
 export const GOOGLE_READ_SCOPES = [
   GOOGLE_DRIVE_SCOPE,
   GOOGLE_GMAIL_SCOPE,
   GOOGLE_GMAIL_SEND_SCOPE,
+  GOOGLE_CALENDAR_SCOPE,
 ];
 
 const tokensSchema = z.object({

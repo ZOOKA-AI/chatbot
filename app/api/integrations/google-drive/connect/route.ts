@@ -10,6 +10,7 @@ import {
 } from "@/lib/integrations/google-drive/oauth-state";
 import { getGoogleDriveOAuthConfig } from "@/lib/integrations/google-drive/server";
 import {
+  GOOGLE_CALENDAR_SCOPE,
   GOOGLE_DRIVE_SCOPE,
   GOOGLE_GMAIL_SCOPE,
   GOOGLE_GMAIL_SEND_SCOPE,
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: "code",
-    scope: `${GOOGLE_DRIVE_SCOPE} ${GOOGLE_GMAIL_SCOPE} ${GOOGLE_GMAIL_SEND_SCOPE}`,
+    scope: `${GOOGLE_DRIVE_SCOPE} ${GOOGLE_GMAIL_SCOPE} ${GOOGLE_GMAIL_SEND_SCOPE} ${GOOGLE_CALENDAR_SCOPE}`,
     access_type: "offline",
     prompt: "consent",
     state: nonce,
