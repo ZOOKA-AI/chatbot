@@ -278,11 +278,15 @@ export default async function IntegrationsPage({
                             : "Connected"
                           : available
                             ? isArabic
-                              ? "متاح"
-                              : "Available"
-                            : isArabic
-                              ? "قريبًا"
-                              : "Coming soon"}
+                              ? "ربط ذاتي"
+                              : "Self-serve"
+                            : provider.status === "beta"
+                              ? isArabic
+                                ? "عبر الوكيل"
+                                : "Via agent"
+                              : isArabic
+                                ? "قريبًا"
+                                : "Coming soon"}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
