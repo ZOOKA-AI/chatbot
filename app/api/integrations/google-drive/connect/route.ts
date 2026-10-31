@@ -9,13 +9,14 @@ import {
   GOOGLE_DRIVE_VERIFIER_COOKIE,
 } from "@/lib/integrations/google-drive/oauth-state";
 import { getGoogleDriveOAuthConfig } from "@/lib/integrations/google-drive/server";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import {
   GOOGLE_GMAIL_SEND_SCOPE,
   GOOGLE_GMAIL_SCOPE,
   GOOGLE_DRIVE_SCOPE,
 } from "@/lib/integrations/google-drive/token-response";
 
-export async function GET() {
+export async function GET(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -23,6 +24,13 @@ export async function GET() {
       {
         status: 403,
       }
+    );
+  }
+
+  const entitlements = await getWorkspaceEntitlements(context.organizationId);
+  if (!entitlements.canConnectIntegrations) {
+    return NextResponse.redirect(
+      new URL("/settings/integrations?googleDrive=upgrade", request.url)
     );
   }
 

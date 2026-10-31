@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GoogleDriveConnectionControl } from "@/components/google-drive-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import {
   isGoogleDriveConfigured,
@@ -30,6 +32,7 @@ export default async function IntegrationsPage({
 
   const lang = await getLang();
   const isArabic = lang === "ar";
+  const entitlements = await getWorkspaceEntitlements(context.organizationId);
   const { googleDrive } = await searchParams;
   const feedback = getGoogleDriveCallbackFeedback(googleDrive, lang);
   const googleDriveConfigured = isGoogleDriveConfigured();
@@ -109,12 +112,33 @@ export default async function IntegrationsPage({
                 : "Tokens are encrypted and scoped to this workspace. Read file text is sent to the model and saved with the chat."}
             </p>
           </div>
-          <GoogleDriveConnectionControl
-            canManage={canManage}
-            configured={googleDriveConfigured}
-            connected={googleDriveConnected}
-            lang={lang}
-          />
+          {entitlements.canConnectIntegrations ? (
+            <GoogleDriveConnectionControl
+              canManage={canManage}
+              configured={googleDriveConfigured}
+              connected={googleDriveConnected}
+              lang={lang}
+            />
+          ) : (
+            <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed p-4">
+              <p className="font-medium text-sm">
+                {isArabic
+                  ? "ربط التكاملات متاح في الباقات المدفوعة"
+                  : "Connecting integrations requires a paid plan"}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {isArabic
+                  ? "الباقة المجانية تشمل المحادثة فقط. الباقة الاحترافية تضيف ربط حسابك وتشغيل الوكيل."
+                  : "The free plan covers chat only. Pro adds account connections and agent runs."}
+              </p>
+              <Link
+                className="rounded-md bg-foreground px-3 py-1.5 font-medium text-background text-xs"
+                href="/pricing"
+              >
+                {isArabic ? "رقّي الباقة" : "Upgrade plan"}
+              </Link>
+            </div>
+          )}
         </article>
         {Object.entries(grouped).map(([category, items]) => (
           <div className="flex flex-col gap-3" key={category}>
