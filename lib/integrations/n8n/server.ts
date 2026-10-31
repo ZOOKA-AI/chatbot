@@ -16,7 +16,7 @@ export async function validateN8nCredentials(
   apiKey: string
 ): Promise<N8nValidationResult> {
   try {
-    const response = await fetch(`${baseUrl}/api/v1/workflows?limit=1`, {
+    const response = await fetch(`${baseUrl}/api/v1/workflows?limit=250`, {
       headers: { "X-N8N-API-KEY": apiKey, accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
