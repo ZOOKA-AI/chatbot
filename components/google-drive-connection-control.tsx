@@ -124,6 +124,11 @@ export function GoogleDriveConnectionControl({
           {isArabic ? "ربط Google Drive" : "Connect Google Drive"}
         </Link>
       </Button>
+      <p className="max-w-64 text-end text-[11px] text-muted-foreground">
+        {isArabic
+          ? "نفس الموافقة تشمل جيميل (قراءة وإرسال) وتقويم Google (إنشاء المواعيد)."
+          : "The same consent covers Gmail (read and send) and Google Calendar (create events)."}
+      </p>
       {revocationNotice && (
         <p className="max-w-64 text-end text-xs text-muted-foreground">
           {isArabic
