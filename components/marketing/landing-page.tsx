@@ -22,6 +22,7 @@ type Lang = "ar" | "en";
 export const plans = [
   {
     id: "free",
+    note: { ar: "كتابة وتوليد داخل المحادثة. لا ربط أدوات ولا وضع وكيل.", en: "Writing and drafting in chat. No tool connections, no agent mode." },
     name: { ar: "مجاني", en: "Free" },
     price: { ar: "0", en: "0" },
     period: { ar: "للأبد", en: "forever" },
@@ -36,6 +37,7 @@ export const plans = [
   },
   {
     id: "pro",
+    note: { ar: "كل التكاملات المتاحة + وضع الوكيل حتى إنجاز المهمة.", en: "All live integrations + agent mode that runs the task to the end." },
     name: { ar: "احترافي", en: "Pro" },
     price: { ar: "19", en: "19" },
     period: { ar: "شهريًا", en: "per month" },
@@ -50,6 +52,7 @@ export const plans = [
   },
   {
     id: "business",
+    note: { ar: "نفس الاحترافي + فريق وسجل تدقيق ودعم بأولوية.", en: "Everything in Pro + team seats, audit log and priority support." },
     name: { ar: "الأعمال", en: "Business" },
     price: { ar: "49", en: "49" },
     period: { ar: "شهريًا", en: "per month" },
@@ -74,6 +77,7 @@ export const plans = [
   },
   {
     id: "enterprise",
+    note: { ar: "فروع متعددة، اتفاقية خدمة، وتسعير بحسب الاستخدام.", en: "Multiple branches, service agreement, usage-based pricing." },
     name: { ar: "مؤسسات", en: "Enterprise" },
     price: { ar: "على الطلب", en: "Custom" },
     period: { ar: "سنوي", en: "annual" },
@@ -178,6 +182,16 @@ const faqs = [
   },
   {
     q: {
+      ar: "متى يُخصم من عداد الرسائل المجانية؟",
+      en: "When does a free message get counted?",
+    },
+    a: {
+      ar: "بعد أول جزء من الرد. لو انقطع الاتصال أو أوقفت الرد قبل أول كلمة، لا يُحسب ويعود لك فورًا — العدّاد محفوظ على السيرفر، مش في المتصفح.",
+      en: "After the first part of the reply. If the connection drops or you stop it before the first word, it is not counted and comes straight back — the counter is server-side, not in your browser.",
+    },
+  },
+  {
+    q: {
       ar: "هل يمكنني الإلغاء أو تغيير الباقة؟",
       en: "Can I change or cancel a plan?",
     },
@@ -260,8 +274,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
               </div>
               <p className="text-sm text-muted-foreground">
                 {t(
-                  "10 رسائل مجانية كل يوم بدون تسجيل · بدون بطاقة",
-                  "10 free messages every day, no sign-up · no card"
+                  "10 رسائل مجانية كل يوم · كتابة فقط، بدون فتح بريدك أو ملفاتك",
+                  "10 free messages a day · writing only, we never open your mail or files"
                 )}
               </p>
               <p className="-mt-4 text-sm">
@@ -276,6 +290,53 @@ export function LandingPage({ lang }: { lang: Lang }) {
             <div className="relative">
               <DemoChat lang={lang} />
             </div>
+          </div>
+        </section>
+
+        <section className="border-b">
+          <div className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-10 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                kicker: t("مجاني", "Free"),
+                title: t("اكتب وولّد الآن", "Write and draft now"),
+                body: t(
+                  "المحادثة والتوليد متاحان في التجربة — عشر رسائل كل يوم بدون حساب.",
+                  "Chat and drafting work in the preview — ten messages a day, no account."
+                ),
+              },
+              {
+                kicker: t("على الاحترافي", "On Pro"),
+                title: t("اربط أدواتك", "Connect your tools"),
+                body: t(
+                  "جيميل ودرايف وبقية الكتالوج عبر صفحة موافقة المزوّد. ليست في المجاني.",
+                  "Gmail, Drive and the rest of the catalog through the provider's consent screen. Not on Free."
+                ),
+              },
+              {
+                kicker: t("حسب الباقة", "By plan"),
+                title: t("وضع الوكيل", "Agent mode"),
+                body: t(
+                  "خطوات متعددة على الأدوات المربوطة حتى إنجاز المهمة، بعدد تشغيلات باقتك.",
+                  "Multi-step work on connected tools until the task is done, within your plan's run quota."
+                ),
+              },
+              {
+                kicker: t("دائمًا", "Always"),
+                title: t("أنت تقرّر", "You decide"),
+                body: t(
+                  "أي إرسال لطرف خارجي ينتظر موافقتك، والتجربة لا ترسل شيئًا نيابةً عنك.",
+                  "Anything sent to an outside party waits for your approval; the preview never sends for you."
+                ),
+              },
+            ].map((card) => (
+              <div className="rounded-xl border p-5" key={card.title}>
+                <span className="text-blue-400 text-xs uppercase tracking-widest">
+                  {card.kicker}
+                </span>
+                <h3 className="mt-2 font-medium">{card.title}</h3>
+                <p className="mt-2 text-muted-foreground text-sm">{card.body}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -445,6 +506,9 @@ export function LandingPage({ lang }: { lang: Lang }) {
                     {plan.id === "enterprise"
                       ? t("", "")
                       : t("بالدولار الأمريكي", "USD")}
+                  </p>
+                  <p className="mt-3 rounded-lg border border-dashed px-3 py-2 text-muted-foreground text-xs">
+                    {plan.note[lang]}
                   </p>
                   <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm text-muted-foreground">
                     {plan.features[lang].map((feature) => (
