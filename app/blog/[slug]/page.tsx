@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { renderMarkdown } from "@/lib/blog/markdown";
 import { getPublishedPost, listPublishedPosts } from "@/lib/blog/store";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function BlogPostPage({ params }: PageProps) {
+async function BlogPostContent({ params }: PageProps) {
   const { slug } = await params;
   const post = await getPublishedPost(slug);
   if (!post) notFound();
@@ -161,5 +162,15 @@ export default async function BlogPostPage({ params }: PageProps) {
         </section>
       )}
     </main>
+  );
+}
+
+export default function BlogPostPage({ params }: PageProps) {
+  // generateMetadata already resolved the slug; the body still reads the
+  // database per request, so keep it inside Suspense for prerendering.
+  return (
+    <Suspense fallback={<div className="mx-auto min-h-dvh w-full max-w-3xl p-6 py-16" />}>
+      <BlogPostContent params={params} />
+    </Suspense>
   );
 }

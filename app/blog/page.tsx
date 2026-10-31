@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { listPublishedPosts } from "@/lib/blog/store";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
@@ -30,7 +31,7 @@ function formatDate(iso: string, ar: boolean) {
   }
 }
 
-export default async function BlogIndexPage() {
+async function BlogIndexContent() {
   const lang = await getLang();
   const ar = lang === "ar";
   const posts = await listPublishedPosts(60);
@@ -137,5 +138,15 @@ export default async function BlogIndexPage() {
         </Link>
       </footer>
     </main>
+  );
+}
+
+export default function BlogIndexPage() {
+  // The post list is read per request, so it must sit inside a Suspense
+  // boundary for the route to prerender its static shell.
+  return (
+    <Suspense fallback={<div className="mx-auto min-h-dvh w-full max-w-3xl p-6 py-16" />}>
+      <BlogIndexContent />
+    </Suspense>
   );
 }
