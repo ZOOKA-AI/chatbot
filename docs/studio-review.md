@@ -6,11 +6,16 @@ chat experience. It never loads account details, tokens, or tenant data.
 ## Working in this revision
 
 - Responsive Arabic dark workspace, navigation, action sheet and details panel.
-- Routes for projects, templates, code/preview, integrations, browser and profile.
-- Three HTML/CSS starter sites; editable code, isolated preview, mobile width,
+- Routes for projects, tasks, templates, local playground, code/preview, integrations, browser and profile.
+- Six HTML/CSS starter sites; editable code, isolated preview, mobile width,
   clipboard copy, HTML download, local project persistence/open/delete/search.
+- Local manual task board with priority, target date, status, search, deletion and Markdown export (no execution/reminders).
+- Bounded HTML import and versioned JSON backup/restore; restore validates all records and creates new IDs without overwriting. Files stay on the browser.
+- Local two-player tic-tac-toe, five-question educational quiz, and sequential prewritten creative challenges. No external streaming or fabricated live channels.
+- Interactive native HTML disclosure templates for quiz/event/menu, without scripts.
 - Searchable, categorized integration catalog. Existing connection controls remain
   in authenticated `/settings/integrations`; role and plan checks are unchanged.
+- Native provider-guide dialogs show researched prerequisites and official source links where documented; no token form or fake connection state.
 - Profile links open existing account/workspace/billing pages, not mock accounts.
 
 Projects are **browser-local**, not encrypted or synced. Do not store secrets or
@@ -42,3 +47,17 @@ sections. Open a template, edit HTML, update preview, save and reopen the projec
 Search/filter integration cards and open an inactive provider's requirements.
 Existing account and real connection flows require a signed-in account and, for
 some actions, an eligible plan/admin role; the public preview cannot validate them.
+
+## Verification for the expanded revision
+
+25 unit tests plus model suite and seven Playwright scenarios pass locally. The
+scenarios exercise edit/save/reopen, provider requirements, mobile action sheet,
+task state persistence/move/delete, HTML import and JSON backup/restore with fresh
+IDs and invalid-file rejection, actual quiz/game logic, and native disclosure
+interaction in the sandboxed template. TypeScript passes.
+
+Date and tasks are local organization aids only, not scheduled jobs. Games and
+quiz results reset on page reload. Imported HTML may contain arbitrary content:
+the existing iframe sandbox/CSP remains unchanged. Downloaded HTML is not
+sanitized; review it before opening outside the sandbox or publishing. Backups
+are unencrypted and browser storage may be cleared. No files reach Zooka servers.

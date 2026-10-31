@@ -36,7 +36,7 @@ describe("studio review", () => {
     ).toEqual([project]);
   });
   it("ships complete, unique starter documents", () => {
-    expect(new Set(starterTemplates.map((t) => t.id)).size).toBe(3);
+    expect(new Set(starterTemplates.map((t) => t.id)).size).toBe(6);
     for (const template of starterTemplates) {
       expect(template.html).toContain('<html lang="ar" dir="rtl">');
       expect(template.html).toContain('name="viewport"');

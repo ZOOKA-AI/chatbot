@@ -1,8 +1,12 @@
+import { creativeTemplates } from "./studio-play";
+
 /** Public review data only. Never put account data or integration secrets here. */
 export const studioSections = [
   { id: "home", label: "مساحة العمل" },
   { id: "projects", label: "المشاريع" },
+  { id: "tasks", label: "لوحة المهام" },
   { id: "templates", label: "قوالب المواقع" },
+  { id: "play", label: "استراحة وإبداع" },
   { id: "code", label: "الكود والمعاينة" },
   { id: "integrations", label: "التكاملات" },
   { id: "browser", label: "المتصفح" },
@@ -38,6 +42,7 @@ export const starterTemplates = [
     color: "#f5cf9a",
     html: `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مدار | أقل تعقيداً، أكثر إنجازاً</title><style>body{background:#221d15;color:#fff7eb;font:18px/1.8 system-ui;margin:0}main{max-width:900px;margin:auto;padding:40px 24px;text-align:center}nav{text-align:right;color:#f5cf9a}h1{font-size:clamp(32px,7vw,64px);line-height:1.4}.pill{display:inline-block;border:1px solid #826543;padding:6px 18px;border-radius:24px;margin-top:60px}section{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:50px}article{background:#372e21;border-radius:20px;padding:24px}a{display:inline-block;background:#f5cf9a;color:#221d15;border-radius:30px;padding:12px 24px;text-decoration:none}footer{margin-top:50px;font-size:14px;color:#d4c0a2}</style><main><nav><b>مدار.</b></nav><span class="pill">بداية جديدة لطريقة عملك</span><h1>أقل تعقيداً.<br>أكثر إنجازاً.</h1><p>اجمع أفكارك ومشاريعك في مساحة واحدة، وركّز على ما يصنع الفرق.</p><a href="mailto:hello@example.com">اطلب تجربة المنتج ↗</a><section><article><h2>وضوح</h2><p>كل شيء في مكانه.</p></article><article><h2>مرونة</h2><p>تجربة تناسب أسلوبك.</p></article><article><h2>تركيز</h2><p>وقت أكثر للإبداع.</p></article></section><footer>قالب تعريفي تجريبي، لا توجد خدمة أو استمارة متصلة.</footer></main></html>`,
   },
+  ...creativeTemplates,
 ] as const;
 
 export type LocalProject = {

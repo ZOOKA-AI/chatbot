@@ -8,11 +8,13 @@ import {
   Check,
   CheckCheck,
   ChevronLeft,
+  ClipboardList,
   Code2,
   Copy,
   Download,
   ExternalLink,
   FolderOpen,
+  Gamepad2,
   Globe2,
   LayoutDashboard,
   LayoutTemplate,
@@ -48,13 +50,19 @@ import {
   starterTemplates,
   studioSections,
 } from "@/lib/studio";
+import { Playground } from "./playground";
+import { ProjectTransfer } from "./project-transfer";
+import { ProviderGuide } from "./provider-guide";
 import { ProviderIcon } from "./provider-icon";
 import styles from "./studio.module.css";
+import { TaskBoard } from "./task-board";
 
 const sectionIcons = [
   LayoutDashboard,
   FolderOpen,
+  ClipboardList,
   LayoutTemplate,
+  Gamepad2,
   Code2,
   Cable,
   Globe2,
@@ -79,6 +87,10 @@ export function Studio({ section }: { section: StudioSection }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [notice, setNotice] = useState("");
+  const [guideProvider, setGuideProvider] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [code, setCode] = useState<string>(starterTemplates[0].html);
   const [previewCode, setPreviewCode] = useState<string>(
     starterTemplates[0].html,
@@ -483,6 +495,12 @@ export function Studio({ section }: { section: StudioSection }) {
                   <Plus size={17} /> مشروع جديد
                 </button>
               </div>
+              <ProjectTransfer
+                projects={projects}
+                ready={loaded}
+                onSave={persist}
+                onNotice={setNotice}
+              />
               {!loaded ? (
                 <p>جارٍ قراءة المشاريع المحلية…</p>
               ) : filteredProjects.length === 0 ? (
@@ -544,12 +562,14 @@ export function Studio({ section }: { section: StudioSection }) {
               )}
             </>
           )}
+          {section === "tasks" && <TaskBoard />}
+          {section === "play" && <Playground />}
           {section === "templates" && (
             <>
               <PageHeading
                 eyebrow="لا تبدأ من الصفر"
                 title="قوالب تصنع انطلاقتك"
-                description="ثلاثة قوالب HTML مستقلة. افتح القالب، غيّر النصوص والألوان، ثم نزّل الكود."
+                description="ستة قوالب HTML مستقلة. افتح القالب، غيّر النصوص والألوان، ثم نزّل الكود."
               />
               <TemplateGrid onOpen={openTemplate} />
               <div className={styles.releaseNote}>
@@ -775,6 +795,17 @@ export function Studio({ section }: { section: StudioSection }) {
                         <span className={styles.providerCategory}>
                           {PROVIDER_CATEGORIES[p.category]?.ar}
                         </span>
+                        {implemented && (
+                          <button
+                            className={styles.textButton}
+                            onClick={() =>
+                              setGuideProvider({ id: p.id, name: p.name })
+                            }
+                            type="button"
+                          >
+                            دليل الربط والصلاحيات
+                          </button>
+                        )}
                         {implemented ? (
                           <Link
                             className={styles.integrationAction}
@@ -786,9 +817,7 @@ export function Studio({ section }: { section: StudioSection }) {
                           <button
                             className={styles.integrationAction}
                             onClick={() =>
-                              setNotice(
-                                `${p.nameAr}: لا يوجد موصل منفّذ في هذه النسخة. يلزم تطبيق رسمي لدى المزوّد وصلاحياته، وربط آمن من الخادم واختبارات قبل التفعيل. لن يؤدي حفظ توكن وحده إلى تفعيل العمليات.`,
-                              )
+                              setGuideProvider({ id: p.id, name: p.name })
                             }
                             type="button"
                           >
@@ -982,6 +1011,12 @@ export function Studio({ section }: { section: StudioSection }) {
           </Link>
         </aside>
       )}
+      {guideProvider && (
+        <ProviderGuide
+          provider={guideProvider}
+          onClose={() => setGuideProvider(null)}
+        />
+      )}
       {actionsOpen && (
         <dialog
           ref={createDialog}
@@ -1003,6 +1038,18 @@ export function Studio({ section }: { section: StudioSection }) {
             </div>
             <p className={styles.muted}>خطوتك التالية، بدون تعقيد.</p>
             {[
+              {
+                id: "tasks" as const,
+                icon: ClipboardList,
+                title: "مهمة جديدة",
+                desc: "قائمة يدوية محلية لتنظيم عملك",
+              },
+              {
+                id: "play" as const,
+                icon: Gamepad2,
+                title: "استراحة وإبداع",
+                desc: "ألعاب محلية وتحديات أفكار",
+              },
               {
                 id: "templates" as const,
                 icon: LayoutTemplate,
@@ -1114,6 +1161,9 @@ function TemplateGrid({ onOpen }: { onOpen: (id: string) => void }) {
                   "فكرتك،\nبصوت أوضح.",
                   "أعمال تتحدث\nعن نفسها.",
                   "انطلق نحو\nشيء أكبر.",
+                  "تعلّم،\nثم جرّب.",
+                  "أفكار تلتقي،\nومشاريع تبدأ.",
+                  "استراحة،\nبمذاق مختلف.",
                 ][index]
               }
             </strong>

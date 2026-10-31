@@ -1557,3 +1557,340 @@
   border: 0;
   color: var(--ink);
 }
+
+/* Local tools: no implied cloud execution or external connection. */
+.transferPanel {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  margin-bottom: 24px;
+}
+.transferPanel strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.transferPanel p {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 6px 0 18px;
+}
+.transferActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.taskSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 25px;
+}
+.taskSummary > span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 20px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--muted);
+}
+.taskSummary strong {
+  color: var(--mint);
+  font: 600 23px system-ui;
+}
+.taskForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: end;
+  border: 1px solid #3c4a40;
+  background: #212a24;
+  padding: 22px;
+  border-radius: 16px;
+  margin-bottom: 25px;
+}
+.taskForm label {
+  display: grid;
+  gap: 7px;
+  color: #b5c6ba;
+  font-size: 11px;
+}
+.taskForm label:first-child {
+  flex: 1;
+  min-width: 200px;
+}
+.taskForm input,
+.taskForm select,
+.taskCard select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  background: #171e19;
+  color: var(--ink);
+  border: 1px solid #45594a;
+  border-radius: 8px;
+  padding: 9px 12px;
+  min-height: 40px;
+}
+.taskBoard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.taskColumn {
+  background: #1b211d;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 17px;
+  min-height: 220px;
+}
+.taskColumn > h2 {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.taskColumn > h2 span {
+  background: #344239;
+  color: var(--mint);
+  border-radius: 6px;
+  padding: 0 9px;
+  font: 12px / 24px system-ui;
+}
+.taskCard {
+  padding: 15px;
+  border: 1px solid #3e4d42;
+  background: #242d27;
+  border-radius: 11px;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+.taskCard .row {
+  justify-content: space-between;
+}
+.taskCard h3 {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 10px 0 15px;
+}
+.taskCard p,
+.taskCard label {
+  font-size: 9px;
+  color: #a6b8ab;
+}
+.taskCard p {
+  margin-bottom: 15px;
+}
+.taskCard select {
+  margin-top: 5px;
+  font-size: 11px;
+}
+.taskEmpty {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 25px 0;
+}
+.guideAuth {
+  margin: 22px 0 12px !important;
+  font-size: 13px;
+  color: var(--mint);
+}
+.guideSteps {
+  list-style: decimal;
+  padding-inline-start: 23px;
+  color: #c5d4cb;
+  font-size: 12px;
+  line-height: 2;
+  margin-bottom: 25px;
+}
+.guideSteps li {
+  padding: 7px 0;
+}
+@media (max-width: 900px) {
+  .taskBoard {
+    grid-template-columns: 1fr;
+  }
+  .taskForm label:first-child {
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 700px) {
+  .taskForm {
+    padding: 18px;
+    gap: 12px;
+  }
+  .taskForm label {
+    flex: 1;
+  }
+  .taskForm button {
+    width: 100%;
+  }
+  .taskSummary {
+    gap: 8px;
+  }
+  .taskSummary > span {
+    flex: 1;
+    padding: 12px 10px;
+    font-size: 9px;
+    gap: 5px;
+  }
+  .taskSummary strong {
+    font-size: 20px;
+  }
+  .transferPanel {
+    padding: 18px;
+  }
+  .transferActions > button {
+    flex: 1;
+  }
+  .taskColumn {
+    min-height: 170px;
+  }
+}
+.playChannels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 25px;
+}
+.playChannel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: right;
+  color: #aabbb1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 22px;
+  border-radius: 15px;
+}
+.playChannel strong {
+  color: #d9e8df;
+  font-size: 14px;
+  font-weight: 500;
+}
+.playChannel span {
+  font-size: 10px;
+}
+.playChannel[aria-pressed="true"] {
+  border-color: #8cc49e;
+  background: #2b3d30;
+  color: var(--mint);
+}
+.playPanel {
+  padding: 32px;
+  border: 1px solid #425447;
+  border-radius: 20px;
+  background: linear-gradient(120deg, #26332a, #202624);
+}
+.playPanel h2 {
+  font-size: 25px;
+  font-weight: 500;
+  margin: 12px 0 22px;
+}
+.quizOptions {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+.quizOptions button {
+  text-align: right;
+  padding: 14px 18px;
+  color: #d2e4d8;
+  background: #1b261f;
+  border: 1px solid #4a5e50;
+  border-radius: 10px;
+}
+.quizOptions button[aria-pressed="true"] {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+.quizOptions button:disabled {
+  opacity: 0.8;
+  cursor: default;
+}
+.quizFeedback {
+  display: block;
+  padding: 15px;
+  border-radius: 10px;
+  background: #354a3a;
+  color: #daf3e0;
+  font-size: 13px;
+}
+.playFooter {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 25px;
+}
+.playFooter span {
+  color: var(--mint);
+  font-size: 12px;
+}
+.gameStatus {
+  display: block;
+  color: var(--mint);
+  margin: 10px 0;
+}
+.gameGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  direction: ltr;
+  max-width: 320px;
+  margin: 22px auto;
+}
+.gameGrid button {
+  aspect-ratio: 1;
+  background: #17221b;
+  color: var(--mint);
+  border: 1px solid #496c53;
+  border-radius: 12px;
+  font: 500 36px system-ui;
+}
+.gameGrid button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.challenge {
+  border-right: 3px solid var(--mint);
+  padding: 10px 20px;
+  font-size: 21px;
+  line-height: 2;
+  color: #d7eade;
+  margin: 20px 0 30px;
+}
+@media (max-width: 700px) {
+  .playChannels {
+    gap: 8px;
+  }
+  .playChannel {
+    padding: 14px 10px;
+  }
+  .playChannel strong {
+    font-size: 10px;
+  }
+  .playChannel span {
+    font-size: 8px;
+  }
+  .playPanel {
+    padding: 22px 18px;
+  }
+  .playPanel h2 {
+    font-size: 21px;
+  }
+  .challenge {
+    font-size: 18px;
+  }
+  .quizFeedback {
+    font-size: 12px;
+  }
+}
