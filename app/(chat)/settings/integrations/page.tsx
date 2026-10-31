@@ -160,7 +160,7 @@ export default async function IntegrationsPage({
                     <p className="text-xs text-muted-foreground">
                       {isArabic ? provider.descriptionAr : provider.description}
                     </p>
-                    {provider.managed && available ? (
+                    {available && (provider.id === "google_drive" || provider.id === "gmail") ? (
                       <p className="text-[11px] text-muted-foreground">
                         {isArabic
                           ? "ربط بضغطة: الوكيل يفتح صفحة الموافقة بنفسه ولا تحتاج مفتاحًا."
