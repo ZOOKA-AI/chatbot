@@ -566,6 +566,9 @@ export function LandingPage({ lang }: { lang: Lang }) {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
           <p>© {new Date().getFullYear()} Zooka AI</p>
           <nav className="flex flex-wrap gap-5">
+            <Link href="/compare/chatgpt">
+              {t("زوكا مقابل ChatGPT", "Zooka vs ChatGPT")}
+            </Link>
             <Link href="/about">{t("من نحن", "About")}</Link>
             <Link href="/privacy">{t("سياسة الخصوصية", "Privacy")}</Link>
             <Link href="/terms">{t("شروط الخدمة", "Terms")}</Link>
