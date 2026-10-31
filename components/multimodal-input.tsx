@@ -1,6 +1,7 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
+import Link from "next/link";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
 import { CheckIcon } from "lucide-react";
@@ -497,6 +498,14 @@ function PureMultimodalInput({
             >
               {lang === "ar" ? "الوكيل" : "Agent"}
             </Button>
+            {!(canUseAgentMode || hasAgentPlan) && (
+              <Link
+                className="px-1 text-muted-foreground text-xs underline underline-offset-2 hover:text-foreground"
+                href="/pricing"
+              >
+                {lang === "ar" ? "رقّي للوكيل" : "Unlock agent"}
+              </Link>
+            )}
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
