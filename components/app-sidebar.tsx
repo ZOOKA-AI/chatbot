@@ -96,6 +96,11 @@ export function AppSidebar({
       label: isArabic ? "العمل" : "Work",
       items: [
         {
+          href: "/studio",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "Zooka Studio · معاينة" : "Zooka Studio · Review",
+        },
+        {
           href: workAssistantHref,
           icon: <BriefcaseBusiness />,
           label: isArabic ? "مساعد العمل" : "Work assistant",
