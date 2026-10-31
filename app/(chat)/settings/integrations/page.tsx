@@ -48,8 +48,8 @@ export default async function IntegrationsPage({
         </h1>
         <p className="text-sm text-muted-foreground">
           {isArabic
-            ? "يستخدم الوكيل Google Drive وGmail للقراءة فقط عند تفعيل الاتصال في مساحة العمل. لا تتوفر تكاملات Notion وShopify."
-            : "The Agent can use Google Drive and Gmail read-only when connected to this workspace. Notion and Shopify are unavailable."}
+            ? "يستخدم الوكيل Google Drive للقراءة، وGmail للبحث والقراءة والإرسال عند تفعيل الاتصال في مساحة العمل. لا تتوفر تكاملات Notion وShopify."
+            : "The Agent can use Google Drive read-only, and Gmail to search, read and send, when connected to this workspace. Notion and Shopify are unavailable."}
         </p>
       </header>
 
@@ -126,8 +126,8 @@ export default async function IntegrationsPage({
 
       <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
         {isArabic
-          ? "لا يظهر Google Drive وGmail كمتصلين إلا بعد موافقة OAuth وتخزين الرموز مشفّرة لمساحة العمل. البحث والقراءة فقط متاحان للوكيل."
-          : "Google Drive and Gmail are shown as connected only after OAuth succeeds and tokens are encrypted for this workspace. Agent access is read-only."}
+          ? "لا يظهر Google Drive وGmail كمتصلين إلا بعد موافقة OAuth وتخزين الرموز مشفّرة لمساحة العمل. البحث والقراءة والإرسال متاحة للوكيل."
+          : "Google Drive and Gmail are shown as connected only after OAuth succeeds and tokens are encrypted for this workspace. The Agent can search, read and send from Gmail."}
       </p>
     </main>
   );
