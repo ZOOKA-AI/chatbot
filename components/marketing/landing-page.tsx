@@ -3,6 +3,14 @@ import {
   INTEGRATION_PROVIDERS,
   PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
+import {
+  Compare,
+  HowItWorks,
+  PostersSection,
+  UseCases,
+  VideoSection,
+} from "@/components/marketing/showcase";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf } from "@/lib/i18n";
 
 type Lang = "ar" | "en";
@@ -221,44 +229,12 @@ export function LandingPage({ lang }: { lang: Lang }) {
 
   return (
     <div
-      className="flex min-h-dvh flex-col bg-background text-foreground"
+      className="dark flex min-h-dvh flex-col bg-background text-foreground"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
-      <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3">
-          <Link className="flex items-center gap-2 font-semibold" href="/">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt="Zooka AI"
-              className="h-8 w-8 rounded-md"
-              src="/images/zooka-logo-120.png"
-            />
-            <span>Zooka AI</span>
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            <a href="#capabilities">{t("القدرات", "Capabilities")}</a>
-            <a href="#integrations">{t("التكاملات", "Integrations")}</a>
-            <a href="#plans">{t("الباقات", "Plans")}</a>
-            <a href="#security">{t("الأمان", "Security")}</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <Link
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
-              href="/login"
-            >
-              {t("تسجيل الدخول", "Sign in")}
-            </Link>
-            <Link
-              className="rounded-md bg-foreground px-4 py-2 font-medium text-background text-sm"
-              href="/register"
-            >
-              {t("ابدأ مجانًا", "Start free")}
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader lang={lang} />
 
       <main className="flex-1">
         <section className="relative overflow-hidden border-b">
@@ -332,6 +308,10 @@ export function LandingPage({ lang }: { lang: Lang }) {
             </div>
           </div>
         </section>
+
+        <VideoSection lang={lang} />
+
+        <PostersSection lang={lang} />
 
         <section className="border-b">
           <div className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-14 md:grid-cols-3">
@@ -410,6 +390,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
           </div>
         </section>
 
+        <HowItWorks lang={lang} />
+
         <section className="border-b" id="integrations">
           <div className="mx-auto w-full max-w-6xl px-5 py-16">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -451,6 +433,10 @@ export function LandingPage({ lang }: { lang: Lang }) {
             </div>
           </div>
         </section>
+
+        <UseCases lang={lang} />
+
+        <Compare lang={lang} />
 
         <section className="border-b" id="plans">
           <div className="mx-auto w-full max-w-6xl px-5 py-16">
@@ -541,7 +527,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
           </div>
         </section>
 
-        <section className="border-b">
+        <section className="border-b" id="faq">
           <div className="mx-auto w-full max-w-4xl px-5 py-16">
             <h2 className="font-semibold text-3xl">
               {t("أسئلة يسألها الجميع", "Questions everyone asks")}
@@ -577,6 +563,9 @@ export function LandingPage({ lang }: { lang: Lang }) {
               href="/register"
             >
               {t("ابدأ مجانًا", "Start free")}
+            </Link>
+            <Link className="rounded-lg border px-6 py-3 font-medium" href="/login">
+              {t("تسجيل الدخول", "Sign in")}
             </Link>
             <Link className="rounded-lg border px-6 py-3 font-medium" href="/contact">
               {t("تحدث مع الفريق", "Talk to the team")}
@@ -618,6 +607,24 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 price: plan.price.en,
                 priceCurrency: "USD",
               })),
+          }),
+        }}
+        type="application/ld+json"
+      />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "VideoObject",
+            name: t("زوكا AI — فيديو تعريفي", "Zooka AI demo video"),
+            description: t(
+              "عرض سريع لقدرات زوكا AI: ربط الأدوات، تنفيذ المهام، التكاملات، المحادثة الصوتية والنشر.",
+              "A short walkthrough of Zooka AI: connecting tools, multi-step execution, integrations, voice and shipping."
+            ),
+            thumbnailUrl: "https://zooka-ai.com/images/zooka-demo-poster.png",
+            contentUrl: "https://zooka-ai.com/videos/zooka-demo.mp4",
+            uploadDate: "2026-10-31",
+            duration: "PT28S",
           }),
         }}
         type="application/ld+json"
