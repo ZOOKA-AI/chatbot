@@ -70,6 +70,7 @@ export function VoiceInputButton({
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const discardRef = useRef(false);
+  const fallbackRef = useRef(false);
 
   const releaseStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -239,6 +240,9 @@ export function VoiceInputButton({
         setLive(interim);
       };
       recognition.onerror = (event) => {
+        if (event.error === "network") {
+          fallbackRef.current = true;
+        }
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
           toast.error(
             isArabic
@@ -251,9 +255,18 @@ export function VoiceInputButton({
       };
       recognition.onend = () => {
         recognitionRef.current = null;
-        setState("idle");
         setLive("");
-        finish(transcriptRef.current);
+        const heard = transcriptRef.current.trim();
+        const shouldFallBack = fallbackRef.current && !heard;
+        fallbackRef.current = false;
+        transcriptRef.current = "";
+        if (shouldFallBack) {
+          setState("idle");
+          void startRecorderFallback();
+          return;
+        }
+        setState("idle");
+        finish(heard);
       };
       recognitionRef.current = recognition;
       recognition.start();
