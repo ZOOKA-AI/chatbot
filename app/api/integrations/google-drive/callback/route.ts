@@ -56,7 +56,16 @@ export async function GET(request: Request) {
     return finish("cancelled");
   }
   if (!state || !code || !stateCookie || !verifier) {
-    return finish("error", !state ? "no_state" : !code ? "no_code" : !stateCookie ? "no_state_cookie" : "no_verifier");
+    return finish(
+      "error",
+      state
+        ? code
+          ? stateCookie
+            ? "no_verifier"
+            : "no_state_cookie"
+          : "no_code"
+        : "no_state"
+    );
   }
 
   let stateBinding: ReturnType<typeof verifyGoogleDriveOAuthState>;

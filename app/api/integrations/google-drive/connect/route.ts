@@ -9,12 +9,12 @@ import {
   GOOGLE_DRIVE_VERIFIER_COOKIE,
 } from "@/lib/integrations/google-drive/oauth-state";
 import { getGoogleDriveOAuthConfig } from "@/lib/integrations/google-drive/server";
-import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import {
-  GOOGLE_GMAIL_SEND_SCOPE,
-  GOOGLE_GMAIL_SCOPE,
   GOOGLE_DRIVE_SCOPE,
+  GOOGLE_GMAIL_SCOPE,
+  GOOGLE_GMAIL_SEND_SCOPE,
 } from "@/lib/integrations/google-drive/token-response";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
 export async function GET(request: Request) {
   const context = await requireWorkspaceRole("admin");

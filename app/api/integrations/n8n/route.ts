@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { validateN8nCredentials } from "@/lib/integrations/n8n/server";
 import {
   deleteN8nCredentials,
   getN8nCredentials,
-  isN8nConnected,
   normalizeN8nBaseUrl,
   saveN8nCredentials,
 } from "@/lib/integrations/n8n/store";
-import { validateN8nCredentials } from "@/lib/integrations/n8n/server";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
 export async function GET() {
   const context = await getWorkspaceContext();
@@ -35,9 +34,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "upgrade_required" }, { status: 402 });
   }
 
-  const body = (await request.json().catch(() => null)) as
-    | { baseUrl?: string; apiKey?: string }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    baseUrl?: string;
+    apiKey?: string;
+  } | null;
   const baseUrl = normalizeN8nBaseUrl(body?.baseUrl ?? "");
   const apiKey = (body?.apiKey ?? "").trim();
   if (!baseUrl || apiKey.length < 20) {
@@ -57,7 +57,10 @@ export async function POST(request: Request) {
     apiKey,
   });
   if (!saved) {
-    return NextResponse.json({ error: "encryption_unavailable" }, { status: 500 });
+    return NextResponse.json(
+      { error: "encryption_unavailable" },
+      { status: 500 }
+    );
   }
   return NextResponse.json({
     connected: true,

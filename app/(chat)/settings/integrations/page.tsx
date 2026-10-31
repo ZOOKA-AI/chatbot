@@ -223,8 +223,8 @@ export default async function IntegrationsPage({
             </h2>
             <p className="text-muted-foreground text-sm">
               {isArabic
-                ? "اربط حسابك على GitHub وVercel بضغطة، ويستخدم الوكيل الرموز المشفّرة لقراءة الكود ومتابعة النشر والنطاقات. لا تُحفظ أي كلمة مرور."
-                : "Connect your GitHub and Vercel accounts with one click. The Agent uses the encrypted tokens to read code and follow deploys and domains. No password is ever stored."}
+                ? "اربط GitHub وVercel مرة واحدة؛ يرتبط الحساب بضغطة عبر OAuth أو بتوكن وصول شخصي (BYOK). يحفظ النظام التوكن مشفّرًا بـAES-256-GCM ولا تُحفظ أي كلمة مرور، ويمكن فصل الحساب في أي وقت فيُحذف التوكن."
+                : "Connect GitHub and Vercel once, either with one-click OAuth or a personal access token (BYOK). Tokens are stored with AES-256-GCM encryption, no password is ever saved, and disconnecting deletes the token."}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -233,12 +233,14 @@ export default async function IntegrationsPage({
               label="GitHub"
               lang={lang}
               provider="github"
+              tokenHint="ghp_… / github_pat_…"
             />
             <OAuthConnectionControl
               canManage={canManage}
               label="Vercel"
               lang={lang}
               provider="vercel"
+              tokenHint="Vercel access token"
             />
           </div>
         </article>
