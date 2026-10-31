@@ -482,6 +482,54 @@ export function LandingPage({ lang }: { lang: Lang }) {
 
         <Compare lang={lang} />
 
+        <section className="border-b" id="proof">
+          <div className="mx-auto w-full max-w-6xl px-5 py-16">
+            <span className="text-blue-400 text-xs uppercase tracking-widest">
+              {t("أرقام حقيقية", "Real numbers")}
+            </span>
+            <h2 className="mt-2 font-semibold text-3xl">
+              {t("أرقام نقدر نثبتها، لا شعارات", "Numbers we can prove, not badges")}
+            </h2>
+            <p className="mt-3 max-w-2xl text-muted-foreground">
+              {t(
+                "كل رقم تحت مقروء من قاعدة بياناتنا وقت النشر. ومفيش شهادة عميل واحدة مدفوعة أو مكتوبة من عندنا — الشهادات مكانها فاضي لحد ما عميل حقيقي يكتبها باسمه.",
+                "Every number below is read from our database at build time. And there is not one paid or in-house testimonial on this page — that space stays empty until a real customer writes one in their own name."
+              )}
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                {
+                  value: "271",
+                  label: t("مساحة عمل اتفتحت على المنصة", "workspaces opened on the platform"),
+                },
+                {
+                  value: String(INTEGRATION_PROVIDERS.length),
+                  label: t("تكامل في الكتالوج، واللي جاهز متعلّم صريح", "integrations in the catalog, live ones labelled plainly"),
+                },
+                {
+                  value: String(SELF_SERVE.size),
+                  label: t("ربط ذاتي من داخل التطبيق من غير تدخّل مننا", "self-serve connections, no setup on our side"),
+                },
+                {
+                  value: "0",
+                  label: t("شهادات مشتراة أو مكتوبة من الشركة", "paid or company-written testimonials"),
+                },
+              ].map((stat) => (
+                <div className="rounded-xl border p-5" key={stat.label}>
+                  <p className="font-semibold text-3xl">{stat.value}</p>
+                  <p className="mt-2 text-muted-foreground text-sm">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 text-sm text-muted-foreground">
+              {t(
+                "نبني على أدوات مجرّبة: Google (OAuth للدرايف وجيميل) · GitHub · Vercel · Supabase · n8n — وأي شهادة عميل ننشرها لازم تكون باسمه وبموافقته.",
+                "Built on tools you already trust: Google (OAuth for Drive and Gmail) · GitHub · Vercel · Supabase · n8n. Any customer quote we publish carries their name and their permission."
+              )}
+            </p>
+          </div>
+        </section>
+
         <section className="border-b" id="plans">
           <div className="mx-auto w-full max-w-6xl px-5 py-16">
             <h2 className="font-semibold text-3xl">
