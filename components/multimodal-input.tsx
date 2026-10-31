@@ -4,11 +4,12 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import Link from "next/link";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, Volume2 } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
   memo,
+  useMemo,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -30,7 +31,7 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
 import { VoiceInputButton } from "@/components/voice-input-button";
-import { useVoiceMode } from "@/hooks/use-voice-mode";
+import { speakText, useVoiceMode } from "@/hooks/use-voice-mode";
 import { agentPresets } from "@/lib/ai/agent-presets";
 import {
   chatModels,
@@ -265,6 +266,37 @@ function PureMultimodalInput({
     },
     [voiceMode, status, submitText, setInput, width]
   );
+
+  const lastReplyText = useMemo(() => {
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    if (!lastAssistant?.parts) {
+      return "";
+    }
+    return (lastAssistant.parts as { type: string; text?: string }[])
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text as string)
+      .join(" ")
+      .trim();
+  }, [messages]);
+
+  const handleSpeakLastReply = useCallback(() => {
+    if (!lastReplyText) {
+      toast.error(
+        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet."
+      );
+      return;
+    }
+    const started = speakText(lastReplyText, lang);
+    if (!started) {
+      toast.error(
+        lang === "ar"
+          ? "المتصفح لا يدعم القراءة الصوتية."
+          : "This browser cannot read text aloud."
+      );
+    }
+  }, [lang, lastReplyText]);
 
   const uploadFile = useCallback(async (file: File) => {
     const formData = new FormData();
@@ -553,10 +585,39 @@ function PureMultimodalInput({
               onTranscript={handleVoiceTranscript}
             />
             <Button
+              aria-label={
+                lang === "ar" ? "اسمع آخر رد" : "Listen to the last reply"
+              }
+              className="h-8 px-2"
+              data-testid="speak-reply-button"
+              disabled={!lastReplyText}
+              onClick={handleSpeakLastReply}
+              title={
+                lang === "ar"
+                  ? "اقرأ لي آخر رد بصوت عالٍ"
+                  : "Read the last reply aloud"
+              }
+              type="button"
+              variant="ghost"
+            >
+              <Volume2 className="size-4" />
+            </Button>
+            <Button
               aria-pressed={voiceMode}
               className="h-8 px-2 text-xs"
               data-testid="voice-mode-toggle"
-              onClick={toggleVoiceMode}
+              onClick={() => {
+                if (!voiceMode) {
+                  // This click is the gesture that unlocks audio playback.
+                  speakText(
+                    lang === "ar"
+                      ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
+                      : "Voice mode is on. Speak and I will answer out loud.",
+                    lang
+                  );
+                }
+                toggleVoiceMode();
+              }}
               title={
                 lang === "ar"
                   ? "المحادثة الصوتية: إرسال تلقائي بعد التسجيل وقراءة الرد بصوت عالٍ"
@@ -659,6 +720,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.status !== nextProps.status) {
+      return false;
+    }
+    if (prevProps.messages !== nextProps.messages) {
       return false;
     }
 

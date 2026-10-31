@@ -43,12 +43,15 @@ export function useVoiceMode() {
     }
     setEnabled(next);
     window.dispatchEvent(new Event(EVENT));
+    if (!next) {
+      stopSpeaking();
+    }
   }, []);
 
   return { voiceMode: enabled, toggleVoiceMode: toggle };
 }
 
-function stripForSpeech(value: string) {
+export function stripForSpeech(value: string) {
   return value
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`([^`]*)`/g, "$1")
@@ -59,6 +62,48 @@ function stripForSpeech(value: string) {
     .trim();
 }
 
+/** Chrome on Android drops long utterances; keep every chunk short. */
+function chunkForSpeech(text: string, max = 180) {
+  const sentences = text.match(/[^.!?؟\n]+[.!?؟]?/g) ?? [text];
+  const chunks: string[] = [];
+  let buffer = "";
+  for (const sentence of sentences) {
+    const piece = sentence.trim();
+    if (!piece) {
+      continue;
+    }
+    if ((buffer + " " + piece).trim().length > max && buffer) {
+      chunks.push(buffer.trim());
+      buffer = piece;
+    } else {
+      buffer = `${buffer} ${piece}`.trim();
+    }
+  }
+  if (buffer) {
+    chunks.push(buffer.trim());
+  }
+  return chunks.slice(0, 60);
+}
+
+function pickVoice(lang: "ar" | "en") {
+  const synth = window.speechSynthesis;
+  const voices = synth.getVoices();
+  if (!voices.length) {
+    return undefined;
+  }
+  const wanted = lang === "ar" ? "ar" : "en";
+  const exact = voices.find((voice) => voice.lang?.toLowerCase().startsWith(wanted));
+  const fallback = voices.find((voice) =>
+    voice.lang?.toLowerCase().startsWith("ar")
+  );
+  return exact ?? fallback;
+}
+
+/**
+ * Speak text out loud. Must be triggered by a user gesture the first time
+ * (browsers block audio that starts on its own), so the caller also uses it as
+ * an "unlock" when voice mode is turned on.
+ */
 export function speakText(text: string, lang: "ar" | "en") {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     return false;
@@ -69,17 +114,38 @@ export function speakText(text: string, lang: "ar" | "en") {
   }
   const synth = window.speechSynthesis;
   synth.cancel();
-  const utterance = new SpeechSynthesisUtterance(clean.slice(0, 4000));
-  utterance.lang = lang === "ar" ? "ar-SA" : "en-US";
-  utterance.rate = 1;
-  const voices = synth.getVoices();
-  const preferred =
-    voices.find((voice) => voice.lang?.toLowerCase().startsWith(lang)) ??
-    voices.find((voice) => voice.lang?.toLowerCase().startsWith("ar"));
-  if (preferred) {
-    utterance.voice = preferred;
+  const chunks = chunkForSpeech(clean.slice(0, 8000));
+
+  const speakChunks = () => {
+    const voice = pickVoice(lang);
+    chunks.forEach((chunk) => {
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      utterance.lang = lang === "ar" ? "ar-SA" : "en-US";
+      utterance.rate = 1;
+      if (voice) {
+        utterance.voice = voice;
+      }
+      synth.speak(utterance);
+    });
+  };
+
+  if (synth.getVoices().length === 0) {
+    // Voices load asynchronously on some browsers; wait once for them.
+    let done = false;
+    const onVoices = () => {
+      if (done) {
+        return;
+      }
+      done = true;
+      synth.removeEventListener?.("voiceschanged", onVoices);
+      speakChunks();
+    };
+    synth.addEventListener?.("voiceschanged", onVoices);
+    window.setTimeout(onVoices, 400);
+    return true;
   }
-  synth.speak(utterance);
+
+  speakChunks();
   return true;
 }
 
