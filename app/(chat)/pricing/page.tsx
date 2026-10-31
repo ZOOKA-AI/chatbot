@@ -194,6 +194,9 @@ export default async function PricingPage({
       </section>
 
       <footer className="text-muted-foreground mx-auto flex gap-4 text-sm">
+        <Link className="hover:underline" href="/blog">
+          {lang === "ar" ? "المدونة" : "Blog"}
+        </Link>
         <Link className="hover:underline" href="/contact">
           {lang === "ar" ? "تواصل معنا (واتساب)" : "Contact (WhatsApp)"}
         </Link>

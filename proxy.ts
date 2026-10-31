@@ -67,7 +67,10 @@ export async function proxy(request: NextRequest) {
     // so it must not be bounced to the login page.
     pathname === "/api/leads/ingest" ||
     pathname.startsWith("/r/") ||
-    pathname.startsWith("/lp/")
+    pathname.startsWith("/lp/") ||
+    pathname === "/blog" ||
+    pathname.startsWith("/blog/") ||
+    pathname.startsWith("/api/blog/")
   ) {
     return NextResponse.next();
   }
