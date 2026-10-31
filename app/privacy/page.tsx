@@ -174,15 +174,20 @@ async function PrivacyContent() {
             <h2 className="font-semibold text-lg">Google user data (Gmail and Google Drive)</h2>
             <p>
               When you connect a Google account to your workspace, the app
-              requests two read-only scopes: Gmail read access
-              (gmail.readonly) and Google Drive read access (drive.readonly).
-              The Agent uses them to search and read email messages, and to
-              search Drive files and read their text, only when you ask.
+              requests three scopes: Gmail read access (gmail.readonly), Gmail
+              send access (gmail.send), and Google Drive read access
+              (drive.readonly). The Agent uses them to search and read email
+              messages, to send an email on your behalf when you explicitly ask
+              it to, and to search Drive files and read their text, only when
+              you ask.
             </p>
             <ul className="flex list-disc flex-col gap-2 pl-5">
               <li>
-                Read-only access: the app cannot send, delete, or modify email,
-                and cannot create, edit, or delete Drive files.
+                No destructive access: the app cannot delete or modify existing
+                email, cannot read Drive files it was not asked about, and
+                cannot create, edit, or delete Drive files. Sending is limited
+                to a single plain-text message the Agent composes when you ask
+                for it, and every send is shown to you in the conversation.
               </li>
               <li>
                 OAuth tokens (access and refresh) are stored encrypted with a

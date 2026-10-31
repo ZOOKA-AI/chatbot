@@ -402,7 +402,7 @@ export async function POST(request: Request) {
               : "Web search is not configured for this deployment. Do not claim to have searched the web; tell the user that an administrator must configure TAVILY_API_KEY."
           } ${
             agentAccessAuthorized
-              ? "You are in Agent mode. Follow a clear workflow: briefly state your understanding and intended next step, use available tools when useful, then summarize what actually succeeded and what remains. Report tool errors honestly, distinguish verified results from assumptions, and cite sources returned by tools. Google Drive and Gmail are available only through their read-only tools and only when a tool returns data; Notion and Shopify are unavailable. Never claim to have accessed data unless a tool confirms it."
+              ? "You are in Agent mode. Follow a clear workflow: briefly state your understanding and intended next step, use available tools when useful, then summarize what actually succeeded and what remains. Report tool errors honestly, distinguish verified results from assumptions, and cite sources returned by tools. Google Drive is read-only and Gmail supports search, read and send, all only when a tool returns data; never claim a mail was sent unless sendGmailMessage returns an id; Notion and Shopify are unavailable. Never claim to have accessed data unless a tool confirms it."
               : ""
           }`,
           messages: modelMessages,
@@ -422,6 +422,7 @@ export async function POST(request: Request) {
                       "readGoogleDriveFile",
                       "searchGmail",
                       "readGmailMessage",
+                      "sendGmailMessage",
                     ] as const)
                   : []),
               ],

@@ -3,8 +3,9 @@ import { z } from "zod";
 import { getGoogleDriveAccessToken } from "@/lib/integrations/google-drive/server";
 
 /**
- * Gmail read-only tools. They reuse the workspace Google connection, so an
- * existing Drive-only connection must be reconnected once to grant Gmail.
+ * Gmail tools: search, read and send. They reuse the workspace Google
+ * connection, so an existing connection created before gmail.send was added
+ * must be reconnected once to grant the send scope.
  */
 
 const searchInputSchema = z.object({
@@ -14,6 +15,22 @@ const searchInputSchema = z.object({
 
 const readInputSchema = z.object({
   messageId: z.string().regex(/^[A-Za-z0-9_-]{6,256}$/),
+});
+
+const sendInputSchema = z.object({
+  to: z
+    .string()
+    .trim()
+    .min(5)
+    .max(320)
+    .describe("Recipient email address. Comma-separate up to 5 recipients."),
+  subject: z.string().trim().min(1).max(200),
+  body: z
+    .string()
+    .trim()
+    .min(1)
+    .max(5000)
+    .describe("Plain-text message body. Line breaks are preserved."),
 });
 
 const gmailMessageSchema = z.object({
@@ -72,21 +89,30 @@ function bodyText(message: z.infer<typeof gmailMessageSchema>) {
 }
 
 const RECONNECT_MESSAGE =
-  "Gmail access is not granted for this workspace. Reconnect Google from Settings → Integrations to grant read-only Gmail access.";
+  "Gmail access is not granted for this workspace. Reconnect Google from Settings → Integrations to grant Gmail access.";
+
+const SEND_SCOPE_MESSAGE =
+  "Gmail send permission is not granted for this workspace yet. Reconnect Google from Settings → Integrations and keep the «إرسال بريد إلكتروني نيابة عنك» permission checked.";
 
 async function gmailFetch(
   organizationId: string,
-  path: string
+  path: string,
+  init?: { method: string; body: unknown }
 ): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
   const accessToken = await getGoogleDriveAccessToken(organizationId);
   if (!accessToken) {
     return { ok: false, error: RECONNECT_MESSAGE };
   }
   const response = await fetch(`https://gmail.googleapis.com/gmail/v1${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    method: init?.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(init ? { "Content-Type": "application/json" } : {}),
+    },
+    body: init ? JSON.stringify(init.body) : undefined,
   });
   if (response.status === 401 || response.status === 403) {
-    return { ok: false, error: RECONNECT_MESSAGE };
+    return { ok: false, error: init ? SEND_SCOPE_MESSAGE : RECONNECT_MESSAGE };
   }
   if (!response.ok) {
     return {
@@ -163,6 +189,67 @@ export function createGmailTools(organizationId: string) {
           date: header(message.data, "Date"),
           subject: header(message.data, "Subject"),
           body: bodyText(message.data),
+        };
+      },
+    }),
+    sendGmailMessage: tool({
+      description:
+        "Send a plain-text email from the connected Gmail mailbox. The message is delivered immediately, so only call this when the user clearly asked to send mail, and confirm the recipient, subject and body in your reply.",
+      inputSchema: sendInputSchema,
+      execute: async ({ to, subject, body }) => {
+        const recipients = to
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+        if (recipients.length === 0 || recipients.length > 5) {
+          return { error: "Provide between 1 and 5 recipient addresses." };
+        }
+        const invalid = recipients.find(
+          (item) => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(item)
+        );
+        if (invalid) {
+          return { error: `"${invalid}" is not a valid email address.` };
+        }
+        const mime = [
+          `To: ${recipients.join(", ")}`,
+          `Subject: =?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`,
+          "MIME-Version: 1.0",
+          'Content-Type: text/plain; charset="UTF-8"',
+          "Content-Transfer-Encoding: base64",
+          "",
+          Buffer.from(body.replace(/\r?\n/g, "\r\n"), "utf8")
+            .toString("base64")
+            .replace(/(.{76})/g, "$1\r\n"),
+        ].join("\r\n");
+        const sent = await gmailFetch(organizationId, "/users/me/messages/send", {
+          method: "POST",
+          body: {
+            raw: Buffer.from(mime, "utf8")
+              .toString("base64")
+              .replace(/\+/g, "-")
+              .replace(/\//g, "_")
+              .replace(/=+$/, ""),
+          },
+        });
+        if (!sent.ok) {
+          return { error: sent.error };
+        }
+        const result = z
+          .object({
+            id: z.string(),
+            threadId: z.string().optional(),
+            labelIds: z.array(z.string()).optional(),
+          })
+          .safeParse(sent.data);
+        if (!result.success) {
+          return { error: "Gmail accepted the request but returned no message id." };
+        }
+        return {
+          sent: true,
+          id: result.data.id,
+          threadId: result.data.threadId,
+          to: recipients,
+          subject,
         };
       },
     }),
