@@ -33,6 +33,7 @@ import {
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
+import { createN8nTools } from "@/lib/ai/tools/n8n";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createGmailTools } from "@/lib/ai/tools/google-gmail";
@@ -344,6 +345,9 @@ export async function POST(request: Request) {
     const googleDriveTools = agentAccessAuthorized
       ? createGoogleDriveTools(workspaceContext.organizationId)
       : {};
+    const n8nTools = agentAccessAuthorized
+      ? createN8nTools(workspaceContext.organizationId)
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -390,6 +394,7 @@ export async function POST(request: Request) {
           }),
           ...googleDriveTools,
           ...gmailTools,
+          ...n8nTools,
         };
 
         const result = streamText({

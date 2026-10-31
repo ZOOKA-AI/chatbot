@@ -65,6 +65,16 @@ export const googleDriveConnection = pgTable("GoogleDriveConnection", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
 
+export const n8nConnection = pgTable("N8nConnection", {
+  organizationId: uuid("organizationId")
+    .primaryKey()
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  encryptedCredentials: text("encryptedCredentials").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
 export const invitation = pgTable(
   "Invitation",
   {

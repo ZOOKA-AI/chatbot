@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GoogleDriveConnectionControl } from "@/components/google-drive-connection-control";
+import { N8nConnectionControl } from "@/components/n8n-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
@@ -138,6 +139,27 @@ export default async function IntegrationsPage({
                 {isArabic ? "رقّي الباقة" : "Upgrade plan"}
               </Link>
             </div>
+          )}
+        </article>
+        <article className="flex flex-col gap-3 rounded-lg border p-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium">
+              {isArabic ? "سيرفر n8n الخاص بك" : "Your own n8n server"}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {isArabic
+                ? "اربط سيرفر n8n بتاعك برابطه ومفتاح الـAPI، والوكيل يشغّل الـworkflows على البنية التحتية بتاعتك أنت. مفيش أي سيرفر مشترك."
+                : "Connect your own n8n instance with its URL and API key. The agent triggers workflows on your own infrastructure; no shared server is involved."}
+            </p>
+          </div>
+          {entitlements.canConnectIntegrations ? (
+            <N8nConnectionControl lang={lang} />
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              {isArabic
+                ? "متاح في الباقات المدفوعة."
+                : "Available on paid plans."}
+            </p>
           )}
         </article>
         {Object.entries(grouped).map(([category, items]) => (
