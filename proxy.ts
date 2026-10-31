@@ -91,6 +91,7 @@ export async function proxy(request: NextRequest) {
     process.env.GUEST_PAYWALL_ENABLED === "true" &&
     !token &&
     (pathname === "/" ||
+      pathname === "/api/guest-quota" ||
       (pathname === "/api/chat" && request.method === "POST"))
   ) {
     return NextResponse.next();

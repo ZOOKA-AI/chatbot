@@ -284,8 +284,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
               </div>
               <p className="text-sm text-muted-foreground">
                 {t(
-                  "10 رسائل مجانية بدون تسجيل — تكفي مهمة كاملة · بدون بطاقة · عربي وإنجليزي",
-                  "10 free messages, no sign-up — enough for a whole task · no card · Arabic and English"
+                  "10 رسائل مجانية كل يوم بدون تسجيل — تكفي مهمة كاملة · بدون بطاقة",
+                  "10 free messages every day, no sign-up — enough for a whole task · no card"
                 )}
               </p>
             </div>

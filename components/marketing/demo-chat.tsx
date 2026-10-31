@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { track } from "@vercel/analytics";
 import { DefaultChatTransport } from "ai";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +10,7 @@ import { DEMO_ASK_EVENT } from "@/components/marketing/task-templates";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { GUEST_FREE_MESSAGES } from "@/lib/copy";
+import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { generateUUID } from "@/lib/utils";
 
 type Lang = "ar" | "en";
@@ -40,6 +42,47 @@ const STARTERS: Starter[] = [
   },
 ];
 
+const SECTORS: { key: string; ar: string; en: string; promptAr: string; promptEn: string }[] = [
+  {
+    key: "cleaning",
+    ar: "🧽 تنظيف",
+    en: "🧽 Cleaning",
+    promptAr:
+      "عندي شركة تنظيف في أبوظبي. اكتب لي رد على عميل يسأل عن سعر تنظيف فيلا 4 غرف، مع الأسعار والشروط.",
+    promptEn:
+      "I run a cleaning company in Abu Dhabi. Write a reply to a customer asking the price for cleaning a 4-bedroom villa, with pricing and terms.",
+  },
+  {
+    key: "restaurant",
+    ar: "🍽️ مطاعم",
+    en: "🍽️ Restaurants",
+    promptAr:
+      "عندي مطعم في دبي. اكتب 3 ردود على تقييمات جوجل: واحد إيجابي، وواحد عن تأخر الطلب، وواحد عن السعر.",
+    promptEn:
+      "I own a restaurant in Dubai. Write three replies to Google reviews: one positive, one about a late order, one about pricing.",
+  },
+  {
+    key: "clinic",
+    ar: "🩺 عيادات",
+    en: "🩺 Clinics",
+    promptAr:
+      "عندي عيادة أسنان. اكتب رسالة تذكير للمرضى بموعدهم مع تعليمات قبل الزيارة، بأسلوب مهني ومختصر.",
+    promptEn:
+      "I run a dental clinic. Write a patient appointment reminder with pre-visit instructions, professional and brief.",
+  },
+  {
+    key: "realestate",
+    ar: "🏠 عقارات",
+    en: "🏠 Real estate",
+    promptAr:
+      "عندي مكتب عقارات في الشارقة. اكتب إعلان قصير لشقة للإيجار بغرفتين، وحدد أهم 3 نقاط تبيعها للعميل.",
+    promptEn:
+      "I run a real estate office in Sharjah. Write a short ad for a two-bedroom apartment to rent and list its three selling points.",
+  },
+];
+
+const LAST_TASK_KEY = "zooka-demo-last-task";
+
 const AGENT_STEPS: { icon: string; ar: string; en: string; tool: string }[] = [
   { icon: "🔌", tool: "Gmail", ar: "يفتح صفحة موافقة جوجل الرسمية", en: "Opens Google's official consent screen" },
   { icon: "📥", tool: "Gmail", ar: "يقرأ آخر 20 رسالة غير مقروءة", en: "Reads the last 20 unread emails" },
@@ -66,7 +109,10 @@ export function DemoChat({ lang }: { lang: Lang }) {
 
   const [chatId] = useState(() => generateUUID());
   const [input, setInput] = useState("");
+  const quota = useGuestQuota();
   const [sent, setSent] = useState(0);
+  const [lastTask, setLastTask] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [limitHit, setLimitHit] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [agentRun, setAgentRun] = useState(false);
@@ -110,7 +156,20 @@ export function DemoChat({ lang }: { lang: Lang }) {
   });
 
   const busy = status === "submitted" || status === "streaming";
-  const remaining = Math.max(0, GUEST_FREE_MESSAGES - sent);
+  const remaining = quota.loaded
+    ? Math.min(quota.remaining, Math.max(0, GUEST_FREE_MESSAGES - sent))
+    : Math.max(0, GUEST_FREE_MESSAGES - sent);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(LAST_TASK_KEY);
+      if (stored) {
+        setLastTask(stored);
+      }
+    } catch {
+      // storage unavailable: resume chip simply never appears
+    }
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -159,8 +218,9 @@ export function DemoChat({ lang }: { lang: Lang }) {
     if (!value || busy) {
       return;
     }
-    if (remaining <= 0) {
+    if (remaining <= 0 || quota.isExhausted()) {
       setLimitHit(true);
+      track("demo_limit_hit");
       return;
     }
     setErrorText(null);
@@ -176,6 +236,16 @@ export function DemoChat({ lang }: { lang: Lang }) {
       // storage unavailable: the hand-off is a nice-to-have
     }
     setSent((n) => n + 1);
+    quota.consume();
+    if (sent === 0) {
+      track("demo_started");
+    }
+    setLastTask(value);
+    try {
+      window.localStorage.setItem(LAST_TASK_KEY, value.slice(0, 300));
+    } catch {
+      // ignore storage failures
+    }
     setInput("");
     void sendMessage({ text: value });
     if (/جيميل|درايف|ربط|اربط|gmail|drive|connect|integrat/i.test(value)) {
@@ -197,11 +267,9 @@ export function DemoChat({ lang }: { lang: Lang }) {
 
   const empty = messages.length === 0;
   const nudgeAt = 3;
+  const usedCount = Math.max(quota.used, sent);
   const showSoftNudge =
-    !limitHit &&
-    messages.length > 0 &&
-    sent >= nudgeAt &&
-    sent < GUEST_FREE_MESSAGES;
+    !limitHit && messages.length > 0 && usedCount >= nudgeAt && remaining > 0;
 
   return (
     <div
@@ -247,7 +315,10 @@ export function DemoChat({ lang }: { lang: Lang }) {
             {t("🔊 صوتي", "🔊 Voice")}
           </button>
           <span className="rounded-full border border-white/15 px-2.5 py-1 text-muted-foreground">
-            {t(`${remaining} من ${GUEST_FREE_MESSAGES} رسائل`, `${remaining} of ${GUEST_FREE_MESSAGES} left`)}
+            {t(
+              `مجانًا اليوم ${remaining}/${GUEST_FREE_MESSAGES}`,
+              `Free today ${remaining}/${GUEST_FREE_MESSAGES}`
+            )}
           </span>
         </div>
       </div>
@@ -266,6 +337,32 @@ export function DemoChat({ lang }: { lang: Lang }) {
                 )}
               </p>
             </div>
+            {lastTask ? (
+              <button
+                className="w-fit rounded-full border border-blue-400/40 bg-blue-500/10 px-3 py-1.5 text-xs"
+                onClick={() => submit(lastTask)}
+                type="button"
+              >
+                {t("↺ كمّل آخر طلب عندك", "↺ Continue your last task")}
+              </button>
+            ) : null}
+
+            <div className="flex flex-wrap gap-1.5">
+              {SECTORS.map((sector) => (
+                <button
+                  className="rounded-full border border-white/15 px-3 py-1 text-xs transition-colors hover:border-blue-400/60 hover:bg-white/5"
+                  key={sector.key}
+                  onClick={() => {
+                    track("demo_sector", { sector: sector.key });
+                    submit(isArabic ? sector.promptAr : sector.promptEn);
+                  }}
+                  type="button"
+                >
+                  {isArabic ? sector.ar : sector.en}
+                </button>
+              ))}
+            </div>
+
             <div className="grid gap-2 sm:grid-cols-2">
               {STARTERS.map((starter) => (
                 <button
@@ -300,6 +397,33 @@ export function DemoChat({ lang }: { lang: Lang }) {
                   }`}
                 >
                   {mine ? text : <Response>{text}</Response>}
+                  {mine ? null : (
+                    <div className="mt-2 flex items-center gap-2 border-white/10 border-t pt-2 text-[11px] text-muted-foreground">
+                      <button
+                        className="transition-colors hover:text-foreground"
+                        onClick={() => {
+                          void navigator.clipboard
+                            ?.writeText(text)
+                            .then(() => setCopiedId(message.id))
+                            .catch(() => undefined);
+                          track("demo_copy");
+                        }}
+                        type="button"
+                      >
+                        {copiedId === message.id
+                          ? t("✓ اتنسخ", "✓ Copied")
+                          : t("انسخ الرد", "Copy reply")}
+                      </button>
+                      <span aria-hidden="true">·</span>
+                      <Link
+                        className="transition-colors hover:text-foreground"
+                        href="/register?from=demo"
+                        onClick={() => track("demo_signup_click")}
+                      >
+                        {t("خزّنه في حسابك", "Save it in your account")}
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -375,21 +499,22 @@ export function DemoChat({ lang }: { lang: Lang }) {
           </div>
         ) : null}
 
-        {limitHit || (sent >= GUEST_FREE_MESSAGES && !busy && messages.length > 0) ? (
+        {limitHit || (remaining <= 0 && !busy && messages.length > 0) ? (
           <div className="rounded-2xl border border-blue-400/40 bg-gradient-to-br from-blue-600/25 to-emerald-500/15 p-4 text-center">
             <p className="font-semibold">
               {t("عجبك؟ كمّل من حيث وقفت", "Liked it? Pick up right where you stopped")}
             </p>
             <p className="mt-1 text-muted-foreground text-xs">
               {t(
-                "حسابك المجاني يحفظ هذه المحادثة، ويفتح لك ربط جيميل ودرايف ووضع الوكيل الكامل.",
-                "A free account keeps this conversation and unlocks Gmail, Drive and full agent mode."
+                "حسابك المجاني يحفظ هذه المحادثة، ويفتح لك ربط جيميل ودرايف ووضع الوكيل الكامل. رسائلك المجانية بتترجع من جديد بكرة الصبح.",
+                "A free account keeps this conversation and unlocks Gmail, Drive and full agent mode. Your free messages refresh tomorrow morning."
               )}
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               <Link
                 className="rounded-lg bg-foreground px-4 py-2 font-medium text-background text-sm"
                 href="/register?from=demo"
+                onClick={() => track("demo_signup_click")}
               >
                 {t("ادخل التطبيق مجانًا ←", "Enter the app free →")}
               </Link>

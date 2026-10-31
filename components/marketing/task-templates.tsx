@@ -151,7 +151,7 @@ export function TaskTemplates({ lang }: { lang: Lang }) {
             </p>
           </div>
           <span className="rounded-full border border-white/15 px-3 py-1 text-muted-foreground text-xs">
-            {t("تجربة مجانية: 10 رسائل", "Free preview: 10 messages")}
+            {t("10 رسائل مجانية كل يوم", "10 free messages every day")}
           </span>
         </div>
 

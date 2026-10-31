@@ -576,6 +576,19 @@ export async function incrementGuestUsage(key: string) {
   return row.count;
 }
 
+export async function getGuestUsage(key: string) {
+  try {
+    const [row] = await db
+      .select({ count: guestUsage.count })
+      .from(guestUsage)
+      .where(eq(guestUsage.key, key))
+      .limit(1);
+    return row?.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function trackWorkspaceUsage({
   organizationId,
   userId,
