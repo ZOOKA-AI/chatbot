@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Response } from "@/components/elements/response";
+import { DEMO_ASK_EVENT } from "@/components/marketing/task-templates";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { GUEST_FREE_MESSAGES } from "@/lib/copy";
@@ -182,7 +183,25 @@ export function DemoChat({ lang }: { lang: Lang }) {
     }
   }
 
+  // A template card elsewhere on the page can run its prompt in this demo.
+  useEffect(() => {
+    function onAsk(event: Event) {
+      const detail = (event as CustomEvent<{ prompt?: string }>).detail;
+      if (detail?.prompt) {
+        submit(detail.prompt);
+      }
+    }
+    window.addEventListener(DEMO_ASK_EVENT, onAsk);
+    return () => window.removeEventListener(DEMO_ASK_EVENT, onAsk);
+  });
+
   const empty = messages.length === 0;
+  const nudgeAt = 3;
+  const showSoftNudge =
+    !limitHit &&
+    messages.length > 0 &&
+    sent >= nudgeAt &&
+    sent < GUEST_FREE_MESSAGES;
 
   return (
     <div
@@ -337,6 +356,23 @@ export function DemoChat({ lang }: { lang: Lang }) {
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-200 text-xs">
             {errorText}
           </p>
+        ) : null}
+
+        {showSoftNudge ? (
+          <div className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2.5 text-xs">
+            <span className="text-muted-foreground">
+              {t(
+                `فاضل ${remaining} رسائل. عايز نحفظ الشغل ده ونكمّل؟`,
+                `${remaining} messages left. Want us to save this work?`
+              )}{" "}
+            </span>
+            <Link
+              className="font-medium text-blue-300 underline"
+              href="/register?from=demo"
+            >
+              {t("سجّل مجانًا", "Sign up free")}
+            </Link>
+          </div>
         ) : null}
 
         {limitHit || (sent >= GUEST_FREE_MESSAGES && !busy && messages.length > 0) ? (

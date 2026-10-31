@@ -1,6 +1,6 @@
 import type { Lang } from "@/lib/i18n";
 
-export const GUEST_FREE_MESSAGES = 3;
+export const GUEST_FREE_MESSAGES = 10;
 export const DEFAULT_WORKSPACE_NAMES: Record<Lang, string> = {
   ar: "مساحة عمل جديدة",
   en: "New workspace",
@@ -17,7 +17,7 @@ export const copy = {
     paywallTitle: "تابع محادثتك مع Zooka AI",
     paywallBody:
       "أنشئ حساباً لحفظ محادثاتك، أو رقِّ إلى Pro أو Business للاستفادة من نماذج متقدمة ووضع الوكيل وحدود استخدام أعلى.",
-    guestNotice: "تجربة الضيف: 3 رسائل مجانية",
+    guestNotice: "تجربة مجانية: 10 رسائل — تكفي مهمة كاملة",
     rename: "إعادة التسمية",
     renameTitle: "إعادة تسمية مساحة العمل",
     renamePlaceholder: "اسم مساحة العمل",
@@ -37,7 +37,7 @@ export const copy = {
     paywallTitle: "Continue your conversation with Zooka AI",
     paywallBody:
       "Create an account to save your conversations, or upgrade to Pro or Business for advanced models, Agent mode, and higher usage limits.",
-    guestNotice: "Guest preview: 3 free messages",
+    guestNotice: "Free preview: 10 messages, enough for a whole task",
     rename: "Rename",
     renameTitle: "Rename workspace",
     renamePlaceholder: "Workspace name",

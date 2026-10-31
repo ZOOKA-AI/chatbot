@@ -31,6 +31,11 @@ export function SiteHeader({ lang }: { lang: Lang }) {
           hint: t("دقيقة واحدة تشرح كل حاجة", "One minute that explains it all"),
         },
         {
+          label: t("قوالب مهام جاهزة", "Ready-made tasks"),
+          href: "#templates",
+          hint: t("مهمة تتنفّذ بضغطة واحدة", "A task that runs in one tap"),
+        },
+        {
           label: t("ماذا ينفّذ فعليًا", "What it does"),
           href: "#capabilities",
           hint: t("قدرات مبنية ومختبَرة", "Capabilities built and tested"),

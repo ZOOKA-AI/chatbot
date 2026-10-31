@@ -11,6 +11,7 @@ import {
   VideoSection,
 } from "@/components/marketing/showcase";
 import { DemoChat } from "@/components/marketing/demo-chat";
+import { TaskTemplates } from "@/components/marketing/task-templates";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf } from "@/lib/i18n";
 
@@ -283,8 +284,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
               </div>
               <p className="text-sm text-muted-foreground">
                 {t(
-                  "3 رسائل مجانية بدون تسجيل · بدون بطاقة · عربي وإنجليزي",
-                  "3 free messages, no sign-up · no card · Arabic and English"
+                  "10 رسائل مجانية بدون تسجيل — تكفي مهمة كاملة · بدون بطاقة · عربي وإنجليزي",
+                  "10 free messages, no sign-up — enough for a whole task · no card · Arabic and English"
                 )}
               </p>
             </div>
@@ -297,6 +298,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
         <VideoSection lang={lang} />
 
         <PostersSection lang={lang} />
+
+        <TaskTemplates lang={lang} />
 
         <section className="border-b">
           <div className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-14 md:grid-cols-3">
