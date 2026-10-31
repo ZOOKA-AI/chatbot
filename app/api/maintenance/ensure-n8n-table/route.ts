@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import postgres from "postgres";
+import {
+  deleteN8nCredentials,
+  getN8nCredentials,
+  saveN8nCredentials,
+} from "@/lib/integrations/n8n/store";
 
 const ONETIME = "f3a9c1d7e2b84a6f9c05d31b7ea24c68";
 
@@ -33,7 +38,40 @@ export async function POST(request: Request) {
         WHERE table_schema = 'public' AND table_name = 'N8nConnection'
       ) AS exists
     `;
-    return NextResponse.json({ ok: true, created: rows[0]?.exists ?? false });
+
+    // Round-trip through the real store functions so the encrypt/save/read/delete
+    // path is proven, not just the DDL.
+    const orgs = await sql<{ id: string }[]>`
+      SELECT id FROM "Organization" ORDER BY "createdAt" ASC LIMIT 5
+    `;
+    let selftest: Record<string, unknown> = { skipped: "no_organization" };
+    for (const org of orgs) {
+      const existing = await getN8nCredentials(org.id);
+      if (existing) {
+        continue;
+      }
+      const saved = await saveN8nCredentials(org.id, {
+        baseUrl: "https://selftest.invalid",
+        apiKey: "selftest-key-000000000000000000",
+      });
+      const readBack = await getN8nCredentials(org.id);
+      await deleteN8nCredentials(org.id);
+      const afterDelete = await getN8nCredentials(org.id);
+      selftest = {
+        orgId: org.id,
+        saved,
+        readBackUrl: readBack?.baseUrl ?? null,
+        readBackKeyMatches: readBack?.apiKey === "selftest-key-000000000000000000",
+        cleanedUp: afterDelete === null,
+      };
+      break;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      created: rows[0]?.exists ?? false,
+      selftest,
+    });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "unknown" },
