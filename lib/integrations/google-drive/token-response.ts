@@ -6,8 +6,16 @@ export const GOOGLE_DRIVE_SCOPE =
 export const GOOGLE_GMAIL_SCOPE =
   "https://www.googleapis.com/auth/gmail.readonly";
 
+/** Send-only Gmail scope: lets the workspace agent compose mail as the user. */
+export const GOOGLE_GMAIL_SEND_SCOPE =
+  "https://www.googleapis.com/auth/gmail.send";
+
 /** Scopes the workspace Google connection may request. */
-export const GOOGLE_READ_SCOPES = [GOOGLE_DRIVE_SCOPE, GOOGLE_GMAIL_SCOPE];
+export const GOOGLE_READ_SCOPES = [
+  GOOGLE_DRIVE_SCOPE,
+  GOOGLE_GMAIL_SCOPE,
+  GOOGLE_GMAIL_SEND_SCOPE,
+];
 
 const tokensSchema = z.object({
   accessToken: z.string().min(1),
