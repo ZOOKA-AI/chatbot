@@ -5,7 +5,38 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-type RecorderState = "idle" | "recording" | "transcribing";
+type RecorderState = "idle" | "listening" | "recording" | "transcribing";
+
+type SpeechResultLike = {
+  isFinal: boolean;
+  0: { transcript: string };
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: { resultIndex: number; results: SpeechResultLike[] }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+function getSpeechRecognition(): SpeechRecognitionCtor | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const scoped = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return scoped.SpeechRecognition ?? scoped.webkitSpeechRecognition ?? null;
+}
 
 function pickMimeType() {
   if (typeof MediaRecorder === "undefined") {
@@ -32,6 +63,9 @@ export function VoiceInputButton({
   const isArabic = lang === "ar";
   const [state, setState] = useState<RecorderState>("idle");
   const [seconds, setSeconds] = useState(0);
+  const [live, setLive] = useState("");
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const transcriptRef = useRef("");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -43,19 +77,33 @@ export function VoiceInputButton({
   }, []);
 
   useEffect(() => {
-    if (state !== "recording") {
+    if (state === "idle" || state === "transcribing") {
       return;
     }
     setSeconds(0);
-    const timer = window.setInterval(() => {
-      setSeconds((value) => value + 1);
-    }, 1000);
+    const timer = window.setInterval(() => setSeconds((v) => v + 1), 1000);
     return () => window.clearInterval(timer);
   }, [state]);
 
   useEffect(() => releaseStream, [releaseStream]);
 
-  const transcribe = useCallback(
+  const finish = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        toast.error(
+          isArabic
+            ? "لم أسمع كلامًا واضحًا، جرّب مرة أخرى."
+            : "I could not hear clear speech, please try again."
+        );
+        return;
+      }
+      onTranscript(trimmed);
+    },
+    [isArabic, onTranscript]
+  );
+
+  const transcribeServerSide = useCallback(
     async (blob: Blob) => {
       setState("transcribing");
       try {
@@ -71,25 +119,15 @@ export function VoiceInputButton({
           const payload = (await response.json().catch(() => null)) as {
             error?: string;
           } | null;
-          const reason = payload?.error ?? `HTTP ${response.status}`;
           toast.error(
             isArabic
-              ? `تعذّر تحويل الصوت إلى نص (${reason}).`
-              : `Could not transcribe the audio (${reason}).`
+              ? `تعذّر تحويل التسجيل إلى نص (${payload?.error ?? response.status}). جرّب متصفح Chrome أو اكتب الرسالة.`
+              : `Could not transcribe the recording (${payload?.error ?? response.status}). Try Chrome or type instead.`
           );
           return;
         }
         const data = (await response.json()) as { text?: string };
-        const text = (data.text ?? "").trim();
-        if (!text) {
-          toast.error(
-            isArabic
-              ? "لم أسمع كلامًا واضحًا، جرّب مرة أخرى."
-              : "I could not hear clear speech, please try again."
-          );
-          return;
-        }
-        onTranscript(text);
+        finish(data.text ?? "");
       } catch (error) {
         console.error("voice transcription failed", error);
         toast.error(
@@ -99,10 +137,10 @@ export function VoiceInputButton({
         setState("idle");
       }
     },
-    [isArabic, lang, onTranscript]
+    [finish, isArabic, lang]
   );
 
-  const start = useCallback(async () => {
+  const startRecorderFallback = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.mediaDevices) {
       toast.error(
         isArabic
@@ -156,7 +194,7 @@ export function VoiceInputButton({
           );
           return;
         }
-        void transcribe(blob);
+        void transcribeServerSide(blob);
       };
       recorderRef.current = recorder;
       recorder.start();
@@ -171,9 +209,66 @@ export function VoiceInputButton({
           : "Microphone permission is required."
       );
     }
-  }, [isArabic, releaseStream, transcribe]);
+  }, [isArabic, releaseStream, transcribeServerSide]);
 
-  const stop = useCallback(() => {
+  const startListening = useCallback(() => {
+    const Recognition = getSpeechRecognition();
+    if (!Recognition) {
+      void startRecorderFallback();
+      return;
+    }
+    try {
+      const recognition = new Recognition();
+      recognition.lang = lang === "ar" ? "ar-SA" : "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      transcriptRef.current = "";
+      setLive("");
+      recognition.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const result = event.results[i];
+          const text = result[0]?.transcript ?? "";
+          if (result.isFinal) {
+            transcriptRef.current = `${transcriptRef.current} ${text}`.trim();
+          } else {
+            interim = `${interim} ${text}`.trim();
+          }
+        }
+        setLive(interim);
+      };
+      recognition.onerror = (event) => {
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          toast.error(
+            isArabic
+              ? "محتاج إذن الميكروفون من إعدادات المتصفح."
+              : "Microphone permission is required."
+          );
+        } else if (event.error !== "aborted" && event.error !== "no-speech") {
+          console.warn("speech recognition error", event.error);
+        }
+      };
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setState("idle");
+        setLive("");
+        finish(transcriptRef.current);
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+      setState("listening");
+    } catch (error) {
+      console.warn("speech recognition unavailable, falling back", error);
+      void startRecorderFallback();
+    }
+  }, [finish, isArabic, lang, startRecorderFallback]);
+
+  const stopEverything = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();
@@ -182,8 +277,16 @@ export function VoiceInputButton({
 
   const cancel = useCallback(() => {
     discardRef.current = true;
-    stop();
-  }, [stop]);
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+      transcriptRef.current = "";
+      setLive("");
+      setState("idle");
+      return;
+    }
+    stopEverything();
+  }, [stopEverything]);
 
   if (state === "transcribing") {
     return (
@@ -200,14 +303,14 @@ export function VoiceInputButton({
     );
   }
 
-  if (state === "recording") {
+  if (state === "listening" || state === "recording") {
     return (
       <span className="flex items-center gap-1">
         <Button
           aria-label={isArabic ? "إيقاف التسجيل" : "Stop recording"}
-          className="h-8 px-2 text-red-600"
+          className="h-8 max-w-[11rem] px-2 text-red-600"
           data-testid="voice-stop-button"
-          onClick={stop}
+          onClick={stopEverything}
           size="sm"
           title={
             isArabic ? "إيقاف وإرسال التسجيل" : "Stop and send the recording"
@@ -216,9 +319,12 @@ export function VoiceInputButton({
           variant="ghost"
         >
           <Square className="size-3.5 fill-current" />
-          <span className="ml-1 text-xs tabular-nums">
-            {String(Math.floor(seconds / 60)).padStart(2, "0")}:
-            {String(seconds % 60).padStart(2, "0")}
+          <span className="ml-1 truncate text-xs tabular-nums">
+            {live
+              ? live.slice(-40)
+              : `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(
+                  seconds % 60
+                ).padStart(2, "0")}`}
           </span>
         </Button>
         <Button
@@ -237,11 +343,11 @@ export function VoiceInputButton({
 
   return (
     <Button
-      aria-label={isArabic ? "تسجيل صوتي" : "Record a voice message"}
+      aria-label={isArabic ? "التحدث إلى الوكيل" : "Talk to the agent"}
       className="h-8 px-2"
       data-testid="voice-record-button"
       disabled={disabled}
-      onClick={() => void start()}
+      onClick={startListening}
       size="sm"
       title={
         isArabic
