@@ -255,7 +255,34 @@ export function Chat({
     [isGuest, guestQuota, rawSendMessage]
   );
 
-  const query = searchParams.get("query");
+  const urlQuery = searchParams.get("query");
+
+  // A visitor who tried the landing-page demo and then signed up should land
+  // in the app with that first request already running.
+  const [demoHandoff, setDemoHandoff] = useState<string | null>(null);
+  useEffect(() => {
+    if (isGuest || urlQuery || initialMessages.length > 0) {
+      return;
+    }
+    try {
+      const raw = window.sessionStorage.getItem("zooka-demo-handoff");
+      if (!raw) {
+        return;
+      }
+      window.sessionStorage.removeItem("zooka-demo-handoff");
+      const parsed = JSON.parse(raw) as { prompt?: string; at?: number };
+      if (
+        parsed.prompt &&
+        Date.now() - (parsed.at ?? 0) < 6 * 60 * 60 * 1000
+      ) {
+        setDemoHandoff(parsed.prompt.slice(0, 1900));
+      }
+    } catch {
+      // ignore unreadable storage
+    }
+  }, [isGuest, urlQuery, initialMessages.length]);
+
+  const query = urlQuery ?? demoHandoff;
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 

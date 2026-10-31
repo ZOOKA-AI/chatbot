@@ -10,6 +10,7 @@ import {
   UseCases,
   VideoSection,
 } from "@/components/marketing/showcase";
+import { DemoChat } from "@/components/marketing/demo-chat";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf } from "@/lib/i18n";
 
@@ -267,44 +268,28 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-3">
-                <Link
+                <a
                   className="rounded-lg bg-foreground px-6 py-3 font-medium text-background"
-                  href="/register"
+                  href="#demo"
                 >
-                  {t("أنشئ مساحة عملك الآن", "Create your workspace")}
-                </Link>
+                  {t("جرّب الآن بدون حساب ↓", "Try it now, no account ↓")}
+                </a>
                 <Link
                   className="rounded-lg border px-6 py-3 font-medium"
-                  href="#plans"
+                  href="/register"
                 >
-                  {t("شاهد الباقات", "See the plans")}
+                  {t("أنشئ مساحة عملك", "Create your workspace")}
                 </Link>
               </div>
               <p className="text-sm text-muted-foreground">
                 {t(
-                  "بدون بطاقة للتجربة · عربي وإنجليزي · 26 تكاملًا في الكتالوج",
-                  "No card to try · Arabic and English · 26 integrations in the catalog"
+                  "3 رسائل مجانية بدون تسجيل · بدون بطاقة · عربي وإنجليزي",
+                  "3 free messages, no sign-up · no card · Arabic and English"
                 )}
               </p>
             </div>
             <div className="relative">
-              <div
-                aria-hidden="true"
-                className="absolute -inset-6 rounded-3xl bg-blue-500/10 blur-3xl"
-              />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt={t(
-                  "لوحة زوكا AI: محادثة على اليسار وخطوات مهمة منفذة على اليمين، متصلة بالبريد والملفات والكود والبيانات",
-                  "Zooka AI panel: a conversation on one side and completed task steps on the other, linked to email, files, code and data"
-                )}
-                className="relative w-full rounded-2xl border border-white/10 shadow-2xl"
-                decoding="async"
-                fetchPriority="high"
-                height={720}
-                src="/images/landing-hero.webp"
-                width={1280}
-              />
+              <DemoChat lang={lang} />
             </div>
           </div>
         </section>
