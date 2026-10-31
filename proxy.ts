@@ -42,6 +42,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (
+    pathname === "/" ||
+    pathname === "/pricing" ||
     pathname === "/about" ||
     pathname === "/contact" ||
     pathname === "/cookies" ||
