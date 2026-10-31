@@ -202,6 +202,15 @@ const faqs = [
   },
 ];
 
+/** Providers a customer can connect by themselves from /settings/integrations today. */
+export const SELF_SERVE = new Set([
+  "google_drive",
+  "gmail",
+  "github",
+  "vercel",
+  "n8n",
+]);
+
 export function LandingPage({ lang }: { lang: Lang }) {
   const isArabic = lang === "ar";
   const t = (ar: string, en: string) => (isArabic ? ar : en);
@@ -434,8 +443,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 </h2>
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
-                    `تربطها من داخل التطبيق بضغطة، والوكيل يستخدمها مباشرة. ${available.length} متاحة الآن من ${INTEGRATION_PROVIDERS.length} في الكتالوج، والباقي يُفتح تِباعًا بعد موافقات المزوّد.`,
-                    `Connect them inside the app in one click and the agent uses them straight away. ${available.length} of ${INTEGRATION_PROVIDERS.length} in the catalog are live today; the rest open up as provider approvals land.`
+                    `الربط الذاتي من داخل التطبيق جاهز لجوجل درايف وجيميل وجيت هب وفيرسل وn8n. وباقي الكتالوج (${available.length} من ${INTEGRATION_PROVIDERS.length}) يعمل عبر جسر الوكيل أو ينتظر موافقة المزوّد — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
+                    `Self-serve connection is live for Google Drive, Gmail, GitHub, Vercel and n8n. The rest of the catalog (${available.length} of ${INTEGRATION_PROVIDERS.length}) runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
                   )}
                 </p>
               </div>
@@ -456,7 +465,9 @@ export function LandingPage({ lang }: { lang: Lang }) {
                       <li className="flex items-center justify-between gap-2" key={provider.id}>
                         <span>{isArabic ? provider.nameAr : provider.name}</span>
                         <span className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
-                          {t("متاح", "available")}
+                          {SELF_SERVE.has(provider.id)
+                            ? t("ربط ذاتي", "self-serve")
+                            : t("عبر الوكيل", "via agent")}
                         </span>
                       </li>
                     ))}
