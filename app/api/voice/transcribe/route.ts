@@ -26,14 +26,50 @@ function buildPrompt(lang: string) {
   ].join(" ");
 }
 
+async function tryGateway(
+  file: File,
+  lang: string,
+  apiKey: string
+): Promise<string | null> {
+  for (const model of ["openai/whisper-1", "groq/whisper-large-v3"]) {
+    const form = new FormData();
+    form.append("file", file, file.name || "voice.webm");
+    form.append("model", model);
+    if (lang === "ar") {
+      form.append("language", "ar");
+    }
+    const response = await fetch(
+      "https://ai-gateway.vercel.sh/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        cache: "no-store",
+      }
+    ).catch(() => null);
+    if (!response?.ok) {
+      continue;
+    }
+    const payload = (await response.json().catch(() => null)) as {
+      text?: string;
+    } | null;
+    const text = (payload?.text ?? "").trim();
+    if (text) {
+      return text;
+    }
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!gatewayKey && !geminiKey) {
     return NextResponse.json({ error: "not_configured" }, { status: 503 });
   }
 
@@ -47,6 +83,16 @@ export async function POST(request: Request) {
   }
 
   const lang = ((form?.get("lang") as string | null) ?? "ar").slice(0, 2);
+
+  if (gatewayKey) {
+    const viaGateway = await tryGateway(audio, lang, gatewayKey);
+    if (viaGateway) {
+      return NextResponse.json({ text: viaGateway, model: "gateway" });
+    }
+  }
+  if (!geminiKey) {
+    return NextResponse.json({ error: "provider_unavailable" }, { status: 502 });
+  }
   const mimeType = audio.type || "audio/webm";
   const data = Buffer.from(await audio.arrayBuffer()).toString("base64");
   const body = JSON.stringify({
@@ -71,7 +117,7 @@ export async function POST(request: Request) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
+          "x-goog-api-key": geminiKey,
         },
         body,
         cache: "no-store",
