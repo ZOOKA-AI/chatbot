@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
@@ -48,7 +49,13 @@ const strings = {
   },
 } as const;
 
-export function RegisterClient({ lang }: { lang: "ar" | "en" }) {
+export function RegisterClient({
+  lang,
+  googleEnabled = false,
+}: {
+  lang: "ar" | "en";
+  googleEnabled?: boolean;
+}) {
   const t = strings[lang];
   const router = useRouter();
 
@@ -91,6 +98,7 @@ export function RegisterClient({ lang }: { lang: "ar" | "en" }) {
           <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
           <p className="text-gray-500 text-sm dark:text-zinc-400">{t.subtitle}</p>
         </div>
+        {googleEnabled ? <GoogleSignInButton lang={lang} /> : null}
         <AuthForm
           action={handleSubmit}
           defaultEmail={email}
