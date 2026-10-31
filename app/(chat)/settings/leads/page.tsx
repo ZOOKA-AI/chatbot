@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { LeadStatusSelect } from "@/components/lead-status-select";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { countLeadsByStatus, listLeads } from "@/lib/db/leads";
 import { getLang } from "@/lib/i18n";
@@ -128,7 +129,15 @@ export default async function LeadsSettingsPage() {
                     {sourceLabel(lead.source, ar)}
                   </td>
                   <td className="p-3 whitespace-nowrap text-xs">
-                    {statusLabel(lead.status, ar)}
+                    <LeadStatusSelect
+                      lang={lang}
+                      leadId={lead.id}
+                      status={
+                        (lead.status as keyof typeof STATUS_LABELS) in STATUS_LABELS
+                          ? (lead.status as keyof typeof STATUS_LABELS)
+                          : "new"
+                      }
+                    />
                   </td>
                   <td className="p-3 whitespace-nowrap text-xs text-muted-foreground">
                     {lead.lastContactAt
