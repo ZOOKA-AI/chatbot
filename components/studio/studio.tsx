@@ -296,8 +296,8 @@ export function Studio({ section }: { section: StudioSection }) {
             </span>
             <Settings2 size={16} />
           </Link>
-          <Link className={styles.backLink} href="/">
-            العودة إلى المحادثة <ArrowUpLeft size={15} />
+          <Link className={styles.backLink} href="/explore">
+            اكتشف المنصة <ArrowUpLeft size={15} />
           </Link>
         </div>
       </aside>
@@ -466,8 +466,8 @@ export function Studio({ section }: { section: StudioSection }) {
                 <div>
                   <strong>مصممة للعمل الحقيقي، لا للوعود</strong>
                   <p>
-                    هذه نسخة أولى للمراجعة. المشاريع تُحفظ محلياً؛ الذكاء
-                    الاصطناعي والربط الفعلي متاحان عبر صفحات التطبيق الحالية.
+                    المشاريع تُحفظ محلياً. المحادثة والربط يتطلبان تسجيل الدخول
+                    والإعداد، وقد رُصدت أخطاء تشغيل لم تعالجها نسخة الواجهة.
                   </p>
                 </div>
                 <span>01</span>
@@ -964,6 +964,13 @@ export function Studio({ section }: { section: StudioSection }) {
             </>
           )}
         </main>
+        <nav aria-label="روابط المنصة" className={styles.platformLinks}>
+          <Link href="/explore">اكتشف المنصة</Link>
+          <Link href="/platform-readiness">الجاهزية والحدود</Link>
+          <Link href="/pricing">الباقات</Link>
+          <Link href="/login">المحادثة والحساب</Link>
+          <Link href="/contact">تواصل</Link>
+        </nav>
         <footer className={styles.footer}>
           <span>ZOOKA STUDIO / REVIEW 01</span>
           <span>مساحة للإبداع، بحدود واضحة.</span>

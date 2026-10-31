@@ -127,6 +127,16 @@ export function AppSidebar({
       label: isArabic ? "مساحة العمل" : "Workspace",
       items: [
         {
+          href: "/explore",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "اكتشف المنصة" : "Explore platform",
+        },
+        {
+          href: "/platform-readiness",
+          icon: <Settings />,
+          label: isArabic ? "الجاهزية والحدود" : "Readiness and limits",
+        },
+        {
           href: "/",
           icon: <FileText />,
           label: isArabic ? "المحادثات والمحتوى" : "Chats and content",

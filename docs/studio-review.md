@@ -61,3 +61,27 @@ quiz results reset on page reload. Imported HTML may contain arbitrary content:
 the existing iframe sandbox/CSP remains unchanged. Downloaded HTML is not
 sanitized; review it before opening outside the sandbox or publishing. Backups
 are unencrypted and browser storage may be cleared. No files reach Zooka servers.
+
+## Unified public and internal navigation
+
+The visitor home now uses the green/gold `PlatformSite` instead of the previous
+marketing surface. Signed-in users still land in their existing chat; `/explore`
+is the public product entry for everyone. `/platform-readiness` is a dated
+functional-readiness guide, not live monitoring. Header, workspace navigation,
+Studio return links and footer connect these surfaces to real templates/tasks,
+integration guides, existing authentication/account/workspace/billing and legal
+routes. Existing pricing and auth operations are not reimplemented.
+
+The user-supplied design was used for visual direction only. No quantum
+encryption, absolute safety, religious endorsement, accuracy percentages,
+financial wallet, satellite network or native app availability was claimed.
+This UI revision does not repair database-save or connection-status errors and
+it never migrates DNS or promotes production. Real connector/backend execution
+and account-specific checks remain prerequisites before release.
+
+Unified-navigation verification: 27 unit tests plus the model suite pass, as do
+seven Studio scenarios and three public-platform scenarios (Arabic root-to-Studio
+return path, mobile FAQ/links/layout, English cookie/readiness). The first
+concurrent root dev compilation exceeded a 60-second test budget; the three
+platform scenarios then passed in 55.3 seconds with one worker and a 120-second
+budget. This is a local development observation, not a production latency claim.
