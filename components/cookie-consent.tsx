@@ -1,6 +1,6 @@
 "use client";
 
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from "@vercel/analytics/next";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Lang } from "@/lib/i18n";
