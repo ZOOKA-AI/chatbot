@@ -270,45 +270,66 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 "radial-gradient(60% 60% at 80% 0%, rgba(37,99,235,0.25) 0%, transparent 60%), radial-gradient(50% 50% at 10% 20%, rgba(16,185,129,0.18) 0%, transparent 60%)",
             }}
           />
-          <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-20 md:py-28">
-            <span className="w-fit rounded-full border px-3 py-1 text-xs text-muted-foreground">
-              {t(
-                "وكيل أعمال يعمل نيابةً عنك — لا مجرد محادثة",
-                "A business agent that works for you — not just a chat"
-              )}
-            </span>
-            <h1 className="max-w-3xl font-semibold text-4xl leading-tight md:text-6xl">
-              {t(
-                "زوكا AI يربط أدواتك وينفّذ المهمة حتى النهاية",
-                "Zooka AI connects your tools and finishes the job"
-              )}
-            </h1>
-            <p className="max-w-2xl text-lg text-muted-foreground">
-              {t(
-                "بريدك، ملفاتك، كودك، بياناتك، وأتمتتك — داخل محادثة واحدة بالعربي والإنجليزي. الوكيل يفتح صفحة الموافقة بنفسه، يربط الحساب، ينفّذ الخطوات، ولا يرجع لك إلا للقرار الحساس.",
-                "Your email, files, code, data and automation — inside one conversation in Arabic and English. The agent opens the consent screen itself, connects the account, runs the steps, and only comes back to you for the sensitive decision."
-              )}
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                className="rounded-lg bg-foreground px-6 py-3 font-medium text-background"
-                href="/register"
-              >
-                {t("أنشئ مساحة عملك الآن", "Create your workspace")}
-              </Link>
-              <Link
-                className="rounded-lg border px-6 py-3 font-medium"
-                href="#plans"
-              >
-                {t("شاهد الباقات", "See the plans")}
-              </Link>
+          <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-20 md:grid-cols-[1.1fr_0.9fr] md:py-28">
+            <div className="flex flex-col gap-8">
+              <span className="w-fit rounded-full border px-3 py-1 text-xs text-muted-foreground">
+                {t(
+                  "وكيل أعمال يعمل نيابةً عنك — لا مجرد محادثة",
+                  "A business agent that works for you — not just a chat"
+                )}
+              </span>
+              <h1 className="max-w-3xl font-semibold text-4xl leading-tight md:text-6xl">
+                {t(
+                  "زوكا AI يربط أدواتك وينفّذ المهمة حتى النهاية",
+                  "Zooka AI connects your tools and finishes the job"
+                )}
+              </h1>
+              <p className="max-w-2xl text-lg text-muted-foreground">
+                {t(
+                  "بريدك، ملفاتك، كودك، بياناتك، وأتمتتك — داخل محادثة واحدة بالعربي والإنجليزي. الوكيل يفتح صفحة الموافقة بنفسه، يربط الحساب، ينفّذ الخطوات، ولا يرجع لك إلا للقرار الحساس.",
+                  "Your email, files, code, data and automation — inside one conversation in Arabic and English. The agent opens the consent screen itself, connects the account, runs the steps, and only comes back to you for the sensitive decision."
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  className="rounded-lg bg-foreground px-6 py-3 font-medium text-background"
+                  href="/register"
+                >
+                  {t("أنشئ مساحة عملك الآن", "Create your workspace")}
+                </Link>
+                <Link
+                  className="rounded-lg border px-6 py-3 font-medium"
+                  href="#plans"
+                >
+                  {t("شاهد الباقات", "See the plans")}
+                </Link>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  "بدون بطاقة للتجربة · عربي وإنجليزي · 26 تكاملًا في الكتالوج",
+                  "No card to try · Arabic and English · 26 integrations in the catalog"
+                )}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {t(
-                "بدون بطاقة للتجربة · عربي وإنجليزي · 26 تكاملًا في الكتالوج",
-                "No card to try · Arabic and English · 26 integrations in the catalog"
-              )}
-            </p>
+            <div className="relative">
+              <div
+                aria-hidden="true"
+                className="absolute -inset-6 rounded-3xl bg-blue-500/10 blur-3xl"
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={t(
+                  "لوحة زوكا AI: محادثة على اليسار وخطوات مهمة منفذة على اليمين، متصلة بالبريد والملفات والكود والبيانات",
+                  "Zooka AI panel: a conversation on one side and completed task steps on the other, linked to email, files, code and data"
+                )}
+                className="relative w-full rounded-2xl border border-white/10 shadow-2xl"
+                decoding="async"
+                fetchPriority="high"
+                height={720}
+                src="/images/landing-hero.webp"
+                width={1280}
+              />
+            </div>
           </div>
         </section>
 
@@ -347,15 +368,32 @@ export function LandingPage({ lang }: { lang: Lang }) {
 
         <section className="border-b" id="capabilities">
           <div className="mx-auto w-full max-w-6xl px-5 py-16">
-            <h2 className="font-semibold text-3xl">
-              {t("ماذا ينفّذ فعليًا؟", "What does it actually do?")}
-            </h2>
-            <p className="mt-3 max-w-2xl text-muted-foreground">
-              {t(
-                "لا نبيع وعودًا: هذه القدرات مبنية ومختبَرة على zooka-ai.com نفسها.",
-                "No promises: these capabilities are built and tested on zooka-ai.com itself."
-              )}
-            </p>
+            <div className="grid items-center gap-8 md:grid-cols-[1fr_280px]">
+              <div>
+                <h2 className="font-semibold text-3xl">
+                  {t("ماذا ينفّذ فعليًا؟", "What does it actually do?")}
+                </h2>
+                <p className="mt-3 max-w-2xl text-muted-foreground">
+                  {t(
+                    "لا نبيع وعودًا: هذه القدرات مبنية ومختبَرة على zooka-ai.com نفسها.",
+                    "No promises: these capabilities are built and tested on zooka-ai.com itself."
+                  )}
+                </p>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={t(
+                  "وكيل زوكا AI محاط ببطاقات البريد والملفات والكود",
+                  "Zooka AI agent surrounded by email, files and code cards"
+                )}
+                className="hidden w-full rounded-2xl border border-white/10 md:block"
+                decoding="async"
+                height={800}
+                loading="lazy"
+                src="/images/landing-agent.webp"
+                width={800}
+              />
+            </div>
             <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {capabilities.map((capability) => (
                 <article
