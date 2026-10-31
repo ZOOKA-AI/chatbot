@@ -3,6 +3,7 @@ import { gateway } from "@ai-sdk/gateway";
 import {
   customProvider,
   extractReasoningMiddleware,
+  type LanguageModelMiddleware,
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
@@ -17,6 +18,77 @@ const USE_DIRECT_GOOGLE =
 
 const DIRECT_MODEL = "gemini-flash-lite-latest";
 const DIRECT_MODEL_REASONING = "gemini-pro-latest";
+
+// Model the gateway always serves on the free credit tier. When a user picks a
+// model the gateway refuses (RestrictedModelsError, HTTP 403 "Free tier users
+// do not have access to this model"), we transparently answer with this one
+// instead of failing the whole request.
+export const GATEWAY_FALLBACK_MODEL = "openai/gpt-4.1-mini";
+
+function isRestrictedModelError(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    const text = `${String(record.message ?? "")} ${String(
+      record.responseBody ?? ""
+    )}`;
+    if (
+      record.name === "RestrictedModelsError" ||
+      text.includes("RestrictedModelsError") ||
+      text.includes("Free tier users do not have access")
+    ) {
+      return true;
+    }
+    current = record.cause;
+  }
+  return false;
+}
+
+function restrictedModelFallbackMiddleware(
+  modelId: string
+): LanguageModelMiddleware {
+  const fallback = () => gateway.languageModel(GATEWAY_FALLBACK_MODEL);
+  const warn = (mode: string) =>
+    console.warn("AI Gateway refused model, falling back", {
+      requested: modelId,
+      fallback: GATEWAY_FALLBACK_MODEL,
+      mode,
+    });
+  return {
+    specificationVersion: "v3",
+    wrapStream: async ({ doStream, params }) => {
+      try {
+        return await doStream();
+      } catch (error) {
+        if (modelId === GATEWAY_FALLBACK_MODEL || !isRestrictedModelError(error)) {
+          throw error;
+        }
+        warn("stream");
+        return await fallback().doStream(params);
+      }
+    },
+    wrapGenerate: async ({ doGenerate, params }) => {
+      try {
+        return await doGenerate();
+      } catch (error) {
+        if (modelId === GATEWAY_FALLBACK_MODEL || !isRestrictedModelError(error)) {
+          throw error;
+        }
+        warn("generate");
+        return await fallback().doGenerate(params);
+      }
+    },
+  };
+}
+
+function gatewayModel(modelId: string) {
+  return wrapLanguageModel({
+    model: gateway.languageModel(modelId),
+    middleware: restrictedModelFallbackMiddleware(modelId),
+  });
+}
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -75,12 +147,12 @@ export function getLanguageModel(modelId: string) {
     const gatewayModelId = modelId.replace(THINKING_SUFFIX_REGEX, "");
 
     return wrapLanguageModel({
-      model: gateway.languageModel(gatewayModelId),
+      model: gatewayModel(gatewayModelId),
       middleware: extractReasoningMiddleware({ tagName: "thinking" }),
     });
   }
 
-  return gateway.languageModel(modelId);
+  return gatewayModel(modelId);
 }
 
 export function getTitleModel() {
@@ -90,7 +162,7 @@ export function getTitleModel() {
   if (USE_DIRECT_GOOGLE) {
     return googleWithKey("gemini-flash-lite-latest");
   }
-  return gateway.languageModel("google/gemini-2.5-flash-lite");
+  return gatewayModel("google/gemini-2.5-flash-lite");
 }
 
 export function getArtifactModel() {
@@ -100,5 +172,5 @@ export function getArtifactModel() {
   if (USE_DIRECT_GOOGLE) {
     return googleWithKey(DIRECT_MODEL);
   }
-  return gateway.languageModel("anthropic/claude-haiku-4.5");
+  return gatewayModel("anthropic/claude-haiku-4.5");
 }
