@@ -5,6 +5,7 @@ import { GlobalSiteComponents } from "@/components/global-site-components";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { SITE_YEAR } from "@/lib/site-year";
 
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
@@ -127,7 +128,7 @@ export default function RootLayout({
         >
           <Toaster position="top-center" />
           <SessionProvider>{children}</SessionProvider>
-          <GlobalSiteComponents />
+          <GlobalSiteComponents year={SITE_YEAR} />
         </ThemeProvider>
       </body>
     </html>

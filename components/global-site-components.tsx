@@ -5,7 +5,7 @@ import { CookieConsent } from "@/components/cookie-consent";
 import { SiteFooter } from "@/components/site-footer";
 import type { Lang } from "@/lib/i18n";
 
-export function GlobalSiteComponents() {
+export function GlobalSiteComponents({ year }: { year: number }) {
   const [lang, setLang] = useState<Lang>("ar");
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export function GlobalSiteComponents() {
 
   return (
     <>
-      <SiteFooter lang={lang} />
+      <SiteFooter lang={lang} year={year} />
       <CookieConsent lang={lang} />
     </>
   );

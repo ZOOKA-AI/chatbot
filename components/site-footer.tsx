@@ -17,7 +17,7 @@ const LINKS: readonly (readonly [string, LegalPageId | "compare" | "partners"])[
  * The single site footer. It used to be rendered twice on the landing page (an
  * inline one plus the legal one), with different links each time.
  */
-export function SiteFooter({ lang }: { lang: Lang }) {
+export function SiteFooter({ lang, year }: { lang: Lang; year: number }) {
   const ar = lang === "ar";
   return (
     <footer
@@ -26,7 +26,7 @@ export function SiteFooter({ lang }: { lang: Lang }) {
       lang={lang}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <p>© {new Date().getFullYear()} ZOOKA AI</p>
+        <p>© {year} ZOOKA AI</p>
         <nav className="flex flex-wrap gap-x-5 gap-y-2">
           {LINKS.map(([href, page]) => (
             <Link className="hover:underline" href={href} key={href}>
