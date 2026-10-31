@@ -8,6 +8,11 @@ import {
   isGoogleDriveConnected,
 } from "@/lib/integrations/google-drive/server";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
+import {
+  listProviderCatalog,
+  listWorkspaceIntegrations,
+  type IntegrationProvider,
+} from "@/lib/integrations/catalog";
 
 export const metadata: Metadata = {
   title: "Integrations | Zooka AI",
@@ -31,13 +36,51 @@ export default async function IntegrationsPage({
   const googleDriveConnected =
     googleDriveConfigured &&
     (await isGoogleDriveConnected(context.organizationId));
+  let providers: IntegrationProvider[] = [];
+  let connectedIds = new Set<string>();
+  try {
+    providers = await listProviderCatalog();
+    const connections = await listWorkspaceIntegrations(context.organizationId);
+    connectedIds = new Set(
+      connections
+        .filter((connection) => connection.status === "connected")
+        .map((connection) => connection.providerId)
+    );
+  } catch {
+    providers = [];
+  }
+  const categoryLabels: Record<string, string> = {
+    communication: "التواصل",
+    social: "التواصل الاجتماعي",
+    ads: "الإعلانات",
+    dev: "التطوير",
+    storage: "التخزين",
+    productivity: "الإنتاجية",
+    finance: "المالية",
+    travel: "السفر",
+    automation: "الأتمتة",
+    geo: "الخرائط",
+    listing: "الملف التجاري",
+    commerce: "المتاجر",
+  };
+  const grouped = providers.reduce<Record<string, IntegrationProvider[]>>(
+    (accumulator, provider) => {
+      accumulator[provider.category] = [
+        ...(accumulator[provider.category] ?? []),
+        provider,
+      ];
+      return accumulator;
+    },
+    {}
+  );
+
   const canManage =
     context.user.type === "regular" &&
     ["owner", "admin"].includes(context.role);
 
   return (
     <main
-      className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
@@ -93,34 +136,64 @@ export default async function IntegrationsPage({
             lang={lang}
           />
         </article>
-        {[
-          {
-            name: "Notion",
-            description: isArabic
-              ? "غير متاح؛ لا يستطيع الوكيل الوصول إلى صفحات Notion."
-              : "Unavailable; the Agent cannot access Notion pages.",
-          },
-          {
-            name: "Shopify",
-            description: isArabic
-              ? "غير متاح؛ لا يستطيع الوكيل الوصول إلى بيانات Shopify."
-              : "Unavailable; the Agent cannot access Shopify data.",
-          },
-        ].map((connector) => (
-          <article
-            className="flex items-center justify-between gap-4 rounded-lg border p-5"
-            key={connector.name}
-          >
-            <div className="flex flex-col gap-1">
-              <h2 className="font-medium">{connector.name}</h2>
-              <p className="text-sm text-muted-foreground">
-                {connector.description}
-              </p>
+        {Object.entries(grouped).map(([category, items]) => (
+          <div className="flex flex-col gap-3" key={category}>
+            <h3 className="font-medium text-sm text-muted-foreground">
+              {isArabic
+                ? (categoryLabels[category] ?? category)
+                : category[0].toUpperCase() + category.slice(1)}
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {items.map((provider) => {
+                const connected = connectedIds.has(provider.id);
+                const available = provider.status === "available";
+                return (
+                  <article
+                    className="flex flex-col gap-2 rounded-lg border p-4"
+                    data-provider={provider.id}
+                    key={provider.id}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-medium text-sm">
+                        {isArabic ? provider.nameAr : provider.name}
+                      </h4>
+                      <span
+                        className={
+                          connected
+                            ? "shrink-0 rounded-full border border-emerald-600/40 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-400"
+                            : "shrink-0 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                        }
+                      >
+                        {connected
+                          ? isArabic
+                            ? "متصل"
+                            : "Connected"
+                          : available
+                            ? isArabic
+                              ? "متاح"
+                              : "Available"
+                            : isArabic
+                              ? "قريبًا"
+                              : "Coming soon"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic
+                        ? (provider.descriptionAr ?? provider.description ?? "")
+                        : (provider.description ?? "")}
+                    </p>
+                    {provider.isManaged && available ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        {isArabic
+                          ? "ربط بضغطة: الوكيل يفتح صفحة الموافقة بنفسه ولا تحتاج مفتاحًا."
+                          : "One-click: the Agent opens the consent screen, no API key needed."}
+                      </p>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
-            <span className="shrink-0 rounded-full border px-3 py-1 text-xs text-muted-foreground">
-              {isArabic ? "غير متاح" : "Unavailable"}
-            </span>
-          </article>
+          </div>
         ))}
       </section>
 
