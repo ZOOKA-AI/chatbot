@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getLang } from "@/lib/i18n";
 import { ResetPasswordClient } from "./reset-client";
 
-export const metadata: Metadata = { title: "New password · Zooka AI" };
+export const metadata: Metadata = { title: "New password" };
 
 export default async function ResetPasswordPage({
   searchParams,

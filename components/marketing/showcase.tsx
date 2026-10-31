@@ -37,7 +37,7 @@ function posters(lang: Lang): Poster[] {
     },
     {
       src: "/images/posters/poster-4.jpg",
-      tag: ar ? "26 في الكتالوج · 11 جاهز الآن" : "26 IN THE CATALOG · 11 LIVE",
+      tag: ar ? "الربط الذاتي جاهز الآن" : "SELF-SERVE, LIVE NOW",
       title: t("كل أدواتك في مكان واحد", "Every tool in one place"),
       body: t(
         "جيميل ودرايف وجيت هب وفيرسل وn8n وسوبابيس — بضغطة واحدة.",

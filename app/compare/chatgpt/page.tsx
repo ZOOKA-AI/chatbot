@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     "AI agent عربي",
     "ChatGPT بديل",
   ],
-  title: "Zooka AI مقابل ChatGPT — مقارنة صريحة",
+  title: "مقارنة صريحة مع ChatGPT",
 };
 
 const ROWS = [

@@ -34,7 +34,8 @@ export function PricingCheckoutButton({
       };
 
       if (response.status === 403) {
-        window.location.assign("/login");
+        // New visitors must create a workspace before paying, not hit a login wall.
+        window.location.assign("/register?next=%2Fpricing");
         return;
       }
       if (!response.ok || !result.url) {

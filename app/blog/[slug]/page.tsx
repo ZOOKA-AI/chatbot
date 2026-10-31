@@ -6,8 +6,6 @@ import { getPublishedPost, listPublishedPosts } from "@/lib/blog/store";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
-export const revalidate = 60;
-
 type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

@@ -1,8 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { publishPost } from "@/lib/blog/store";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 /**
  * Publishing endpoint used by the daily writing workflow.

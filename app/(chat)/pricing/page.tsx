@@ -21,8 +21,12 @@ const strings = {
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
       free: {
-        name: "التجريبية",
-        features: ["1,000 رسالة شهرياً (للتعريف)", "نماذج قياسية"],
+        name: "المجانية",
+        features: [
+          "1,000 رسالة شهرياً",
+          "نماذج قياسية",
+          "بدون حساب: 10 رسائل يومياً في التجربة",
+        ],
       },
       pro: {
         name: "الاحترافية",
@@ -50,7 +54,7 @@ const strings = {
     b2bNoteHref: "/contact",
     messagesPerMonth: "رسالة شهرياً",
     upgradeTo: "الترقية إلى",
-    startFree: "ابدأ التجربة",
+    startFree: "أنشئ حساباً مجانياً",
     privacy: "سياسة الخصوصية",
     terms: "شروط الخدمة",
     support: "ادعم العمل المفتوح ❤️",
@@ -64,8 +68,12 @@ const strings = {
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
       free: {
-        name: "Trial",
-        features: ["1,000 messages per month (evaluation)", "Standard models"],
+        name: "Free",
+        features: [
+          "1,000 messages per month",
+          "Standard models",
+          "No account needed: 10 messages a day in the preview",
+        ],
       },
       pro: {
         name: "Pro",
@@ -90,7 +98,7 @@ const strings = {
     perMonth: " / month",
     messagesPerMonth: "messages per month",
     upgradeTo: "Upgrade to",
-    startFree: "Start free",
+    startFree: "Create a free account",
     b2bNote:
       "For companies: annual agreements, official invoicing and team permissions — request a quote on the contact page.",
     b2bNoteHref: "/contact",
@@ -183,7 +191,7 @@ export default async function PricingPage({
               ) : (
                 <Link
                   className="w-full rounded-md border px-4 py-2 text-center font-medium"
-                  href="/"
+                  href="/register"
                 >
                   {t.startFree}
                 </Link>

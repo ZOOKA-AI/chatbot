@@ -1,4 +1,5 @@
 import type { Lang } from "@/lib/i18n";
+import { fillLegalTokens } from "@/lib/legal-entity";
 
 type LegalPageId =
   | "about"
@@ -62,6 +63,22 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "سياسة الخصوصية",
       sections: [
         {
+          title: "الأمان وكلمة المرور",
+          body: "كلمات المرور تُخزَّن مجزّأة بخوارزمية bcrypt ولا يمكن لأي موظف قراءتها. رموز التكاملات (Google وجيت هب وفيرسل وn8n) تُخزَّن مشفّرة بـ AES-256-GCM ولا تظهر في السجلات.",
+        },
+        {
+          title: "مزوّدو نماذج الذكاء الاصطناعي",
+          body: "يُرسَل نص المحادثة إلى مزوّد النموذج الذي تختاره لتوليد الرد: Google (Gemini)، OpenAI (GPT)، Anthropic (Claude)، أو xAI (Grok)، عبر بوابة Vercel AI Gateway. لا نبيع المحادثات ولا نستخدمها لتدريب نماذجنا.",
+        },
+        {
+          title: "ملفات تعريف الارتباط",
+          body: "نستخدم كوكيز ضرورية لتسجيل الدخول واختيار اللغة وتفضيلات الجلسة، وقياساً مجهول الهوية عبر Vercel Analytics. التفاصيل الكاملة في سياسة الكوكيز على zooka-ai.com/cookies.",
+        },
+        {
+          title: "مدة الاحتفاظ والحذف",
+          body: "نحتفظ ببيانات الحساب والمحادثات ما دام الحساب فعّالاً. عند طلب حذف الحساب نحذف البيانات الشخصية خلال 30 يوماً من الطلب، ويبقى الحد الذي تفرضه الفوترة والقانون (مثل سجلات الفواتير) للمدة التي يحددها القانون.",
+        },
+        {
           title: "البيانات التي نعالجها",
           body: "قد نعالج بيانات الحساب ومساحة العمل والمحادثات والاستخدام اللازمة لتشغيل الخدمة وحمايتها وتقديم الفوترة.",
         },
@@ -79,6 +96,14 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "سياسة الاسترداد",
       sections: [
         {
+          title: "الشروط ومدة المعالجة",
+          body: "يمكن طلب استرداد كامل خلال 7 أيام من أول دفعة للاشتراك إن لم تكن قد استخدمت أكثر من 10% من حد الباقة. بعد ذلك يُراجع الطلب على أساس الاستخدام الفعلي. تُعالج الطلبات المقبولة إلى وسيلة الدفع الأصلية خلال 5 إلى 10 أيام عمل، وقد يستغرق ظهورها في كشف الحساب أياماً إضافية حسب البنك.",
+        },
+        {
+          title: "ما لا يُسترد",
+          body: "لا تُسترد الاشتراكات المتجددة المدفوعة بعد بدء دورة الفوترة، ولا الحدود غير المستخدمة، ولا رسوم معالجة الدفع التي خصمها مزوّد الدفع. إلغاء الاشتراك يوقف التجديد التالي فقط.",
+        },
+        {
           title: "الاشتراكات",
           body: "تُدار الاشتراكات عبر Stripe. أوقف التجديد من صفحة إدارة الاشتراك. لا يعني الإلغاء استرداد المبالغ تلقائياً؛ تخضع طلبات الاسترداد للقانون المعمول به وشروط مزود الدفع.",
         },
@@ -91,6 +116,18 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
     terms: {
       title: "شروط الخدمة",
       sections: [
+        {
+          title: "سقف المسؤولية",
+          body: "مسؤوليتنا الإجمالية عن أي مطالبة مرتبطة بالخدمة لا تتجاوز ما دفعته فعلاً مقابل الاشتراك في الاثني عشر شهراً السابقة للمطالبة. لا نتحمل الأضرار غير المباشرة أو فواتير الأرباح أو الخسائر التبعية، ولا نضمن أن مخرجات الذكاء الاصطناعي صحيحة دائماً، ومراجعتها مسؤوليتك قبل الاعتماد عليها.",
+        },
+        {
+          title: "استنفاد الحد والاستخدام العادل",
+          body: "عند استنفاد حد باقتك تتوقف الخدمة عن توليد ردود جديدة حتى بداية الفترة التالية أو الترقية. لا تُرحَّل الرسائل أو التشغيلات غير المستخدمة بين الفترات، ولا يُسترد مقابل الحد غير المستخدم.",
+        },
+        {
+          title: "القانون الحاكم والتعديلات",
+          body: "تخضع هذه الشروط لقوانين دولة الإمارات العربية المتحدة، وتختص محاكم رأس الخيمة بأي نزاع. قد نحدّث الشروط وننشر التحديث على هذه الصفحة، ويُعدّ استمرار استخدامك بعد النشر موافقة عليه.",
+        },
         {
           title: "استخدام الخدمة",
           body: "تُقدّم الخدمة كما هي، ويجب استخدامها وفق القوانين وحقوق الآخرين. أنت مسؤول عن مراجعة مخرجات الذكاء الاصطناعي قبل الاعتماد عليها.",
@@ -154,6 +191,22 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "Privacy Policy",
       sections: [
         {
+          title: "Security and passwords",
+          body: "Passwords are stored hashed with bcrypt and cannot be read by any member of staff. Integration tokens (Google, GitHub, Vercel, n8n) are encrypted with AES-256-GCM and never written to logs.",
+        },
+        {
+          title: "AI model providers",
+          body: "Your message text is sent to the model provider you select in order to generate the reply: Google (Gemini), OpenAI (GPT), Anthropic (Claude), or xAI (Grok), through the Vercel AI Gateway. We do not sell conversations and do not use them to train our own models.",
+        },
+        {
+          title: "Cookies",
+          body: "We set cookies required for sign-in, language choice and session preferences, plus anonymous product analytics through Vercel Analytics. The full breakdown is in the cookie policy at zooka-ai.com/cookies.",
+        },
+        {
+          title: "Retention and deletion",
+          body: "Account data and conversations are kept while the account is active. On a deletion request we remove personal data within 30 days, except the minimum records billing and the law require us to keep (such as invoices) for the period the law sets.",
+        },
+        {
           title: "Data we process",
           body: "We may process account, workspace, conversation, and usage data needed to operate, secure, and bill for the service.",
         },
@@ -171,6 +224,14 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "Refund Policy",
       sections: [
         {
+          title: "Conditions and processing time",
+          body: "A full refund can be requested within 7 days of the first subscription payment if you have used no more than 10% of your plan quota. After that, requests are reviewed against actual usage. Approved refunds are returned to the original payment method within 5 to 10 business days, and your bank may take a few more days to post it.",
+        },
+        {
+          title: "What is not refunded",
+          body: "Renewed subscription cycles already started, unused quota, and payment-processing fees charged by the payment provider are not refundable. Cancelling stops the next renewal only.",
+        },
+        {
           title: "Subscriptions",
           body: "Subscriptions are managed through Stripe. Turn off renewal from subscription management. Cancellation does not automatically refund charges; refund requests are subject to applicable law and payment provider terms.",
         },
@@ -183,6 +244,18 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
     terms: {
       title: "Terms of Service",
       sections: [
+        {
+          title: "Limitation of liability",
+          body: "Our total liability for any claim connected to the service will not exceed the amount you actually paid for the subscription in the twelve months before the claim. We are not liable for indirect or consequential losses, lost profit, or lost business, and we do not warrant that AI output is always correct; reviewing it before you rely on it is your responsibility.",
+        },
+        {
+          title: "Quota exhaustion and fair use",
+          body: "When your plan's quota is used up, the service stops producing new replies until the next period begins or you upgrade. Unused messages or agent runs do not roll over, and unused quota is not refunded.",
+        },
+        {
+          title: "Governing law and changes",
+          body: "These terms are governed by the laws of the United Arab Emirates, and the courts of Ras Al Khaimah have jurisdiction over any dispute. We may update these terms and publish the update on this page; continuing to use the service after publication means you accept it.",
+        },
         {
           title: "Using the service",
           body: "The service is provided as is and must be used lawfully and with respect for others' rights. You are responsible for reviewing AI output before relying on it.",
@@ -201,7 +274,15 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
 };
 
 export function getLegalPageCopy(lang: Lang, page: LegalPageId) {
-  return legalCopy[lang][page];
+  const copy = legalCopy[lang][page];
+  // Legal pages must never render a raw [TOKEN] to a visitor.
+  return {
+    ...copy,
+    sections: copy.sections.map((section) => ({
+      ...section,
+      body: fillLegalTokens(section.body, lang),
+    })),
+  };
 }
 
 export type { LegalPageId };

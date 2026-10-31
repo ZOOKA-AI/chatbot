@@ -492,15 +492,18 @@ export function LandingPage({ lang }: { lang: Lang }) {
             </h2>
             <p className="mt-3 max-w-2xl text-muted-foreground">
               {t(
-                "كل رقم تحت مقروء من قاعدة بياناتنا وقت النشر. ومفيش شهادة عميل واحدة مدفوعة أو مكتوبة من عندنا — الشهادات مكانها فاضي لحد ما عميل حقيقي يكتبها باسمه.",
-                "Every number below is read from our database at build time. And there is not one paid or in-house testimonial on this page — that space stays empty until a real customer writes one in their own name."
+                "الأرقام تحت محسوبة من قاعدة بياناتنا في أكتوبر 2026، ومفيش شهادة عميل واحدة مدفوعة أو مكتوبة من عندنا — الشهادات مكانها فاضي لحد ما عميل حقيقي يكتبها باسمه.",
+                "The numbers below are counted from our database in October 2026, and there is not one paid or in-house testimonial on this page — that space stays empty until a real customer writes one in their own name."
               )}
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
                   value: "271",
-                  label: t("مساحة عمل اتفتحت على المنصة", "workspaces opened on the platform"),
+                  label: t(
+                    "حساب مسجّل حتى أكتوبر 2026",
+                    "registered accounts as of October 2026"
+                  ),
                 },
                 {
                   value: String(INTEGRATION_PROVIDERS.length),

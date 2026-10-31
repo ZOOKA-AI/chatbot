@@ -17,8 +17,6 @@ const PUBLIC_PAGES = [
   { changeFrequency: "yearly", path: "/cookies", priority: 0.3 },
 ] as const;
 
-export const revalidate = 3600;
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = PUBLIC_PAGES.map(
     ({ changeFrequency, path, priority }) => ({
