@@ -9,13 +9,13 @@ import {
 } from "@/lib/integrations/google-drive/server";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
 import {
-  listProviderCatalog,
-  listWorkspaceIntegrations,
+  INTEGRATION_PROVIDERS,
+  PROVIDER_CATEGORIES,
   type IntegrationProvider,
-} from "@/lib/integrations/catalog";
+} from "@/lib/integrations/providers";
 
 export const metadata: Metadata = {
-  title: "Integrations | Zooka AI",
+  title: "Integrations",
 };
 
 export default async function IntegrationsPage({
@@ -36,33 +36,13 @@ export default async function IntegrationsPage({
   const googleDriveConnected =
     googleDriveConfigured &&
     (await isGoogleDriveConnected(context.organizationId));
-  let providers: IntegrationProvider[] = [];
-  let connectedIds = new Set<string>();
-  try {
-    providers = await listProviderCatalog();
-    const connections = await listWorkspaceIntegrations(context.organizationId);
-    connectedIds = new Set(
-      connections
-        .filter((connection) => connection.status === "connected")
-        .map((connection) => connection.providerId)
-    );
-  } catch {
-    providers = [];
-  }
-  const categoryLabels: Record<string, string> = {
-    communication: "التواصل",
-    social: "التواصل الاجتماعي",
-    ads: "الإعلانات",
-    dev: "التطوير",
-    storage: "التخزين",
-    productivity: "الإنتاجية",
-    finance: "المالية",
-    travel: "السفر",
-    automation: "الأتمتة",
-    geo: "الخرائط",
-    listing: "الملف التجاري",
-    commerce: "المتاجر",
-  };
+  const providers: IntegrationProvider[] = INTEGRATION_PROVIDERS;
+  const googleProviders = new Set(["google_drive", "gmail"]);
+  const connectedIds = new Set<string>(
+    googleDriveConnected
+      ? [...googleProviders].filter((id) => id !== "gmail" || googleDriveConnected)
+      : []
+  );
   const grouped = providers.reduce<Record<string, IntegrationProvider[]>>(
     (accumulator, provider) => {
       accumulator[provider.category] = [
@@ -140,8 +120,8 @@ export default async function IntegrationsPage({
           <div className="flex flex-col gap-3" key={category}>
             <h3 className="font-medium text-sm text-muted-foreground">
               {isArabic
-                ? (categoryLabels[category] ?? category)
-                : category[0].toUpperCase() + category.slice(1)}
+                ? (PROVIDER_CATEGORIES[category]?.ar ?? category)
+                : (PROVIDER_CATEGORIES[category]?.en ?? category)}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               {items.map((provider) => {
@@ -178,11 +158,9 @@ export default async function IntegrationsPage({
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {isArabic
-                        ? (provider.descriptionAr ?? provider.description ?? "")
-                        : (provider.description ?? "")}
+                      {isArabic ? provider.descriptionAr : provider.description}
                     </p>
-                    {provider.isManaged && available ? (
+                    {provider.managed && available ? (
                       <p className="text-[11px] text-muted-foreground">
                         {isArabic
                           ? "ربط بضغطة: الوكيل يفتح صفحة الموافقة بنفسه ولا تحتاج مفتاحًا."
