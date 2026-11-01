@@ -1,10 +1,16 @@
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal-page";
-
-export const metadata: Metadata = { title: "Refund Policy" };
-
-export default function RefundPage() {
+import { brandTitle } from "@/lib/brand";
+import { getLang } from "@/lib/i18n";
+export async function generateMetadata() {
+  const lang = await getLang();
+  return {
+    title: {
+      absolute: brandTitle(lang === "ar" ? "سياسة الاسترداد" : "Refund", lang),
+    },
+  };
+}
+export default function Page() {
   return (
     <Suspense fallback={null}>
       <LegalPage page="refund" />

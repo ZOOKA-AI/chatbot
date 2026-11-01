@@ -39,6 +39,7 @@ import {
   modelSupportsTools,
   modelsByProvider,
 } from "@/lib/ai/models";
+import { AGENT_DRAFT_KEY, parseAgentDraft } from "@/lib/studio-media";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -99,7 +100,7 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
-  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang } =
+  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang, isGuest } =
     useBilling();
   const { voiceMode, toggleVoiceMode } = useVoiceMode();
   const agentModeAllowed =
@@ -160,20 +161,33 @@ function PureMultimodalInput({
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
-    ""
+    "",
   );
 
   useEffect(() => {
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
       // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || localStorageInput || "";
+      let finalValue = domValue || localStorageInput || "";
+      if (!isGuest && !finalValue && messages.length === 0) {
+        try {
+          const draft = parseAgentDraft(
+            sessionStorage.getItem(AGENT_DRAFT_KEY),
+          );
+          if (draft) {
+            finalValue = draft;
+            sessionStorage.removeItem(AGENT_DRAFT_KEY);
+          }
+        } catch {
+          /* Keep the normal composer when storage is unavailable. */
+        }
+      }
       setInput(finalValue);
       adjustHeight();
     }
     // Only run once after hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adjustHeight, localStorageInput, setInput]);
+  }, [adjustHeight, localStorageInput, setInput, isGuest, messages.length]);
 
   useEffect(() => {
     setLocalStorageInput(input);
@@ -244,7 +258,7 @@ function PureMultimodalInput({
       resetHeight();
       setInput("");
     },
-    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput]
+    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput],
   );
 
   const handleVoiceTranscript = useCallback(
@@ -258,13 +272,13 @@ function PureMultimodalInput({
         return;
       }
       setInput((previous) =>
-        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed
+        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed,
       );
       if (width && width > 768) {
         textareaRef.current?.focus();
       }
     },
-    [voiceMode, status, submitText, setInput, width]
+    [voiceMode, status, submitText, setInput, width],
   );
 
   const lastReplyText = useMemo(() => {
@@ -284,7 +298,7 @@ function PureMultimodalInput({
   const handleSpeakLastReply = useCallback(() => {
     if (!lastReplyText) {
       toast.error(
-        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet."
+        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet.",
       );
       return;
     }
@@ -293,7 +307,7 @@ function PureMultimodalInput({
       toast.error(
         lang === "ar"
           ? "المتصفح لا يدعم القراءة الصوتية."
-          : "This browser cannot read text aloud."
+          : "This browser cannot read text aloud.",
       );
     }
   }, [lang, lastReplyText]);
@@ -335,7 +349,7 @@ function PureMultimodalInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
+          (attachment) => attachment !== undefined,
         );
 
         setAttachments((currentAttachments) => [
@@ -348,7 +362,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   const handlePaste = useCallback(
@@ -359,7 +373,7 @@ function PureMultimodalInput({
       }
 
       const imageItems = Array.from(items).filter((item) =>
-        item.type.startsWith("image/")
+        item.type.startsWith("image/"),
       );
 
       if (imageItems.length === 0) {
@@ -382,7 +396,7 @@ function PureMultimodalInput({
           (attachment) =>
             attachment !== undefined &&
             attachment.url !== undefined &&
-            attachment.contentType !== undefined
+            attachment.contentType !== undefined,
         );
 
         setAttachments((curr) => [
@@ -396,7 +410,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   // Add paste event listener to textarea
@@ -461,7 +475,7 @@ function PureMultimodalInput({
             >
               {agentPresets.map((preset) => {
                 const modelName = chatModels.find(
-                  (model) => model.id === preset.modelId
+                  (model) => model.id === preset.modelId,
                 )?.name;
 
                 return (
@@ -500,7 +514,7 @@ function PureMultimodalInput({
                 key={attachment.url}
                 onRemove={() => {
                   setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url)
+                    currentAttachments.filter((a) => a.url !== attachment.url),
                   );
                   if (fileInputRef.current) {
                     fileInputRef.current.value = "";
@@ -613,7 +627,7 @@ function PureMultimodalInput({
                     lang === "ar"
                       ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
                       : "Voice mode is on. Speak and I will answer out loud.",
-                    lang
+                    lang,
                   );
                 }
                 toggleVoiceMode();
@@ -643,12 +657,22 @@ function PureMultimodalInput({
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
             <PromptInputSubmit
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+              aria-label={lang === "ar" ? "إرسال الرسالة" : "Send message"}
+              className="h-9 shrink-0 gap-1.5 rounded-full bg-primary px-4 font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted/60 disabled:text-muted-foreground disabled:opacity-100"
               data-testid="send-button"
               disabled={!input.trim() || uploadQueue.length > 0}
+              size="sm"
               status={status}
+              title={
+                lang === "ar"
+                  ? "إرسال (Enter) — سطر جديد (Shift+Enter)"
+                  : "Send (Enter) — new line (Shift+Enter)"
+              }
             >
-              <ArrowUpIcon size={14} />
+              <ArrowUpIcon size={16} className="shrink-0" />
+              <span className="hidden text-xs sm:inline">
+                {lang === "ar" ? "إرسال" : "Send"}
+              </span>
             </PromptInputSubmit>
           )}
         </PromptInputToolbar>
@@ -727,7 +751,7 @@ export const MultimodalInput = memo(
     }
 
     return true;
-  }
+  },
 );
 
 function PureAttachmentsButton({
@@ -822,7 +846,7 @@ function PureModelSelectorCompact({
                   );
                 })}
               </ModelSelectorGroup>
-            )
+            ),
           )}
         </ModelSelectorList>
       </ModelSelectorContent>
@@ -841,7 +865,8 @@ function PureStopButton({
 }) {
   return (
     <Button
-      className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+      aria-label="إيقاف"
+      className="h-9 shrink-0 gap-1.5 rounded-full bg-foreground px-4 font-semibold text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
       data-testid="stop-button"
       onClick={(event) => {
         event.preventDefault();
@@ -850,6 +875,7 @@ function PureStopButton({
       }}
     >
       <StopIcon size={14} />
+      <span className="hidden text-xs sm:inline">إيقاف</span>
     </Button>
   );
 }

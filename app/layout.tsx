@@ -1,18 +1,20 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { Suspense } from "react";
 import { GlobalSiteComponents } from "@/components/global-site-components";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { PRODUCT_NAME_AR } from "@/lib/brand";
 import { SITE_YEAR } from "@/lib/site-year";
 
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: SITE_TITLE, template: `%s | ${SITE_NAME}` },
+  title: { default: SITE_TITLE, template: `%s | ${PRODUCT_NAME_AR}` },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   alternates: { canonical: "./" },
@@ -41,6 +43,14 @@ export const metadata: Metadata = {
     images: ["/images/og-image.jpg"],
   },
 };
+
+/**
+ * Static root metadata on purpose. Reading the language cookie here made every
+ * page whose body is static fail prerender under cacheComponents ("generateMetadata
+ * depends on request data when the rest of the route does not"). Pages that render
+ * per language already call getLang() themselves and export their own metadata.
+ */
+export const metadata: Metadata = baseMetadata;
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -129,7 +139,9 @@ export default function RootLayout({
         >
           <Toaster position="top-center" />
           <SessionProvider>{children}</SessionProvider>
-          <GlobalSiteComponents year={SITE_YEAR} />
+          <Suspense fallback={null}>
+            <GlobalSiteComponents year={SITE_YEAR} />
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>

@@ -1,3 +1,4 @@
+import { CONTACT_PHONE_E164, PRODUCT_NAME, APP_STORE_NAME } from "@/lib/brand";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -5,11 +6,10 @@ import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "طلب انضمام | Join",
-  description:
-    "قدّم طلب انضمام لشبكة شركاء Zooka AI: عمولة على الاشتراكات، وكالة white-label، أو امتياز منطقة. Apply to the Zooka AI partner network.",
+  description: `قدّم طلب انضمام لشبكة شركاء ${PRODUCT_NAME}: عمولة على الاشتراكات، وكالة white-label، أو امتياز منطقة. Apply to the ${PRODUCT_NAME} partner network.`,
 };
 
-const WHATSAPP = "971566047579";
+const WHATSAPP = CONTACT_PHONE_E164.slice(1);
 
 export default async function PartnerJoinPage() {
   const lang = await getLang();
@@ -29,8 +29,22 @@ export default async function PartnerJoinPage() {
 
   const message = encodeURIComponent(
     isAr
-      ? "طلب انضمام لشبكة شركاء ZOOKA AI\n\nالاسم:\nالشركة أو النشاط:\nالمدينة والبلد:\nالمسار المطلوب (موزّع / وكيل / امتياز):\nعدد العملاء المتوقع في أول 3 شهور:\nرقم التواصل:"
-      : "Zooka AI partner application\n\nName:\nCompany or business:\nCity and country:\nTrack (affiliate / white-label / franchise):\nExpected clients in first 3 months:\nContact number:"
+      ? `طلب انضمام لشبكة شركاء ${APP_STORE_NAME}
+
+الاسم:
+الشركة أو النشاط:
+المدينة والبلد:
+المسار المطلوب (موزّع / وكيل / امتياز):
+عدد العملاء المتوقع في أول 3 شهور:
+رقم التواصل:`
+      : `${PRODUCT_NAME} partner application
+
+Name:
+Company or business:
+City and country:
+Track (affiliate / white-label / franchise):
+Expected clients in first 3 months:
+Contact number:`,
   );
 
   return (

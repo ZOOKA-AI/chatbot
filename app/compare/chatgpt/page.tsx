@@ -1,3 +1,4 @@
+import { APP_STORE_NAME, PRODUCT_NAME } from "@/lib/brand";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -7,10 +8,9 @@ import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/compare/chatgpt` },
-  description:
-    "مقارنة صريحة بين ZOOKA AI وChatGPT: أيهما أفضل للذكاء العام وأيهما أفضل لتنفيذ المهام على أدوات شركتك، وحقيقة التجربة المجانية. An honest ZOOKA AI vs ChatGPT comparison.",
+  description: `مقارنة صريحة بين ${APP_STORE_NAME} وChatGPT: أيهما أفضل للذكاء العام وأيهما أفضل لتنفيذ المهام على أدوات شركتك، وحقيقة التجربة المجانية. An honest ${APP_STORE_NAME} vs ChatGPT comparison.`,
   keywords: [
-    "Zooka AI vs ChatGPT",
+    `${PRODUCT_NAME} vs ChatGPT`,
     "مقارنة ChatGPT",
     "وكيل أعمال ذكي",
     "AI agent عربي",
@@ -91,8 +91,8 @@ const ROWS = [
 const FAQ = [
   {
     q: {
-      ar: "هل Zooka AI أفضل من ChatGPT؟",
-      en: "Is Zooka AI better than ChatGPT?",
+      ar: `هل ${PRODUCT_NAME} أفضل من ChatGPT؟`,
+      en: `Is ${PRODUCT_NAME} better than ChatGPT?`,
     },
     a: {
       ar: "في المجمل لا. ChatGPT أقوى كمساعد ذكاء عام. زوكا أفضل في حالة واحدة: لما تحتاج وكيل ينفّذ مهمة على بريدك وملفاتك وكودك داخل مساحة عمل شركتك.",
@@ -100,7 +100,7 @@ const FAQ = [
     },
   },
   {
-    q: { ar: "هل Zooka AI مجاني؟", en: "Is Zooka AI free?" },
+    q: { ar: `هل ${PRODUCT_NAME} مجاني؟`, en: `Is ${PRODUCT_NAME} free?` },
     a: {
       ar: "فيه تجربة مجانية للتعريف: 10 رسائل يوميًا بدون حساب، أو 1,000 رسالة شهريًا بحساب مجاني. لكن الخدمة نفسها مش مجانية: ربط تكاملات شركتك وتشغيل الوكيل يحتاج باقة مدفوعة تبدأ من 19$ شهريًا.",
       en: "There is a free preview: 10 messages a day without an account, or 1,000 messages a month with a free account. The service itself is not free: connecting your company tools and running the agent needs a paid plan from $19 per month.",
@@ -160,7 +160,7 @@ async function CompareChatGptContent() {
           {
             "@type": "ListItem",
             item: `${SITE_URL}/`,
-            name: "Zooka AI",
+            name: `${PRODUCT_NAME}`,
             position: 1,
           },
           {
@@ -188,8 +188,13 @@ async function CompareChatGptContent() {
       />
 
       <div className="flex items-center justify-between">
-        <Link className="text-muted-foreground text-sm hover:underline" href="/">
-          ZOOKA AI
+        <Link
+          className="text-muted-foreground text-sm hover:underline"
+          href="/"
+        >
+          {`
+          ${APP_STORE_NAME}
+        `}
         </Link>
         <LanguageToggle lang={lang} />
       </div>
@@ -200,14 +205,14 @@ async function CompareChatGptContent() {
         </span>
         <h1 className="font-semibold text-3xl leading-tight">
           {t(
-            "Zooka AI مقابل ChatGPT: أيهما يناسب شغلك؟",
-            "Zooka AI vs ChatGPT: which one fits your work?"
+            `${PRODUCT_NAME} مقابل ChatGPT: أيهما يناسب شغلك؟`,
+            `${PRODUCT_NAME} vs ChatGPT: which one fits your work?`,
           )}
         </h1>
         <p className="text-muted-foreground">
           {t(
             "الخلاصة من الأول: ChatGPT أقوى كمساعد ذكاء عام، وزوكا مش بديل له. زوكا وكيل تنفيذ على أدوات شركتك بالعربي. الاختيار بيعتمد على اللي محتاجه فعلًا.",
-            "The short answer first: ChatGPT is stronger as a general AI assistant, and Zooka is not its replacement. Zooka is an execution agent on your company tools, in Arabic. The choice depends on what you actually need."
+            "The short answer first: ChatGPT is stronger as a general AI assistant, and Zooka is not its replacement. Zooka is an execution agent on your company tools, in Arabic. The choice depends on what you actually need.",
           )}
         </p>
       </header>
@@ -224,7 +229,7 @@ async function CompareChatGptContent() {
                   {t("الجانب", "Aspect")}
                 </th>
                 <th className="p-3 text-start font-medium">ChatGPT</th>
-                <th className="p-3 text-start font-medium">Zooka AI</th>
+                <th className="p-3 text-start font-medium">{`${PRODUCT_NAME}`}</th>
               </tr>
             </thead>
             <tbody>
@@ -251,19 +256,19 @@ async function CompareChatGptContent() {
             <li>
               {t(
                 "محتاج وكيل يشتغل على بريدك وملفاتك وكودك وينفّذ المهمة للنهاية.",
-                "You need an agent to work on your email, files and code through to completion."
+                "You need an agent to work on your email, files and code through to completion.",
               )}
             </li>
             <li>
               {t(
                 "عندك فريق ومحتاج صلاحيات وسجل تدقيق وفاتورة رسمية.",
-                "You have a team and need roles, an audit trail and proper invoicing."
+                "You have a team and need roles, an audit trail and proper invoicing.",
               )}
             </li>
             <li>
               {t(
                 "شغلك بالعربي وفي السوق المحلي (تنظيف، عيادات، عقارات، مطاعم).",
-                "Your work is in Arabic and in the local market (cleaning, clinics, real estate, restaurants)."
+                "Your work is in Arabic and in the local market (cleaning, clinics, real estate, restaurants).",
               )}
             </li>
           </ul>
@@ -276,19 +281,19 @@ async function CompareChatGptContent() {
             <li>
               {t(
                 "استخدامك الأساسي أسئلة وكتابة وبرمجة وتعلّم وتحليل عام.",
-                "Your main use is questions, writing, coding, learning and general analysis."
+                "Your main use is questions, writing, coding, learning and general analysis.",
               )}
             </li>
             <li>
               {t(
                 "محتاج منتج ناضج جدًا وميزات زي Projects وCanvas.",
-                "You need a very mature product with features like Projects and Canvas."
+                "You need a very mature product with features like Projects and Canvas.",
               )}
             </li>
             <li>
               {t(
                 "مش محتاج ربط أدوات شركة ولا تنفيذ خطوات على بياناتك.",
-                "You don't need company tool connections or actions on your own data."
+                "You don't need company tool connections or actions on your own data.",
               )}
             </li>
           </ul>
@@ -302,26 +307,26 @@ async function CompareChatGptContent() {
         <p className="text-sm">
           {t(
             "فيه تجربة تعريفية مجانية، لكن الخدمة نفسها مش مجانية. ده التفصيل بالظبط:",
-            "There is a free preview, but the service itself is not free. Here is exactly how it works:"
+            "There is a free preview, but the service itself is not free. Here is exactly how it works:",
           )}
         </p>
         <ol className="flex list-inside list-decimal flex-col gap-2 text-muted-foreground text-sm">
           <li>
             {t(
               "10 رسائل يوميًا بدون تسجيل وبدون بطاقة، والعداد يرجع كل يوم.",
-              "10 messages a day with no sign-up and no card; the count refreshes daily."
+              "10 messages a day with no sign-up and no card; the count refreshes daily.",
             )}
           </li>
           <li>
             {t(
               "بعد التسجيل: باقة تجريبية 1,000 رسالة شهريًا بنماذج أساسية، بدون ربط تكاملات وبدون Agent Mode.",
-              "After sign-up: a trial plan with 1,000 messages a month on standard models, without tool connections or agent mode."
+              "After sign-up: a trial plan with 1,000 messages a month on standard models, without tool connections or agent mode.",
             )}
           </li>
           <li>
             {t(
               "الاستخدام التجاري: ربط أدوات الشركة وتشغيل الوكيل وفِرَق وصلاحيات وفاتورة رسمية — من 19$ (احترافي) أو 49$ (الأعمال) شهريًا.",
-              "Commercial use: company tool connections, agent runs, teams, roles and invoicing — from $19 (Pro) or $49 (Business) per month."
+              "Commercial use: company tool connections, agent runs, teams, roles and invoicing — from $19 (Pro) or $49 (Business) per month.",
             )}
           </li>
         </ol>
@@ -360,7 +365,7 @@ async function CompareChatGptContent() {
       </section>
 
       <nav className="flex flex-wrap gap-4 border-t pt-6 text-muted-foreground text-sm">
-        <Link href="/">ZOOKA AI</Link>
+        <Link href="/">{`${APP_STORE_NAME}`}</Link>
         <Link href="/pricing">{t("الأسعار", "Pricing")}</Link>
         <Link href="/contact">{t("تواصل معنا", "Contact")}</Link>
         <Link href="/privacy">{t("سياسة الخصوصية", "Privacy")}</Link>

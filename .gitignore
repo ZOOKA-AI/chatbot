@@ -42,3 +42,6 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 /playwright/*
+
+# unsealed at build time from lib/brand-sealed.json
+lib/brand-identity.generated.ts

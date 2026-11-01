@@ -5,21 +5,24 @@
  * Stripe pays out to and the address on the trade licence. Override through env
  * when the entity changes, so no legal page ever ships an unfilled token.
  */
+import {
+  COMPANY_LEGAL_NAME_EN,
+  COMPANY_LEGAL_NAME_AR,
+  COMPANY_ADDRESS,
+  CONTACT_EMAIL,
+  CONTACT_PHONE_E164,
+} from "./brand";
 export const LEGAL_ENTITY_NAME: Record<"ar" | "en", string> = {
-  ar: "رويال هارون لخدمات التنظيف والتعقيم ش.ذ.م.م",
-  en: "Royal Haroon Cleaning and Disinfection Services FZ-LLC",
+  // English fallback is explicit while the exact Arabic name is missing; release gate blocks publishing.
+  ar: COMPANY_LEGAL_NAME_AR ?? COMPANY_LEGAL_NAME_EN,
+  en: COMPANY_LEGAL_NAME_EN,
 };
-
 export const LEGAL_ADDRESS: Record<"ar" | "en", string> = {
-  ar: "مبنى كومباس، منطقة الحمراء الصناعية الحرة، رأس الخيمة، الإمارات العربية المتحدة",
-  en: "Compass Building, Al Hamra Industrial Zone-FZ, Ras Al Khaimah, United Arab Emirates",
+  ar: COMPANY_ADDRESS,
+  en: COMPANY_ADDRESS,
 };
-
-/** Monitored inbox for legal and billing requests (env override allowed). */
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "helmyharoon8@gmail.com";
-
-/** WhatsApp support line shown on /contact; calls are not answered. */
-export const SUPPORT_PHONE = "+971566047579";
+export { CONTACT_EMAIL };
+export const SUPPORT_PHONE = CONTACT_PHONE_E164;
 
 /** Governing law for the terms and refund policy. */
 export const GOVERNING_LAW: Record<"ar" | "en", string> = {

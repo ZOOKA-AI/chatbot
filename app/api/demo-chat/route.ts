@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -32,7 +33,7 @@ type DemoBody = {
   agentMode?: boolean;
 };
 
-const DEMO_SYSTEM = `You are Zooka AI's public preview inside the marketing site.
+const DEMO_SYSTEM = `You are ${PRODUCT_NAME}'s public preview inside the marketing site.
 Answer in the user's language (Arabic or English).
 You cannot access Gmail, Drive, files, calendars, code or any account, and you have no tools.
 If the visitor asks you to connect a tool or read their inbox, say that real connections and Agent mode start on the Pro plan after sign-up, then finish the writing task they asked for with what you have.
@@ -41,7 +42,9 @@ Keep replies short and immediately useful.`;
 
 function textOf(message: UIMessage | undefined) {
   return (message?.parts ?? [])
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .filter(
+      (part): part is { type: "text"; text: string } => part.type === "text",
+    )
     .map((part) => part.text)
     .join("")
     .trim();
@@ -117,7 +120,7 @@ export async function POST(request: Request) {
                 ? "انقطع الرد قبل ما يكتمل. أعد المحاولة، ولن يُحسب من رصيدك."
                 : "The reply stopped early. Try again — it will not use one of your messages.";
             },
-          })
+          }),
         );
       },
       generateId: generateUUID,

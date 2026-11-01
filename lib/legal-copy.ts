@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import type { Lang } from "@/lib/i18n";
 import { fillLegalTokens } from "@/lib/legal-entity";
 
@@ -20,7 +21,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "من نحن",
       sections: [
         {
-          title: "عن Zooka AI",
+          title: `عن ${PRODUCT_NAME}`,
           body: "تقدّم [LEGAL_ENTITY_NAME] أدوات ذكاء اصطناعي ومحادثة للعمل والأفراد عبر zooka-ai.com.",
         },
         {
@@ -148,7 +149,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "About",
       sections: [
         {
-          title: "About Zooka AI",
+          title: `About ${PRODUCT_NAME}`,
           body: "[LEGAL_ENTITY_NAME] provides AI and chat tools for individuals and teams at zooka-ai.com.",
         },
         {

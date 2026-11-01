@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/brand";
 import { tool } from "ai";
 import { z } from "zod";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
@@ -66,7 +67,7 @@ export function htmlToText(html: string) {
 
   const titleMatch = withoutNoise.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const descriptionMatch = withoutNoise.match(
-    /<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']/i
+    /<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']/i,
   );
 
   const text = decodeEntities(
@@ -75,12 +76,14 @@ export function htmlToText(html: string) {
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
       .replace(/[ \t\u00a0]+/g, " ")
-      .replace(/\n{3,}/g, "\n\n")
+      .replace(/\n{3,}/g, "\n\n"),
   ).trim();
 
   return {
     title: titleMatch ? decodeEntities(titleMatch[1]).trim() : null,
-    description: descriptionMatch ? decodeEntities(descriptionMatch[1]).trim() : null,
+    description: descriptionMatch
+      ? decodeEntities(descriptionMatch[1]).trim()
+      : null,
     text,
   };
 }
@@ -90,8 +93,7 @@ async function fetchPage(url: string) {
     redirect: "follow",
     signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: {
-      "user-agent":
-        "Mozilla/5.0 (compatible; ZookaAI/1.0; +https://zooka-ai.com)",
+      "user-agent": `Mozilla/5.0 (compatible; ZookaAI/1.0; +${SITE_URL})`,
       accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
     },
   });
@@ -100,7 +102,7 @@ async function fetchPage(url: string) {
   const buffer = await response.arrayBuffer();
   const truncatedBytes = buffer.byteLength > MAX_BYTES;
   const body = new TextDecoder("utf-8").decode(
-    truncatedBytes ? buffer.slice(0, MAX_BYTES) : buffer
+    truncatedBytes ? buffer.slice(0, MAX_BYTES) : buffer,
   );
 
   return {
@@ -166,7 +168,8 @@ export function createReadUrl({
           reason: error instanceof Error ? error.name : "unknown",
         });
         return {
-          error: "تعذّر فتح الرابط الآن. تأكد أنه رابط عام ويبدأ بـ http أو https.",
+          error:
+            "تعذّر فتح الرابط الآن. تأكد أنه رابط عام ويبدأ بـ http أو https.",
         };
       }
     },

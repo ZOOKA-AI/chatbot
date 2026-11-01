@@ -2,10 +2,10 @@ import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
-import { LandingPage } from "@/components/marketing/landing-page";
-import { getLang } from "@/lib/i18n";
 import { DataStreamHandler } from "@/components/data-stream-handler";
+import { PlatformSite } from "@/components/platform/platform-site";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { getLang } from "@/lib/i18n";
 import { generateUUID } from "@/lib/utils";
 
 export default function Page() {
@@ -23,7 +23,7 @@ export default function Page() {
 async function RootPage() {
   const [session, lang] = await Promise.all([auth(), getLang()]);
   if (!session?.user) {
-    return <LandingPage lang={lang} />;
+    return <PlatformSite lang={lang} />;
   }
   return <NewChatPage />;
 }
