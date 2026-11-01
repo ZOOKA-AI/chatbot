@@ -1907,3 +1907,131 @@
 .platformLinks a:hover {
   color: var(--mint);
 }
+.mediaCard {
+  border: 1px solid #405348;
+  background: #202b24;
+  border-radius: 18px;
+  padding: 27px;
+  margin: 0 0 25px;
+}
+.mediaCard h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+.mediaCard > p {
+  font-size: 12px;
+  color: #abc1b1;
+  line-height: 2;
+  margin-bottom: 20px;
+}
+.mediaCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #c1d7c8;
+  font-size: 11px;
+  margin: 20px 0;
+}
+.mediaCheck input {
+  margin-top: 6px;
+  accent-color: #95d2a7;
+}
+.mediaLabel {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: #b5cdbd;
+  margin: 18px 0;
+}
+.mediaLabel input,
+.mediaLabel select,
+.mediaLabel textarea,
+.commandSearch {
+  padding: 12px;
+  border: 1px solid #496653;
+  border-radius: 9px;
+  background: #142019;
+  color: #e1f4e7;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+}
+.mediaLabel textarea {
+  min-height: 130px;
+}
+.voiceText {
+  margin: 20px 0;
+  resize: vertical;
+  min-height: 190px;
+  display: block;
+  width: 100%;
+  border: 1px solid #496653;
+  background: #131e17;
+  color: #e1f4e7;
+  border-radius: 12px;
+  padding: 18px;
+  font-size: 14px;
+  line-height: 2;
+}
+.mediaNotice {
+  display: block;
+  background: #344a3b;
+  border: 1px solid #587860;
+  padding: 15px;
+  border-radius: 11px;
+  margin-top: 18px;
+  color: #d7efdf;
+  font-size: 12px;
+}
+.recordStatus {
+  font-size: 12px;
+  color: #b8f3cc;
+  margin: 18px 0;
+}
+.recordingPreview video {
+  display: block;
+  width: 100%;
+  max-height: 380px;
+  background: #000;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.recordingPreview > p {
+  font-size: 11px;
+  color: #a7bbae;
+  margin-top: 16px;
+}
+.commandSearch {
+  margin: 0 0 20px;
+}
+.commandResults {
+  max-height: 55dvh;
+  overflow-y: auto;
+}
+.commandResults p {
+  padding: 20px;
+  color: #afc4b6;
+  font-size: 12px;
+}
+@media (max-width: 700px) {
+  .mediaCard {
+    padding: 22px 17px;
+  }
+  .mediaCard h2 {
+    font-size: 18px;
+  }
+  .mediaCard .transferActions {
+    gap: 8px;
+  }
+  .mediaCard .transferActions > button,
+  .mediaCard .transferActions > a {
+    flex: 1;
+  }
+  .mediaCard > p {
+    font-size: 11px;
+  }
+}

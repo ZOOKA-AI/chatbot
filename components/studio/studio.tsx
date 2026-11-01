@@ -4,6 +4,7 @@ import {
   ArrowUpLeft,
   ArrowUpRight,
   Blocks,
+  Bot,
   Cable,
   Check,
   CheckCheck,
@@ -19,6 +20,7 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   Menu,
+  Mic,
   Monitor,
   PanelLeftClose,
   Plus,
@@ -50,17 +52,23 @@ import {
   starterTemplates,
   studioSections,
 } from "@/lib/studio";
+import { AgentBrief } from "./agent-brief";
+import { CommandMenu } from "./command-menu";
 import { Playground } from "./playground";
 import { ProjectTransfer } from "./project-transfer";
 import { ProviderGuide } from "./provider-guide";
 import { ProviderIcon } from "./provider-icon";
+import { ScreenRecorder } from "./screen-recorder";
 import styles from "./studio.module.css";
 import { TaskBoard } from "./task-board";
+import { VoiceNotebook } from "./voice-notebook";
 
 const sectionIcons = [
   LayoutDashboard,
   FolderOpen,
   ClipboardList,
+  Bot,
+  Mic,
   LayoutTemplate,
   Gamepad2,
   Code2,
@@ -330,6 +338,7 @@ export function Studio({ section }: { section: StudioSection }) {
             <strong>{title}</strong>
           </div>
           <div className={styles.topbarActions}>
+            <CommandMenu onNavigate={navigate} />
             <span className={styles.reviewBadge}>
               <span /> نسخة المراجعة
             </span>
@@ -563,6 +572,18 @@ export function Studio({ section }: { section: StudioSection }) {
             </>
           )}
           {section === "tasks" && <TaskBoard />}
+          {section === "agent" && <AgentBrief />}
+          {section === "media" && (
+            <>
+              <PageHeading
+                eyebrow="أدوات بإذن واضح"
+                title="الصوت وتسجيل الشاشة"
+                description="إملاء وقراءة من المتصفح وتسجيل ملف من المصدر الذي تختاره. لا اتصال صوتي حي بنموذج، ولا مراقبة للشاشة أو تشغيل خفي."
+              />
+              <VoiceNotebook />
+              <ScreenRecorder />
+            </>
+          )}
           {section === "play" && <Playground />}
           {section === "templates" && (
             <>

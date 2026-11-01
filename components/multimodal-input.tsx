@@ -39,6 +39,7 @@ import {
   modelSupportsTools,
   modelsByProvider,
 } from "@/lib/ai/models";
+import { AGENT_DRAFT_KEY, parseAgentDraft } from "@/lib/studio-media";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -99,7 +100,7 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
-  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang } =
+  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang, isGuest } =
     useBilling();
   const { voiceMode, toggleVoiceMode } = useVoiceMode();
   const agentModeAllowed =
@@ -160,20 +161,33 @@ function PureMultimodalInput({
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
-    ""
+    "",
   );
 
   useEffect(() => {
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
       // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || localStorageInput || "";
+      let finalValue = domValue || localStorageInput || "";
+      if (!isGuest && !finalValue && messages.length === 0) {
+        try {
+          const draft = parseAgentDraft(
+            sessionStorage.getItem(AGENT_DRAFT_KEY),
+          );
+          if (draft) {
+            finalValue = draft;
+            sessionStorage.removeItem(AGENT_DRAFT_KEY);
+          }
+        } catch {
+          /* Keep the normal composer when storage is unavailable. */
+        }
+      }
       setInput(finalValue);
       adjustHeight();
     }
     // Only run once after hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adjustHeight, localStorageInput, setInput]);
+  }, [adjustHeight, localStorageInput, setInput, isGuest, messages.length]);
 
   useEffect(() => {
     setLocalStorageInput(input);
@@ -244,7 +258,7 @@ function PureMultimodalInput({
       resetHeight();
       setInput("");
     },
-    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput]
+    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput],
   );
 
   const handleVoiceTranscript = useCallback(
@@ -258,13 +272,13 @@ function PureMultimodalInput({
         return;
       }
       setInput((previous) =>
-        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed
+        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed,
       );
       if (width && width > 768) {
         textareaRef.current?.focus();
       }
     },
-    [voiceMode, status, submitText, setInput, width]
+    [voiceMode, status, submitText, setInput, width],
   );
 
   const lastReplyText = useMemo(() => {
@@ -284,7 +298,7 @@ function PureMultimodalInput({
   const handleSpeakLastReply = useCallback(() => {
     if (!lastReplyText) {
       toast.error(
-        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet."
+        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet.",
       );
       return;
     }
@@ -293,7 +307,7 @@ function PureMultimodalInput({
       toast.error(
         lang === "ar"
           ? "المتصفح لا يدعم القراءة الصوتية."
-          : "This browser cannot read text aloud."
+          : "This browser cannot read text aloud.",
       );
     }
   }, [lang, lastReplyText]);
@@ -335,7 +349,7 @@ function PureMultimodalInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
+          (attachment) => attachment !== undefined,
         );
 
         setAttachments((currentAttachments) => [
@@ -348,7 +362,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   const handlePaste = useCallback(
@@ -359,7 +373,7 @@ function PureMultimodalInput({
       }
 
       const imageItems = Array.from(items).filter((item) =>
-        item.type.startsWith("image/")
+        item.type.startsWith("image/"),
       );
 
       if (imageItems.length === 0) {
@@ -382,7 +396,7 @@ function PureMultimodalInput({
           (attachment) =>
             attachment !== undefined &&
             attachment.url !== undefined &&
-            attachment.contentType !== undefined
+            attachment.contentType !== undefined,
         );
 
         setAttachments((curr) => [
@@ -396,7 +410,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   // Add paste event listener to textarea
@@ -461,7 +475,7 @@ function PureMultimodalInput({
             >
               {agentPresets.map((preset) => {
                 const modelName = chatModels.find(
-                  (model) => model.id === preset.modelId
+                  (model) => model.id === preset.modelId,
                 )?.name;
 
                 return (
@@ -500,7 +514,7 @@ function PureMultimodalInput({
                 key={attachment.url}
                 onRemove={() => {
                   setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url)
+                    currentAttachments.filter((a) => a.url !== attachment.url),
                   );
                   if (fileInputRef.current) {
                     fileInputRef.current.value = "";
@@ -613,7 +627,7 @@ function PureMultimodalInput({
                     lang === "ar"
                       ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
                       : "Voice mode is on. Speak and I will answer out loud.",
-                    lang
+                    lang,
                   );
                 }
                 toggleVoiceMode();
@@ -727,7 +741,7 @@ export const MultimodalInput = memo(
     }
 
     return true;
-  }
+  },
 );
 
 function PureAttachmentsButton({
@@ -822,7 +836,7 @@ function PureModelSelectorCompact({
                   );
                 })}
               </ModelSelectorGroup>
-            )
+            ),
           )}
         </ModelSelectorList>
       </ModelSelectorContent>

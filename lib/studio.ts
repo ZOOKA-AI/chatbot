@@ -5,6 +5,8 @@ export const studioSections = [
   { id: "home", label: "مساحة العمل" },
   { id: "projects", label: "المشاريع" },
   { id: "tasks", label: "لوحة المهام" },
+  { id: "agent", label: "مخطط الوكيل" },
+  { id: "media", label: "الصوت وتسجيل الشاشة" },
   { id: "templates", label: "قوالب المواقع" },
   { id: "play", label: "استراحة وإبداع" },
   { id: "code", label: "الكود والمعاينة" },
