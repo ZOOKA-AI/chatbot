@@ -22,10 +22,11 @@
     "prebuild": "node scripts/unseal-identity.mjs && node scripts/check-placeholders.mjs && tsx scripts/check-brand.ts source",
     "check:brand": "tsx scripts/check-brand.ts source",
     "check:brand:rendered": "tsx scripts/check-brand-rendered.ts",
-    "postbuild": "tsx scripts/check-brand.ts bundle && pnpm exec playwright install chromium --only-shell && BRAND_RENDER_GATE=strict tsx scripts/check-brand-rendered.ts",
+    "postbuild": "tsx scripts/check-brand.ts bundle && tsx scripts/check-brand-rendered.ts",
     "unseal": "node scripts/unseal-identity.mjs",
     "predev": "node scripts/unseal-identity.mjs",
-    "pretest:unit": "node scripts/unseal-identity.mjs"
+    "pretest:unit": "node scripts/unseal-identity.mjs",
+    "release:check": "pnpm exec playwright install chromium --only-shell && tsx scripts/check-brand.ts source && pnpm exec tsc --noEmit && pnpm test:unit && pnpm build && BRAND_RENDER_GATE=strict tsx scripts/check-brand-rendered.ts && echo 'RELEASE CHECK: all gates passed'"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.15",
