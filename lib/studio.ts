@@ -1,3 +1,4 @@
+import { CONNECTABLE_PROVIDER_IDS } from "./brand";
 import { creativeTemplates } from "./studio-play";
 
 /** Public review data only. Never put account data or integration secrets here. */
@@ -75,13 +76,9 @@ export function parseLocalProjects(raw: string | null): LocalProject[] {
 }
 
 /** Connection UI exists only for these providers in this repository. */
-export const implementedConnectionIds = new Set([
-  "github",
-  "vercel",
-  "google_drive",
-  "gmail",
-  "n8n",
-]);
+export const implementedConnectionIds = new Set<string>(
+  CONNECTABLE_PROVIDER_IDS,
+);
 export const extraAutomationProviders = [
   {
     id: "zapier",

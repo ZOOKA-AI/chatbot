@@ -1,3 +1,4 @@
+import { INVOICE_SELLER, BILLING_EMAIL } from "@/lib/brand";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BillingEvent } from "@/components/billing-event";
@@ -40,15 +41,15 @@ export default async function WorkspaceBillingPage({
   const isArabic = lang === "ar";
   const remainingMessages = Math.max(
     0,
-    plan.monthlyMessages - billing.usage.messages
+    plan.monthlyMessages - billing.usage.messages,
   );
   const remainingAgentRuns = Math.max(
     0,
-    plan.monthlyAgentRuns - billing.usage.agentRuns
+    plan.monthlyAgentRuns - billing.usage.agentRuns,
   );
   const remainingWebSearches = Math.max(
     0,
-    plan.monthlyWebSearches - billing.usage.webSearches
+    plan.monthlyWebSearches - billing.usage.webSearches,
   );
 
   return (
@@ -57,6 +58,10 @@ export default async function WorkspaceBillingPage({
         <p className="text-muted-foreground text-sm">
           {displayWorkspaceName(context.workspace.name, lang)}
         </p>
+        <div>
+          <p>{INVOICE_SELLER}</p>
+          <a href={`mailto:${BILLING_EMAIL}`}>{BILLING_EMAIL}</a>
+        </div>
         <h1 className="font-semibold text-2xl">
           {isArabic ? "الباقة والاستخدام" : "Plan and usage"}
         </h1>

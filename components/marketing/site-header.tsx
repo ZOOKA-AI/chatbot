@@ -1,5 +1,7 @@
 "use client";
 
+import { CONNECTABLE_INTEGRATION_COUNT } from "@/lib/brand";
+import { PRODUCT_NAME } from "@/lib/brand";
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
@@ -29,7 +31,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("فيديو تعريفي", "Demo video"),
           href: "#video",
-          hint: t("دقيقة واحدة تشرح كل حاجة", "One minute that explains it all"),
+          hint: t(
+            "دقيقة واحدة تشرح كل حاجة",
+            "One minute that explains it all",
+          ),
         },
         {
           label: t("قوالب مهام جاهزة", "Ready-made tasks"),
@@ -44,7 +49,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("التكاملات", "Integrations"),
           href: "#integrations",
-          hint: t("26 تكاملًا في الكتالوج", "26 integrations in the catalog"),
+          hint: t(
+            `${CONNECTABLE_INTEGRATION_COUNT} مسارات ربط منفذة؛ اتصال الحساب يتطلب إعداداً`,
+            `${CONNECTABLE_INTEGRATION_COUNT} implemented setup paths; authorization required`,
+          ),
         },
       ],
     },
@@ -54,7 +62,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("شركات التنظيف والخدمات", "Cleaning & services"),
           href: "#use-cases",
-          hint: t("ردود العملاء، الفواتير، المتابعة", "Customer replies, invoices, follow-up"),
+          hint: t(
+            "ردود العملاء، الفواتير، المتابعة",
+            "Customer replies, invoices, follow-up",
+          ),
         },
         {
           label: t("المتاجر والمبيعات", "Retail & sales"),
@@ -79,7 +90,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("الباقات الأربع", "The four plans"),
           href: "#plans",
-          hint: t("مجاني، احترافي، أعمال، مؤسسات", "Free, Pro, Business, Enterprise"),
+          hint: t(
+            "مجاني، احترافي، أعمال، مؤسسات",
+            "Free, Pro, Business, Enterprise",
+          ),
         },
         {
           label: t("الأمان والخصوصية", "Security & privacy"),
@@ -108,13 +122,13 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         <Link className="flex items-center gap-2 font-semibold" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            alt="Zooka AI"
+            alt={`${PRODUCT_NAME}`}
             className="h-9 w-9 rounded-lg"
             height={36}
             src="/images/zooka-logo-120.png"
             width={36}
           />
-          <span className="text-base tracking-tight">Zooka AI</span>
+          <span className="text-base tracking-tight">{`${PRODUCT_NAME}`}</span>
         </Link>
 
         <nav className="hidden items-center gap-1 text-sm lg:flex">

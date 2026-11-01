@@ -1,15 +1,16 @@
+import { CONTACT_PHONE_E164, APP_STORE_NAME, SITE_URL } from "@/lib/brand";
 import type { Metadata } from "next";
 
-const WHATSAPP = "971566047579";
+const WHATSAPP = CONTACT_PHONE_E164.slice(1);
 const WA_LINK = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
-  "مرحبا، أبغى أعرف أكثر عن ZOOKA AI لشركة التنظيف عندي"
+  `مرحبا، أبغى أعرف أكثر عن ${APP_STORE_NAME} لشركة التنظيف عندي`,
 )}`;
 
 export const metadata: Metadata = {
-  title: "ZOOKA AI لشركات التنظيف | مساعد يرد على العملاء ويكتب المحتوى",
+  title: `${APP_STORE_NAME} لشركات التنظيف | مساعد يرد على العملاء ويكتب المحتوى`,
   description:
     "مساعد ذكاء اصطناعي بالعربي لشركات التنظيف وخدمات المنازل في الإمارات: يرد على استفسارات العملاء، يجهز عروض الأسعار، ويكتب محتوى إنستجرام يوميا.",
-  alternates: { canonical: "https://zooka-ai.com/lp/cleaning" },
+  alternates: { canonical: `${SITE_URL}/lp/cleaning` },
 };
 
 const pains = [
@@ -67,7 +68,9 @@ export default function CleaningLandingPage() {
     >
       <section className="flex flex-col gap-5">
         <p className="w-fit rounded-full border px-3 py-1 text-muted-foreground text-xs">
-          ZOOKA AI — مساعد أعمال بالعربي لشركات التنظيف في الإمارات
+          {`
+          ${APP_STORE_NAME} — مساعد أعمال بالعربي لشركات التنظيف في الإمارات
+        `}
         </p>
         <h1 className="font-semibold text-3xl leading-snug md:text-4xl">
           رد على عميلك في ثانية، وطلّع محتوى إنستجرامك كل يوم
@@ -89,7 +92,7 @@ export default function CleaningLandingPage() {
           </a>
           <a
             className="rounded-md border px-5 py-3 text-center font-medium"
-            href="https://zooka-ai.com/pricing"
+            href={`${SITE_URL}/pricing`}
           >
             شوف الأسعار
           </a>
@@ -115,7 +118,10 @@ export default function CleaningLandingPage() {
         <h2 className="font-semibold text-xl">إيش بيسوي لك بالضبط</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {jobs.map((job) => (
-            <article className="flex flex-col gap-2 rounded-xl border p-4" key={job.title}>
+            <article
+              className="flex flex-col gap-2 rounded-xl border p-4"
+              key={job.title}
+            >
               <h3 className="font-semibold text-base">{job.title}</h3>
               <p className="text-muted-foreground text-sm">{job.body}</p>
             </article>
@@ -132,8 +138,8 @@ export default function CleaningLandingPage() {
           <p>
             الرد الجاهز: «أهلاً وسهلاً. تنظيف شقة غرفتين وصالة يبدأ من ٢٥٠ درهم،
             يشمل الحمام والمطبخ والغبار. المدة ٣ إلى ٤ ساعات، وفريقنا يغطي
-            الشارقة اليوم. نعم نصدر فاتورة ضريبية باسم شركتك. تحب نحجز لك
-            بكرة الصبح؟»
+            الشارقة اليوم. نعم نصدر فاتورة ضريبية باسم شركتك. تحب نحجز لك بكرة
+            الصبح؟»
           </p>
           <p className="text-muted-foreground text-xs">
             تعدّل السعر والمدة مرة واحدة، والردود تتكرر بنفس الجودة.
@@ -155,14 +161,24 @@ export default function CleaningLandingPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <article className="flex flex-col gap-2 rounded-xl border p-5">
             <h3 className="font-semibold">الاحترافية</h3>
-            <p className="font-semibold text-2xl">$19 <span className="font-normal text-muted-foreground text-sm">/ شهرياً</span></p>
+            <p className="font-semibold text-2xl">
+              $19{" "}
+              <span className="font-normal text-muted-foreground text-sm">
+                / شهرياً
+              </span>
+            </p>
             <p className="text-muted-foreground text-sm">
               لشركة صغيرة تبدأ تنظم ردودها ومحتواها يومياً.
             </p>
           </article>
           <article className="flex flex-col gap-2 rounded-xl border p-5">
             <h3 className="font-semibold">الأعمال</h3>
-            <p className="font-semibold text-2xl">$49 <span className="font-normal text-muted-foreground text-sm">/ شهرياً</span></p>
+            <p className="font-semibold text-2xl">
+              $49{" "}
+              <span className="font-normal text-muted-foreground text-sm">
+                / شهرياً
+              </span>
+            </p>
             <p className="text-muted-foreground text-sm">
               لعدة فروع أو فريق، مع مساحات عمل منفصلة لكل فرع.
             </p>
@@ -175,7 +191,9 @@ export default function CleaningLandingPage() {
         <div className="flex flex-col gap-3">
           {faqs.map((faq) => (
             <details className="rounded-xl border p-4" key={faq.q}>
-              <summary className="cursor-pointer font-medium text-sm">{faq.q}</summary>
+              <summary className="cursor-pointer font-medium text-sm">
+                {faq.q}
+              </summary>
               <p className="mt-2 text-muted-foreground text-sm">{faq.a}</p>
             </details>
           ))}
@@ -198,10 +216,16 @@ export default function CleaningLandingPage() {
       </section>
 
       <footer className="text-muted-foreground flex flex-wrap justify-center gap-3 text-xs">
-        <a className="hover:underline" href="/">ZOOKA AI</a>
-        <a className="hover:underline" href="/contact">تواصل معنا</a>
-        <a className="hover:underline" href="/privacy">سياسة الخصوصية</a>
-        <a className="hover:underline" href="/terms">شروط الخدمة</a>
+        <a className="hover:underline" href="/">{`${APP_STORE_NAME}`}</a>
+        <a className="hover:underline" href="/contact">
+          تواصل معنا
+        </a>
+        <a className="hover:underline" href="/privacy">
+          سياسة الخصوصية
+        </a>
+        <a className="hover:underline" href="/terms">
+          شروط الخدمة
+        </a>
       </footer>
     </main>
   );

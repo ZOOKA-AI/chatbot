@@ -1,5 +1,5 @@
-export const SITE_URL = "https://zooka-ai.com";
-export const SITE_NAME = "Zooka AI";
-export const SITE_TITLE = "Zooka AI — مساعد الأعمال الذكي";
-export const SITE_DESCRIPTION =
-  "Zooka AI: مساعد ذكاء اصطناعي للأعمال — محادثات ذكية، مساحات عمل للفرق، وخطط اشتراك مرنة على zooka-ai.com";
+import { PRODUCT_NAME, PRODUCT_NAME_AR, SITE_URL, TAGLINE_AR } from "./brand";
+export { SITE_URL };
+export const SITE_NAME = PRODUCT_NAME;
+export const SITE_TITLE = PRODUCT_NAME_AR;
+export const SITE_DESCRIPTION = TAGLINE_AR;

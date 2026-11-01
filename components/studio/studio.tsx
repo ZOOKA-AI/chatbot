@@ -53,6 +53,7 @@ import {
   starterTemplates,
   studioSections,
 } from "@/lib/studio";
+import { CONNECTABLE_INTEGRATION_COUNT } from "@/lib/brand";
 import { studioExtensionSlots } from "@/lib/studio-extensions";
 import { AgentBrief } from "./agent-brief";
 import { CommandMenu } from "./command-menu";
@@ -289,7 +290,9 @@ export function Studio({ section }: { section: StudioSection }) {
               >
                 <Icon size={19} />
                 <span>{s.label}</span>
-                {s.id === "integrations" && <small>40</small>}
+                {s.id === "integrations" && (
+                  <small>{CONNECTABLE_INTEGRATION_COUNT}</small>
+                )}
               </button>
             );
           })}

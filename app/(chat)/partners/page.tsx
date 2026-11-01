@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -5,7 +6,7 @@ import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "الشركاء | Partners",
-  description: "اكسب 20% عمولة مع برنامج شركاء Zooka AI",
+  description: `اكسب 20% عمولة مع برنامج شركاء ${PRODUCT_NAME}`,
 };
 
 export default async function PartnersPage() {
@@ -49,7 +50,7 @@ export default async function PartnersPage() {
           {isAr ? "برنامج الشراكة" : "Partner Program"}
         </p>
         <h1 className="mt-2 font-bold text-4xl md:text-5xl">
-          {isAr ? "اكسب مع Zooka AI" : "Earn with Zooka AI"}
+          {isAr ? `اكسب مع ${PRODUCT_NAME}` : `Earn with ${PRODUCT_NAME}`}
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
           {isAr

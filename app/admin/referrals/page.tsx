@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/brand";
 import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { eq, sql } from "drizzle-orm";
@@ -20,7 +21,7 @@ async function addAffiliate(
   code: string,
   name: string | undefined,
   platform: string | undefined,
-  pct: string | undefined
+  pct: string | undefined,
 ) {
   const normalized = normalizeCode(code);
   if (!normalized) {
@@ -55,7 +56,9 @@ async function addAffiliate(
 
 export default function AdminReferralsPage({ searchParams }: PageProps) {
   return (
-    <Suspense fallback={<main className="p-8 text-sm">Loading referral report…</main>}>
+    <Suspense
+      fallback={<main className="p-8 text-sm">Loading referral report…</main>}
+    >
       <AdminReferralsContent searchParams={searchParams} />
     </Suspense>
   );
@@ -63,10 +66,7 @@ export default function AdminReferralsPage({ searchParams }: PageProps) {
 
 async function AdminReferralsContent({ searchParams }: PageProps) {
   const params = await searchParams;
-  const adminEmails = (
-    process.env.ADMIN_EMAILS ??
-    "zookaalmrzwq@gmail.com,solas.test@zooka-ai.com,helmyharoon8@gmail.com"
-  )
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
@@ -82,8 +82,8 @@ async function AdminReferralsContent({ searchParams }: PageProps) {
       <main className="mx-auto max-w-xl p-8">
         <h1 className="font-semibold text-xl">Not authorized</h1>
         <p className="mt-2 text-muted-foreground text-sm">
-          Sign in with an admin account, or add the admin key to the URL, to view
-          referral analytics.
+          Sign in with an admin account, or add the admin key to the URL, to
+          view referral analytics.
         </p>
       </main>
     );
@@ -114,16 +114,20 @@ async function AdminReferralsContent({ searchParams }: PageProps) {
   const subs = Number(summary?.subscriptions ?? 0);
   const totalMrrCents = rows.reduce((sum, r) => sum + r.mrrCents, 0);
   const totalCommissionCents = rows.reduce(
-    (sum, r) => sum + Math.round((r.mrrCents * (pctByCode.get(r.code) ?? 20)) / 100),
-    0
+    (sum, r) =>
+      sum + Math.round((r.mrrCents * (pctByCode.get(r.code) ?? 20)) / 100),
+    0,
   );
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-6 py-10">
       <header className="flex flex-col gap-1">
-        <h1 className="font-semibold text-2xl">Zooka referral &amp; affiliate report</h1>
+        <h1 className="font-semibold text-2xl">
+          Zooka referral &amp; affiliate report
+        </h1>
         <p className="text-muted-foreground text-sm">
-          Funnel: visitors, signups, paying subscribers, and commission per partner code.
+          Funnel: visitors, signups, paying subscribers, and commission per
+          partner code.
         </p>
       </header>
 
@@ -171,8 +175,8 @@ async function AdminReferralsContent({ searchParams }: PageProps) {
               {rows.length === 0 && (
                 <tr>
                   <td className="p-2 text-muted-foreground" colSpan={7}>
-                    No referral activity yet. Share a link like
-                    /r/CODE to start tracking.
+                    No referral activity yet. Share a link like /r/CODE to start
+                    tracking.
                   </td>
                 </tr>
               )}
@@ -207,7 +211,9 @@ async function AdminReferralsContent({ searchParams }: PageProps) {
           /admin/referrals?k=KEY&amp;add=CODE&amp;name=NAME&amp;pct=20&amp;platform=instagram
         </p>
         <p className="mt-1">
-          Share links as https://zooka-ai.com/r/CODE (cookie lasts 60 days).
+          {`
+          Share links as ${SITE_URL}/r/CODE (cookie lasts 60 days).
+        `}
         </p>
       </section>
     </main>

@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
+import { APP_STORE_NAME, TAGLINE_AR } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     background_color: "#0b1220",
-    description:
-      "مساعد أعمال ذكي لإدارة العمل والبحث والمحتوى والمحادثات في مساحة عمل واحدة.",
+    description: TAGLINE_AR,
     dir: "rtl",
     display: "standalone",
     icons: [
@@ -20,8 +20,8 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
     lang: "ar",
-    name: "Zooka AI — مساعد الأعمال الذكي",
-    short_name: "Zooka AI",
+    name: APP_STORE_NAME,
+    short_name: APP_STORE_NAME,
     start_url: "/",
     theme_color: "#0b1220",
   };

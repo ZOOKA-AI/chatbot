@@ -5,14 +5,17 @@ import { GlobalSiteComponents } from "@/components/global-site-components";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { getLang } from "@/lib/i18n";
+import { brandTitle, TAGLINE_AR, TAGLINE_EN } from "@/lib/brand";
+import { PRODUCT_NAME_AR } from "@/lib/brand";
 import { SITE_YEAR } from "@/lib/site-year";
 
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: SITE_TITLE, template: `%s | ${SITE_NAME}` },
+  title: { default: SITE_TITLE, template: `%s | ${PRODUCT_NAME_AR}` },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   alternates: { canonical: "./" },
@@ -41,6 +44,19 @@ export const metadata: Metadata = {
     images: ["/images/og-image.jpg"],
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  const title = brandTitle("", lang);
+  const description = lang === "ar" ? TAGLINE_AR : TAGLINE_EN;
+  return {
+    ...baseMetadata,
+    title: { default: title, template: `%s | ${title}` },
+    description,
+    openGraph: { ...baseMetadata.openGraph, title, description },
+    twitter: { ...baseMetadata.twitter, title, description },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

@@ -1,3 +1,4 @@
+import { APP_STORE_NAME, PRODUCT_NAME } from "@/lib/brand";
 import Link from "next/link";
 
 type Lang = "ar" | "en";
@@ -10,20 +11,23 @@ function posters(lang: Lang): Poster[] {
   return [
     {
       src: "/images/posters/poster-1.jpg",
-      tag: ar ? "ZOOKA AI" : "ZOOKA AI",
+      tag: ar ? `${APP_STORE_NAME}` : `${APP_STORE_NAME}`,
       title: t("وكيل أعمالك الذكي", "Your business agent"),
       body: t(
         "يربط أدواتك وينفّذ المهمة حتى النهاية — لا مجرد محادثة.",
-        "Connects your tools and finishes the job, not just a chat."
+        "Connects your tools and finishes the job, not just a chat.",
       ),
     },
     {
       src: "/images/posters/poster-2.jpg",
       tag: ar ? "البريد والدرايف" : "EMAIL + DRIVE",
-      title: t("بريدك وملفاتك في المحادثة", "Your email and files inside the chat"),
+      title: t(
+        "بريدك وملفاتك في المحادثة",
+        "Your email and files inside the chat",
+      ),
       body: t(
         "يقرأ ويبحث ويرسل من حسابك بعد موافقتك، والرموز مشفّرة لمساحتك.",
-        "Reads, searches and sends from your own account after consent, tokens encrypted per workspace."
+        "Reads, searches and sends from your own account after consent, tokens encrypted per workspace.",
       ),
     },
     {
@@ -32,7 +36,7 @@ function posters(lang: Lang): Poster[] {
       title: t("خطوة بخطوة حتى الإنجاز", "Step by step until it is done"),
       body: t(
         "يفتح الموافقة، يربط، ينفّذ، ثم يعود لك للقرار الحساس فقط.",
-        "Opens consent, connects, executes, then comes back only for the sensitive decision."
+        "Opens consent, connects, executes, then comes back only for the sensitive decision.",
       ),
     },
     {
@@ -41,7 +45,7 @@ function posters(lang: Lang): Poster[] {
       title: t("كل أدواتك في مكان واحد", "Every tool in one place"),
       body: t(
         "جيميل ودرايف وجيت هب وفيرسل وn8n وسوبابيس — بضغطة واحدة.",
-        "Gmail, Drive, GitHub, Vercel, n8n, Supabase and more in one click."
+        "Gmail, Drive, GitHub, Vercel, n8n, Supabase and more in one click.",
       ),
     },
     {
@@ -50,7 +54,7 @@ function posters(lang: Lang): Poster[] {
       title: t("اتكلم… وهو يكتب وينفّذ", "Speak, it writes and executes"),
       body: t(
         "محادثة صوتية بالعربي: تسجيل، تحويل لنص، ورد مقروء بصوت عالٍ.",
-        "Arabic voice chat: record, transcribe, and hear the reply read aloud."
+        "Arabic voice chat: record, transcribe, and hear the reply read aloud.",
       ),
     },
     {
@@ -59,7 +63,7 @@ function posters(lang: Lang): Poster[] {
       title: t("من الفكرة إلى النشر", "From idea to deployment"),
       body: t(
         "مراجعة كود ونشر على فيرسل من داخل المحادثة نفسها.",
-        "Review code and deploy to Vercel from inside the same conversation."
+        "Review code and deploy to Vercel from inside the same conversation.",
       ),
     },
   ];
@@ -76,7 +80,9 @@ export function PostersSection({ lang }: { lang: Lang }) {
               {ar ? "البوسترات" : "Posters"}
             </span>
             <h2 className="mt-2 font-semibold text-3xl">
-              {ar ? "التطبيق كله في 6 بوسترات" : "The whole product in six posters"}
+              {ar
+                ? "التطبيق كله في 6 بوسترات"
+                : "The whole product in six posters"}
             </h2>
             <p className="mt-3 max-w-2xl text-muted-foreground">
               {ar
@@ -152,7 +158,9 @@ export function VideoSection({ lang }: { lang: Lang }) {
             {ar ? "فيديو تعريفي" : "Demo video"}
           </span>
           <h2 className="mt-2 font-semibold text-3xl">
-            {ar ? "28 ثانية تشوف فيها التطبيق وهو بيعمل إيه" : "28 seconds of the product doing the work"}
+            {ar
+              ? "28 ثانية تشوف فيها التطبيق وهو بيعمل إيه"
+              : "28 seconds of the product doing the work"}
           </h2>
           <p className="mt-3 text-muted-foreground">
             {ar
@@ -232,7 +240,7 @@ export function HowItWorks({ lang }: { lang: Lang }) {
         },
         {
           title: "Ask in plain Arabic",
-          body: "\"Summarise today's email and suggest replies\" — the agent opens the files, reads, and drafts.",
+          body: '"Summarise today\'s email and suggest replies" — the agent opens the files, reads, and drafts.',
         },
         {
           title: "You decide and send",
@@ -252,7 +260,10 @@ export function HowItWorks({ lang }: { lang: Lang }) {
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
-            <div className="rounded-2xl border border-white/10 p-5" key={step.title}>
+            <div
+              className="rounded-2xl border border-white/10 p-5"
+              key={step.title}
+            >
               <span className="inline-flex size-8 items-center justify-center rounded-full bg-blue-500/15 font-semibold text-blue-300 text-sm">
                 {index + 1}
               </span>
@@ -334,11 +345,17 @@ export function UseCases({ lang }: { lang: Lang }) {
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {cases.map((item) => (
-            <article className="rounded-2xl border border-white/10 p-5" key={item.title}>
+            <article
+              className="rounded-2xl border border-white/10 p-5"
+              key={item.title}
+            >
               <h3 className="font-medium">{item.title}</h3>
               <ul className="mt-3 flex flex-col gap-2 text-muted-foreground text-sm">
                 {item.examples.map((example) => (
-                  <li className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2" key={example}>
+                  <li
+                    className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+                    key={example}
+                  >
                     {example}
                   </li>
                 ))}
@@ -363,7 +380,11 @@ export function Compare({ lang }: { lang: Lang }) {
       ]
     : [
         ["Opens the consent screen and connects itself", "No", "Yes"],
-        ["Runs multi-step work on your tools to the end", "One reply", "Until done"],
+        [
+          "Runs multi-step work on your tools to the end",
+          "One reply",
+          "Until done",
+        ],
         ["Works with email, files, code and data", "Partly", "All four"],
         ["Arabic voice chat with spoken replies", "Rare", "Built in"],
         ["Audit trail for every integration action", "No", "Yes"],
@@ -372,7 +393,9 @@ export function Compare({ lang }: { lang: Lang }) {
     <section className="border-b border-white/10" id="compare">
       <div className="mx-auto w-full max-w-6xl px-5 py-16">
         <h2 className="font-semibold text-3xl">
-          {ar ? "إيه الفرق عن مساعد محادثة عادي؟" : "What makes this different from a chat assistant?"}
+          {ar
+            ? "إيه الفرق عن مساعد محادثة عادي؟"
+            : "What makes this different from a chat assistant?"}
         </h2>
         <p className="mt-3 text-muted-foreground text-sm">
           {ar
@@ -393,7 +416,9 @@ export function Compare({ lang }: { lang: Lang }) {
                   {ar ? "مساعد محادثة" : "Chat assistant"}
                 </th>
                 <th className="p-3 text-start font-medium text-blue-300">
-                  Zooka AI
+                  {`
+                  ${PRODUCT_NAME}
+                `}
                 </th>
               </tr>
             </thead>

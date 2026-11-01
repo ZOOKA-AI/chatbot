@@ -19,7 +19,10 @@
     "test:e2e": "pnpm exec playwright test",
     "test:unit": "vitest run tests/unit && tsx --test lib/ai/models.test.ts",
     "check:placeholders": "node scripts/check-placeholders.mjs",
-    "prebuild": "node scripts/check-placeholders.mjs"
+    "prebuild": "node scripts/check-placeholders.mjs && tsx scripts/check-brand.ts source",
+    "check:brand": "tsx scripts/check-brand.ts source",
+    "check:brand:rendered": "tsx scripts/check-brand-rendered.ts",
+    "postbuild": "tsx scripts/check-brand.ts bundle && tsx scripts/check-brand-rendered.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.15",

@@ -1,4 +1,11 @@
 import Link from "next/link";
+import {
+  PRODUCT_NAME,
+  COPYRIGHT,
+  COMPANY_ADDRESS,
+  COMPANY_LEGAL_NAME_EN,
+  CONTACT_EMAIL,
+} from "@/lib/brand";
 import type { Lang } from "@/lib/i18n";
 import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
 
@@ -29,7 +36,13 @@ export function SiteFooter({ lang, year }: { lang: Lang; year: number }) {
       lang={lang}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <p>© {year} ZOOKA AI</p>
+        <div className="space-y-2">
+          <p>{PRODUCT_NAME}</p>
+          <p>{COPYRIGHT}</p>
+          <p>{COMPANY_ADDRESS}</p>
+          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          <span className="sr-only">{COMPANY_LEGAL_NAME_EN}</span>
+        </div>
         <nav className="flex flex-wrap gap-x-5 gap-y-2">
           <Link className="hover:underline" href="/explore">
             {ar ? "اكتشف المنصة" : "Explore"}
