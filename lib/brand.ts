@@ -1,4 +1,13 @@
-/** Canonical owner-supplied identity. Do not override legal/support fields via public env. */
+/**
+ * Canonical owner-supplied identity.
+ *
+ * The legal name, address, phone and mailboxes are NOT in this repository: they
+ * are sealed with AES-256-GCM in lib/brand-sealed.json and unsealed at build
+ * time (see next.config.ts). Nothing here falls back to a plaintext default, so
+ * a missing BRAND_SEAL_KEY fails the build instead of publishing a guess.
+ */
+import { IDENTITY } from "./brand-identity.generated";
+
 export const PRODUCT_NAME = "Zooka AI" as const;
 export const PRODUCT_NAME_AR = "زوكا AI" as const;
 export const APP_STORE_NAME = "ZOOKA AI" as const;
@@ -7,23 +16,20 @@ export const TAGLINE_AR =
   "مساعد أعمال ذكي يرد على عملائك، يحجز لهم، ويدير فواتيرك" as const;
 export const TAGLINE_EN =
   "The AI operations assistant for small service businesses" as const;
-export const COMPANY_LEGAL_NAME_EN =
-  "Royal Haroon Cleaning and Disinfection Services FZ-LLC" as const;
+export const COMPANY_LEGAL_NAME_EN = IDENTITY.legalNameEn;
 /**
  * Exact Arabic legal name, copied character for character from the RAKEZ
- * Services Licence 47028807 (licensee + operating name). Never translate and
- * never "correct" the transliteration: the licence prints كليننيغ with a doubled
- * noon and انفكشين as written. Legal form ش.م.ح - ذ.م.م mirrors the FZ-LLC suffix.
+ * Services Licence (licensee + operating name line). It is a transliteration of
+ * the English name, so never translate it and never "correct" its spelling.
  */
-export const COMPANY_LEGAL_NAME_AR = "رويال هارون كليننيغ اند دس انفكشين سيرفسز ش.م.ح - ذ.م.م" as const;
-export const COMPANY_ADDRESS =
-  "Compass Building, Al Hamra Industrial Zone-FZ, Ras Al Khaimah, United Arab Emirates" as const;
-export const COMPANY_COUNTRY = "United Arab Emirates" as const;
-export const CONTACT_EMAIL = "support@zooka-ai.com" as const;
-export const PRIVACY_EMAIL = "privacy@zooka-ai.com" as const;
-export const BILLING_EMAIL = "billing@zooka-ai.com" as const;
-export const CONTACT_PHONE_E164 = "+971563177803" as const;
-export const CONTACT_PHONE_DISPLAY = "0563177803" as const;
+export const COMPANY_LEGAL_NAME_AR = IDENTITY.legalNameAr;
+export const COMPANY_ADDRESS = IDENTITY.address;
+export const COMPANY_COUNTRY = IDENTITY.country;
+export const CONTACT_EMAIL = IDENTITY.contactEmail;
+export const PRIVACY_EMAIL = IDENTITY.privacyEmail;
+export const BILLING_EMAIL = IDENTITY.billingEmail;
+export const CONTACT_PHONE_E164 = IDENTITY.phoneE164;
+export const CONTACT_PHONE_DISPLAY = IDENTITY.phoneDisplay;
 export const COPYRIGHT =
   `© 2026 ${COMPANY_LEGAL_NAME_EN}. All rights reserved.` as const;
 export const INVOICE_SELLER =

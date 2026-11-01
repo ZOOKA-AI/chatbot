@@ -41,6 +41,7 @@ for (const path of sourceFiles) {
     );
   if (
     path !== "lib/brand.ts" &&
+    path !== "lib/brand-identity.generated.ts" &&
     [
       COMPANY_LEGAL_NAME_EN,
       CONTACT_EMAIL,

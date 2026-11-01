@@ -30,12 +30,14 @@ describe("canonical brand", () => {
     expect(INVOICE_SELLER).toContain(COMPANY_LEGAL_NAME_EN);
     expect(BILLING_EMAIL).toBe("billing@zooka-ai.com");
   });
-  it("uses the exact Arabic legal name from the trade licence", () => {
-    expect(COMPANY_LEGAL_NAME_AR).toBe(
-      "رويال هارون كليننيغ اند دس انفكشين سيرفسز ش.م.ح - ذ.م.م",
-    );
-    expect(COMPANY_LEGAL_NAME_AR).toContain("كليننيغ");
-    expect(COMPANY_LEGAL_NAME_AR).toContain("انفكشين");
+  it("uses the licence-verified Arabic legal name", async () => {
+    const { IDENTITY } = await import("@/lib/brand-identity.generated");
+    expect(COMPANY_LEGAL_NAME_AR).toBe(IDENTITY.legalNameAr);
+    expect(COMPANY_LEGAL_NAME_AR.startsWith("رويال هارون")).toBe(true);
+    expect(COMPANY_LEGAL_NAME_AR).toContain("ش.م.ح");
+    // The licence wording must survive: no "corrected" transliteration.
+    expect(COMPANY_LEGAL_NAME_AR).not.toMatch(/إنفكشن|انفكشن/);
+    expect(COMPANY_LEGAL_NAME_AR.length).toBeGreaterThan(40);
     expect(whatsappSignature()).toContain(COMPANY_LEGAL_NAME_AR);
   });
   it("deduplicates titles", () => {

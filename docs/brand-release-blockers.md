@@ -4,12 +4,21 @@ Owner requested one draft PR and no merge/deployment before approval.
 
 ## Arabic legal name (resolved)
 
-`COMPANY_LEGAL_NAME_AR` now holds the exact string copied from RAKEZ Services
-Licence 47028807 (licensee and operating name, plus legal form):
+`COMPANY_LEGAL_NAME_AR` now holds the exact licensee/operating-name string plus
+the legal form from RAKEZ Services Licence 47028807.
 
-    رويال هارون كليننيغ اند دس انفكشين سيرفسز ش.م.ح - ذ.م.م
+The value is copied character for character from the licence and is now stored
+sealed (see below), not in this document. Keep the licence transliteration
+exactly; do not translate or normalise it.
 
-Keep the licence spelling (`كليننيغ`, `انفكشين`); do not translate or normalise it.
+## Personal data is sealed, not committed
+
+The legal names, address, phone and mailboxes live in `lib/brand-sealed.json`
+(AES-256-GCM). `BRAND_SEAL_KEY` (32 base64 bytes) is a build-environment secret;
+`scripts/unseal-identity.mjs` writes the gitignored
+`lib/brand-identity.generated.ts` at prebuild/predev. The public repository holds
+ciphertext only, and a missing or wrong key fails the build instead of shipping a
+guess. Rendering is unchanged: the values still appear in the served pages.
 
 ## Build fix applied with the name
 
