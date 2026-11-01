@@ -257,14 +257,14 @@ export function LandingPage({ lang }: { lang: Lang }) {
               </span>
               <h1 className="max-w-3xl font-semibold text-4xl leading-tight md:text-6xl">
                 {t(
-                  "زوكا AI يربط أدواتك وينفّذ المهمة حتى النهاية",
-                  "Zooka AI connects your tools and finishes the job"
+                  "ردود عملائك وفواتيرك ومتابعة طلباتك — من محادثة واحدة",
+                  "Customer replies, invoices and follow-ups — from one chat"
                 )}
               </h1>
               <p className="max-w-xl text-lg text-muted-foreground">
                 {t(
-                  "بريدك وملفاتك وكودك وبياناتك — في محادثة واحدة، والوكيل ينفّذ الخطوات بنفسه.",
-                  "Your email, files, code and data in one conversation, and the agent runs the steps itself."
+                  "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف وجيت هب بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
+                  "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail, Drive and GitHub, and the agent runs the steps and shows you the output before you send it."
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -439,12 +439,12 @@ export function LandingPage({ lang }: { lang: Lang }) {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h2 className="font-semibold text-3xl">
-                  {t("تكاملات جاهزة الآن", "Integrations live today")}
+                  {t("التكاملات اللي تربطها بنفسك", "Integrations you connect yourself")}
                 </h2>
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
-                    `الربط الذاتي من داخل التطبيق جاهز لجوجل درايف وجيميل وجيت هب وفيرسل وn8n. وباقي الكتالوج (${available.length} من ${INTEGRATION_PROVIDERS.length}) يعمل عبر جسر الوكيل أو ينتظر موافقة المزوّد — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
-                    `Self-serve connection is live for Google Drive, Gmail, GitHub, Vercel and n8n. The rest of the catalog (${available.length} of ${INTEGRATION_PROVIDERS.length}) runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
+                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لخمسة فقط: جوجل درايف، جيميل، جيت هب، فيرسل، وn8n. وباقي الكتالوج (${available.length} من ${INTEGRATION_PROVIDERS.length}) يعمل عبر جسر الوكيل أو ينتظر موافقة المزوّد — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
+                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for five only: Google Drive, Gmail, GitHub, Vercel and n8n. The rest of the catalog (${available.length} of ${INTEGRATION_PROVIDERS.length}) runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
                   )}
                 </p>
               </div>
@@ -466,7 +466,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
                         <span>{isArabic ? provider.nameAr : provider.name}</span>
                         <span className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
                           {SELF_SERVE.has(provider.id)
-                            ? t("ربط ذاتي", "self-serve")
+                            ? t("تربطه بنفسك", "you connect it")
                             : t("عبر الوكيل", "via agent")}
                         </span>
                       </li>

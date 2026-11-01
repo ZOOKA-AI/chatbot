@@ -20,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
     lang: "ar",
-    name: "Zooka AI — مساعد الأعمال الذكي",
+    name: "Zooka AI — وكيل أعمال لشركات الخدمات في الإمارات",
     short_name: "Zooka AI",
     start_url: "/",
     theme_color: "#0b1220",
