@@ -708,7 +708,10 @@ export function LandingPage({ lang }: { lang: Lang }) {
             ),
             thumbnailUrl: "https://zooka-ai.com/images/zooka-demo-poster.png",
             contentUrl: "https://zooka-ai.com/videos/zooka-demo.mp4",
-            uploadDate: "2026-10-31",
+            // Google requires uploadDate as full ISO 8601 WITH a timezone offset,
+            // otherwise Search Console reports "invalid date value" and
+            // "no time zone specified" for the VideoObject.
+            uploadDate: "2026-10-31T09:00:00+04:00",
             duration: "PT28S",
           }),
         }}
