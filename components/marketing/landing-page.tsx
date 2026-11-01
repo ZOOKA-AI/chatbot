@@ -443,8 +443,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 </h2>
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
-                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لخمسة فقط: جوجل درايف، جيميل، جيت هب، فيرسل، وn8n. وباقي الكتالوج (${available.length} من ${INTEGRATION_PROVIDERS.length}) يعمل عبر جسر الوكيل أو ينتظر موافقة المزوّد — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
-                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for five only: Google Drive, Gmail, GitHub, Vercel and n8n. The rest of the catalog (${available.length} of ${INTEGRATION_PROVIDERS.length}) runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
+                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لخمسة فقط: جوجل درايف، جيميل، جيت هب، فيرسل، وn8n. وباقي الكتالوج (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} من ${INTEGRATION_PROVIDERS.length}) ينتظر موافقة المزوّد أو يعمل عبر جسر الوكيل — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
+                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for five only: Google Drive, Gmail, GitHub, Vercel and n8n. The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
                   )}
                 </p>
               </div>
