@@ -344,8 +344,6 @@ export function Studio({ section }: { section: StudioSection }) {
           </div>
           <div className={styles.topbarActions}>
             <CommandMenu onNavigate={navigate} />
-            <span className={styles.reviewBadge}>
-              <span /> نسخة المراجعة
             </span>
             <button
               aria-expanded={inspectorOpen}
@@ -780,7 +778,6 @@ export function Studio({ section }: { section: StudioSection }) {
                   <strong>حسابك. صلاحياتك. قرارك.</strong>
                   <p>
                     الربط يتم من إعدادات مساحة العمل بعد تسجيل الدخول. لا تُدخل
-                    توكنات أو أسرار في نسخة المراجعة.
                   </p>
                 </div>
                 <Link
@@ -1013,7 +1010,6 @@ export function Studio({ section }: { section: StudioSection }) {
                 <ShieldCheck size={22} />
                 <p>
                   ستحتاج تسجيل الدخول لفتح الإعدادات. المشاريع التجريبية تبقى
-                  على هذا المتصفح، ولا تشاركها نسخة المراجعة مع أي حساب آخر.
                 </p>
               </div>
             </>
