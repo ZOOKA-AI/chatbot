@@ -39,6 +39,7 @@ import {
   modelSupportsTools,
   modelsByProvider,
 } from "@/lib/ai/models";
+import { AGENT_DRAFT_KEY, parseAgentDraft } from "@/lib/studio-media";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -99,7 +100,7 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
-  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang } =
+  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang, isGuest } =
     useBilling();
   const { voiceMode, toggleVoiceMode } = useVoiceMode();
   const agentModeAllowed =
@@ -167,13 +168,26 @@ function PureMultimodalInput({
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
       // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || localStorageInput || "";
+      let finalValue = domValue || localStorageInput || "";
+      if (!isGuest && !finalValue && messages.length === 0) {
+        try {
+          const draft = parseAgentDraft(
+            sessionStorage.getItem(AGENT_DRAFT_KEY),
+          );
+          if (draft) {
+            finalValue = draft;
+            sessionStorage.removeItem(AGENT_DRAFT_KEY);
+          }
+        } catch {
+          /* Keep the normal composer when storage is unavailable. */
+        }
+      }
       setInput(finalValue);
       adjustHeight();
     }
     // Only run once after hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adjustHeight, localStorageInput, setInput]);
+  }, [adjustHeight, localStorageInput, setInput, isGuest, messages.length]);
 
   useEffect(() => {
     setLocalStorageInput(input);

@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { Lang } from "@/lib/i18n";
 import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
 
-const LINKS: readonly (readonly [string, LegalPageId | "compare" | "partners"])[] = [
+const LINKS: readonly (readonly [
+  string,
+  LegalPageId | "compare" | "partners",
+])[] = [
   ["/compare/chatgpt", "compare"],
   ["/partners", "partners"],
   ["/about", "about"],
@@ -28,6 +31,15 @@ export function SiteFooter({ lang, year }: { lang: Lang; year: number }) {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <p>© {year} ZOOKA AI</p>
         <nav className="flex flex-wrap gap-x-5 gap-y-2">
+          <Link className="hover:underline" href="/explore">
+            {ar ? "اكتشف المنصة" : "Explore"}
+          </Link>
+          <Link className="hover:underline" href="/studio">
+            Studio
+          </Link>
+          <Link className="hover:underline" href="/platform-readiness">
+            {ar ? "الجاهزية" : "Readiness"}
+          </Link>
           {LINKS.map(([href, page]) => (
             <Link className="hover:underline" href={href} key={href}>
               {page === "compare"
