@@ -80,6 +80,20 @@ export function Chat({
   const [showPaywall, setShowPaywall] = useState(false);
   const [responseStopped, setResponseStopped] = useState(false);
   const { isGuest, lang, canUseAgentMode, refreshAgentUsage } = useBilling();
+  const refreshAgentUsageSafely = useCallback(async () => {
+    try {
+      await refreshAgentUsage();
+    } catch (error: unknown) {
+      captureException(error, { tags: { area: "agent-usage-refresh" } });
+      toast({
+        type: "error",
+        description:
+          lang === "ar"
+            ? "تعذّر تحديث رصيد تشغيلات الوكيل. أعد تحميل الصفحة للتحقق من الاستخدام."
+            : "Could not refresh Agent usage. Reload the page to verify your current quota.",
+      });
+    }
+  }, [lang, refreshAgentUsage]);
   const searchParams = useSearchParams();
   const guestQuota = useGuestQuota();
   const isWorkAssistant = searchParams.get("mode") === "work";
@@ -174,9 +188,7 @@ export function Chat({
         agentRunPendingRef.current || agentModeRef.current;
       agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
-        refresh: () => {
-          void refreshAgentUsage().catch(() => undefined);
-        },
+        refresh: refreshAgentUsageSafely,
         agentMode: completedAgentRun,
         completed: !interrupted,
         interrupted,
@@ -194,9 +206,7 @@ export function Chat({
       const failedAgentRun = agentRunPendingRef.current || agentModeRef.current;
       agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
-        refresh: () => {
-          void refreshAgentUsage().catch(() => undefined);
-        },
+        refresh: refreshAgentUsageSafely,
         agentMode: failedAgentRun,
         error,
       });
@@ -284,7 +294,7 @@ export function Chat({
 
   return (
     <>
-      <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
+      <div className="overscroll-behavior-contain bg-background flex h-dvh min-w-0 touch-pan-y flex-col">
         <ChatHeader
           chatId={id}
           isReadonly={isReadonly}
@@ -302,15 +312,15 @@ export function Chat({
           lang={lang}
           messages={messages}
           onSelectWorkPrompt={setInput}
-          responseStopped={responseStopped}
           regenerate={regenerate}
+          responseStopped={responseStopped}
           selectedModelId={initialChatModel}
           setMessages={setMessages}
           status={status}
           votes={votes}
         />
 
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+        <div className="bg-background sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 px-2 pb-3 md:px-4 md:pb-4">
           {!isReadonly && (
             <MultimodalInput
               agentMode={agentMode}

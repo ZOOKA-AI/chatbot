@@ -8,7 +8,38 @@ import {
 } from "@/lib/ai/agent-access";
 import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
 import { agentPresets } from "@/lib/ai/agent-presets";
+import { refreshAgentQuotaIfNeeded } from "@/lib/ai/agent-quota-refresh";
 import { chatModels, modelSupportsTools } from "@/lib/ai/models";
+
+test("Agent usage refreshes after completion, interruption, and rejection", () => {
+  let refreshCount = 0;
+  const refresh = () => {
+    refreshCount += 1;
+  };
+
+  refreshAgentQuotaIfNeeded({
+    refresh,
+    agentMode: true,
+    completed: true,
+  });
+  refreshAgentQuotaIfNeeded({
+    refresh,
+    agentMode: true,
+    interrupted: true,
+  });
+  refreshAgentQuotaIfNeeded({
+    refresh,
+    agentMode: true,
+    error: new Error("quota rejected"),
+  });
+  refreshAgentQuotaIfNeeded({
+    refresh,
+    agentMode: false,
+    completed: true,
+  });
+
+  assert.equal(refreshCount, 3);
+});
 
 test("Agent presets use configured models that support tools", () => {
   for (const preset of agentPresets) {
