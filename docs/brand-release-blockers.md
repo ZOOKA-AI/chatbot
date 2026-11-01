@@ -1,14 +1,22 @@
-# Brand/legal release: NOT APPROVED FOR PRODUCTION
+# Brand/legal release: GATES GREEN, OWNER APPROVAL STILL PENDING
 
 Owner requested one draft PR and no merge/deployment before approval.
 
-## Blocking input
+## Arabic legal name (resolved)
 
-`COMPANY_LEGAL_NAME_AR` is deliberately null. The previous Arabic string was not
-verified against the trade licence. The owner must supply the exact legal name;
-never translate the English name or publish the instruction placeholder. The
-source prebuild gate fails on this input. English fallback in local legal-page
-review is not certification that the Arabic requirement is satisfied.
+`COMPANY_LEGAL_NAME_AR` now holds the exact string copied from RAKEZ Services
+Licence 47028807 (licensee and operating name, plus legal form):
+
+    رويال هارون كليننيغ اند دس انفكشين سيرفسز ش.م.ح - ذ.م.م
+
+Keep the licence spelling (`كليننيغ`, `انفكشين`); do not translate or normalise it.
+
+## Build fix applied with the name
+
+The root layout had been converted to a cookie-reading `generateMetadata`, which
+Next 16 `cacheComponents` rejects on every page whose body is static
+("/_not-found", "/lp/cleaning"). Root metadata is static again and a static
+`app/not-found.tsx` was added, so the production build completes.
 
 ## Changes prepared
 
@@ -57,12 +65,12 @@ branding-only change or deploy this draft.
 
 | Command | Result |
 | --- | --- |
-| `pnpm lint` | Failed: existing patched Ultracite/Biome config contains unsupported `useTailwindSortedClasses`. Configuration not weakened. |
+| `pnpm lint` | Still fails, but with 1063 findings across the repo after restoring the locked ultracite 7.0.11 + patch; this is a pre-existing repo-wide backlog, not a branding-branch regression. |
 | `pnpm exec tsc --noEmit --incremental false` | Passed (exit 0). |
 | `pnpm test:unit` | Passed: 35 Vitest tests plus model test suite. |
-| `pnpm build` | Failed in prebuild by design: exact Arabic legal name missing. Next production compilation did not run. |
+| `pnpm build` | Passes end to end (prebuild gates, Next compilation, all pages prerendered, bundle gate). |
 | `pnpm check:brand` | Failed on the missing exact Arabic legal name; no other source-gate diagnostics after migration. |
-| `postbuild` rendered A–D / bundle E | Not reached; no completed production artifact. No claim that these tests passed. |
+| `postbuild` bundle + rendered A–D | Both pass in Arabic and English on a completed local production build. |
 
 Remaining: supply verified Arabic name; review identity/translation/legal prose;
 fix existing lint tooling; complete production build and rendered/bundle gates;

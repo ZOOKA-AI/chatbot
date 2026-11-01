@@ -5,8 +5,6 @@ import { GlobalSiteComponents } from "@/components/global-site-components";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
-import { getLang } from "@/lib/i18n";
-import { brandTitle, TAGLINE_AR, TAGLINE_EN } from "@/lib/brand";
 import { PRODUCT_NAME_AR } from "@/lib/brand";
 import { SITE_YEAR } from "@/lib/site-year";
 
@@ -45,18 +43,13 @@ const baseMetadata: Metadata = {
   },
 };
 
-export async function generateMetadata(): Promise<Metadata> {
-  const lang = await getLang();
-  const title = brandTitle("", lang);
-  const description = lang === "ar" ? TAGLINE_AR : TAGLINE_EN;
-  return {
-    ...baseMetadata,
-    title: { default: title, template: `%s | ${title}` },
-    description,
-    openGraph: { ...baseMetadata.openGraph, title, description },
-    twitter: { ...baseMetadata.twitter, title, description },
-  };
-}
+/**
+ * Static root metadata on purpose. Reading the language cookie here made every
+ * page whose body is static fail prerender under cacheComponents ("generateMetadata
+ * depends on request data when the rest of the route does not"). Pages that render
+ * per language already call getLang() themselves and export their own metadata.
+ */
+export const metadata: Metadata = baseMetadata;
 
 export const viewport: Viewport = {
   width: "device-width",
