@@ -15,6 +15,10 @@ const PUBLIC_PAGES = [
   { changeFrequency: "yearly", path: "/terms", priority: 0.4 },
   { changeFrequency: "yearly", path: "/refund", priority: 0.4 },
   { changeFrequency: "yearly", path: "/cookies", priority: 0.3 },
+  { changeFrequency: "weekly", path: "/explore", priority: 0.7 },
+  { changeFrequency: "weekly", path: "/studio", priority: 0.7 },
+  { changeFrequency: "monthly", path: "/platform-readiness", priority: 0.5 },
+  { changeFrequency: "monthly", path: "/lp/cleaning", priority: 0.6 },
 ] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
