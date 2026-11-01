@@ -4,17 +4,27 @@ import { creativeTemplates } from "./studio-play";
 /** Public review data only. Never put account data or integration secrets here. */
 export const studioSections = [
   { id: "home", label: "مساحة العمل" },
+  { id: "catalog", label: "الكتالوج" },
   { id: "projects", label: "المشاريع" },
   { id: "tasks", label: "لوحة المهام" },
   { id: "agent", label: "مخطط الوكيل" },
-  { id: "media", label: "الصوت وتسجيل الشاشة" },
+  { id: "code", label: "الكود والمعاينة" },
   { id: "templates", label: "قوالب المواقع" },
   { id: "play", label: "استراحة وإبداع" },
-  { id: "code", label: "الكود والمعاينة" },
+  { id: "media", label: "الصوت وتسجيل الشاشة" },
   { id: "integrations", label: "التكاملات" },
   { id: "browser", label: "المتصفح" },
   { id: "profile", label: "الملف الشخصي" },
   { id: "extensions", label: "مساحة التطوير" },
+] as const;
+
+/** Sidebar clusters. Order here drives the sidebar order, so sections stay findable. */
+export const studioNavGroups = [
+  { id: "start", label: "البداية", sections: ["home", "catalog"] },
+  { id: "work", label: "العمل", sections: ["projects", "tasks", "agent", "code"] },
+  { id: "create", label: "الإبداع", sections: ["templates", "play", "media"] },
+  { id: "connect", label: "الربط", sections: ["integrations", "browser"] },
+  { id: "account", label: "حسابك", sections: ["profile", "extensions"] },
 ] as const;
 export type StudioSection = (typeof studioSections)[number]["id"];
 export function isStudioSection(value: string): value is StudioSection {

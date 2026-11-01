@@ -2035,3 +2035,157 @@
     font-size: 11px;
   }
 }
+
+/* ── Grouped sidebar ─────────────────────────────────────────────── */
+.navGroup {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.navGroupLabel {
+  margin: 8px 0 2px;
+  padding-inline-start: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Workspace composer (real input + send) ──────────────────────── */
+.heroComposer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #15171880;
+}
+.heroInput {
+  flex: 1;
+  min-height: 52px;
+  max-height: 180px;
+  resize: vertical;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.7;
+}
+.heroInput::placeholder {
+  color: var(--muted);
+}
+.heroSend {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--mint);
+  color: #10231e;
+  cursor: pointer;
+  font-weight: 700;
+}
+.heroSend:disabled {
+  background: #2b2f31;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.heroSend:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+/* ── Catalog ─────────────────────────────────────────────────────── */
+.catalogTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+.catalogTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.catalogTab small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.catalogTabActive {
+  border-color: var(--mint);
+  background: #1f2a24;
+  color: var(--mint);
+}
+.catalogGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.catalogCard {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+}
+.catalogCard h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.catalogCard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.catalogCard > button {
+  margin-top: auto;
+  align-self: flex-start;
+}
+.catalogBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: #262a2c;
+  color: var(--mint);
+}
+.catalogMeta {
+  color: var(--muted);
+  font-size: 12px;
+}
+.catalogStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--mint);
+  font-size: 12px;
+}
+.catalogEmpty {
+  color: var(--muted);
+  padding: 18px 0;
+}
+
+@media (max-width: 640px) {
+  .heroComposer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .heroSend {
+    justify-content: center;
+  }
+}

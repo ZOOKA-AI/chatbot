@@ -51,11 +51,13 @@ import {
   parseLocalProjects,
   type StudioSection,
   starterTemplates,
+  studioNavGroups,
   studioSections,
 } from "@/lib/studio";
 import { CONNECTABLE_INTEGRATION_COUNT } from "@/lib/brand";
 import { studioExtensionSlots } from "@/lib/studio-extensions";
 import { AgentBrief } from "./agent-brief";
+import { CatalogHub } from "./catalog";
 import { CommandMenu } from "./command-menu";
 import { Playground } from "./playground";
 import { ProjectTransfer } from "./project-transfer";
@@ -66,20 +68,21 @@ import styles from "./studio.module.css";
 import { TaskBoard } from "./task-board";
 import { VoiceNotebook } from "./voice-notebook";
 
-const sectionIcons = [
-  LayoutDashboard,
-  FolderOpen,
-  ClipboardList,
-  Bot,
-  Mic,
-  LayoutTemplate,
-  Gamepad2,
-  Code2,
-  Cable,
-  Globe2,
-  UserRound,
-  Puzzle,
-];
+const sectionIconById: Record<StudioSection, typeof LayoutDashboard> = {
+  home: LayoutDashboard,
+  catalog: Blocks,
+  projects: FolderOpen,
+  tasks: ClipboardList,
+  agent: Bot,
+  code: Code2,
+  templates: LayoutTemplate,
+  play: Gamepad2,
+  media: Mic,
+  integrations: Cable,
+  browser: Globe2,
+  profile: UserRound,
+  extensions: Puzzle,
+};
 const sectionHref = (id: StudioSection) =>
   id === "home" ? "/studio" : `/studio/${id}`;
 const templateIds = new Set<string>(starterTemplates.map((t) => t.id));
@@ -96,6 +99,7 @@ export function Studio({ section }: { section: StudioSection }) {
   }, [actionsOpen]);
   const [projects, setProjects] = useState<LocalProject[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [heroPrompt, setHeroPrompt] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [notice, setNotice] = useState("");
@@ -230,6 +234,17 @@ export function Studio({ section }: { section: StudioSection }) {
       setNotice("تعذّر النسخ. حدّد النص من تبويب الكود أو نزّل الملف.");
     }
   };
+  const startFromPrompt = () => {
+    const text = heroPrompt.trim();
+    if (!text) return;
+    try {
+      sessionStorage.setItem("zooka-studio-prompt", text);
+    } catch {
+      // storage unavailable: the brief page still opens with an empty goal
+    }
+    setHeroPrompt("");
+    navigate("agent");
+  };
   const openTemplate = (id: string) => {
     if (!templateIds.has(id)) return;
     if (
@@ -278,24 +293,31 @@ export function Studio({ section }: { section: StudioSection }) {
         </button>
         <p className={styles.navLabel}>مساحتك الإبداعية</p>
         <nav>
-          {studioSections.map((s, i) => {
-            const Icon = sectionIcons[i];
-            return (
-              <button
-                aria-current={section === s.id ? "page" : undefined}
-                className={`${styles.navItem} ${section === s.id ? styles.navActive : ""}`}
-                key={s.id}
-                onClick={() => navigate(s.id)}
-                type="button"
-              >
-                <Icon size={19} />
-                <span>{s.label}</span>
-                {s.id === "integrations" && (
-                  <small>{CONNECTABLE_INTEGRATION_COUNT}</small>
-                )}
-              </button>
-            );
-          })}
+          {studioNavGroups.map((group) => (
+            <div className={styles.navGroup} key={group.id}>
+              <p className={styles.navGroupLabel}>{group.label}</p>
+              {group.sections.map((id) => {
+                const item = studioSections.find((s) => s.id === id);
+                if (!item) return null;
+                const Icon = sectionIconById[id];
+                return (
+                  <button
+                    aria-current={section === id ? "page" : undefined}
+                    className={`${styles.navItem} ${section === id ? styles.navActive : ""}`}
+                    key={id}
+                    onClick={() => navigate(id)}
+                    type="button"
+                  >
+                    <Icon size={19} />
+                    <span>{item.label}</span>
+                    {id === "integrations" && (
+                      <small>{CONNECTABLE_INTEGRATION_COUNT}</small>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className={styles.sideHint}>
           <ShieldCheck size={20} />
@@ -404,9 +426,39 @@ export function Studio({ section }: { section: StudioSection }) {
                     <p>ابدأ بقالب حقيقي وعدّله في محرر الكود.</p>
                   </div>
                 </div>
+                <form
+                  className={styles.heroComposer}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    startFromPrompt();
+                  }}
+                >
+                  <textarea
+                    aria-label="اكتب طلبك"
+                    className={styles.heroInput}
+                    onChange={(event) => setHeroPrompt(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        startFromPrompt();
+                      }
+                    }}
+                    placeholder="اكتب فكرتك… مثال: صفحة هبوط لخدمة تنظيف في دبي"
+                    rows={2}
+                    value={heroPrompt}
+                  />
+                  <button
+                    aria-label="إرسال الطلب إلى مخطط الوكيل"
+                    className={styles.heroSend}
+                    disabled={!heroPrompt.trim()}
+                    type="submit"
+                  >
+                    إرسال <ArrowUpLeft size={18} />
+                  </button>
+                </form>
                 <div className={styles.commandButtons}>
                   <button
-                    className={styles.primary}
+                    className={styles.secondary}
                     onClick={() => navigate("templates")}
                     type="button"
                   >
@@ -489,6 +541,20 @@ export function Studio({ section }: { section: StudioSection }) {
               </div>
             </>
           )}
+          {section === "catalog" && (
+            <>
+              <PageHeading
+                eyebrow="كل نقطة بداية في مكان واحد"
+                title="الكتالوج"
+                description="قوالب جاهزة، تكاملات، وأدوات مبنية. ابحث، صنّف، وابدأ من نقطة حقيقية بدل التنقل بين الصفحات."
+              />
+              <CatalogHub
+                onNavigate={navigate}
+                onUseTemplate={openTemplate}
+              />
+            </>
+          )}
+
           {section === "projects" && (
             <>
               <PageHeading

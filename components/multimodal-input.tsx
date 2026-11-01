@@ -657,12 +657,22 @@ function PureMultimodalInput({
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
             <PromptInputSubmit
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+              aria-label={lang === "ar" ? "إرسال الرسالة" : "Send message"}
+              className="h-9 shrink-0 gap-1.5 rounded-full bg-primary px-4 font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted/60 disabled:text-muted-foreground disabled:opacity-100"
               data-testid="send-button"
               disabled={!input.trim() || uploadQueue.length > 0}
+              size="sm"
               status={status}
+              title={
+                lang === "ar"
+                  ? "إرسال (Enter) — سطر جديد (Shift+Enter)"
+                  : "Send (Enter) — new line (Shift+Enter)"
+              }
             >
-              <ArrowUpIcon size={14} />
+              <ArrowUpIcon size={16} className="shrink-0" />
+              <span className="hidden text-xs sm:inline">
+                {lang === "ar" ? "إرسال" : "Send"}
+              </span>
             </PromptInputSubmit>
           )}
         </PromptInputToolbar>
@@ -855,7 +865,8 @@ function PureStopButton({
 }) {
   return (
     <Button
-      className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+      aria-label="إيقاف"
+      className="h-9 shrink-0 gap-1.5 rounded-full bg-foreground px-4 font-semibold text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
       data-testid="stop-button"
       onClick={(event) => {
         event.preventDefault();
@@ -864,6 +875,7 @@ function PureStopButton({
       }}
     >
       <StopIcon size={14} />
+      <span className="hidden text-xs sm:inline">إيقاف</span>
     </Button>
   );
 }

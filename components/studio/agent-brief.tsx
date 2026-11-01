@@ -1,7 +1,7 @@
 "use client";
 import { ClipboardList, Copy, ExternalLink, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AGENT_DRAFT_KEY, makeAgentBrief } from "@/lib/studio-media";
 import styles from "./studio.module.css";
 export function AgentBrief() {
@@ -10,6 +10,19 @@ export function AgentBrief() {
   const [output, setOutput] = useState("خطة عملية ثم مسودة قابلة للمراجعة");
   const [brief, setBrief] = useState("");
   const [message, setMessage] = useState("");
+
+  // Arriving from the workspace composer: prefill the goal instead of losing it.
+  useEffect(() => {
+    try {
+      const draft = sessionStorage.getItem("zooka-studio-prompt");
+      if (draft) {
+        setGoal(draft);
+        sessionStorage.removeItem("zooka-studio-prompt");
+      }
+    } catch {
+      // storage unavailable: the field stays empty
+    }
+  }, []);
   const prepare = () => {
     if (!goal.trim()) {
       setMessage("اكتب الهدف أولاً.");
