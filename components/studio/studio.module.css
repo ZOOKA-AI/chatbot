@@ -496,6 +496,47 @@
 .templateCard:hover {
   transform: translateY(-4px);
 }
+.templateCardMain {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: right;
+  cursor: pointer;
+}
+.templateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding: 12px 20px 14px;
+}
+.templateActions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: transform 0.15s;
+}
+.templateActions a:hover {
+  transform: translateY(-1px);
+}
+.templateChatAction {
+  background: var(--mint);
+  border-color: var(--mint) !important;
+  color: #0d1a14 !important;
+  font-weight: 500;
+}
+.templateActionsLink {
+  color: var(--muted) !important;
+}
 .templateArtwork {
   height: 180px;
   color: #202c26;

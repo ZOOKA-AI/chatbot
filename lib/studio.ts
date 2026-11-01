@@ -202,3 +202,23 @@ export const additionalRequestedProviders = [
       "Private browser sessions require an isolated service or trusted extension.",
   },
 ];
+
+/**
+ * Builds the first chat message that hands a starter template to the agent as
+ * full context. The studio links here with ?template=<id>, so the (long) html
+ * never travels through the URL.
+ */
+export function templateChatPrompt(templateId: string): string | null {
+  const template = starterTemplates.find((item) => item.id === templateId);
+  if (!template) return null;
+  return [
+    `عدّل قالب "${template.title}" (${template.category}) — ${template.description}`,
+    "",
+    "الكود الحالي:",
+    "```html",
+    template.html,
+    "```",
+    "",
+    "اسألني الأول إيه اللي عايز أغيّره، وبعدها نفّذ التعديل وارجعلي بالكود كامل.",
+  ].join("\n");
+}

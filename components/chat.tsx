@@ -27,6 +27,7 @@ import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { localizeAgentModeErrorCause } from "@/lib/ai/agent-mode-errors";
 import { refreshAgentQuotaIfNeeded } from "@/lib/ai/agent-quota-refresh";
 import { modelSupportsTools } from "@/lib/ai/models";
+import { templateChatPrompt } from "@/lib/studio";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -92,7 +93,7 @@ export function Chat({
     () =>
       searchParams.get("mode") === "work" &&
       canUseAgentMode &&
-      modelSupportsTools(initialChatModel)
+      modelSupportsTools(initialChatModel),
   );
   const currentModelIdRef = useRef(currentModelId);
   const agentModeRef = useRef(agentMode);
@@ -131,7 +132,7 @@ export function Chat({
             "state" in part &&
             part.state === "approval-responded" &&
             "approval" in part &&
-            (part.approval as { approved?: boolean })?.approved === true
+            (part.approval as { approved?: boolean })?.approved === true,
         ) ?? false;
       return shouldContinue;
     },
@@ -148,7 +149,7 @@ export function Chat({
               return (
                 state === "approval-responded" || state === "output-denied"
               );
-            })
+            }),
           );
 
         return {
@@ -252,10 +253,13 @@ export function Chat({
       }
       return rawSendMessage(...args);
     },
-    [isGuest, guestQuota, rawSendMessage]
+    [isGuest, guestQuota, rawSendMessage],
   );
 
   const urlQuery = searchParams.get("query");
+  // A studio template card hands the whole template over as chat context.
+  const urlTemplate = searchParams.get("template");
+  const templateQuery = urlTemplate ? templateChatPrompt(urlTemplate) : null;
 
   // A visitor who tried the landing-page demo and then signed up should land
   // in the app with that first request already running.
@@ -271,10 +275,7 @@ export function Chat({
       }
       window.sessionStorage.removeItem("zooka-demo-handoff");
       const parsed = JSON.parse(raw) as { prompt?: string; at?: number };
-      if (
-        parsed.prompt &&
-        Date.now() - (parsed.at ?? 0) < 6 * 60 * 60 * 1000
-      ) {
+      if (parsed.prompt && Date.now() - (parsed.at ?? 0) < 6 * 60 * 60 * 1000) {
         setDemoHandoff(parsed.prompt.slice(0, 1900));
       }
     } catch {
@@ -282,7 +283,7 @@ export function Chat({
     }
   }, [isGuest, urlQuery, initialMessages.length]);
 
-  const query = urlQuery ?? demoHandoff;
+  const query = urlQuery ?? templateQuery ?? demoHandoff;
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
@@ -300,7 +301,7 @@ export function Chat({
 
   const { data: votes } = useSWR<Vote[]>(
     messages.length >= 2 && !isGuest ? `/api/vote?chatId=${id}` : null,
-    fetcher
+    fetcher,
   );
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -452,7 +453,7 @@ export function Chat({
               onClick={() => {
                 window.open(
                   "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card",
-                  "_blank"
+                  "_blank",
                 );
                 window.location.href = "/";
               }}

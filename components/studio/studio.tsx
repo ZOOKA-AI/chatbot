@@ -207,7 +207,9 @@ export function Studio({ section }: { section: StudioSection }) {
     if (persist([project, ...projects.filter((p) => p.id !== project.id)])) {
       setActiveProjectId(project.id);
       setDirty(false);
-      setNotice("حُفظ المشروع على هذا المتصفح فقط. نزّل نسخة احتياطية من الكود.");
+      setNotice(
+        "حُفظ المشروع على هذا المتصفح فقط. نزّل نسخة احتياطية من الكود.",
+      );
     }
   };
   const download = () => {
@@ -598,9 +600,9 @@ export function Studio({ section }: { section: StudioSection }) {
               <div className={styles.releaseNote}>
                 <ShieldCheck size={22} />
                 <p>
-                  تُضاف الصفحات إلى سجل التنقّل ويظهر البحث عنها تلقائياً. التنفيذ
-                  والإصدار ما زالا يحتاجان تحديث كود واختبارات؛ هذه المساحة لا
-                  تنشئ خدمات آلياً.
+                  تُضاف الصفحات إلى سجل التنقّل ويظهر البحث عنها تلقائياً.
+                  التنفيذ والإصدار ما زالا يحتاجان تحديث كود واختبارات؛ هذه
+                  المساحة لا تنشئ خدمات آلياً.
                 </p>
               </div>
             </>
@@ -1204,47 +1206,64 @@ function TemplateGrid({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className={styles.templateGrid}>
       {starterTemplates.map((template, index) => (
-        <button
-          className={styles.templateCard}
-          key={template.id}
-          onClick={() => onOpen(template.id)}
-          type="button"
-        >
-          <div
-            className={styles.templateArtwork}
-            style={{ background: template.color }}
+        <div className={styles.templateCard} key={template.id}>
+          <button
+            className={styles.templateCardMain}
+            onClick={() => onOpen(template.id)}
+            type="button"
           >
-            <span>0{index + 1} / ZOOKA TEMPLATE</span>
-            <strong>
-              {
-                [
-                  "فكرتك،\nبصوت أوضح.",
-                  "أعمال تتحدث\nعن نفسها.",
-                  "انطلق نحو\nشيء أكبر.",
-                  "تعلّم،\nثم جرّب.",
-                  "أفكار تلتقي،\nومشاريع تبدأ.",
-                  "استراحة،\nبمذاق مختلف.",
-                ][index]
-              }
-            </strong>
-            <div className={styles.artworkLines}>
-              <i />
-              <i />
-              <i />
+            <div
+              className={styles.templateArtwork}
+              style={{ background: template.color }}
+            >
+              <span>0{index + 1} / ZOOKA TEMPLATE</span>
+              <strong>
+                {
+                  [
+                    "فكرتك،\nبصوت أوضح.",
+                    "أعمال تتحدث\nعن نفسها.",
+                    "انطلق نحو\nشيء أكبر.",
+                    "تعلّم،\nثم جرّب.",
+                    "أفكار تلتقي،\nومشاريع تبدأ.",
+                    "استراحة،\nبمذاق مختلف.",
+                  ][index]
+                }
+              </strong>
+              <div className={styles.artworkLines}>
+                <i />
+                <i />
+                <i />
+              </div>
+              <span className={styles.artworkArrow}>
+                <ArrowUpLeft size={24} />
+              </span>
             </div>
-            <span className={styles.artworkArrow}>
-              <ArrowUpLeft size={24} />
-            </span>
+            <div className={styles.templateInfo}>
+              <span>{template.category} / HTML + CSS</span>
+              <h3>{template.title}</h3>
+              <p>{template.description}</p>
+              <strong>
+                استخدم القالب <ArrowUpLeft size={16} />
+              </strong>
+            </div>
+          </button>
+          <div className={styles.templateActions}>
+            <a
+              className={styles.templateChatAction}
+              href={`/?template=${encodeURIComponent(template.id)}`}
+            >
+              <Sparkles size={14} />
+              عدّل في الشات
+            </a>
+            <a
+              className={styles.templateActionsLink}
+              href="/settings/integrations"
+            >
+              <ExternalLink size={14} />
+              التكاملات
+            </a>
           </div>
-          <div className={styles.templateInfo}>
-            <span>{template.category} / HTML + CSS</span>
-            <h3>{template.title}</h3>
-            <p>{template.description}</p>
-            <strong>
-              استخدم القالب <ArrowUpLeft size={16} />
-            </strong>
-          </div>
-        </button>
+        </div>
       ))}
     </div>
   );
