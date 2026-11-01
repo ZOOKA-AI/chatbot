@@ -30,9 +30,13 @@ describe("canonical brand", () => {
     expect(INVOICE_SELLER).toContain(COMPANY_LEGAL_NAME_EN);
     expect(BILLING_EMAIL).toBe("billing@zooka-ai.com");
   });
-  it("does not invent the missing Arabic legal name", () => {
-    expect(COMPANY_LEGAL_NAME_AR).toBeNull();
-    expect(() => whatsappSignature()).toThrow();
+  it("uses the exact Arabic legal name from the trade licence", () => {
+    expect(COMPANY_LEGAL_NAME_AR).toBe(
+      "رويال هارون كليننيغ اند دس انفكشين سيرفسز ش.م.ح - ذ.م.م",
+    );
+    expect(COMPANY_LEGAL_NAME_AR).toContain("كليننيغ");
+    expect(COMPANY_LEGAL_NAME_AR).toContain("انفكشين");
+    expect(whatsappSignature()).toContain(COMPANY_LEGAL_NAME_AR);
   });
   it("deduplicates titles", () => {
     expect(brandTitle("Sign in | Zooka AI", "en")).toBe("Sign in | Zooka AI");

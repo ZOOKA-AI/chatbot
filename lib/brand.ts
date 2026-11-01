@@ -9,8 +9,13 @@ export const TAGLINE_EN =
   "The AI operations assistant for small service businesses" as const;
 export const COMPANY_LEGAL_NAME_EN =
   "Royal Haroon Cleaning and Disinfection Services FZ-LLC" as const;
-/** BLOCKER: owner must copy the exact Arabic legal name from the licence. Never translate. */
-export const COMPANY_LEGAL_NAME_AR: string | null = null;
+/**
+ * Exact Arabic legal name, copied character for character from the RAKEZ
+ * Services Licence 47028807 (licensee + operating name). Never translate and
+ * never "correct" the transliteration: the licence prints كليننيغ with a doubled
+ * noon and انفكشين as written. Legal form ش.م.ح - ذ.م.م mirrors the FZ-LLC suffix.
+ */
+export const COMPANY_LEGAL_NAME_AR = "رويال هارون كليننيغ اند دس انفكشين سيرفسز ش.م.ح - ذ.م.م" as const;
 export const COMPANY_ADDRESS =
   "Compass Building, Al Hamra Industrial Zone-FZ, Ras Al Khaimah, United Arab Emirates" as const;
 export const COMPANY_COUNTRY = "United Arab Emirates" as const;
