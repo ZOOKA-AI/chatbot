@@ -3,6 +3,7 @@ import {
   APP_STORE_NAME,
   BILLING_EMAIL,
   BRAND_PRICES,
+  brandTitle,
   COMPANY_LEGAL_NAME_AR,
   COMPANY_LEGAL_NAME_EN,
   CONTACT_EMAIL,
@@ -11,16 +12,16 @@ import {
   PRODUCT_NAME,
   SITE_URL,
   STORE_LISTING,
-  brandTitle,
   whatsappSignature,
 } from "@/lib/brand";
+
 describe("canonical brand", () => {
   it("uses the owner's spelling and entity", () => {
     expect(PRODUCT_NAME).toBe("Zooka AI");
     expect(SITE_URL).toBe("https://zooka-ai.com");
     expect(COMPANY_LEGAL_NAME_EN.endsWith("FZ-LLC")).toBe(true);
     expect(CONTACT_EMAIL).toBe("support@zooka-ai.com");
-    expect(CONTACT_PHONE_E164).toBe("+971563177803");
+    expect(CONTACT_PHONE_E164).toBe("+971566047579");
   });
   it("keeps pricing and listing fields aligned", () => {
     expect(BRAND_PRICES).toEqual({ free: 0, pro: 19, business: 49 });

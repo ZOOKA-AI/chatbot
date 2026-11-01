@@ -1,14 +1,19 @@
+import { LanguageToggle } from "@/components/language-toggle";
 import {
-  COMPANY_LEGAL_NAME_EN,
-  COMPANY_LEGAL_NAME_AR,
+  BILLING_EMAIL,
   COMPANY_ADDRESS,
   COMPANY_COUNTRY,
+  COMPANY_LEGAL_NAME_AR,
+  COMPANY_LEGAL_NAME_EN,
   CONTACT_EMAIL,
-  CONTACT_PHONE_DISPLAY,
   PRIVACY_EMAIL,
-  BILLING_EMAIL,
 } from "@/lib/brand";
-import { LanguageToggle } from "@/components/language-toggle";
+import {
+  MASKED_COMPANY_FIELD,
+  MASKED_PHONE_LABEL,
+  maskLegalText,
+  WHATSAPP_SUPPORT_URL,
+} from "@/lib/brand-display";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
 
@@ -32,7 +37,12 @@ export async function LegalPage({ page }: { page: LegalPageId }) {
           <section className="flex flex-col gap-2" key={section.title}>
             <h2 className="font-medium text-xl">{section.title}</h2>
             <p className="whitespace-pre-line text-muted-foreground leading-7">
-              {section.body}
+              {maskLegalText(section.body, [
+                COMPANY_LEGAL_NAME_EN,
+                COMPANY_LEGAL_NAME_AR,
+                COMPANY_ADDRESS,
+                COMPANY_COUNTRY,
+              ])}
             </p>
           </section>
         ))}
@@ -40,13 +50,24 @@ export async function LegalPage({ page }: { page: LegalPageId }) {
           className="space-y-2 border-t pt-5"
           aria-label="Operator identity"
         >
-          <p dir="ltr">{COMPANY_LEGAL_NAME_EN}</p>
-          {COMPANY_LEGAL_NAME_AR && <p>{COMPANY_LEGAL_NAME_AR}</p>}
-          <p dir="ltr">{COMPANY_ADDRESS}</p>
-          <p>{COMPANY_COUNTRY}</p>
+          <p dir="ltr">{MASKED_COMPANY_FIELD}</p>
+          {COMPANY_LEGAL_NAME_AR && <p>{MASKED_COMPANY_FIELD}</p>}
+          <p dir="ltr">{MASKED_COMPANY_FIELD}</p>
+          <p>{MASKED_COMPANY_FIELD}</p>
           <p>
             <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> ·{" "}
-            {CONTACT_PHONE_DISPLAY}
+            <a
+              href={WHATSAPP_SUPPORT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={
+                lang === "ar"
+                  ? "الدعم عبر واتساب فقط"
+                  : "Support via WhatsApp only"
+              }
+            >
+              <bdi dir="ltr">{MASKED_PHONE_LABEL}</bdi> · WhatsApp
+            </a>
           </p>
           <p>
             <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> ·{" "}

@@ -28,8 +28,11 @@ export const COMPANY_COUNTRY = IDENTITY.country;
 export const CONTACT_EMAIL = IDENTITY.contactEmail;
 export const PRIVACY_EMAIL = IDENTITY.privacyEmail;
 export const BILLING_EMAIL = IDENTITY.billingEmail;
-export const CONTACT_PHONE_E164 = IDENTITY.phoneE164;
-export const CONTACT_PHONE_DISPLAY = IDENTITY.phoneDisplay;
+export {
+  MASKED_PHONE_LABEL as CONTACT_PHONE_DISPLAY,
+  WHATSAPP_PHONE_E164 as CONTACT_PHONE_E164,
+} from "./brand-display";
+
 export const COPYRIGHT =
   `© 2026 ${COMPANY_LEGAL_NAME_EN}. All rights reserved.` as const;
 export const INVOICE_SELLER =

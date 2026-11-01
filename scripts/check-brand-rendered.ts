@@ -2,12 +2,16 @@ import { spawn } from "node:child_process";
 import { chromium } from "@playwright/test";
 import {
   APP_STORE_NAME,
+  COMPANY_ADDRESS,
+  COMPANY_LEGAL_NAME_AR,
   COMPANY_LEGAL_NAME_EN,
   CONTACT_EMAIL,
   PRODUCT_NAME,
   PRODUCT_NAME_AR,
   SITE_URL,
 } from "../lib/brand";
+import { MASKED_COMPANY_FIELD } from "../lib/brand-display";
+
 async function main() {
   // Local production output only. Never accept a remote target from user/environment.
   const origin = "http://127.0.0.1:3899";
@@ -72,6 +76,17 @@ async function main() {
           )
         )
           throw new Error(`${route}: forbidden string in rendered HTML`);
+        const visibleText = await page.locator("body").innerText();
+        if (
+          [COMPANY_LEGAL_NAME_EN, COMPANY_LEGAL_NAME_AR, COMPANY_ADDRESS].some(
+            (value) => value && visibleText.includes(value),
+          )
+        )
+          throw new Error(`${route}: unmasked company identity`);
+        if (/0563177803|0566047579/.test(visibleText))
+          throw new Error(`${route}: unmasked phone`);
+        if (await page.locator('a[href^="tel:"]').count())
+          throw new Error(`${route}: telephone call link not allowed`);
         const title = await page.title();
         const count =
           title.split(PRODUCT_NAME).length -
@@ -84,7 +99,7 @@ async function main() {
         if (
           !footer.some(
             (s) =>
-              s.includes(COMPANY_LEGAL_NAME_EN) && s.includes(CONTACT_EMAIL),
+              s.includes(MASKED_COMPANY_FIELD) && s.includes(CONTACT_EMAIL),
           )
         )
           throw new Error(`${route}: missing legal footer`);
