@@ -370,4 +370,23 @@ export const referralEvent = pgTable(
 );
 
 export type Affiliate = InferSelectModel<typeof affiliate>;
+/**
+ * One Base44 Superagent conversation per workspace member, plus the running
+ * per-user consumption (turns and agent credits) that the metered plan reads.
+ */
+export const base44AgentSession = pgTable("Base44AgentSession", {
+  userId: uuid("userId")
+    .primaryKey()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  organizationId: uuid("organizationId")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  conversationId: text("conversationId").notNull(),
+  turns: integer("turns").notNull().default(0),
+  credits: integer("credits").notNull().default(0),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
 export type ReferralEvent = InferSelectModel<typeof referralEvent>;
