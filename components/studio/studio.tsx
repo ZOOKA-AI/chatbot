@@ -222,8 +222,22 @@ export function Studio({ section }: { section: StudioSection }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: projectName, html: code }),
       });
-      if (res.ok) setNotice("تم حفظ المشروع في السحابة.");
-      else setNotice("تعذّر الحفظ في السحابة. تأكد من تسجيل الدخول.");
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.project) {
+        setActiveProjectId(data.project.id);
+        setDirty(false);
+        setNotice("تم حفظ المشروع في السحابة.");
+        return;
+      }
+      if (res.status === 401) {
+        setNotice(
+          "سجّل الدخول أولاً لحفظ المشروع في السحابة. الحفظ المحلي يعمل بدون حساب.",
+        );
+      } else {
+        setNotice(
+          `تعذّر الحفظ في السحابة${data?.error ? `: ${data.error}` : ""}.`,
+        );
+      }
     } catch {
       setNotice("خطأ في الاتصال بالسحابة.");
     }
