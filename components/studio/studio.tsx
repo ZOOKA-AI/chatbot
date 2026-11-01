@@ -115,14 +115,35 @@ export function Studio({ section }: { section: StudioSection }) {
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    try {
-      setProjects(
-        parseLocalProjects(localStorage.getItem(PROJECT_STORAGE_KEY)),
-      );
-    } catch {
-      setNotice("التخزين المحلي غير متاح. يمكنك تنزيل الكود لحفظه.");
-    }
-    setLoaded(true);
+    const load = async () => {
+      let local: LocalProject[] = [];
+      try {
+        local = parseLocalProjects(localStorage.getItem(PROJECT_STORAGE_KEY));
+      } catch {
+        setNotice("التخزين المحلي غير متاح.");
+      }
+      try {
+        const res = await fetch("/api/studio/projects");
+        if (res.ok) {
+          const data = await res.json();
+          const cloud = (data.projects || []).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            html: p.html,
+            updatedAt: p.updatedAt,
+          }));
+          // Merge: cloud first, then local not in cloud
+          const cloudIds = new Set(cloud.map((c: any) => c.id));
+          setProjects([...cloud, ...local.filter((l) => !cloudIds.has(l.id))]);
+        } else {
+          setProjects(local);
+        }
+      } catch {
+        setProjects(local);
+      }
+      setLoaded(true);
+    };
+    load();
     const params = new URLSearchParams(window.location.search);
     const templateId = params.get("template");
     const projectId = params.get("project");
@@ -690,6 +711,14 @@ export function Studio({ section }: { section: StudioSection }) {
                     type="button"
                   >
                     <Check size={16} /> حفظ محلي
+                  </button>
+                  <button
+                    className={styles.secondary}
+                    disabled={!loaded}
+                    onClick={saveToCloud}
+                    type="button"
+                  >
+                    <CheckCheck size={16} /> حفظ في السحابة
                   </button>
                 </div>
               </div>
