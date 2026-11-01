@@ -25,7 +25,13 @@ const DIRECT_MODEL_REASONING = "gemini-pro-latest";
 // instead of failing the whole request.
 export const GATEWAY_FALLBACK_MODEL = "openai/gpt-4.1-mini";
 
-function isRestrictedModelError(error: unknown): boolean {
+/**
+ * True for the errors that mean "this model id cannot serve the request right
+ * now": the free tier restriction the gateway returns as 403, and the 404/410 a
+ * retired or renamed model returns. Both are model problems, not user problems,
+ * so the request is retried once against GATEWAY_FALLBACK_MODEL.
+ */
+function isUnavailableModelError(error: unknown): boolean {
   const seen = new Set<unknown>();
   let current: unknown = error;
   while (current && typeof current === "object" && !seen.has(current)) {
@@ -41,6 +47,18 @@ function isRestrictedModelError(error: unknown): boolean {
     ) {
       return true;
     }
+    const lower = text.toLowerCase();
+    if (
+      record.name === "GatewayModelNotFoundError" ||
+      lower.includes("model not found") ||
+      lower.includes("no such model") ||
+      lower.includes("model_not_found") ||
+      lower.includes("unknown model") ||
+      record.statusCode === 404 ||
+      record.statusCode === 410
+    ) {
+      return true;
+    }
     current = record.cause;
   }
   return false;
@@ -51,7 +69,7 @@ function restrictedModelFallbackMiddleware(
 ): LanguageModelMiddleware {
   const fallback = () => gateway.languageModel(GATEWAY_FALLBACK_MODEL);
   const warn = (mode: string) =>
-    console.warn("AI Gateway refused model, falling back", {
+    console.warn("AI Gateway model unavailable, falling back", {
       requested: modelId,
       fallback: GATEWAY_FALLBACK_MODEL,
       mode,
@@ -62,7 +80,7 @@ function restrictedModelFallbackMiddleware(
       try {
         return await doStream();
       } catch (error) {
-        if (modelId === GATEWAY_FALLBACK_MODEL || !isRestrictedModelError(error)) {
+        if (modelId === GATEWAY_FALLBACK_MODEL || !isUnavailableModelError(error)) {
           throw error;
         }
         warn("stream");
@@ -73,7 +91,7 @@ function restrictedModelFallbackMiddleware(
       try {
         return await doGenerate();
       } catch (error) {
-        if (modelId === GATEWAY_FALLBACK_MODEL || !isRestrictedModelError(error)) {
+        if (modelId === GATEWAY_FALLBACK_MODEL || !isUnavailableModelError(error)) {
           throw error;
         }
         warn("generate");
