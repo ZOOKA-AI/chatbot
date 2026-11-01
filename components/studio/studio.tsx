@@ -192,6 +192,22 @@ export function Studio({ section }: { section: StudioSection }) {
       return false;
     }
   };
+
+  const saveToCloud = async () => {
+    if (!projectName.trim() || !code) return;
+    try {
+      const res = await fetch("/api/studio/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: projectName, html: code }),
+      });
+      if (res.ok) setNotice("تم حفظ المشروع في السحابة.");
+      else setNotice("تعذّر الحفظ في السحابة. تأكد من تسجيل الدخول.");
+    } catch {
+      setNotice("خطأ في الاتصال بالسحابة.");
+    }
+  };
+
   const saveProject = () => {
     const trimmedName = projectName.trim();
     if (!trimmedName) {
@@ -208,7 +224,7 @@ export function Studio({ section }: { section: StudioSection }) {
       setActiveProjectId(project.id);
       setDirty(false);
       setNotice(
-        "حُفظ المشروع على هذا المتصفح فقط. نزّل نسخة احتياطية من الكود.",
+        "حُفظ محليًا. اضغط "حفظ في السحابة" للمزامنة.",
       );
     }
   };
