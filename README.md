@@ -166,3 +166,6 @@ Support the development of this project! Sponsors are recognized below automatic
 [![Sponsor ZOOKA-AI](https://img.shields.io/badge/Support-open_source-0366d6?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/ZOOKA-AI)
 
 <!-- redeploy trigger: 2026-10-29 01:52 UTC -->
+
+## Studio templates → Chat
+Open any template in Studio and click **عدّل في الشات**. The chat starts with the template loaded via `?template=` query param.
