@@ -14,6 +14,7 @@ import {
 } from "@/lib/brand";
 import type { Lang } from "@/lib/i18n";
 import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
+import { FOOTER_GROUPS } from "@/lib/site-nav";
 
 const LINKS: readonly (readonly [
   string,
@@ -60,17 +61,28 @@ export function SiteFooter({ lang, year }: { lang: Lang; year: number }) {
           <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
           <span className="sr-only">{COMPANY_LEGAL_NAME_EN}</span>
         </div>
-        <nav className="flex flex-wrap gap-x-5 gap-y-2">
-          <Link className="hover:underline" href="/explore">
-            {ar ? "اكتشف المنصة" : "Explore"}
-          </Link>
-          <Link className="hover:underline" href="/studio">
-            Studio
-          </Link>
-          <Link className="hover:underline" href="/platform-readiness">
-            {ar ? "الجاهزية" : "Readiness"}
-          </Link>
-          {LINKS.map(([href, page]) => (
+        <div className="flex flex-col gap-5 md:flex-row md:gap-10">
+          {FOOTER_GROUPS.map((group) => (
+            <nav className="flex flex-col gap-2" key={group.en}>
+              <p className="font-medium text-foreground">
+                {ar ? group.ar : group.en}
+              </p>
+              {group.items.map((item) => (
+                <Link
+                  className="hover:underline"
+                  href={item.href}
+                  key={item.href}
+                >
+                  {ar ? item.ar : item.en}
+                </Link>
+              ))}
+            </nav>
+          ))}
+          <nav className="flex flex-col gap-2">
+            <p className="font-medium text-foreground">
+              {ar ? "قانوني" : "Legal"}
+            </p>
+            {LINKS.map(([href, page]) => (
             <Link className="hover:underline" href={href} key={href}>
               {page === "compare"
                 ? ar
@@ -82,8 +94,9 @@ export function SiteFooter({ lang, year }: { lang: Lang; year: number }) {
                     : "Partners"
                   : getLegalPageCopy(lang, page).title}
             </Link>
-          ))}
-        </nav>
+            ))}
+          </nav>
+        </div>
       </div>
     </footer>
   );

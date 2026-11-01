@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { Suspense } from "react";
 import { GlobalSiteComponents } from "@/components/global-site-components";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -138,7 +139,9 @@ export default function RootLayout({
         >
           <Toaster position="top-center" />
           <SessionProvider>{children}</SessionProvider>
-          <GlobalSiteComponents year={SITE_YEAR} />
+          <Suspense fallback={null}>
+            <GlobalSiteComponents year={SITE_YEAR} />
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>
