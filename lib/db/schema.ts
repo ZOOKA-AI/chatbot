@@ -390,3 +390,22 @@ export const base44AgentSession = pgTable("Base44AgentSession", {
 });
 
 export type ReferralEvent = InferSelectModel<typeof referralEvent>;
+
+export const studioProject = pgTable(
+  "StudioProject",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    html: text("html").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    orgIndex: index("StudioProject_organizationId_idx").on(table.organizationId),
+  })
+);
+
+export type StudioProject = InferSelectModel<typeof studioProject>;
