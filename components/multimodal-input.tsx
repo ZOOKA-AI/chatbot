@@ -160,7 +160,7 @@ function PureMultimodalInput({
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
-    ""
+    "",
   );
 
   useEffect(() => {
@@ -244,7 +244,7 @@ function PureMultimodalInput({
       resetHeight();
       setInput("");
     },
-    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput]
+    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput],
   );
 
   const handleVoiceTranscript = useCallback(
@@ -258,13 +258,13 @@ function PureMultimodalInput({
         return;
       }
       setInput((previous) =>
-        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed
+        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed,
       );
       if (width && width > 768) {
         textareaRef.current?.focus();
       }
     },
-    [voiceMode, status, submitText, setInput, width]
+    [voiceMode, status, submitText, setInput, width],
   );
 
   const lastReplyText = useMemo(() => {
@@ -284,7 +284,7 @@ function PureMultimodalInput({
   const handleSpeakLastReply = useCallback(() => {
     if (!lastReplyText) {
       toast.error(
-        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet."
+        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet.",
       );
       return;
     }
@@ -293,7 +293,7 @@ function PureMultimodalInput({
       toast.error(
         lang === "ar"
           ? "المتصفح لا يدعم القراءة الصوتية."
-          : "This browser cannot read text aloud."
+          : "This browser cannot read text aloud.",
       );
     }
   }, [lang, lastReplyText]);
@@ -335,7 +335,7 @@ function PureMultimodalInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
+          (attachment) => attachment !== undefined,
         );
 
         setAttachments((currentAttachments) => [
@@ -348,7 +348,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   const handlePaste = useCallback(
@@ -359,7 +359,7 @@ function PureMultimodalInput({
       }
 
       const imageItems = Array.from(items).filter((item) =>
-        item.type.startsWith("image/")
+        item.type.startsWith("image/"),
       );
 
       if (imageItems.length === 0) {
@@ -382,7 +382,7 @@ function PureMultimodalInput({
           (attachment) =>
             attachment !== undefined &&
             attachment.url !== undefined &&
-            attachment.contentType !== undefined
+            attachment.contentType !== undefined,
         );
 
         setAttachments((curr) => [
@@ -396,7 +396,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   // Add paste event listener to textarea
@@ -461,7 +461,7 @@ function PureMultimodalInput({
             >
               {agentPresets.map((preset) => {
                 const modelName = chatModels.find(
-                  (model) => model.id === preset.modelId
+                  (model) => model.id === preset.modelId,
                 )?.name;
 
                 return (
@@ -500,7 +500,7 @@ function PureMultimodalInput({
                 key={attachment.url}
                 onRemove={() => {
                   setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url)
+                    currentAttachments.filter((a) => a.url !== attachment.url),
                   );
                   if (fileInputRef.current) {
                     fileInputRef.current.value = "";
@@ -557,8 +557,8 @@ function PureMultimodalInput({
             value={input}
           />
         </div>
-        <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
-          <PromptInputTools className="gap-0 sm:gap-0.5">
+        <PromptInputToolbar className="min-w-0 items-end gap-2 border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
+          <PromptInputTools className="min-w-0 flex-1 flex-wrap gap-0 sm:gap-0.5">
             <Button
               aria-pressed={agentMode}
               className="h-8 px-2"
@@ -613,7 +613,7 @@ function PureMultimodalInput({
                     lang === "ar"
                       ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
                       : "Voice mode is on. Speak and I will answer out loud.",
-                    lang
+                    lang,
                   );
                 }
                 toggleVoiceMode();
@@ -639,18 +639,24 @@ function PureMultimodalInput({
             />
           </PromptInputTools>
 
-          {status === "submitted" ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <PromptInputSubmit
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
-              data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-            >
-              <ArrowUpIcon size={14} />
-            </PromptInputSubmit>
-          )}
+          <div
+            className="flex shrink-0 items-center self-end"
+            data-testid="composer-submit-slot"
+          >
+            {status === "submitted" ? (
+              <StopButton setMessages={setMessages} stop={stop} />
+            ) : (
+              <PromptInputSubmit
+                aria-label={lang === "ar" ? "إرسال الرسالة" : "Send message"}
+                className="size-10 shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+                data-testid="send-button"
+                disabled={!input.trim() || uploadQueue.length > 0}
+                status={status}
+              >
+                <ArrowUpIcon size={14} />
+              </PromptInputSubmit>
+            )}
+          </div>
         </PromptInputToolbar>
         {agentModeAllowed ? (
           agentMode ? (
@@ -727,7 +733,7 @@ export const MultimodalInput = memo(
     }
 
     return true;
-  }
+  },
 );
 
 function PureAttachmentsButton({
@@ -822,7 +828,7 @@ function PureModelSelectorCompact({
                   );
                 })}
               </ModelSelectorGroup>
-            )
+            ),
           )}
         </ModelSelectorList>
       </ModelSelectorContent>

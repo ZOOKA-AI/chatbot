@@ -19,7 +19,8 @@
     "test:e2e": "pnpm exec playwright test",
     "test:unit": "vitest run tests/unit && tsx --test lib/ai/models.test.ts",
     "check:placeholders": "node scripts/check-placeholders.mjs",
-    "prebuild": "node scripts/check-placeholders.mjs"
+    "prebuild": "node scripts/check-placeholders.mjs",
+    "test:composer": "node scripts/test-composer.mjs"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.15",
