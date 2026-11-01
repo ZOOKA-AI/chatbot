@@ -29,7 +29,23 @@ async function main() {
       }
     }
     if (!up) throw new Error("Local production server unavailable");
-    browser = await chromium.launch({ headless: true });
+    try {
+      browser = await chromium.launch({ headless: true });
+    } catch (error) {
+      const message = String(error);
+      // Vercel's build image has no Playwright browser. Only the bundle gate can
+      // run there; force this one with BRAND_RENDER_GATE=strict.
+      if (
+        message.includes("Executable doesn't exist") &&
+        process.env.BRAND_RENDER_GATE !== "strict"
+      ) {
+        console.warn(
+          "Rendered brand gate SKIPPED: no Playwright Chromium in this build image. Run `pnpm exec playwright install chromium` or set BRAND_RENDER_GATE=strict to enforce it.",
+        );
+        return;
+      }
+      throw error;
+    }
     for (const lang of ["ar", "en"]) {
       const context = await browser.newContext();
       await context.addCookies([
