@@ -26,7 +26,7 @@
     "unseal": "node scripts/unseal-identity.mjs",
     "predev": "node scripts/unseal-identity.mjs",
     "pretest:unit": "node scripts/unseal-identity.mjs",
-    "release:check": "pnpm exec playwright install chromium --only-shell && tsx scripts/check-brand.ts source && pnpm exec tsc --noEmit && pnpm test:unit && pnpm build && BRAND_RENDER_GATE=strict tsx scripts/check-brand-rendered.ts && echo 'RELEASE CHECK: all gates passed'"
+    "release:check": "pnpm unseal && tsx scripts/check-brand.ts source && pnpm exec tsc --noEmit && pnpm test:unit && pnpm exec playwright install chromium --only-shell && BRAND_RENDER_GATE=strict pnpm build"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.15",

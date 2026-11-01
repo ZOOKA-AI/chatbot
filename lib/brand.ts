@@ -28,10 +28,11 @@ export const COMPANY_COUNTRY = IDENTITY.country;
 export const CONTACT_EMAIL = IDENTITY.contactEmail;
 export const PRIVACY_EMAIL = IDENTITY.privacyEmail;
 export const BILLING_EMAIL = IDENTITY.billingEmail;
-export {
-  MASKED_PHONE_LABEL as CONTACT_PHONE_DISPLAY,
-  WHATSAPP_PHONE_E164 as CONTACT_PHONE_E164,
-} from "./brand-display";
+export const CONTACT_PHONE_E164 = IDENTITY.phoneE164;
+/** Format the sealed canonical local number; never replace the sealed identity. */
+export const CONTACT_PHONE_DISPLAY = IDENTITY.phoneDisplay
+  .replace(/\s/g, "")
+  .replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
 
 export const COPYRIGHT =
   `© 2026 ${COMPANY_LEGAL_NAME_EN}. All rights reserved.` as const;

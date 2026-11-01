@@ -3,14 +3,16 @@ import { chromium } from "@playwright/test";
 import {
   APP_STORE_NAME,
   COMPANY_ADDRESS,
+  COMPANY_COUNTRY,
   COMPANY_LEGAL_NAME_AR,
   COMPANY_LEGAL_NAME_EN,
   CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_E164,
   PRODUCT_NAME,
   PRODUCT_NAME_AR,
   SITE_URL,
 } from "../lib/brand";
-import { MASKED_COMPANY_FIELD } from "../lib/brand-display";
 
 async function main() {
   // Local production output only. Never accept a remote target from user/environment.
@@ -76,17 +78,47 @@ async function main() {
           )
         )
           throw new Error(`${route}: forbidden string in rendered HTML`);
-        const visibleText = await page.locator("body").innerText();
+        const visible = await page.locator("body").innerText();
+        if (/\*{3}\s*·\s*\*{3}/.test(visible))
+          throw new Error(`${route}: masked identity is forbidden`);
+        const footerText = (
+          await page.locator("footer").allTextContents()
+        ).join(" ");
+        for (const field of [
+          COMPANY_LEGAL_NAME_AR,
+          COMPANY_LEGAL_NAME_EN,
+          COMPANY_ADDRESS,
+          COMPANY_COUNTRY,
+          CONTACT_EMAIL,
+        ]) {
+          if (!footerText.includes(field))
+            throw new Error(`${route}: footer identity field missing`);
+        }
+        const normalizePhone = (value: string) => value.replace(/[\s()-]/g, "");
+        const canonical = normalizePhone(CONTACT_PHONE_E164);
+        const local = normalizePhone(CONTACT_PHONE_DISPLAY);
+        for (const link of await page
+          .locator('a[href^="tel:"],a[href^="https://wa.me/"]')
+          .all()) {
+          const href = (await link.getAttribute("href")) ?? "";
+          const number = normalizePhone(
+            href.replace(/^tel:|^https:\/\/wa\.me\//, "").split("?")[0],
+          ).replace(/^\+/, "");
+          if (number !== canonical.replace(/^\+/, ""))
+            throw new Error(`${route}: noncanonical phone destination`);
+        }
+        for (const candidate of visible.match(
+          /(?:\+971|0)\d(?:[\s-]?\d){8,11}/g,
+        ) ?? []) {
+          if (![canonical, local].includes(normalizePhone(candidate)))
+            throw new Error(`${route}: noncanonical visible phone`);
+        }
         if (
-          [COMPANY_LEGAL_NAME_EN, COMPANY_LEGAL_NAME_AR, COMPANY_ADDRESS].some(
-            (value) => value && visibleText.includes(value),
-          )
+          ["/privacy", "/terms", "/refund"].includes(route) &&
+          (!visible.includes(COMPANY_LEGAL_NAME_AR) ||
+            !visible.replace(/\s/g, " ").includes(CONTACT_PHONE_DISPLAY))
         )
-          throw new Error(`${route}: unmasked company identity`);
-        if (/0563177803|0566047579/.test(visibleText))
-          throw new Error(`${route}: unmasked phone`);
-        if (await page.locator('a[href^="tel:"]').count())
-          throw new Error(`${route}: telephone call link not allowed`);
+          throw new Error(`${route}: legal name or canonical phone absent`);
         const title = await page.title();
         const count =
           title.split(PRODUCT_NAME).length -
@@ -99,7 +131,7 @@ async function main() {
         if (
           !footer.some(
             (s) =>
-              s.includes(MASKED_COMPANY_FIELD) && s.includes(CONTACT_EMAIL),
+              s.includes(COMPANY_LEGAL_NAME_EN) && s.includes(CONTACT_EMAIL),
           )
         )
           throw new Error(`${route}: missing legal footer`);

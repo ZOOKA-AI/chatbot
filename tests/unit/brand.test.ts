@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   APP_STORE_NAME,
@@ -14,6 +15,7 @@ import {
   STORE_LISTING,
   whatsappSignature,
 } from "@/lib/brand";
+import { IDENTITY } from "@/lib/brand-identity.generated";
 
 describe("canonical brand", () => {
   it("uses the owner's spelling and entity", () => {
@@ -21,7 +23,10 @@ describe("canonical brand", () => {
     expect(SITE_URL).toBe("https://zooka-ai.com");
     expect(COMPANY_LEGAL_NAME_EN.endsWith("FZ-LLC")).toBe(true);
     expect(CONTACT_EMAIL).toBe("support@zooka-ai.com");
-    expect(CONTACT_PHONE_E164).toBe("+971566047579");
+    expect(CONTACT_PHONE_E164).toBe(IDENTITY.phoneE164);
+    expect(createHash("sha256").update(CONTACT_PHONE_E164).digest("hex")).toBe(
+      "7cb572a9a95e22b998e76f28a082ba52b63024d6eb06691d26ebc6959d29ebdc",
+    );
   });
   it("keeps pricing and listing fields aligned", () => {
     expect(BRAND_PRICES).toEqual({ free: 0, pro: 19, business: 49 });
