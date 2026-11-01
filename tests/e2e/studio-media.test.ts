@@ -227,3 +227,18 @@ test("leaving the media section stops all generated capture tracks", async ({
     ),
   ).toBe(true);
 });
+
+test("extension slots are reserved without fake activation buttons", async ({
+  page,
+}) => {
+  await page.goto("/studio/extensions");
+  await expect(
+    page.getByRole("heading", { name: "مساحة التطوير", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("مساحة محجوزة — غير مفعّل", { exact: true }),
+  ).toHaveCount(3);
+  await expect(
+    page.getByRole("button", { name: "تفعيل", exact: true }),
+  ).toHaveCount(0);
+});

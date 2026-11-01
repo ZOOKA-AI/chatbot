@@ -13,6 +13,7 @@ export const studioSections = [
   { id: "integrations", label: "التكاملات" },
   { id: "browser", label: "المتصفح" },
   { id: "profile", label: "الملف الشخصي" },
+  { id: "extensions", label: "مساحة التطوير" },
 ] as const;
 export type StudioSection = (typeof studioSections)[number]["id"];
 export function isStudioSection(value: string): value is StudioSection {

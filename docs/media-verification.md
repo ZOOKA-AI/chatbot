@@ -62,3 +62,11 @@ recognition and actual MediaRecorder on synthetic frames) plus seven existing
 Studio regression scenarios. Targeted recommended lint and placeholder check
 passed. No real microphone, OS screen picker, authenticated draft transfer or
 external provider operation is included in that result.
+
+## Release preparation
+
+Latest main fixes (including model fallback, truthful credential state and mobile
+zoom) were merged into the release branch before preparing production. Reserved
+extension slots are explicitly inactive and have no fake activation action. New
+features still need code changes, tests and release; this is a navigation/design
+extension point, not remote code installation or a promise of active services.

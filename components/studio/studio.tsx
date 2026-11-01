@@ -24,6 +24,7 @@ import {
   Monitor,
   PanelLeftClose,
   Plus,
+  Puzzle,
   Search,
   Settings2,
   ShieldCheck,
@@ -52,6 +53,7 @@ import {
   starterTemplates,
   studioSections,
 } from "@/lib/studio";
+import { studioExtensionSlots } from "@/lib/studio-extensions";
 import { AgentBrief } from "./agent-brief";
 import { CommandMenu } from "./command-menu";
 import { Playground } from "./playground";
@@ -75,6 +77,7 @@ const sectionIcons = [
   Cable,
   Globe2,
   UserRound,
+  Puzzle,
 ];
 const sectionHref = (id: StudioSection) =>
   id === "home" ? "/studio" : `/studio/${id}`;
@@ -573,6 +576,35 @@ export function Studio({ section }: { section: StudioSection }) {
           )}
           {section === "tasks" && <TaskBoard />}
           {section === "agent" && <AgentBrief />}
+          {section === "extensions" && (
+            <>
+              <PageHeading
+                eyebrow="قابل للتوسّع"
+                title="مساحة التطوير"
+                description="أماكن محجوزة لإضافات مستقبلية. ليست ميزات مفعّلة أو وعود مواعيد؛ لن تظهر أزرار تشغيل قبل تنفيذ كل إضافة واختبارها."
+              />
+              <div className={styles.quickGrid}>
+                {studioExtensionSlots.map((slot) => (
+                  <article className={styles.projectCard} key={slot.id}>
+                    <Puzzle size={25} />
+                    <h2>{slot.title}</h2>
+                    <p>{slot.note}</p>
+                    <span className={styles.plannedBadge}>
+                      مساحة محجوزة — غير مفعّل
+                    </span>
+                  </article>
+                ))}
+              </div>
+              <div className={styles.releaseNote}>
+                <ShieldCheck size={22} />
+                <p>
+                  تُضاف الصفحات إلى سجل التنقّل ويظهر البحث عنها تلقائياً. التنفيذ
+                  والإصدار ما زالا يحتاجان تحديث كود واختبارات؛ هذه المساحة لا
+                  تنشئ خدمات آلياً.
+                </p>
+              </div>
+            </>
+          )}
           {section === "media" && (
             <>
               <PageHeading
