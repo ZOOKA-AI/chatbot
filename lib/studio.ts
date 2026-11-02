@@ -81,6 +81,8 @@ export const implementedConnectionIds = new Set([
   "google_drive",
   "gmail",
   "n8n",
+  "google_calendar",
+  "stripe",
 ]);
 export const extraAutomationProviders = [
   {
