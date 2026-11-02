@@ -696,27 +696,6 @@ export function LandingPage({ lang }: { lang: Lang }) {
         }}
         type="application/ld+json"
       />
-      <script
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "VideoObject",
-            name: t("زوكا AI — فيديو تعريفي", "Zooka AI demo video"),
-            description: t(
-              "عرض سريع لقدرات زوكا AI: ربط الأدوات، تنفيذ المهام، التكاملات، المحادثة الصوتية والنشر.",
-              "A short walkthrough of Zooka AI: connecting tools, multi-step execution, integrations, voice and shipping."
-            ),
-            thumbnailUrl: "https://zooka-ai.com/images/zooka-demo-poster.png",
-            contentUrl: "https://zooka-ai.com/videos/zooka-demo.mp4",
-            // Google requires uploadDate as full ISO 8601 WITH a timezone offset,
-            // otherwise Search Console reports "invalid date value" and
-            // "no time zone specified" for the VideoObject.
-            uploadDate: "2026-10-31T09:00:00+04:00",
-            duration: "PT28S",
-          }),
-        }}
-        type="application/ld+json"
-      />
     </div>
   );
 }

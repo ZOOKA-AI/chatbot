@@ -180,6 +180,13 @@ export function VideoSection({ lang }: { lang: Lang }) {
               </li>
             ))}
           </ul>
+
+          <Link
+            className="mt-6 inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 font-medium text-sm hover:bg-white/5"
+            href="/videos/zooka-demo"
+          >
+            {ar ? "افتح صفحة الفيديو" : "Open the video page"}
+          </Link>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               className="rounded-lg bg-foreground px-5 py-2.5 font-medium text-background text-sm"
