@@ -937,7 +937,7 @@ export function Studio({ section }: { section: StudioSection }) {
                             دليل الربط والصلاحيات
                           </button>
                         )}
-                        {implemented ? (
+                        {implemented || connectedIds.has(p.id) ? (
                           <Link
                             className={styles.integrationAction}
                             href="/settings/integrations"
