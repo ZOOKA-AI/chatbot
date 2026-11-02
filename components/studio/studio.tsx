@@ -98,6 +98,7 @@ export function Studio({ section }: { section: StudioSection }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [notice, setNotice] = useState("");
+  const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set());
   const [guideProvider, setGuideProvider] = useState<{
     id: string;
     name: string;
@@ -841,10 +842,10 @@ export function Studio({ section }: { section: StudioSection }) {
                   </p>
                 </div>
                 <Link
-                  className={styles.secondary}
+                  className={styles.primary}
                   href="/settings/integrations"
                 >
-                  إدارة الربط <ExternalLink size={16} />
+                  افتح مركز الربط الحقيقي <ExternalLink size={16} />
                 </Link>
               </div>
               <div className={styles.toolbar}>
@@ -899,7 +900,7 @@ export function Studio({ section }: { section: StudioSection }) {
                                 : styles.plannedBadge
                             }
                           >
-                            {implemented ? "مسار ربط متاح" : "غير مفعّل"}
+                            {implemented ? "ربط حقيقي متاح" : "قريبًا"}
                           </span>
                         </div>
                         <h2>{p.name}</h2>
