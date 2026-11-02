@@ -99,6 +99,23 @@ export function Studio({ section }: { section: StudioSection }) {
   const [category, setCategory] = useState("all");
   const [notice, setNotice] = useState("");
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/integrations/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (alive && Array.isArray(data?.connected)) {
+          setConnectedIds(new Set<string>(data.connected));
+        }
+      })
+      .catch(() => {
+        // Guests and offline visitors keep the neutral badge.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [guideProvider, setGuideProvider] = useState<{
     id: string;
     name: string;
@@ -841,10 +858,7 @@ export function Studio({ section }: { section: StudioSection }) {
                     توكنات أو أسرار في نسخة المراجعة.
                   </p>
                 </div>
-                <Link
-                  className={styles.primary}
-                  href="/settings/integrations"
-                >
+                <Link className={styles.primary} href="/settings/integrations">
                   افتح مركز الربط الحقيقي <ExternalLink size={16} />
                 </Link>
               </div>
@@ -893,15 +907,19 @@ export function Studio({ section }: { section: StudioSection }) {
                           >
                             <ProviderIcon id={p.id} />
                           </span>
-                          <span
-                            className={
-                              implemented
-                                ? styles.availableBadge
-                                : styles.plannedBadge
-                            }
-                          >
-                            {implemented ? "ربط حقيقي متاح" : "قريبًا"}
-                          </span>
+                          {connectedIds.has(p.id) ? (
+                            <span className={styles.connectedBadge}>متصل</span>
+                          ) : (
+                            <span
+                              className={
+                                implemented
+                                  ? styles.availableBadge
+                                  : styles.plannedBadge
+                              }
+                            >
+                              {implemented ? "ربط حقيقي متاح" : "قريبًا"}
+                            </span>
+                          )}
                         </div>
                         <h2>{p.name}</h2>
                         <p>{p.descriptionAr}</p>
