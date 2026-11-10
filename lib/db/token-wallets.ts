@@ -9,8 +9,8 @@ import postgres from "postgres";
 export const PLAN_TOKEN_ALLOWANCE: Record<string, number> = {
   free: 0,
   starter: 3_300_000,
-  pro: 7_300_000,
-  business: 10_200_000,
+  pro: 1_280_000,
+  business: 3_300_000,
 };
 
 let client: ReturnType<typeof postgres> | null = null;
