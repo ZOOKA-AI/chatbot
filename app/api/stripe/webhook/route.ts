@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { recordReferralEvent } from "@/lib/affiliate";
 import { syncWorkspaceSubscription } from "@/lib/db/queries";
+import { grantTokensForBillingPeriod } from "@/lib/db/token-wallets";
 import {
   getPlanFromStripePriceId,
   workspacePlans,
@@ -86,6 +87,39 @@ async function syncFromFailedInvoice(invoice: Stripe.Invoice) {
   await syncFromSubscription(subscription, "past_due");
 }
 
+async function grantTokensFromSubscription(
+  subscription: Stripe.Subscription,
+  grantKey: string
+) {
+  const organizationId = subscription.metadata.organizationId;
+  const configuredPlan = subscription.metadata.plan;
+  const pricePlan = getPlanFromStripePriceId(
+    subscription.items.data[0]?.price.id ?? ""
+  );
+  const plan =
+    pricePlan ??
+    (configuredPlan === "pro" ||
+    configuredPlan === "business" ||
+    configuredPlan === "starter"
+      ? configuredPlan
+      : null);
+  if (!(organizationId && plan)) {
+    return;
+  }
+  const item = subscription.items.data[0];
+  await grantTokensForBillingPeriod({
+    organizationId,
+    plan,
+    grantKey,
+    periodStart: item?.current_period_start
+      ? new Date(item.current_period_start * 1000)
+      : null,
+    periodEnd: item?.current_period_end
+      ? new Date(item.current_period_end * 1000)
+      : null,
+  });
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
@@ -156,6 +190,16 @@ export async function POST(request: Request) {
         const subscription =
           await getStripe().subscriptions.retrieve(subscriptionId);
         await syncFromSubscription(subscription);
+        try {
+          await grantTokensFromSubscription(
+            subscription,
+            `invoice:${event.data.object.id}`
+          );
+        } catch {
+          captureException(new Error("Token grant failed for paid invoice"), {
+            tags: { area: "token-metering" },
+          });
+        }
       }
     }
   } catch {
