@@ -62,6 +62,7 @@ export async function proxy(request: NextRequest) {
     pathname === "/api/guest-quota" ||
     pathname === "/api/webhooks/stripe" ||
     pathname === "/api/stripe/webhook" ||
+    pathname === "/api/billing/health" ||
     pathname === "/api/admin/backup" ||
     // Machine-to-machine: the ingest route authenticates with x-leads-key,
     // so it must not be bounced to the login page.
