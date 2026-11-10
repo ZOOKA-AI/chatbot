@@ -1,9 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 /**
  * تشخيص غير حساس: يثبت أن النسخة المنشورة تحتوي كود الفوترة،
  * وأن متغيرات البيئة موجودة، دون كشف أي قيمة سرية.
