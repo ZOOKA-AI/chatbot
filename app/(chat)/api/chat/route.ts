@@ -432,17 +432,23 @@ export async function POST(request: Request) {
             );
           }
         } else if (finishedMessages.length > 0) {
-          await saveMessages({
-            messages: finishedMessages.map((currentMessage) => ({
-              id: currentMessage.id,
-              role: currentMessage.role,
-              parts: currentMessage.parts,
-              createdAt: new Date(),
-              attachments: [],
-              chatId: id,
-            })),
-            organizationId: workspaceContext.organizationId,
-          });
+          const existingMessageIds = new Set(uiMessages.map((m) => m.id));
+          const newMessages = finishedMessages.filter(
+            (currentMessage) => !existingMessageIds.has(currentMessage.id)
+          );
+          if (newMessages.length > 0) {
+            await saveMessages({
+              messages: newMessages.map((currentMessage) => ({
+                id: currentMessage.id,
+                role: currentMessage.role,
+                parts: currentMessage.parts,
+                createdAt: new Date(),
+                attachments: [],
+                chatId: id,
+              })),
+              organizationId: workspaceContext.organizationId,
+            });
+          }
           if (message?.role === "user") {
             await recordUsage(
               session.user.id,
