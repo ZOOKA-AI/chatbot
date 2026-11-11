@@ -30,29 +30,52 @@ const PAGE_URL = `${SITE_URL}/developer`;
 
 const personSchema = {
   "@context": "https://schema.org",
-  "@type": "Person",
-  address: {
-    "@type": "PostalAddress",
-    addressCountry: "AE",
-    addressLocality: "Ras Al Khaimah",
-  },
-  jobTitle: "Developer at AI",
-  knowsAbout: [
-    "Android",
-    "Artificial Intelligence",
-    "Machine Learning",
-    "Google Cloud",
-    "Automation",
-    "Multi-agent systems",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: "Zooka AI",
+      url: SITE_URL,
+      logo: `${SITE_URL}/images/zooka-logo-512.png`,
+      sameAs: [
+        "https://github.com/ZOOKA-AI",
+        "https://g.dev/zooka-ai",
+        "https://developers.google.com/profile/u/zooka-ai",
+      ],
+    },
+    {
+      "@type": "Person",
+      "@id": `${PAGE_URL}#developer`,
+      name: "Haroon",
+      alternateName: ["helmyharoon8", "ZOOKA-AI"],
+      jobTitle: "Developer at AI",
+      description:
+        "أبني وكلاء عرباً ينفّذون المهام على أدوات الشركة: بريد، ملفات، نشر، وأتمتة.",
+      url: PAGE_URL,
+      image: `${SITE_URL}/images/zooka-logo-512.png`,
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "رأس الخيمة",
+        addressRegion: "إمارة رأس الخيمة",
+        addressCountry: "AE",
+      },
+      knowsAbout: [
+        "Android",
+        "Artificial Intelligence",
+        "Machine Learning",
+        "Google Cloud",
+        "Automation",
+        "Multi-agent systems",
+      ],
+      sameAs: [
+        "https://g.dev/zooka-ai",
+        "https://developers.google.com/profile/u/zooka-ai",
+        "https://github.com/ZOOKA-AI",
+        "https://github.com/ZOOKA-AI/chatbot",
+      ],
+      worksFor: { "@id": `${SITE_URL}/#organization` },
+    },
   ],
-  name: "helmyharoon8",
-  sameAs: ["https://g.dev/zooka-ai", "https://github.com/ZOOKA-AI"],
-  url: PAGE_URL,
-  worksFor: {
-    "@type": "Organization",
-    name: "Zooka AI",
-    url: SITE_URL,
-  },
 };
 
 const BADGES = [

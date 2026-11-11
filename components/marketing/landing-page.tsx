@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_URL } from "@/lib/site";
 import {
   INTEGRATION_PROVIDERS,
   PROVIDER_CATEGORIES,
@@ -680,7 +681,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
             name: "Zooka AI",
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web",
-            url: "https://zooka-ai.com",
+            url: SITE_URL,
+            publisher: { "@id": `${SITE_URL}/#organization` },
             inLanguage: ["ar", "en"],
             description:
               "Zooka AI: an AI business agent that connects your tools, executes multi-step tasks and keeps your data isolated per workspace.",

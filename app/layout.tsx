@@ -124,6 +124,26 @@ export default function RootLayout({
           src="https://www.googletagmanager.com/gtag/js?id=G-EJX3ENM55L"
           strategy="afterInteractive"
         />
+        <script
+          // Sitewide entity so every page references one Organization node.
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "@id": `${SITE_URL}/#organization`,
+              name: SITE_NAME,
+              url: SITE_URL,
+              logo: `${SITE_URL}/images/zooka-logo-512.png`,
+              description: SITE_DESCRIPTION,
+              sameAs: [
+                "https://github.com/ZOOKA-AI",
+                "https://g.dev/zooka-ai",
+                "https://developers.google.com/profile/u/zooka-ai",
+              ],
+            }),
+          }}
+          type="application/ld+json"
+        />
         <Script id="ga4-init" strategy="afterInteractive">
           {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
