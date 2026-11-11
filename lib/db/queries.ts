@@ -1655,3 +1655,54 @@ export async function consumePasswordResetToken(
     .where(eq(passwordResetToken.tokenHash, tokenHash));
   return true;
 }
+
+export async function getWorkspaceUsageDetail(
+  organizationId: string,
+  limit = 25
+) {
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+  const breakdown = await db
+    .select({
+      event: usageEvent.event,
+      total: sum(usageEvent.quantity),
+      entries: count(),
+    })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        gte(usageEvent.createdAt, monthStart)
+      )
+    )
+    .groupBy(usageEvent.event)
+    .orderBy(desc(sum(usageEvent.quantity)));
+
+  const recent = await db
+    .select({
+      id: usageEvent.id,
+      event: usageEvent.event,
+      quantity: usageEvent.quantity,
+      createdAt: usageEvent.createdAt,
+    })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        gte(usageEvent.createdAt, monthStart)
+      )
+    )
+    .orderBy(desc(usageEvent.createdAt))
+    .limit(limit);
+
+  return {
+    monthStart,
+    breakdown: breakdown.map((row) => ({
+      event: row.event,
+      total: Number(row.total ?? 0),
+      entries: Number(row.entries ?? 0),
+    })),
+    recent,
+  };
+}
