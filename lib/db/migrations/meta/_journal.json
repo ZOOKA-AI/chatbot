@@ -127,6 +127,48 @@
       "when": 1794376024053,
       "tag": "0017_client_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794376025053,
+      "tag": "0014_n8n_connection",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794376026053,
+      "tag": "0015_password_reset_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794376027053,
+      "tag": "0016_oauth_connection",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794376028053,
+      "tag": "0017_base44_agent_session",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794376029053,
+      "tag": "0018_studio_project",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794376030053,
+      "tag": "0019_webhook_event",
+      "breakpoints": true
     }
   ]
 }
