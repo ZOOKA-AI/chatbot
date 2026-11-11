@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -135,7 +136,16 @@ const BUILT = [
   },
 ] as const;
 
-export default async function DeveloperPage() {
+export default function DeveloperPage() {
+  // getLang reads a cookie, so the shell stays static and the content streams.
+  return (
+    <Suspense fallback={null}>
+      <DeveloperContent />
+    </Suspense>
+  );
+}
+
+async function DeveloperContent() {
   const lang = await getLang();
   const ar = lang === "ar";
 
