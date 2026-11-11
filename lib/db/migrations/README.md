@@ -46,8 +46,12 @@ Consequences to keep in mind:
   with the unique index `WebhookEvent_provider_externalId_idx`. `lib/db/schema.ts` expects
   `payload json`, `externalId varchar(255)`, the unique constraint
   `WebhookEvent_provider_externalId_key`, and the index `WebhookEvent_receivedAt_idx`.
-  `0019_webhook_event.sql` closes that gap **additively**: it adds the missing column and index
-  and widens nothing destructively. Any query that selects `payload` will fail until it has run.
+  `0020_webhook_event_drift.sql` repairs this even when `0019_webhook_event.sql` was already
+  recorded without changing the production table. It adds the missing column and index, adopts
+  the existing unique index as the schema's constraint, and converts `externalId` to
+  `varchar(255)`. The conversion fails without truncating data if any ID exceeds 255 characters;
+  resolve such values before retrying. No previously applied SQL semantics were changed.
+  Until the repair runs, the webhook claim insert fails because it writes `payload`.
 * `/api/admin/migrate` stays the only sanctioned path for a schema change that has to land
   immediately. It is not a substitute for the journal: add the matching `.sql` file and journal
   entry in the same change so the next environment can be built from scratch.
@@ -58,3 +62,18 @@ Consequences to keep in mind:
 `tests/unit/media-migrations.test.ts` boots an in-memory Postgres (pglite), applies the whole
 chain, and re-applies the media and webhook migrations to prove they are re-runnable. It never
 touches a real database and needs no credentials.
+
+## WebhookEvent access audit
+
+* `lib/webhooks/events.ts:17-27`: inserts `provider`, `externalId`, and `payload`, checks
+  conflicts on `provider` and `externalId`, and returns `id`.
+* `lib/webhooks/events.ts:41-47`: deletes rows matching `provider` and `externalId`.
+* `lib/webhooks/whatsapp.ts:63-67`, `lib/webhooks/n8n.ts:46-50`, and
+  `app/api/stripe/webhook/route.ts:162-166` call the insert helper; Stripe also calls the
+  delete helper at `app/api/stripe/webhook/route.ts:222`.
+* `app/api/admin/migrate/route.ts:7-8` creates the production-shaped table and unique index;
+  it does not read or write rows.
+
+No runtime path selects `payload` or depends on the unique constraint's name. The insert does
+write `payload` and uses column-based conflict inference, which works with a unique index or
+constraint.
