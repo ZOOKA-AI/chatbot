@@ -1,15 +1,19 @@
 import { captureException } from "@sentry/nextjs";
-import { NextResponse, after } from "next/server";
+import { after, NextResponse } from "next/server";
 import { claimWebhookEvent } from "@/lib/webhooks/events";
 import { verifyHmacSha256 } from "@/lib/webhooks/security";
 
-type WhatsAppMessage = { id?: string; from?: string; text?: { body?: string } };
-type WhatsAppPayload = {
+interface WhatsAppMessage {
+  id?: string;
+  from?: string;
+  text?: { body?: string };
+}
+interface WhatsAppPayload {
   entry?: {
     id?: string;
     changes?: { value?: { messages?: WhatsAppMessage[] } }[];
   }[];
-};
+}
 
 export async function verifyWhatsAppChallenge(request: Request) {
   const url = new URL(request.url);
@@ -39,24 +43,14 @@ export async function handleWhatsAppWebhook(request: Request) {
 
   const appSecret = process.env.WHATSAPP_APP_SECRET;
 
-  if (appSecret) {
-    if (!verifyHmacSha256(rawBody, signature, appSecret)) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
-  } else {
-    /*
-     * Degraded mode: the app secret has not been provisioned yet, so the
-     * X-Hub-Signature-256 header cannot be validated. Meta always sends the
-     * header, so a delivery without one is not from Meta and stays refused.
-     * Every unsigned-but-accepted delivery is logged so the gap is auditable,
-     * and this branch closes itself the moment WHATSAPP_APP_SECRET exists.
-     */
-    if (!signature) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
-    }
-    console.warn(
-      "[whatsapp-webhook] WHATSAPP_APP_SECRET is not set: accepting an unverified delivery"
+  if (!appSecret) {
+    return NextResponse.json(
+      { error: "WhatsApp app secret is not configured" },
+      { status: 503 }
     );
+  }
+  if (!verifyHmacSha256(rawBody, signature, appSecret)) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   let payload: WhatsAppPayload;

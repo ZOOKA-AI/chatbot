@@ -203,16 +203,12 @@ export async function POST(request: Request) {
         const subscription =
           await getStripe().subscriptions.retrieve(subscriptionId);
         await syncFromSubscription(subscription);
-        try {
-          await grantTokensFromSubscription(
-            subscription,
-            `invoice:${event.data.object.id}`
-          );
-        } catch {
-          captureException(new Error("Token grant failed for paid invoice"), {
-            tags: { area: "token-metering" },
-          });
-        }
+        // Grant failures must reach the outer retry path. Acknowledging 200
+        // while retaining the event claim would permanently suppress retries.
+        await grantTokensFromSubscription(
+          subscription,
+          `invoice:${event.data.object.id}`
+        );
       }
     }
   } catch {
