@@ -117,3 +117,42 @@ one process; real multi-connection testing is still required on staging.
 The external sender code was not supplied. Matching HMAC formats, credentials,
 callback reachability and real generated assets remain unverified. Persistent
 rate/concurrency limits, provider availability and billing are separate gates.
+
+## Tested generator-side Node reference
+
+`scripts/media-callback-sender.mjs` is a dependency-free reference for a trusted
+Node worker. Importing the module performs no network request. The operator
+must supply a fixed receiver URL and a secret from the worker's own environment;
+never use a user prompt or an unverified dispatch body as callback configuration.
+The generator must first authenticate incoming dispatch HMACs and create a real
+asset. This module only sends status notifications; it does not generate media.
+
+```js
+import { sendMediaCallback } from "./scripts/media-callback-sender.mjs";
+
+// Configure these yourself in the trusted worker; never print their values.
+const config = {
+  callbackUrl: process.env.ZOOKA_MEDIA_CALLBACK_URL,
+  secret: process.env.MEDIA_ENGINE_WEBHOOK_SECRET,
+};
+
+// jobId must come from an authenticated job dispatch, not arbitrary user input.
+await sendMediaCallback({ jobId, status: "running" }, config);
+// Only after generation and upload to an approved storage origin succeed:
+await sendMediaCallback({ jobId, status: "succeeded", assetUrl }, config);
+```
+
+The sender serializes once, signs the exact UTF-8 bytes, refuses insecure or
+incorrect callback paths, caps payloads and uses a 15-second timeout. Redirects
+are errors: a shared signing header must not be forwarded to another destination.
+It accepts only the documented acknowledgement shape. It never logs secrets,
+URLs or response bodies; the caller schedules bounded retries/backoff after
+transient failures. A network timeout can follow a successful database update,
+so retry the same payload rather than inventing a new job ID.
+
+The integration test connects this sender to the real callback handler, the real
+migration chain and real SQL state transitions in PGlite, then calls the real
+GET handler with a test workspace. Only transport/auth/workspace lookup adapters
+are in-process: the test verifies persisted success, ignored duplicate/late
+failure, signature rejection and other-workspace 404. It does not verify a
+hosted generator, DNS/TLS, Vercel protection, provider output or real file upload.
