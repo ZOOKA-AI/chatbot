@@ -40,6 +40,9 @@ export function SiteFooter({ lang, year }: { lang: Lang; year: number }) {
           <Link className="hover:underline" href="/platform-readiness">
             {ar ? "الجاهزية" : "Readiness"}
           </Link>
+          <Link className="hover:underline" href="/developer">
+            {ar ? "المطوّر" : "Developer"}
+          </Link>
           {LINKS.map(([href, page]) => (
             <Link className="hover:underline" href={href} key={href}>
               {page === "compare"
