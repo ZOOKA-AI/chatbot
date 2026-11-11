@@ -33,6 +33,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  /*
+   * One-shot schema endpoint: authenticated by its own x-migration-token
+   * header, so it must reach the route handler rather than a login redirect.
+   */
+  if (pathname === "/api/admin/migrate") {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
   }
