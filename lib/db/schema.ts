@@ -409,3 +409,21 @@ export const studioProject = pgTable(
 );
 
 export type StudioProject = InferSelectModel<typeof studioProject>;
+
+export const webhookEvent = pgTable(
+  "WebhookEvent",
+  {
+    id: uuid("id").notNull().primaryKey().defaultRandom(),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    externalId: varchar("externalId", { length: 255 }).notNull(),
+    payload: json("payload"),
+    receivedAt: timestamp("receivedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    providerExternalIdUnique: unique("WebhookEvent_provider_externalId_key").on(
+      table.provider,
+      table.externalId
+    ),
+    receivedAtIndex: index("WebhookEvent_receivedAt_idx").on(table.receivedAt),
+  })
+);

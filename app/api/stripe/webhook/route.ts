@@ -2,6 +2,10 @@ import { captureException } from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { recordReferralEvent } from "@/lib/affiliate";
+import {
+  claimWebhookEvent,
+  releaseWebhookEvent,
+} from "@/lib/webhooks/events";
 import { syncWorkspaceSubscription } from "@/lib/db/queries";
 import { grantTokensForBillingPeriod } from "@/lib/db/token-wallets";
 import {
@@ -155,6 +159,15 @@ export async function POST(request: Request) {
     );
   }
 
+  const isFirstDelivery = await claimWebhookEvent({
+    provider: "stripe",
+    externalId: event.id,
+    payload: { type: event.type },
+  });
+  if (!isFirstDelivery) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
@@ -206,6 +219,7 @@ export async function POST(request: Request) {
     captureException(new Error("Stripe subscription synchronization failed"), {
       tags: { area: "stripe-webhook" },
     });
+    await releaseWebhookEvent({ provider: "stripe", externalId: event.id });
     return NextResponse.json(
       { error: "Subscription synchronization failed" },
       { status: 500 }
