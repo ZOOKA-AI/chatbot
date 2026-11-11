@@ -427,3 +427,21 @@ export const webhookEvent = pgTable(
     receivedAtIndex: index("WebhookEvent_receivedAt_idx").on(table.receivedAt),
   })
 );
+
+export const mediaJob = pgTable("MediaJob", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  organizationId: uuid("organizationId")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  actionType: varchar("actionType", { length: 16 }).notNull(),
+  prompt: text("prompt").notNull(),
+  status: varchar("status", {
+    enum: ["queued", "running", "succeeded", "failed"],
+  })
+    .notNull()
+    .default("queued"),
+  assetUrl: text("assetUrl"),
+  error: text("error"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});

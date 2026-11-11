@@ -47,6 +47,7 @@ import {
   user,
   vote,
   voteDeprecated,
+  mediaJob,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
@@ -1705,4 +1706,48 @@ export async function getWorkspaceUsageDetail(
     })),
     recent,
   };
+}
+
+export async function createMediaJob({
+  organizationId,
+  actionType,
+  prompt,
+}: {
+  organizationId: string;
+  actionType: string;
+  prompt: string;
+}) {
+  const [row] = await db
+    .insert(mediaJob)
+    .values({ organizationId, actionType, prompt })
+    .returning();
+  return row;
+}
+
+export async function getMediaJob(id: string, organizationId: string) {
+  const [row] = await db
+    .select()
+    .from(mediaJob)
+    .where(and(eq(mediaJob.id, id), eq(mediaJob.organizationId, organizationId)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function finishMediaJob({
+  id,
+  status,
+  assetUrl,
+  error,
+}: {
+  id: string;
+  status: "succeeded" | "failed";
+  assetUrl?: string | null;
+  error?: string | null;
+}) {
+  const [row] = await db
+    .update(mediaJob)
+    .set({ status, assetUrl: assetUrl ?? null, error: error ?? null, updatedAt: new Date() })
+    .where(eq(mediaJob.id, id))
+    .returning();
+  return row ?? null;
 }

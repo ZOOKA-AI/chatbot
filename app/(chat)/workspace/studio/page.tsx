@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const ACTIONS = [
   { type: "IMAGE", label: "صورة" },
@@ -9,50 +9,88 @@ const ACTIONS = [
   { type: "CARTOON", label: "قصة كرتونية" },
 ] as const;
 
+type Job = {
+  jobId: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  assetUrl: string | null;
+  error: string | null;
+  actionType: string;
+};
+
 export default function StudioPage() {
   const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isPromptEmpty = prompt.trim().length === 0;
 
-  async function submit(actionType: string) {
-    if (isPromptEmpty) {
+  const poll = useCallback(async (jobId: string) => {
+    const response = await fetch(`/api/media-engine?jobId=${jobId}`);
+    const data = (await response.json().catch(() => null)) as Job | null;
+    if (!response.ok || !data) {
+      setError("تعذّر قراءة حالة الطلب");
       return;
     }
-    setLoading(actionType);
+    setJob(data);
+    if (data.status === "queued" || data.status === "running") {
+      timer.current = setTimeout(() => poll(jobId), 4000);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+    }
+  }, []);
+
+  async function submit(actionType: string) {
+    if (isPromptEmpty || submitting) {
+      return;
+    }
+    if (timer.current) {
+      clearTimeout(timer.current);
+    }
+    setSubmitting(actionType);
     setError(null);
+    setJob(null);
     try {
       const response = await fetch("/api/media-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actionType, prompt }),
       });
-      const data: unknown = await response.json().catch(() => null);
-      const message =
-        data && typeof data === "object" && "error" in data
-          ? String((data as { error: unknown }).error)
-          : null;
-      if (!response.ok) {
-        setError(message ?? "تعذّر تنفيذ الطلب");
+      const data = (await response.json().catch(() => null)) as
+        | { jobId?: string; error?: string }
+        | null;
+      if (!response.ok || !data?.jobId) {
+        setError(data?.error ?? "تعذّر تنفيذ الطلب");
+        return;
       }
+      setJob({
+        jobId: data.jobId,
+        status: "queued",
+        assetUrl: null,
+        error: null,
+        actionType,
+      });
+      poll(data.jobId);
     } catch {
       setError("تعذّر الاتصال بالخادم");
     } finally {
-      setLoading(null);
+      setSubmitting(null);
     }
   }
+
+  const busy = job?.status === "queued" || job?.status === "running";
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8" dir="rtl">
       <h1 className="font-semibold text-2xl">استوديو الوسائط</h1>
       <p className="mt-1 text-muted-foreground text-sm">
-        واجهة الطلب جاهزة، والتوليد الفعلي بانتظار ربط مزود خارجي.
+        أرسل الوصف، وسيُعاد إليك رابط المحتوى فور انتهاء المعالجة.
       </p>
-
-      <div className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 text-xs dark:text-amber-300">
-        تنبيه: التوليد غير مفعّل حاليًا. الخادم يرفض الطلب صراحةً ولا يخصم أي حصة.
-      </div>
 
       <div className="mt-6">
         <label className="mb-2 block font-medium text-sm" htmlFor="studio-prompt">
@@ -85,15 +123,53 @@ export default function StudioPage() {
         {ACTIONS.map((action) => (
           <button
             className="rounded-xl border px-3 py-3 font-medium text-sm transition hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={isPromptEmpty || loading !== null}
+            disabled={isPromptEmpty || submitting !== null || busy}
             key={action.type}
             onClick={() => submit(action.type)}
             type="button"
           >
-            {loading === action.type ? "جارٍ التحقق…" : action.label}
+            {submitting === action.type ? "جارٍ الإرسال…" : action.label}
           </button>
         ))}
       </div>
+
+      {job ? (
+        <section className="mt-6 rounded-xl border p-4">
+          <p className="text-muted-foreground text-xs">
+            حالة الطلب: {job.status === "queued" ? "في الانتظار" : null}
+            {job.status === "running" ? "قيد المعالجة" : null}
+            {job.status === "succeeded" ? "تم" : null}
+            {job.status === "failed" ? "فشل" : null}
+          </p>
+
+          {job.error ? (
+            <p className="mt-2 text-red-700 text-sm dark:text-red-300">{job.error}</p>
+          ) : null}
+
+          {job.assetUrl ? (
+            <div className="mt-3">
+              {job.actionType === "VIDEO" ? (
+                <video
+                  className="w-full rounded-lg"
+                  controls
+                  playsInline
+                  src={job.assetUrl}
+                />
+              ) : (
+                // biome-ignore lint/performance/noImgElement: remote generated asset
+                <img
+                  alt="المحتوى المولّد"
+                  className="w-full rounded-lg"
+                  src={job.assetUrl}
+                />
+              )}
+              <p className="mt-2 break-all font-mono text-muted-foreground text-xs">
+                {job.assetUrl}
+              </p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </main>
   );
 }
