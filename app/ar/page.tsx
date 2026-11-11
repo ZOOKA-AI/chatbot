@@ -75,7 +75,7 @@ const PLANS = [
       "بدون ربط أدوات وبدون وضع الوكيل",
     ],
     cta: "ابدأ مجانًا",
-    ctaHref: "/auth",
+    ctaHref: "/register",
     highlight: false,
   },
   {
@@ -204,7 +204,7 @@ export default function ArabicLandingPage() {
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
               className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
-              href="/auth"
+              href="/register"
             >
               ابدأ مجانًا
             </Link>
@@ -213,6 +213,12 @@ export default function ArabicLandingPage() {
               href="/pricing"
             >
               عرض الخطط
+            </Link>
+            <Link
+              className="rounded-xl px-6 py-3 font-semibold text-slate-600 transition hover:text-slate-900"
+              href="/login"
+            >
+              تسجيل الدخول
             </Link>
           </div>
         </section>
@@ -301,7 +307,7 @@ export default function ArabicLandingPage() {
           </p>
           <Link
             className="mt-6 inline-block rounded-xl bg-white px-6 py-3 font-semibold text-slate-900"
-            href="/auth"
+            href="/register"
           >
             ابدأ مجانًا
           </Link>
