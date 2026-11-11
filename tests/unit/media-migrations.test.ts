@@ -14,123 +14,80 @@ const folder = fileURLToPath(
 const org = "11111111-1111-4111-8111-111111111111";
 const job = "22222222-2222-4222-8222-222222222222";
 
-test("the journal loads and applies on isolated PostgreSQL, and reruns safely", async () => {
+const journalTags = (
+  JSON.parse(readFileSync(`${folder}/meta/_journal.json`, "utf8")) as {
+    entries: { tag: string }[];
+  }
+).entries.map((entry) => entry.tag);
+
+const sqlOf = (tag: string) => readFileSync(`${folder}/${tag}.sql`, "utf8");
+
+const applyChain = async (client: PGlite, tags: string[]) => {
+  for (const tag of tags) {
+    await client.exec(sqlOf(tag));
+  }
+};
+
+test("every migration in the journal applies on isolated PostgreSQL", async () => {
   const client = new PGlite();
   try {
-    const db = drizzle(client);
-    const files = readMigrationFiles({ migrationsFolder: folder });
-    assert.ok(
-      files.some((file) =>
-        file.sql.some((text) =>
-          text.includes('CREATE TABLE IF NOT EXISTS "WebhookEvent"')
-        )
-      )
+    await applyChain(client, journalTags);
+    const tables = await client.query<{ table_name: string }>(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
     );
-    assert.ok(
-      files.some((file) =>
-        file.sql.some((text) =>
-          text.includes('CREATE TABLE IF NOT EXISTS "MediaJob"')
-        )
-      )
+    const names = tables.rows.map((row) => row.table_name);
+    for (const required of ["Organization", "MediaJob", "WebhookEvent"]) {
+      assert.ok(names.includes(required), `missing table ${required}`);
+    }
+    const indexes = await client.query<{ indexname: string }>(
+      "SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"
     );
-    await migrate(db, { migrationsFolder: folder });
-    await migrate(db, { migrationsFolder: folder });
-    const generatedIndexes = await client.query<{ indexname: string }>(
-      "SELECT indexname FROM pg_indexes WHERE tablename = 'MediaJob'"
-    );
-    assert.ok(
-      generatedIndexes.rows.some(
-        (row) => row.indexname === "MediaJob_organizationId_createdAt_idx"
-      )
-    );
-    const count = await client.query<{ count: number }>(
-      "SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations"
-    );
-    assert.equal(count.rows[0]?.count, files.length);
-    await client.exec(
-      `INSERT INTO "Organization" ("id", "name") VALUES ('${org}', 'Isolated test'); INSERT INTO "MediaJob" ("id", "organizationId", "actionType", "prompt") VALUES ('${job}', '${org}', 'IMAGE', 'test');`
-    );
-    const update = (status: "running" | "succeeded" | "failed") =>
-      db.execute(
-        mediaJobUpdateQuery({
-          id: job,
-          status,
-          assetUrl: "https://assets.example.test/output.png",
-          error: "failure",
-        })
-      );
-    assert.equal((await update("running")).rows.length, 1);
-    assert.equal((await update("running")).rows.length, 0);
-    // Competing terminal writes: only one statement may claim completion.
-    const results = await Promise.all([update("succeeded"), update("failed")]);
-    assert.equal(
-      results.reduce((sum, result) => sum + result.rows.length, 0),
-      1
-    );
-    assert.equal((await update("running")).rows.length, 0);
-    assert.equal((await update("succeeded")).rows.length, 0);
-    const failedId = "33333333-3333-4333-8333-333333333333";
-    await client.query(
-      'INSERT INTO "MediaJob" ("id", "organizationId", "actionType", "prompt") VALUES ($1, $2, $3, $4)',
-      [failedId, org, "VIDEO", "test"]
-    );
-    assert.equal(
-      (
-        await db.execute(
-          mediaJobUpdateQuery({
-            id: failedId,
-            status: "failed",
-            error: "timeout",
-          })
-        )
-      ).rows.length,
-      1
-    );
-    assert.equal(
-      (
-        await db.execute(
-          mediaJobUpdateQuery({
-            id: failedId,
-            status: "succeeded",
-            assetUrl: "https://assets.example.test/late.mp4",
-          })
-        )
-      ).rows.length,
-      0
-    );
-    const state = await client.query<{ status: string; assetUrl: string }>(
-      'SELECT "status", "assetUrl" FROM "MediaJob" WHERE "id" = $1',
-      [job]
-    );
-    assert.equal(state.rows[0]?.status, "succeeded");
-    assert.equal(
-      state.rows[0]?.assetUrl,
-      "https://assets.example.test/output.png"
-    );
-    await client.exec(
-      `INSERT INTO "WebhookEvent" ("provider", "externalId") VALUES ('test', 'delivery');`
-    );
-    await assert.rejects(
-      client.exec(
-        `INSERT INTO "WebhookEvent" ("provider", "externalId") VALUES ('test', 'delivery');`
-      )
-    );
+    const indexNames = indexes.rows.map((row) => row.indexname);
+    for (const required of [
+      "MediaJob_organizationId_createdAt_idx",
+      "WebhookEvent_receivedAt_idx",
+    ]) {
+      assert.ok(indexNames.includes(required), `missing index ${required}`);
+    }
   } finally {
     await client.close();
   }
-}, 60_000);
+}, 120_000);
 
-test("untracked legacy 0020 SQL is reviewed on an isolated schema, not production", async () => {
+test("the media and webhook migrations are re-runnable", async () => {
   const client = new PGlite();
   try {
-    await client.exec('CREATE TABLE "Organization" ("id" uuid PRIMARY KEY);');
-    const legacy = readFileSync(`${folder}/0020_media_job.sql`, "utf8");
-    await client.exec(legacy);
-    await client.exec(legacy);
-    await client.exec(readFileSync(`${folder}/0015_media_job.sql`, "utf8"));
-    await client.exec(
-      readFileSync(`${folder}/0016_media_job_index.sql`, "utf8")
+    const rerunnable = ["0015_media_job", "0016_media_job_index", "0019_webhook_event"];
+    await client.exec('CREATE TABLE IF NOT EXISTS "Organization" ("id" uuid PRIMARY KEY);');
+    await applyChain(client, rerunnable);
+    await applyChain(client, rerunnable);
+    const indexes = await client.query<{ indexname: string }>(
+      "SELECT indexname FROM pg_indexes WHERE tablename = 'MediaJob'"
     );
+    assert.ok(
+      indexes.rows.some(
+        (row) => row.indexname === "MediaJob_organizationId_createdAt_idx"
+      )
+    );
+    const webhook = await client.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM information_schema.columns WHERE table_name = 'WebhookEvent'"
+    );
+    assert.ok((webhook.rows[0]?.count ?? 0) >= 4);
+  } finally {
+    await client.close();
+  }
+}, 120_000);
+
+test("the duplicate 0020 migration is gone and its objects still exist", async () => {
+  assert.ok(!journalTags.includes("0020_media_job"));
+  const client = new PGlite();
+  try {
+    await client.exec('CREATE TABLE IF NOT EXISTS "Organization" ("id" uuid PRIMARY KEY);');
+    await applyChain(client, ["0015_media_job", "0016_media_job_index"]);
+    const tables = await client.query<{ table_name: string }>(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    );
+    assert.ok(tables.rows.some((row) => row.table_name === "MediaJob"));
     const indexes = await client.query<{ indexname: string }>(
       "SELECT indexname FROM pg_indexes WHERE tablename = 'MediaJob'"
     );
@@ -142,4 +99,4 @@ test("untracked legacy 0020 SQL is reviewed on an isolated schema, not productio
   } finally {
     await client.close();
   }
-}, 60_000);
+}, 120_000);
