@@ -3,6 +3,8 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import FacebookProvider from "next-auth/providers/facebook";
+import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
 import { randomBytes } from "node:crypto";
 import { DUMMY_PASSWORD } from "@/lib/constants";
 import {
@@ -17,6 +19,17 @@ import { sendWelcomeEmail } from "@/lib/email/send";
 export const googleLoginEnabled = Boolean(
   process.env.GOOGLE_LOGIN_CLIENT_ID && process.env.GOOGLE_LOGIN_CLIENT_SECRET
 );
+
+/** Facebook / Microsoft sign-in stay off until their credentials exist. */
+export const facebookLoginEnabled = Boolean(
+  process.env.FACEBOOK_LOGIN_CLIENT_ID && process.env.FACEBOOK_LOGIN_CLIENT_SECRET
+);
+export const microsoftLoginEnabled = Boolean(
+  process.env.MICROSOFT_LOGIN_CLIENT_ID && process.env.MICROSOFT_LOGIN_CLIENT_SECRET
+);
+
+/** OAuth providers that open (or create) a regular local account. */
+const OAUTH_PROVIDERS = new Set(["google", "facebook", "microsoft-entra-id"]);
 import { authConfig } from "./auth.config";
 
 export type UserType = "guest" | "regular";
@@ -70,6 +83,30 @@ export const {
           }),
         ]
       : []),
+    ...(facebookLoginEnabled
+      ? [
+          FacebookProvider({
+            clientId: process.env.FACEBOOK_LOGIN_CLIENT_ID as string,
+            clientSecret: process.env.FACEBOOK_LOGIN_CLIENT_SECRET as string,
+            authorization: {
+              params: { scope: "email,public_profile" },
+            },
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
+    ...(microsoftLoginEnabled
+      ? [
+          MicrosoftEntraIDProvider({
+            clientId: process.env.MICROSOFT_LOGIN_CLIENT_ID as string,
+            clientSecret: process.env.MICROSOFT_LOGIN_CLIENT_SECRET as string,
+            authorization: {
+              params: { scope: "openid profile email" },
+            },
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
     Credentials({
       credentials: {},
       async authorize({ email, password }: any) {
@@ -107,11 +144,15 @@ export const {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider !== "google") {
+      if (!account || !OAUTH_PROVIDERS.has(account.provider)) {
         return true;
       }
       const email = (profile?.email ?? user.email ?? "").toLowerCase();
-      if (!email || profile?.email_verified === false) {
+      // Google يُرسل حالة تحقّق صريحة؛ فيسبوك ومايكروسوفت قد لا يُرسلانها.
+      if (
+        !email ||
+        (account.provider === "google" && profile?.email_verified === false)
+      ) {
         return false;
       }
       let [existing] = await getUser(email);
@@ -131,7 +172,10 @@ export const {
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id as string;
-        token.type = account?.provider === "google" ? "regular" : user.type;
+        token.type =
+          account && OAUTH_PROVIDERS.has(account.provider)
+            ? "regular"
+            : user.type;
       }
 
       if (token.id) {
@@ -157,3 +201,4 @@ export const {
     },
   },
 });
+
