@@ -5,20 +5,45 @@ import { createProject, listProjects } from "@/lib/db/projects";
 
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const RESERVED = new Set([
-  "www", "api", "app", "admin", "dashboard", "billing", "auth", "login",
-  "register", "static", "assets", "cdn", "mail", "smtp", "status", "docs",
-  "blog", "support", "help", "files", "media", "preview",
+  "www",
+  "api",
+  "app",
+  "admin",
+  "dashboard",
+  "billing",
+  "auth",
+  "login",
+  "register",
+  "static",
+  "assets",
+  "cdn",
+  "mail",
+  "smtp",
+  "status",
+  "docs",
+  "blog",
+  "support",
+  "help",
+  "files",
+  "media",
+  "preview",
 ]);
 
-const createSchema = z.object({
-  name: z.string().trim().min(2).max(80),
-  subdomain: z.string().trim().toLowerCase().regex(LABEL, "صيغة النطاق الفرعي غير صحيحة"),
-  templateId: z.string().trim().max(64).optional(),
-});
+const createSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80),
+    subdomain: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(LABEL, "صيغة النطاق الفرعي غير صحيحة"),
+    templateId: z.string().trim().max(64).optional(),
+  })
+  .strict();
 
-export async function GET() {
+async function listWorkspaceProjects() {
   const context = await getWorkspaceContext();
-  if (!context) {
+  if (!context || context.user.type === "guest") {
     return NextResponse.json({ error: "غير مصرح بالوصول" }, { status: 401 });
   }
   const projects = await listProjects(context.organizationId);
@@ -28,9 +53,9 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+async function createWorkspaceProject(request: Request) {
   const context = await getWorkspaceContext();
-  if (!context) {
+  if (!context || context.user.type === "guest") {
     return NextResponse.json({ error: "غير مصرح بالوصول" }, { status: 401 });
   }
 
@@ -59,10 +84,15 @@ export async function POST(request: Request) {
       subdomain,
       templateId: templateId ?? null,
     });
+    if (!project) {
+      return NextResponse.json({ error: "لم يُحفظ المشروع" }, { status: 500 });
+    }
     return NextResponse.json(
       {
         project,
-        url: `https://${subdomain}.${process.env.PLATFORM_DOMAIN ?? "zooka-ai.com"}`,
+        published: false,
+        previewUrl: null,
+        message: "حُفظ المشروع فقط. لم يُنشر موقع أو يُربط نطاق بعد.",
       },
       { status: 201 }
     );
@@ -74,9 +104,22 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-    return NextResponse.json(
-      { error: "تعذر إنشاء المشروع" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "تعذر إنشاء المشروع" }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    return await listWorkspaceProjects();
+  } catch {
+    return NextResponse.json({ error: "تعذّر قراءة المشاريع" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    return await createWorkspaceProject(request);
+  } catch {
+    return NextResponse.json({ error: "تعذّر إنشاء المشروع" }, { status: 500 });
   }
 }

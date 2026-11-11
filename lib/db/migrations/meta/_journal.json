@@ -120,6 +120,13 @@
       "when": 1794370498059,
       "tag": "0016_media_job_index",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794376024053,
+      "tag": "0017_client_projects",
+      "breakpoints": true
     }
   ]
 }
