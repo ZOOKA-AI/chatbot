@@ -91,6 +91,9 @@ export async function proxy(request: NextRequest) {
     // Machine-to-machine: the ingest route authenticates with x-leads-key,
     // so it must not be bounced to the login page.
     pathname === "/api/leads/ingest" ||
+    // Phone sign-in: the route issues and verifies one-time codes with its own
+    // rate limits before any session exists, so it must stay reachable.
+    pathname === "/api/phone-auth" ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||
