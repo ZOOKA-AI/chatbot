@@ -37,9 +37,17 @@ export async function proxy(request: NextRequest) {
     return new Response("pong", { status: 200 });
   }
 
-  // This endpoint enforces workspace authentication itself and returns JSON 401,
-  // not an HTML login redirect, for anonymous or guest requests.
-  if (pathname === "/api/media-engine" || pathname === "/api/media-engine/callback") {
+  // Machine callback authenticates its raw body using HMAC, not a browser session.
+  if (pathname === "/api/media-engine/callback") {
+    return NextResponse.next();
+  }
+
+  // These exact endpoints require workspace sessions themselves and return JSON 401.
+  if (
+    pathname === "/api/media-engine" ||
+    pathname === "/api/domains" ||
+    pathname === "/api/projects"
+  ) {
     return NextResponse.next();
   }
 

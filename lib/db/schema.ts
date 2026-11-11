@@ -428,20 +428,52 @@ export const webhookEvent = pgTable(
   })
 );
 
-export const mediaJob = pgTable("MediaJob", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  organizationId: uuid("organizationId")
-    .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
-  actionType: varchar("actionType", { length: 16 }).notNull(),
-  prompt: text("prompt").notNull(),
-  status: varchar("status", {
-    enum: ["queued", "running", "succeeded", "failed"],
+export const mediaJob = pgTable(
+  "MediaJob",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    actionType: varchar("actionType", { length: 16 }).notNull(),
+    prompt: text("prompt").notNull(),
+    status: varchar("status", {
+      enum: ["queued", "running", "succeeded", "failed"],
+    })
+      .notNull()
+      .default("queued"),
+    assetUrl: text("assetUrl"),
+    error: text("error"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationCreatedAtIndex: index("MediaJob_organizationId_createdAt_idx").on(
+      table.organizationId,
+      table.createdAt
+    ),
   })
-    .notNull()
-    .default("queued"),
-  assetUrl: text("assetUrl"),
-  error: text("error"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
-});
+);
+
+export const project = pgTable(
+  "Project",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId").notNull(),
+    createdBy: uuid("createdBy"),
+    name: text("name").notNull(),
+    subdomain: varchar("subdomain", { length: 63 }).notNull(),
+    customDomain: varchar("customDomain", { length: 253 }),
+    status: varchar("status", { length: 16 }).notNull().default("CREATING"),
+    templateId: text("templateId"),
+    templateConfig: json("templateConfig"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    subdomainUnique: unique("Project_subdomain_unique").on(table.subdomain),
+    organizationIdx: index("Project_organizationId_idx").on(table.organizationId),
+  })
+);
+
+export type Project = InferSelectModel<typeof project>;

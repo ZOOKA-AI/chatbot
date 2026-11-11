@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "MediaJob_organizationId_createdAt_idx" ON "MediaJob" USING btree ("organizationId","createdAt");
