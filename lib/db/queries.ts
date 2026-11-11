@@ -902,24 +902,53 @@ export async function saveMessages({
   messages: DBMessage[];
   organizationId: string;
 }) {
+  if (messages.length === 0) {
+    return;
+  }
+
+  const chatIds = [...new Set(messages.map(({ chatId }) => chatId))];
+  const tenantChats = await db
+    .select({ id: chat.id })
+    .from(chat)
+    .where(
+      and(inArray(chat.id, chatIds), eq(chat.organizationId, organizationId))
+    );
+  if (tenantChats.length !== chatIds.length) {
+    throw new ChatbotError("forbidden:chat");
+  }
+
+  // رسائل مكرّرة المعرّف تُتجاهل بهدوء: نفس الرسالة قد تصل من إعادة محاولة
+  // أو من onFinish بعد أن حُفظت في بداية الطلب، ولا يجوز أن تُسقط الحفظ كله.
+  const uniqueMessages = [...new Map(messages.map((m) => [m.id, m])).values()];
+
   try {
-    const chatIds = [...new Set(messages.map(({ chatId }) => chatId))];
-    if (chatIds.length === 0) {
-      return;
+    for (let index = 0; index < uniqueMessages.length; index += 50) {
+      await db
+        .insert(message)
+        .values(uniqueMessages.slice(index, index + 50))
+        .onConflictDoNothing({ target: message.id });
     }
-
-    const tenantChats = await db
-      .select({ id: chat.id })
-      .from(chat)
-      .where(
-        and(inArray(chat.id, chatIds), eq(chat.organizationId, organizationId))
-      );
-    if (tenantChats.length !== chatIds.length) {
-      throw new ChatbotError("forbidden:chat");
+  } catch (error) {
+    const details = error as {
+      code?: string;
+      constraint?: string;
+      table?: string;
+      detail?: string;
+      message?: string;
+    };
+    console.error("[db] saveMessages failed", {
+      code: details.code,
+      constraint: details.constraint,
+      table: details.table,
+      detail: details.detail,
+      message: details.message,
+      chatIds,
+      messageIds: uniqueMessages.map((m) => m.id),
+      organizationId,
+    });
+    if (details.code === "23503") {
+      throw new ChatbotError("bad_request:database", "Chat not found");
     }
-
-    return await db.insert(message).values(messages);
-  } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to save messages");
   }
 }
