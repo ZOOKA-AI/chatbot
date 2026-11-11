@@ -1,12 +1,8 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import {
-  createMediaJob,
-  finishMediaJob,
-  getMediaJob,
-} from "@/lib/db/queries";
+import { createMediaJob, finishMediaJob, getMediaJob } from "@/lib/db/queries";
 
 const requestSchema = z
   .object({
@@ -21,9 +17,9 @@ function sign(payload: string, secret: string) {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 
-export async function POST(request: Request) {
+async function createJob(request: Request) {
   const context = await getWorkspaceContext();
-  if (!context) {
+  if (!context || context.user.type === "guest") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -77,7 +73,7 @@ export async function POST(request: Request) {
         "x-zooka-signature": sign(body, secret),
       },
       body,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
       await finishMediaJob({
@@ -102,12 +98,15 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ jobId: job.id, status: "queued" }, { status: 202 });
+  return NextResponse.json(
+    { jobId: job.id, status: "queued" },
+    { status: 202 }
+  );
 }
 
-export async function GET(request: Request) {
+async function readJob(request: Request) {
   const context = await getWorkspaceContext();
-  if (!context) {
+  if (!context || context.user.type === "guest") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -129,4 +128,20 @@ export async function GET(request: Request) {
     error: job.error,
     actionType: job.actionType,
   });
+}
+
+export async function POST(request: Request) {
+  try {
+    return await createJob(request);
+  } catch {
+    return NextResponse.json({ error: "تعذّر تنفيذ الطلب" }, { status: 500 });
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    return await readJob(request);
+  } catch {
+    return NextResponse.json({ error: "تعذّر قراءة الطلب" }, { status: 500 });
+  }
 }

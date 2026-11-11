@@ -43,7 +43,11 @@ export async function proxy(request: NextRequest) {
   }
 
   // These exact endpoints require workspace sessions themselves and return JSON 401.
-  if (pathname === "/api/domains" || pathname === "/api/projects") {
+  if (
+    pathname === "/api/media-engine" ||
+    pathname === "/api/domains" ||
+    pathname === "/api/projects"
+  ) {
     return NextResponse.next();
   }
 
