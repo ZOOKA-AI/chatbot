@@ -50,6 +50,7 @@ import {
   mediaJob,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
+import { mediaJobUpdateQuery, type MediaJobUpdate } from "./media-job-state";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -1733,21 +1734,7 @@ export async function getMediaJob(id: string, organizationId: string) {
   return row ?? null;
 }
 
-export async function finishMediaJob({
-  id,
-  status,
-  assetUrl,
-  error,
-}: {
-  id: string;
-  status: "succeeded" | "failed";
-  assetUrl?: string | null;
-  error?: string | null;
-}) {
-  const [row] = await db
-    .update(mediaJob)
-    .set({ status, assetUrl: assetUrl ?? null, error: error ?? null, updatedAt: new Date() })
-    .where(eq(mediaJob.id, id))
-    .returning();
+export async function finishMediaJob(input: MediaJobUpdate) {
+  const [row] = await db.execute(mediaJobUpdateQuery(input));
   return row ?? null;
 }
