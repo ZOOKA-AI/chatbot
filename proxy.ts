@@ -60,7 +60,9 @@ export async function proxy(request: NextRequest) {
     pathname === "/embed.js" ||
     pathname === "/api/demo-chat" ||
     pathname === "/api/guest-quota" ||
-    pathname === "/api/webhooks/stripe" ||
+    // Machine-to-machine webhooks: every route verifies its own provider
+    // signature or shared secret, so they must never be bounced to /login.
+    pathname.startsWith("/api/webhooks") ||
     pathname === "/api/stripe/webhook" ||
     pathname === "/api/billing/reconcile" ||
     pathname === "/api/admin/backup" ||
