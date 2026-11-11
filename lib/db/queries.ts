@@ -920,6 +920,7 @@ export async function saveMessages({
   // رسائل مكرّرة المعرّف تُتجاهل بهدوء: نفس الرسالة قد تصل من إعادة محاولة
   // أو من onFinish بعد أن حُفظت في بداية الطلب، ولا يجوز أن تُسقط الحفظ كله.
   const uniqueMessages = [...new Map(messages.map((m) => [m.id, m])).values()];
+  const traceId = `save_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
   try {
     for (let index = 0; index < uniqueMessages.length; index += 50) {
@@ -932,19 +933,14 @@ export async function saveMessages({
     const details = error as {
       code?: string;
       constraint?: string;
-      table?: string;
-      detail?: string;
-      message?: string;
     };
+    // لا نُسجّل detail الخام لأنه قد يحوي قيماً من صفوف المستخدم.
     console.error("[db] saveMessages failed", {
       code: details.code,
       constraint: details.constraint,
-      table: details.table,
-      detail: details.detail,
-      message: details.message,
+      traceId,
       chatIds,
-      messageIds: uniqueMessages.map((m) => m.id),
-      organizationId,
+      messageCount: uniqueMessages.length,
     });
     if (details.code === "23503") {
       throw new ChatbotError("bad_request:database", "Chat not found");
