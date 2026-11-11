@@ -917,7 +917,7 @@ export async function saveMessages({
     throw new ChatbotError("forbidden:chat");
   }
 
-  // رسائل مكرّرة المعرّف تُتجاهل بهدوء: نفس الرسالة قد تصل من إعادة محاولة
+  // نفس المعرّف قد يصل مرة أخرى عند التعديل أو إعادة التوليد: نُحدّث النص بدل رفضه،
   // أو من onFinish بعد أن حُفظت في بداية الطلب، ولا يجوز أن تُسقط الحفظ كله.
   const uniqueMessages = [...new Map(messages.map((m) => [m.id, m])).values()];
   const traceId = `save_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -927,7 +927,10 @@ export async function saveMessages({
       await db
         .insert(message)
         .values(uniqueMessages.slice(index, index + 50))
-        .onConflictDoNothing({ target: message.id });
+        .onConflictDoUpdate({
+          target: message.id,
+          set: { parts: sql`excluded.parts` },
+        });
     }
   } catch (error) {
     const details = error as {
