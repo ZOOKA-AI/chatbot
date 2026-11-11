@@ -922,6 +922,29 @@ export async function saveMessages({
   const uniqueMessages = [...new Map(messages.map((m) => [m.id, m])).values()];
   const traceId = `save_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
+  // حارس الملكية: معرّف الرسالة وحده ليس مفتاح ثقة. التحديث عند التعارض مسموح
+  // فقط إذا كانت الرسالة القائمة في نفس المحادثة وبنفس الدور، وإلا يُرفض الطلب
+  // بدل الكتابة فوق رسالة تنتمي إلى محادثة أو مساحة عمل أخرى.
+  const incomingIds = [...new Set(messages.map(({ id }) => id))];
+  const existingRows = await db
+    .select({ id: message.id, chatId: message.chatId, role: message.role })
+    .from(message)
+    .where(inArray(message.id, incomingIds));
+  const existingById = new Map(existingRows.map((row) => [row.id, row]));
+  for (const incoming of messages) {
+    const existing = existingById.get(incoming.id);
+    if (
+      existing &&
+      (existing.chatId !== incoming.chatId || existing.role !== incoming.role)
+    ) {
+      console.error("[db] saveMessages rejected mismatched message id", {
+        traceId,
+        incomingChatId: incoming.chatId,
+      });
+      throw new ChatbotError("forbidden:chat");
+    }
+  }
+
   try {
     for (let index = 0; index < uniqueMessages.length; index += 50) {
       await db
@@ -930,6 +953,8 @@ export async function saveMessages({
         .onConflictDoUpdate({
           target: message.id,
           set: { parts: sql`excluded.parts` },
+          // حماية ثانية على مستوى القاعدة: لا تحديث إن اختلفت المحادثة أو الدور.
+          setWhere: sql`${message.chatId} = excluded."chatId" and ${message.role} = excluded."role"`,
         });
     }
   } catch (error) {
