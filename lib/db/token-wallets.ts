@@ -19,7 +19,7 @@ function sql() {
   if (client) {
     return client;
   }
-  const url = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
   if (!url) {
     throw new Error("POSTGRES_URL is not configured");
   }
@@ -56,18 +56,18 @@ async function ensureSchema() {
   schemaReady = true;
 }
 
-export type GrantArgs = {
+export interface GrantArgs {
   organizationId: string;
   plan: string;
   grantKey: string;
   periodStart: Date | null;
   periodEnd: Date | null;
-};
+}
 
-export type GrantResult = {
+export interface GrantResult {
   granted: number;
-  skipped: "already_granted" | "no_allowance" | null;
-};
+  skipped: "already_granted" | "no_allowance" | "stale_period" | null;
+}
 
 export async function grantTokensForBillingPeriod(
   args: GrantArgs
@@ -77,14 +77,34 @@ export async function grantTokensForBillingPeriod(
     return { granted: 0, skipped: "no_allowance" };
   }
 
+  if (
+    !args.periodStart ||
+    !args.periodEnd ||
+    !Number.isFinite(args.periodStart.getTime()) ||
+    !Number.isFinite(args.periodEnd.getTime()) ||
+    args.periodEnd <= args.periodStart
+  ) {
+    throw new Error("A valid billing period is required");
+  }
+  const periodStart = args.periodStart;
   await ensureSchema();
   const q = sql();
 
   return await q.begin(async (tx) => {
+    // Serialize grants for this workspace, including concurrent invoice retries.
+    await tx`SELECT pg_advisory_xact_lock(hashtextextended(${args.organizationId}, 0))`;
     const existing = await tx`
       SELECT 1 FROM token_grants WHERE grant_key = ${args.grantKey} LIMIT 1`;
     if (existing.length > 0) {
       return { granted: 0, skipped: "already_granted" as const };
+    }
+
+    const wallets = await tx`
+      SELECT period_start FROM token_wallets
+      WHERE organization_id = ${args.organizationId} LIMIT 1`;
+    const currentStart = wallets[0]?.period_start;
+    if (currentStart && new Date(currentStart) >= periodStart) {
+      return { granted: 0, skipped: "stale_period" as const };
     }
 
     await tx`

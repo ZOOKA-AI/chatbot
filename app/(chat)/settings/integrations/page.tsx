@@ -5,19 +5,19 @@ import { GoogleDriveConnectionControl } from "@/components/google-drive-connecti
 import { N8nConnectionControl } from "@/components/n8n-connection-control";
 import { OAuthConnectionControl } from "@/components/oauth-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
-import {
-  isGoogleDriveConfigured,
-  isGoogleDriveConnected,
-} from "@/lib/integrations/google-drive/server";
+import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
 import {
+  getGoogleAuthorizedProviders,
+  isGoogleDriveConfigured,
+} from "@/lib/integrations/google-drive/server";
+import {
   INTEGRATION_PROVIDERS,
-  PROVIDER_CATEGORIES,
   type IntegrationProvider,
+  PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
-import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
 export const metadata: Metadata = {
   title: "Integrations",
@@ -26,7 +26,11 @@ export const metadata: Metadata = {
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ googleDrive?: string; github?: string; vercel?: string }>;
+  searchParams: Promise<{
+    googleDrive?: string;
+    github?: string;
+    vercel?: string;
+  }>;
 }) {
   const context = await getWorkspaceContext();
   if (!context) {
@@ -38,7 +42,7 @@ export default async function IntegrationsPage({
   const entitlements = await getWorkspaceEntitlements(context.organizationId);
   const { googleDrive, github, vercel } = await searchParams;
   const oauthFeedback = (() => {
-    const entries: Array<[string, string | undefined]> = [
+    const entries: [string, string | undefined][] = [
       ["GitHub", github],
       ["Vercel", vercel],
     ];
@@ -81,16 +85,13 @@ export default async function IntegrationsPage({
   })();
   const feedback = getGoogleDriveCallbackFeedback(googleDrive, lang);
   const googleDriveConfigured = isGoogleDriveConfigured();
+  const authorizedGoogleProviders = googleDriveConfigured
+    ? await getGoogleAuthorizedProviders(context.organizationId)
+    : [];
   const googleDriveConnected =
-    googleDriveConfigured &&
-    (await isGoogleDriveConnected(context.organizationId));
+    authorizedGoogleProviders.includes("google_drive");
   const providers: IntegrationProvider[] = INTEGRATION_PROVIDERS;
-  const googleProviders = new Set(["google_drive", "gmail"]);
-  const connectedIds = new Set<string>(
-    googleDriveConnected
-      ? [...googleProviders].filter((id) => id !== "gmail" || googleDriveConnected)
-      : []
-  );
+  const connectedIds = new Set(authorizedGoogleProviders);
   // Credentials stored by the workspace (Stripe, Supabase, GitHub, Vercel, n8n)
   // live in integration_connection; surface them so a provider only reads
   // "connected" when a real encrypted credential exists for this workspace.
@@ -98,7 +99,12 @@ export default async function IntegrationsPage({
     for (const stored of await listWorkspaceIntegrations(
       context.organizationId
     )) {
-      if (stored.status === "connected") {
+      if (
+        stored.status === "connected" &&
+        !["google_drive", "gmail", "google_calendar"].includes(
+          stored.providerId
+        )
+      ) {
         connectedIds.add(stored.providerId);
       }
     }
@@ -129,10 +135,10 @@ export default async function IntegrationsPage({
       style={{ fontFamily: fontOf(lang) }}
     >
       <header className="flex flex-col gap-2">
-        <h1 className="font-semibold text-2xl">
+        <h1 className="text-2xl font-semibold">
           {isArabic ? "التكاملات" : "Integrations"}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {isArabic
             ? "يستخدم الوكيل Google Drive للقراءة، وGmail للبحث والقراءة والإرسال عند تفعيل الاتصال في مساحة العمل. لا تتوفر تكاملات Notion وShopify."
             : "The Agent can use Google Drive read-only, and Gmail to search, read and send, when connected to this workspace. Notion and Shopify are unavailable."}
@@ -172,12 +178,12 @@ export default async function IntegrationsPage({
         <article className="flex items-center justify-between gap-4 rounded-lg border p-5">
           <div className="flex flex-col gap-1">
             <h2 className="font-medium">Google Drive &amp; Gmail</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               {isArabic
                 ? "البحث عن ملفات Google Docs والنصوص وقراءتها. لا يمكن للوكيل تعديل الملفات."
                 : "Search and read Google Docs and text files. The Agent cannot modify files."}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {isArabic
                 ? "تُحفظ الرموز مشفّرة ومقيّدة بمساحة العمل. يُرسل نص الملف المقروء إلى النموذج ويُحفظ ضمن المحادثة."
                 : "Tokens are encrypted and scoped to this workspace. Read file text is sent to the model and saved with the chat."}
@@ -192,7 +198,7 @@ export default async function IntegrationsPage({
             />
           ) : (
             <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed p-4">
-              <p className="font-medium text-sm">
+              <p className="text-sm font-medium">
                 {isArabic
                   ? "ربط التكاملات متاح في الباقات المدفوعة"
                   : "Connecting integrations requires a paid plan"}
@@ -203,7 +209,7 @@ export default async function IntegrationsPage({
                   : "The free plan covers chat only. Pro adds account connections and agent runs."}
               </p>
               <Link
-                className="rounded-md bg-foreground px-3 py-1.5 font-medium text-background text-xs"
+                className="bg-foreground text-background rounded-md px-3 py-1.5 text-xs font-medium"
                 href="/pricing"
               >
                 {isArabic ? "رقّي الباقة" : "Upgrade plan"}
@@ -262,7 +268,7 @@ export default async function IntegrationsPage({
         </article>
         {Object.entries(grouped).map(([category, items]) => (
           <div className="flex flex-col gap-3" key={category}>
-            <h3 className="font-medium text-sm text-muted-foreground">
+            <h3 className="text-muted-foreground text-sm font-medium">
               {isArabic
                 ? (PROVIDER_CATEGORIES[category]?.ar ?? category)
                 : (PROVIDER_CATEGORIES[category]?.en ?? category)}
@@ -278,14 +284,14 @@ export default async function IntegrationsPage({
                     key={provider.id}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-medium text-sm">
+                      <h4 className="text-sm font-medium">
                         {isArabic ? provider.nameAr : provider.name}
                       </h4>
                       <span
                         className={
                           connected
                             ? "shrink-0 rounded-full border border-emerald-600/40 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-400"
-                            : "shrink-0 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                            : "text-muted-foreground shrink-0 rounded-full border px-2 py-0.5 text-[11px]"
                         }
                       >
                         {connected
@@ -305,11 +311,26 @@ export default async function IntegrationsPage({
                                 : "Coming soon"}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                       {isArabic ? provider.descriptionAr : provider.description}
                     </p>
-                    {available && (provider.id === "google_drive" || provider.id === "gmail") ? (
-                      <p className="text-[11px] text-muted-foreground">
+                    {provider.id === "google_calendar" &&
+                    !connected &&
+                    canManage &&
+                    googleDriveConfigured ? (
+                      <Link
+                        className="text-xs underline"
+                        href="/api/integrations/google-drive/connect"
+                      >
+                        {isArabic
+                          ? "ربط التقويم عبر موافقة Google المشتركة"
+                          : "Connect Calendar via shared Google consent"}
+                      </Link>
+                    ) : null}
+                    {available &&
+                    (provider.id === "google_drive" ||
+                      provider.id === "gmail") ? (
+                      <p className="text-muted-foreground text-[11px]">
                         {isArabic
                           ? "ربط بضغطة: الوكيل يفتح صفحة الموافقة بنفسه ولا تحتاج مفتاحًا."
                           : "One-click: the Agent opens the consent screen, no API key needed."}
@@ -323,7 +344,7 @@ export default async function IntegrationsPage({
         ))}
       </section>
 
-      <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
+      <p className="bg-muted text-muted-foreground rounded-md p-4 text-sm">
         {isArabic
           ? "لا يظهر Google Drive وGmail كمتصلين إلا بعد موافقة OAuth وتخزين الرموز مشفّرة لمساحة العمل. البحث والقراءة والإرسال متاحة للوكيل."
           : "Google Drive and Gmail are shown as connected only after OAuth succeeds and tokens are encrypted for this workspace. The Agent can search, read and send from Gmail."}

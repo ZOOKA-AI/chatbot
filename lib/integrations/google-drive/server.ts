@@ -14,8 +14,9 @@ import {
   isGoogleDriveEncryptionKeyValid,
 } from "@/lib/integrations/google-drive/crypto";
 import {
-  isRevokedGoogleDriveGrant,
   type GoogleDriveTokens,
+  googleProvidersForScopes,
+  isRevokedGoogleDriveGrant,
 } from "@/lib/integrations/google-drive/token-response";
 
 export function getGoogleDriveOAuthConfig() {
@@ -98,17 +99,24 @@ function decryptTokens(encryptedTokens: string) {
     );
 }
 
-export async function isGoogleDriveConnected(organizationId: string) {
+export async function getGoogleAuthorizedProviders(organizationId: string) {
   const connection = await getGoogleDriveConnection(organizationId);
   if (!connection) {
-    return false;
+    return [];
   }
   try {
-    decryptTokens(connection.encryptedTokens);
-    return true;
+    return googleProvidersForScopes(
+      decryptTokens(connection.encryptedTokens).scope
+    );
   } catch {
-    return false;
+    return [];
   }
+}
+
+export async function isGoogleDriveConnected(organizationId: string) {
+  return (await getGoogleAuthorizedProviders(organizationId)).includes(
+    "google_drive"
+  );
 }
 
 export async function saveGoogleDriveTokens(
@@ -178,9 +186,7 @@ export async function getGoogleDriveAccessToken(organizationId: string) {
     const result = await response.json();
     if (!response.ok) {
       const errorCode =
-        typeof result === "object" &&
-        result !== null &&
-        "error" in result
+        typeof result === "object" && result !== null && "error" in result
           ? result.error
           : undefined;
       if (isRevokedGoogleDriveGrant(errorCode)) {
