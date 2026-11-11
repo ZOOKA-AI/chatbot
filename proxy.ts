@@ -37,6 +37,11 @@ export async function proxy(request: NextRequest) {
     return new Response("pong", { status: 200 });
   }
 
+  // Machine callback authenticates its raw body using HMAC, not a browser session.
+  if (pathname === "/api/media-engine/callback") {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
