@@ -6,9 +6,6 @@ import {
   verifyWhatsAppChallenge,
 } from "@/lib/webhooks/whatsapp";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 /**
  * Legacy single entry point kept working for already-registered provider URLs:
  *   /api/webhooks?provider=stripe|whatsapp|n8n
