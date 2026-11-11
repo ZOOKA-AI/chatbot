@@ -14,6 +14,8 @@ import {
   getUser,
 } from "@/lib/db/queries";
 import { sendWelcomeEmail } from "@/lib/email/send";
+import { emailForPhone, readLoginTicket } from "@/lib/auth/phone-otp";
+import { phoneLoginEnabled } from "@/lib/auth/sms";
 
 /** Google sign-in uses its own non-sensitive client (openid/email/profile). */
 export const googleLoginEnabled = Boolean(
@@ -133,6 +135,31 @@ export const {
         return { ...user, type: "regular" };
       },
     }),
+    ...(phoneLoginEnabled
+      ? [
+          Credentials({
+            id: "phone-otp",
+            credentials: { ticket: {} },
+            async authorize({ ticket }: any) {
+              const phone = readLoginTicket(String(ticket ?? ""));
+              if (!phone) {
+                return null;
+              }
+              // رقم مُتحقَّق منه فقط يصل إلى هنا عبر تذكرة موقّعة قصيرة العمر.
+              const email = emailForPhone(phone);
+              let [existing] = await getUser(email);
+              if (!existing) {
+                await createUser(email, randomBytes(24).toString("hex"));
+                [existing] = await getUser(email);
+              }
+              if (!existing) {
+                return null;
+              }
+              return { ...existing, type: "regular" };
+            },
+          }),
+        ]
+      : []),
     Credentials({
       id: "guest",
       credentials: {},

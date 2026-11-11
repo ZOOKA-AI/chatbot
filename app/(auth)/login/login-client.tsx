@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
+import { PhoneSignInForm } from "@/components/phone-sign-in-form";
 import { SocialSignInButtons } from "@/components/social-sign-in-buttons";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SubmitButton } from "@/components/submit-button";
@@ -40,11 +41,13 @@ export function LoginClient({
   googleEnabled = false,
   facebookEnabled = false,
   microsoftEnabled = false,
+  phoneEnabled = false,
 }: {
   lang: "ar" | "en";
   googleEnabled?: boolean;
   facebookEnabled?: boolean;
   microsoftEnabled?: boolean;
+  phoneEnabled?: boolean;
 }) {
   const t = strings[lang];
   const router = useRouter();
@@ -84,6 +87,7 @@ export function LoginClient({
           <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
           <p className="text-gray-500 text-sm dark:text-zinc-400">{t.subtitle}</p>
         </div>
+        {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
         <SocialSignInButtons
           facebook={facebookEnabled}
           google={googleEnabled}

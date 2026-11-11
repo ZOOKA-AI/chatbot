@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getLang } from "@/lib/i18n";
+import { phoneLoginEnabled } from "@/lib/auth/sms";
 import {
   facebookLoginEnabled,
   googleLoginEnabled,
@@ -19,6 +20,7 @@ export default async function Page() {
       googleEnabled={googleLoginEnabled}
       lang={lang}
       microsoftEnabled={microsoftLoginEnabled}
+      phoneEnabled={phoneLoginEnabled}
     />
   );
 }
