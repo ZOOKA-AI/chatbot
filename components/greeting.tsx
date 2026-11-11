@@ -1,8 +1,15 @@
 import { motion } from "framer-motion";
+import { BuildSection } from "@/components/build-section";
 import { Globe3D } from "@/components/globe-3d";
 import { IntegrationOrbit } from "@/components/integration-orbit";
 
-export const Greeting = () => {
+export const Greeting = ({
+  lang = "ar",
+  onSelectPrompt,
+}: {
+  lang?: "ar" | "en";
+  onSelectPrompt?: (prompt: string) => void;
+}) => {
   return (
     <div
       className="mx-auto mt-4 flex size-full max-w-3xl flex-col items-center justify-center px-4 md:mt-16 md:px-8"
@@ -16,9 +23,9 @@ export const Greeting = () => {
         transition={{ delay: 0.35, duration: 0.6 }}
       >
         <div className="absolute inset-0 flex items-center justify-center">
-          <IntegrationOrbit size={220} />
+          <IntegrationOrbit size={150} />
         </div>
-        <Globe3D size={210} />
+        <Globe3D size={140} />
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
@@ -38,6 +45,9 @@ export const Greeting = () => {
       >
         How can I help you today?
       </motion.div>
+      {onSelectPrompt && (
+        <BuildSection lang={lang} onSelectPrompt={onSelectPrompt} />
+      )}
     </div>
   );
 };

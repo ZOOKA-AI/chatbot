@@ -72,7 +72,7 @@ function PureMessages({
                 onSelectPrompt={onSelectWorkPrompt}
               />
             ) : (
-              <Greeting />
+              <Greeting lang={lang} onSelectPrompt={onSelectWorkPrompt} />
             ))}
 
           {isWorkAssistant && messages.length > 0 && (
