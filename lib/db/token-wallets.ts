@@ -29,7 +29,7 @@ function sql() {
 
 let schemaReady = false;
 
-async function ensureSchema() {
+export async function ensureWalletSchema() {
   if (schemaReady) {
     return;
   }
@@ -77,7 +77,7 @@ export async function grantTokensForBillingPeriod(
     return { granted: 0, skipped: "no_allowance" };
   }
 
-  await ensureSchema();
+  await ensureWalletSchema();
   const q = sql();
 
   return await q.begin(async (tx) => {
@@ -108,7 +108,7 @@ export async function grantTokensForBillingPeriod(
 }
 
 export async function readWallet(organizationId: string) {
-  await ensureSchema();
+  await ensureWalletSchema();
   const q = sql();
   const rows = await q`
     SELECT organization_id, plan, weighted_remaining, period_start, period_end

@@ -94,6 +94,9 @@ export async function proxy(request: NextRequest) {
     // Phone sign-in: the route issues and verifies one-time codes with its own
     // rate limits before any session exists, so it must stay reachable.
     pathname === "/api/phone-auth" ||
+    // MCP clients authenticate with a workspace bearer key, not a browser
+    // session, so the endpoint must not be bounced to /login.
+    pathname === "/api/mcp" ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||
