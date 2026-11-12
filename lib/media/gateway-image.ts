@@ -5,31 +5,69 @@ import { generateImage } from "ai";
 export class ImageStageError extends Error {
   readonly stage: "provider" | "output" | "storage";
   readonly upstreamStatus: number | null;
+  readonly category: string;
 
   constructor(
     stage: "provider" | "output" | "storage",
-    status: number | null = null
+    status: number | null = null,
+    category = "unknown"
   ) {
     super(`Image ${stage} failed`);
     this.stage = stage;
     this.upstreamStatus = status;
+    this.category = category;
   }
 }
 
-function upstreamStatus(error: unknown): number | null {
-  if (!error || typeof error !== "object") {
-    return null;
+const knownErrors: Record<string, string> = {
+  AI_APICallError: "http",
+  GatewayAuthenticationError: "authentication",
+  AI_LoadAPIKeyError: "missing_api_key",
+  AI_NoImageGeneratedError: "empty_output",
+  AI_UnsupportedFunctionalityError: "unsupported",
+  AI_TypeValidationError: "response_validation",
+  AI_JSONParseError: "response_json",
+  AI_RetryError: "retry_wrapper",
+  AbortError: "aborted",
+  TimeoutError: "timeout",
+  TypeError: "transport_or_type",
+};
+
+export function classifyImageError(error: unknown) {
+  const queue: unknown[] = [error];
+  const seen = new Set<unknown>();
+  let category = "unknown";
+  let status: number | null = null;
+  for (let index = 0; index < queue.length && index < 8; index++) {
+    const value = queue[index];
+    if (!value || typeof value !== "object" || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    if (
+      "name" in value &&
+      typeof value.name === "string" &&
+      Object.hasOwn(knownErrors, value.name)
+    ) {
+      category = knownErrors[value.name];
+    }
+    if (
+      "statusCode" in value &&
+      typeof value.statusCode === "number" &&
+      Number.isInteger(value.statusCode) &&
+      value.statusCode >= 400 &&
+      value.statusCode <= 599
+    ) {
+      status = value.statusCode;
+    }
+    if ("cause" in value) {
+      queue.push(value.cause);
+    }
+    if ("lastError" in value) {
+      queue.push(value.lastError);
+    }
   }
-  if (
-    "statusCode" in error &&
-    typeof error.statusCode === "number" &&
-    Number.isInteger(error.statusCode) &&
-    error.statusCode >= 400 &&
-    error.statusCode <= 599
-  ) {
-    return error.statusCode;
-  }
-  return null;
+  return { category, status };
 }
 
 export async function generateStoredImage(input: {
@@ -48,7 +86,12 @@ export async function generateStoredImage(input: {
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(120_000),
   }).catch((error: unknown) => {
-    throw new ImageStageError("provider", upstreamStatus(error));
+    const diagnostic = classifyImageError(error);
+    throw new ImageStageError(
+      "provider",
+      diagnostic.status,
+      diagnostic.category
+    );
   });
   const image = result.images[0];
   const extensions: Record<string, string> = {
@@ -70,7 +113,12 @@ export async function generateStoredImage(input: {
     Buffer.from(image.uint8Array),
     { access: "public", contentType: image.mediaType, addRandomSuffix: true }
   ).catch((error: unknown) => {
-    throw new ImageStageError("storage", upstreamStatus(error));
+    const diagnostic = classifyImageError(error);
+    throw new ImageStageError(
+      "storage",
+      diagnostic.status,
+      diagnostic.category
+    );
   });
   return stored.url;
 }

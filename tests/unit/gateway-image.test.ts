@@ -141,3 +141,36 @@ test("database failure while recording a failed job keeps the original error ref
     log.mockRestore();
   }
 });
+
+test("nested SDK errors expose only allowlisted category and numeric status", async () => {
+  const { classifyImageError } = await import("@/lib/media/gateway-image");
+  const nested = {
+    name: "AI_RetryError",
+    lastError: {
+      name: "AI_APICallError",
+      statusCode: 403,
+      message: "private",
+      responseBody: "secret",
+    },
+  };
+  assert.deepEqual(classifyImageError(nested), {
+    category: "http",
+    status: 403,
+  });
+  const circular: { name: string; cause?: unknown } = {
+    name: "Unknown private text",
+  };
+  circular.cause = circular;
+  assert.deepEqual(classifyImageError(circular), {
+    category: "unknown",
+    status: null,
+  });
+  assert.deepEqual(classifyImageError({ name: "AI_NoImageGeneratedError" }), {
+    category: "empty_output",
+    status: null,
+  });
+  assert.deepEqual(
+    classifyImageError({ name: "TypeError", cause: { name: "TimeoutError" } }),
+    { category: "timeout", status: null }
+  );
+});
