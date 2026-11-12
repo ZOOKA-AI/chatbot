@@ -92,7 +92,11 @@ export async function POST(request: Request) {
       (select count(*) from pg_tables where schemaname = 'public' and rowsecurity) as rls_on,
       (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) as rls_off,
       (select count(*) from "Document" where "embedding" is not null) as doc_embeddings,
-      (select count(*) from "AgentMessage") as agent_msgs`
+      (select count(*) from "AgentMessage") as agent_msgs,
+      (select count(*) from pg_tables t where t.schemaname = 'public'
+        and has_table_privilege('anon', format('public.%I', t.tablename), 'SELECT')) as anon_can_select,
+      (select count(*) from pg_tables t where t.schemaname = 'public'
+        and has_table_privilege('authenticated', format('public.%I', t.tablename), 'SELECT')) as auth_can_select`
   )) as unknown as Record<string, string>[];
 
   return NextResponse.json({
