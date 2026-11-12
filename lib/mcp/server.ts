@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listAgentMemories, saveAgentMemory } from "@/lib/db/agent-memory";
-import { readBrandDna } from "@/lib/brand/dna";
+import { generateBrandDna, readBrandDna } from "@/lib/brand/dna";
 import { listLeads, updateLeadStatus } from "@/lib/db/leads";
 import { readWallet } from "@/lib/db/token-wallets";
 import { chargeWallet } from "@/lib/db/wallet-charge";
@@ -184,6 +184,48 @@ export function buildZookaMcpServer(context: ToolContext): McpServer {
         return textResult({ dna: null, hint: "لم تُنشأ هوية بعد." });
       }
       return textResult({ dna });
+    }
+  );
+
+  server.registerTool(
+    "generate_brand_dna",
+    {
+      description:
+        "يقرأ موقع المساحة ويستخرج هوية العلامة ويحفظها. تكلفتها أعلى لأنها تستدعي نموذجاً.",
+      inputSchema: {
+        url: z.string().url().describe("رابط الموقع الكامل"),
+      },
+      title: "توليد هوية العلامة",
+    },
+    async ({ url }) => {
+      const paid = await charge(context, WRITE_COST * 5, "generate_brand_dna");
+      if (!paid.ok) {
+        return { content: [{ text: paid.message, type: "text" }], isError: true };
+      }
+      if (!context.userId) {
+        return {
+          content: [{ text: "المفتاح غير مرتبط بمستخدم.", type: "text" }],
+          isError: true,
+        };
+      }
+      try {
+        const dna = await generateBrandDna({
+          organizationId: context.organizationId,
+          url,
+          userId: context.userId,
+        });
+        return textResult({ dna, saved: true });
+      } catch (error) {
+        return {
+          content: [
+            {
+              text: error instanceof Error ? error.message : "failed",
+              type: "text",
+            },
+          ],
+          isError: true,
+        };
+      }
     }
   );
 
