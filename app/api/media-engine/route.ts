@@ -109,6 +109,7 @@ async function createJob(request: Request) {
       console.error("[media-image] operation failed", {
         reference,
         stage,
+        category: error instanceof ImageStageError ? error.category : "unknown",
         upstreamStatus:
           error instanceof ImageStageError ? error.upstreamStatus : null,
       });
