@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { McpKeysManager } from "@/components/mcp-keys-manager";
@@ -9,7 +10,16 @@ export const metadata: Metadata = {
   title: "MCP",
 };
 
-export default async function McpSettingsPage() {
+export default function McpSettingsPage() {
+  // الجلسة والكوكيز تُقرأ داخل Suspense حتى لا تُحجب الصفحة كاملة.
+  return (
+    <Suspense fallback={null}>
+      <McpSettingsContent />
+    </Suspense>
+  );
+}
+
+async function McpSettingsContent() {
   const context = await getWorkspaceContext();
   if (!context) {
     redirect("/login");

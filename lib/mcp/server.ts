@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listAgentMemories, saveAgentMemory } from "@/lib/db/agent-memory";
+import { readBrandDna } from "@/lib/brand/dna";
 import { listLeads, updateLeadStatus } from "@/lib/db/leads";
 import { readWallet } from "@/lib/db/token-wallets";
 import { chargeWallet } from "@/lib/db/wallet-charge";
@@ -162,6 +163,27 @@ export function buildZookaMcpServer(context: ToolContext): McpServer {
         organizationId: context.organizationId,
       });
       return textResult({ count: memories.length, memories });
+    }
+  );
+
+  server.registerTool(
+    "get_brand_dna",
+    {
+      description:
+        "هوية العلامة المحفوظة لهذه المساحة (تموضع، نبرة، جمهور، عروض، إثباتات). قراءة فقط.",
+      inputSchema: {},
+      title: "هوية العلامة",
+    },
+    async () => {
+      const paid = await charge(context, READ_COST, "get_brand_dna");
+      if (!paid.ok) {
+        return { content: [{ text: paid.message, type: "text" }], isError: true };
+      }
+      const dna = await readBrandDna(context.organizationId);
+      if (!dna) {
+        return textResult({ dna: null, hint: "لم تُنشأ هوية بعد." });
+      }
+      return textResult({ dna });
     }
   );
 
