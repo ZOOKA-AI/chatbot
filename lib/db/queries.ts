@@ -1791,3 +1791,32 @@ export async function finishMediaJob(input: MediaJobUpdate) {
   const [row] = await db.execute(mediaJobUpdateQuery(input));
   return row ?? null;
 }
+
+/** Owner-only image pilot: failures count toward the daily attempt cap. */
+export async function reserveGatewayImage(input: {
+  organizationId: string;
+  actionType: "IMAGE" | "CARTOON";
+  prompt: string;
+}) {
+  return db.transaction(async (tx) => {
+    // Serialize admission across instances before counting or creating jobs.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`gateway-image:${input.organizationId}`}))`
+    );
+    const [usage] = await tx
+      .select({ total: count() })
+      .from(mediaJob)
+      .where(
+        and(
+          eq(mediaJob.organizationId, input.organizationId),
+          inArray(mediaJob.actionType, ["IMAGE", "CARTOON"]),
+          sql`${mediaJob.createdAt} >= (now() at time zone 'UTC')::date`
+        )
+      );
+    if (Number(usage?.total ?? 0) >= 3) {
+      return null;
+    }
+    const [job] = await tx.insert(mediaJob).values(input).returning();
+    return job;
+  });
+}

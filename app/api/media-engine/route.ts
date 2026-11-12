@@ -2,7 +2,16 @@ import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { createMediaJob, finishMediaJob, getMediaJob } from "@/lib/db/queries";
+import {
+  createMediaJob,
+  finishMediaJob,
+  getMediaJob,
+  reserveGatewayImage,
+} from "@/lib/db/queries";
+
+import { generateStoredImage } from "@/lib/media/gateway-image";
+
+export const maxDuration = 180;
 
 const requestSchema = z
   .object({
@@ -36,6 +45,76 @@ async function createJob(request: Request) {
       { error: "Invalid request", issues: parsed.error.issues },
       { status: 400 }
     );
+  }
+
+  if (process.env.MEDIA_ENGINE_PROVIDER === "ai-gateway") {
+    if (context.role !== "owner") {
+      return NextResponse.json(
+        { error: "Image pilot is restricted to workspace owners" },
+        { status: 403 }
+      );
+    }
+    const { actionType, prompt } = parsed.data;
+    if (actionType !== "IMAGE" && actionType !== "CARTOON") {
+      return NextResponse.json(
+        {
+          error:
+            "This provider currently supports images only, not video or 3D",
+        },
+        { status: 422 }
+      );
+    }
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json(
+        { error: "Image storage is not configured" },
+        { status: 503 }
+      );
+    }
+    const job = await reserveGatewayImage({
+      organizationId: context.organizationId,
+      actionType,
+      prompt,
+    });
+    if (!job) {
+      return NextResponse.json(
+        { error: "Daily image attempt limit reached (3 per workspace, UTC)" },
+        { status: 429 }
+      );
+    }
+    try {
+      const assetUrl = await generateStoredImage({
+        organizationId: context.organizationId,
+        jobId: job.id,
+        prompt,
+        cartoon: actionType === "CARTOON",
+      });
+      const saved = await finishMediaJob({
+        id: job.id,
+        status: "succeeded",
+        assetUrl,
+      });
+      if (!saved) {
+        throw new Error("Unable to commit image result");
+      }
+      return NextResponse.json(
+        { jobId: job.id, status: "succeeded" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    } catch {
+      await finishMediaJob({
+        id: job.id,
+        status: "failed",
+        error: "Image generation or storage failed",
+      });
+      return NextResponse.json(
+        {
+          jobId: job.id,
+          error:
+            "Image generation or storage failed. No asset is claimed as generated.",
+        },
+        { status: 502 }
+      );
+    }
   }
 
   const webhookUrl = process.env.MEDIA_ENGINE_WEBHOOK_URL;
