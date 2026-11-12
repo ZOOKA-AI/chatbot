@@ -87,15 +87,13 @@ export async function POST(request: Request) {
     character_maximum_length: number | null;
   }[];
 
-  const securityStats = await (async () => { try { return await db.execute(
+  const securityStats = (await db.execute(
     sql`select
       (select count(*) from pg_tables where schemaname = 'public' and rowsecurity) as rls_on,
       (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) as rls_off,
       (select count(*) from "Document" where "embedding" is not null) as doc_embeddings,
-      (select count(*) from "AgentMessage") as agent_msgs,
-      (select count(*) from information_schema.role_table_grants where table_schema = 'public' and grantee = 'anon') as anon_grants,
-      (select count(*) from information_schema.role_table_grants where table_schema = 'public' and grantee = 'authenticated') as auth_grants`
-  ); } catch (e) { return [{ error: String(e) }]; } })() as unknown as Record<string, string>[];
+      (select count(*) from "AgentMessage") as agent_msgs`
+  )) as unknown as Record<string, string>[];
 
   return NextResponse.json({
     security_stats: securityStats,
