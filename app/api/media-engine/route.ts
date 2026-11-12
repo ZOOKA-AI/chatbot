@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
@@ -8,8 +8,10 @@ import {
   getMediaJob,
   reserveGatewayImage,
 } from "@/lib/db/queries";
-
-import { generateStoredImage } from "@/lib/media/gateway-image";
+import {
+  generateStoredImage,
+  ImageStageError,
+} from "@/lib/media/gateway-image";
 
 export const maxDuration = 180;
 
@@ -100,19 +102,35 @@ async function createJob(request: Request) {
         { jobId: job.id, status: "succeeded" },
         { headers: { "Cache-Control": "no-store" } }
       );
-    } catch {
-      await finishMediaJob({
-        id: job.id,
-        status: "failed",
-        error: "Image generation or storage failed",
+    } catch (error) {
+      const reference = randomUUID();
+      const stage =
+        error instanceof ImageStageError ? error.stage : "persistence";
+      console.error("[media-image] operation failed", {
+        reference,
+        stage,
+        upstreamStatus:
+          error instanceof ImageStageError ? error.upstreamStatus : null,
       });
+      try {
+        await finishMediaJob({
+          id: job.id,
+          status: "failed",
+          error: `Image ${stage} failed. Reference: ${reference}`,
+        });
+      } catch {
+        console.error("[media-image] failure status could not be persisted", {
+          reference,
+        });
+      }
       return NextResponse.json(
         {
           jobId: job.id,
-          error:
-            "Image generation or storage failed. No asset is claimed as generated.",
+          code: `IMAGE_${stage.toUpperCase()}_FAILED`,
+          reference,
+          error: `تعذّر إكمال الصورة في مرحلة ${stage}. مرجع الدعم: ${reference}`,
         },
-        { status: 502 }
+        { status: 502, headers: { "Cache-Control": "no-store" } }
       );
     }
   }

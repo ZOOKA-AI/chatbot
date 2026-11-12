@@ -83,3 +83,61 @@ test("cartoon uses an actual image model and does not claim a 3D scene", async (
   assert.equal((await POST(req("CARTOON"))).status, 200);
   assert.match(generate.mock.calls[0]?.[0].prompt, /^Cartoon illustration/);
 });
+
+test("provider and storage failures have safe stage/reference without credentials or prompt", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    generate.mockRejectedValueOnce(
+      Object.assign(new Error("PRIVATE_PROVIDER_TOKEN and prompt"), {
+        statusCode: 403,
+        responseBody: "PRIVATE_PROVIDER_TOKEN",
+      })
+    );
+    const response = await POST(req());
+    const body = await response.json();
+    assert.equal(body.code, "IMAGE_PROVIDER_FAILED");
+    assert.match(body.reference, /^[a-f0-9-]{36}$/);
+    assert.equal(log.mock.calls[0]?.[1].upstreamStatus, 403);
+    assert.equal(
+      JSON.stringify(body).includes("PRIVATE_PROVIDER_TOKEN"),
+      false
+    );
+    assert.equal(
+      JSON.stringify(log.mock.calls).includes("PRIVATE_PROVIDER_TOKEN"),
+      false
+    );
+    put.mockRejectedValueOnce(
+      Object.assign(new Error("PRIVATE_STORAGE_TOKEN"), { statusCode: 401 })
+    );
+    const storage = await POST(req());
+    assert.equal((await storage.json()).code, "IMAGE_STORAGE_FAILED");
+    assert.equal(
+      JSON.stringify(log.mock.calls).includes("PRIVATE_STORAGE_TOKEN"),
+      false
+    );
+  } finally {
+    log.mockRestore();
+  }
+});
+
+test("database failure while recording a failed job keeps the original error reference", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    generate.mockRejectedValueOnce(new Error("provider failed"));
+    finish.mockRejectedValueOnce(new Error("private database detail"));
+    const response = await POST(req());
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.code, "IMAGE_PROVIDER_FAILED");
+    assert.equal(
+      log.mock.calls[0]?.[1].reference,
+      log.mock.calls[1]?.[1].reference
+    );
+    assert.equal(
+      JSON.stringify(log.mock.calls).includes("private database detail"),
+      false
+    );
+  } finally {
+    log.mockRestore();
+  }
+});
