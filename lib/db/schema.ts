@@ -477,3 +477,26 @@ export const project = pgTable(
 );
 
 export type Project = InferSelectModel<typeof project>;
+
+export const agentMessage = pgTable(
+  "AgentMessage",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId").notNull(),
+    conversationKey: varchar("conversationKey", { length: 128 }).notNull(),
+    role: varchar("role", { length: 16 }).notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => [
+    index("AgentMessage_conversationKey_createdAt_idx").on(
+      table.conversationKey,
+      table.createdAt
+    ),
+  ]
+);
+
+export type AgentMessage = InferSelectModel<typeof agentMessage>;

@@ -1,5 +1,10 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { getWorkspaceBilling, trackWorkspaceUsage } from "@/lib/db/queries";
+import {
+  appendAgentMessage,
+  getAgentHistory,
+  getWorkspaceBilling,
+  trackWorkspaceUsage,
+} from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 
 /**
@@ -88,6 +93,11 @@ export async function POST(request: Request) {
   // One memory lane per member inside their own workspace.
   const agentUserId = `${context.organizationId}:${context.user.id}`;
 
+  // Conversation memory lives in Postgres, so it survives n8n rebuilds.
+  const history = await getAgentHistory(context.organizationId, agentUserId, 10).catch(
+    () => []
+  );
+
   let upstream: Response;
   try {
     upstream = await fetch(WEBHOOK_URL, {
@@ -96,7 +106,7 @@ export async function POST(request: Request) {
         "content-type": "application/json",
         "x-solas-key": WEBHOOK_KEY,
       },
-      body: JSON.stringify({ userId: agentUserId, message }),
+      body: JSON.stringify({ userId: agentUserId, message, history }),
       signal: AbortSignal.timeout(50_000),
       cache: "no-store",
     });
@@ -130,6 +140,25 @@ export async function POST(request: Request) {
       { error: "agent_empty_reply" },
       { status: 502, headers: { "cache-control": "no-store" } }
     );
+  }
+
+  try {
+    await appendAgentMessage({
+      organizationId: context.organizationId,
+      userId: context.user.id,
+      conversationKey: agentUserId,
+      role: "user",
+      content: message,
+    });
+    await appendAgentMessage({
+      organizationId: context.organizationId,
+      userId: context.user.id,
+      conversationKey: agentUserId,
+      role: "assistant",
+      content: reply,
+    });
+  } catch {
+    // Memory writes must never lose an answer that was already produced.
   }
 
   try {

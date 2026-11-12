@@ -37,6 +37,10 @@ END $$`,
 END $$`,
     'CREATE INDEX IF NOT EXISTS "WebhookEvent_receivedAt_idx" ON "WebhookEvent" USING btree ("receivedAt")',
   ],
+  AgentMessage: [
+    'CREATE TABLE IF NOT EXISTS "AgentMessage" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "organizationId" uuid NOT NULL REFERENCES "Organization"("id") ON DELETE CASCADE, "userId" uuid NOT NULL, "conversationKey" varchar(128) NOT NULL, "role" varchar(16) NOT NULL, "content" text NOT NULL, "createdAt" timestamp DEFAULT now() NOT NULL)',
+    'CREATE INDEX IF NOT EXISTS "AgentMessage_conversationKey_createdAt_idx" ON "AgentMessage" ("conversationKey", "createdAt")',
+  ],
 };
 
 export async function POST(request: Request) {

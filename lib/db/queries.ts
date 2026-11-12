@@ -1,5 +1,7 @@
 import "server-only";
 
+import { agentMessage } from "./schema";
+
 import { del as deleteBlob, list as listBlobs } from "@vercel/blob";
 import {
   and,
@@ -1818,5 +1820,50 @@ export async function reserveGatewayImage(input: {
     }
     const [job] = await tx.insert(mediaJob).values(input).returning();
     return job;
+  });
+}
+
+export async function getAgentHistory(
+  organizationId: string,
+  conversationKey: string,
+  limit = 10
+) {
+  const rows = await db
+    .select({
+      role: agentMessage.role,
+      content: agentMessage.content,
+    })
+    .from(agentMessage)
+    .where(
+      and(
+        eq(agentMessage.organizationId, organizationId),
+        eq(agentMessage.conversationKey, conversationKey)
+      )
+    )
+    .orderBy(desc(agentMessage.createdAt))
+    .limit(limit);
+
+  return rows.reverse();
+}
+
+export async function appendAgentMessage({
+  organizationId,
+  userId,
+  conversationKey,
+  role,
+  content,
+}: {
+  organizationId: string;
+  userId: string;
+  conversationKey: string;
+  role: "user" | "assistant";
+  content: string;
+}) {
+  await db.insert(agentMessage).values({
+    organizationId,
+    userId,
+    conversationKey,
+    role,
+    content: content.slice(0, 8000),
   });
 }
