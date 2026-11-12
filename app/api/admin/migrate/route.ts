@@ -94,9 +94,9 @@ export async function POST(request: Request) {
       (select count(*) from "Document" where "embedding" is not null) as doc_embeddings,
       (select count(*) from "AgentMessage") as agent_msgs,
       (select count(*) from pg_tables t where t.schemaname = 'public'
-        and has_table_privilege('anon', format('public.%I', t.tablename), 'SELECT')) as anon_can_select,
+        and has_table_privilege('anon'::name, t.tablename::text, 'SELECT')) as anon_can_select,
       (select count(*) from pg_tables t where t.schemaname = 'public'
-        and has_table_privilege('authenticated', format('public.%I', t.tablename), 'SELECT')) as auth_can_select`
+        and has_table_privilege('authenticated'::name, t.tablename::text, 'SELECT')) as auth_can_select`
   )) as unknown as Record<string, string>[];
 
   return NextResponse.json({
