@@ -491,12 +491,12 @@ export const agentMessage = pgTable(
     content: text("content").notNull(),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
-  (table) => [
-    index("AgentMessage_conversationKey_createdAt_idx").on(
+  (table) => ({
+    conversationIdx: index("AgentMessage_conversationKey_createdAt_idx").on(
       table.conversationKey,
       table.createdAt
     ),
-  ]
+  })
 );
 
 export type AgentMessage = InferSelectModel<typeof agentMessage>;
