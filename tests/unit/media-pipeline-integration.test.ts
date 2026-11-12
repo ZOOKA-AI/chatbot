@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, test, vi } from "vitest";
+import { migratePglite } from "../helpers/migrate-pglite";
 
 const { update, read, workspace } = vi.hoisted(() => ({
   update: vi.fn(),
@@ -41,7 +41,7 @@ test("reference sender -> real callback -> migrated PostgreSQL -> workspace stat
   const client = new PGlite();
   try {
     const db = drizzle(client);
-    await migrate(db, {
+    await migratePglite(client, {
       migrationsFolder: fileURLToPath(
         new URL("../../lib/db/migrations", import.meta.url)
       ),
