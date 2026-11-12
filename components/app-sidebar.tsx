@@ -96,6 +96,11 @@ export function AppSidebar({
       label: isArabic ? "العمل" : "Work",
       items: [
         {
+          href: "/workspace/agent",
+          icon: <Bot />,
+          label: isArabic ? "الوكيل التنفيذي" : "Operations agent",
+        },
+        {
           href: "/studio",
           icon: <BriefcaseBusiness />,
           label: isArabic ? "Zooka Studio · معاينة" : "Zooka Studio · Review",
