@@ -46,6 +46,12 @@ END $$`,
     'CREATE INDEX IF NOT EXISTS "Chat_organizationId_deletedAt_idx" ON "Chat" ("organizationId", "deletedAt")',
     `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Chat' AND column_name = 'deletedAt') THEN RAISE EXCEPTION 'Chat.deletedAt was not created'; END IF; END $$`,
   ],
+  security_lockdown_0022: [
+    `DO $$ DECLARE r record; BEGIN FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', r.tablename); END LOOP; END $$`,
+    `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated`,
+    `REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated`,
+    `DO $$ DECLARE r record; BEGIN FOR r IN SELECT c.relname AS v FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'v' LOOP EXECUTE format('ALTER VIEW public.%I SET (security_invoker = true)', r.v); END LOOP; END $$`,
+  ],
 };
 
 export async function POST(request: Request) {
@@ -81,7 +87,16 @@ export async function POST(request: Request) {
     character_maximum_length: number | null;
   }[];
 
+  const securityStats = (await db.execute(
+    sql`select
+      (select count(*) from pg_tables where schemaname = 'public' and rowsecurity) as rls_on,
+      (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) as rls_off,
+      (select count(*) from "Document" where "embedding" is not null) as doc_embeddings,
+      (select count(*) from "AgentMessage") as agent_msgs`
+  )) as unknown as Record<string, string>[];
+
   return NextResponse.json({
+    security_stats: securityStats,
     applied,
     failed,
     tables: rows.map((row) => row.table_name),
