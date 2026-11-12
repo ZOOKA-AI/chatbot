@@ -41,6 +41,11 @@ END $$`,
     'CREATE TABLE IF NOT EXISTS "AgentMessage" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "organizationId" uuid NOT NULL REFERENCES "Organization"("id") ON DELETE CASCADE, "userId" uuid NOT NULL, "conversationKey" varchar(128) NOT NULL, "role" varchar(16) NOT NULL, "content" text NOT NULL, "createdAt" timestamp DEFAULT now() NOT NULL)',
     'CREATE INDEX IF NOT EXISTS "AgentMessage_conversationKey_createdAt_idx" ON "AgentMessage" ("conversationKey", "createdAt")',
   ],
+  Chat_soft_delete: [
+    'ALTER TABLE "Chat" ADD COLUMN IF NOT EXISTS "deletedAt" timestamp',
+    'CREATE INDEX IF NOT EXISTS "Chat_organizationId_deletedAt_idx" ON "Chat" ("organizationId", "deletedAt")',
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Chat' AND column_name = 'deletedAt') THEN RAISE EXCEPTION 'Chat.deletedAt was not created'; END IF; END $$`,
+  ],
 };
 
 export async function POST(request: Request) {

@@ -12,6 +12,7 @@ import {
   gt,
   gte,
   inArray,
+  isNull,
   like,
   lt,
   ne,
@@ -725,13 +726,17 @@ export async function deleteChatById({
       return undefined;
     }
 
-    await db.delete(vote).where(eq(vote.chatId, id));
-    await db.delete(message).where(eq(message.chatId, id));
-    await db.delete(stream).where(eq(stream.chatId, id));
-
+    // Soft delete: the row and its messages stay, so a mistake is reversible.
     const [chatsDeleted] = await db
-      .delete(chat)
-      .where(and(eq(chat.id, id), eq(chat.organizationId, organizationId)))
+      .update(chat)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(chat.id, id),
+          eq(chat.organizationId, organizationId),
+          isNull(chat.deletedAt)
+        )
+      )
       .returning();
     return chatsDeleted;
   } catch (_error) {
@@ -792,9 +797,9 @@ export async function getChatsByOrganizationId({
 }) {
   try {
     const extendedLimit = limit + 1;
-    const visibleToUser = or(
-      eq(chat.userId, userId),
-      eq(chat.visibility, "public")
+    const visibleToUser = and(
+      or(eq(chat.userId, userId), eq(chat.visibility, "public")),
+      isNull(chat.deletedAt)
     );
 
     const query = (whereCondition?: SQL<any>) =>

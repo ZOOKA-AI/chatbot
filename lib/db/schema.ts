@@ -191,6 +191,7 @@ export const chat = pgTable(
     visibility: varchar("visibility", { enum: ["public", "private"] })
       .notNull()
       .default("private"),
+    deletedAt: timestamp("deletedAt"),
   },
   (table) => ({
     organizationCreatedIndex: index("Chat_organizationId_createdAt_idx").on(
