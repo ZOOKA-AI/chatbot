@@ -115,70 +115,84 @@ export function BuildSection({
   onSelectPrompt: (prompt: string) => void;
 }) {
   const [active, setActive] = useState<string | null>(null);
+  // Folded by default: a single compact row of icons, so the conversation
+  // keeps the space. Opening it reveals the hints and the ready templates.
+  const [open, setOpen] = useState(false);
   const isArabic = lang === "ar";
 
   return (
     <section
       aria-label={isArabic ? "ابنِ الآن" : "Build now"}
-      className="mt-8 w-full"
+      className="mt-4 w-full"
       data-testid="build-section"
       dir={isArabic ? "rtl" : "ltr"}
     >
-      <h2 className="mb-3 text-center font-semibold text-base">
-        {isArabic ? "ابنِ الآن" : "Build now"}
-      </h2>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {KINDS.map((kind, index) => (
+      <div className="flex items-center justify-center gap-2">
+        {KINDS.map((kind) => (
           <motion.button
-            animate={{ opacity: 1, y: 0 }}
-            className={`flex flex-col items-start gap-1 rounded-2xl border p-4 text-start transition-colors hover:bg-muted/60 ${
-              active === kind.id ? "border-primary bg-muted/60" : ""
+            aria-label={kind.title[lang]}
+            className={`zk-neon-hover flex items-center gap-1.5 rounded-full border bg-background/70 px-3 py-1.5 font-medium text-sm backdrop-blur transition-colors hover:bg-muted/60 ${
+              active === kind.id ? "border-primary text-primary" : ""
             }`}
             data-testid={`build-kind-${kind.id}`}
-            initial={{ opacity: 0, y: 10 }}
             key={kind.id}
             onClick={() => {
               setActive(kind.id);
               onSelectPrompt(kind.prompt[lang]);
             }}
-            transition={{ delay: 0.06 * index, duration: 0.35 }}
+            title={kind.hint[lang]}
             type="button"
-            whileHover={{ y: -3 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.96 }}
           >
-            <span aria-hidden className="text-2xl">
-              {kind.icon}
-            </span>
-            <span className="font-medium text-sm">{kind.title[lang]}</span>
-            <span className="text-muted-foreground text-xs">
-              {kind.hint[lang]}
-            </span>
+            <span aria-hidden>{kind.icon}</span>
+            <span className="hidden sm:inline">{kind.title[lang]}</span>
           </motion.button>
         ))}
-      </div>
-
-      <div className="mt-6 flex items-baseline justify-between gap-2">
-        <h3 className="font-medium text-sm">
-          {isArabic ? "قوالب جاهزة" : "Ready templates"}
-        </h3>
-        <span className="text-muted-foreground text-xs">
-          {isArabic ? "اضغط لتبدأ منها" : "Tap to start from one"}
-        </span>
-      </div>
-
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
-        {TEMPLATES.map((template) => (
-          <button
-            className="shrink-0 rounded-full border bg-background px-4 py-2 text-xs transition-colors hover:bg-muted/60"
-            data-testid={`build-template-${template.id}`}
-            key={template.id}
-            onClick={() => onSelectPrompt(template.prompt[lang])}
-            type="button"
+        <button
+          aria-controls="build-templates"
+          aria-expanded={open}
+          className="flex size-8 items-center justify-center rounded-full border bg-background/70 text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
+          data-testid="build-section-toggle"
+          onClick={() => setOpen((value) => !value)}
+          title={isArabic ? "قوالب جاهزة" : "Ready templates"}
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            className={`size-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
           >
-            {template.title[lang]}
-          </button>
-        ))}
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      </div>
+
+      <div
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+        id="build-templates"
+        inert={!open}
+      >
+        <div className="overflow-hidden">
+          <div className="mt-3 flex flex-wrap justify-center gap-2 pb-1">
+            {TEMPLATES.map((template) => (
+              <button
+                className="rounded-full border bg-background/70 px-3 py-1.5 text-xs backdrop-blur transition-colors hover:bg-muted/60"
+                data-testid={`build-template-${template.id}`}
+                key={template.id}
+                onClick={() => onSelectPrompt(template.prompt[lang])}
+                type="button"
+              >
+                {template.title[lang]}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );

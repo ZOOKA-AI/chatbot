@@ -348,7 +348,10 @@ export function Chat({
 
   return (
     <>
-      <div className="overscroll-behavior-contain relative isolate flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
+      <div
+        className="overscroll-behavior-contain relative isolate flex h-dvh min-w-0 touch-pan-y flex-col bg-background"
+        data-app-shell
+      >
         <NeuralBackground />
         <ChatHeader
           chatId={id}
