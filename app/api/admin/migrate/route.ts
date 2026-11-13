@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
-import { db, appendAgentMessage } from "@/lib/db/queries";
+import { db } from "@/lib/db/queries";
 
 const TABLES: Record<string, string[]> = {
   WebhookEvent: [
@@ -99,27 +99,6 @@ export async function POST(request: Request) {
   )) as unknown as Record<string, string>[];
 
   const url = new URL(request.url);
-  if (url.searchParams.get("diag") === "append") {
-    const out: Record<string, unknown> = {};
-    try {
-      const org = await db.execute(sql`select "id" from "Organization" limit 1`);
-      const orgId = (org as unknown as { id: string }[])[0]?.id;
-      await appendAgentMessage({
-        organizationId: orgId as string,
-        userId: orgId as string,
-        conversationKey: "diag:append",
-        role: "user",
-        content: "drizzle append probe",
-      });
-      out.append = "ok";
-    } catch (e) {
-      out.append = "failed";
-      out.error = String((e as Error).message ?? e);
-    }
-    return NextResponse.json({ diag: out });
-  }
-
-  
   if (url.searchParams.get("diag") === "agent") {
     const out: Record<string, unknown> = {};
     try {
