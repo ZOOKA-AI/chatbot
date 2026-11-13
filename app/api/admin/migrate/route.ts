@@ -98,6 +98,37 @@ export async function POST(request: Request) {
       (select count(*) from "AgentMessage" where "createdAt" > now() - interval '2 days') as agent_msgs_48h`
   )) as unknown as Record<string, string>[];
 
+  const url = new URL(request.url);
+  if (url.searchParams.get("diag") === "agent") {
+    const out: Record<string, unknown> = {};
+    try {
+      const cols = await db.execute(
+        sql`select column_name, data_type, is_nullable from information_schema.columns where table_name = 'AgentMessage' order by ordinal_position`
+      );
+      out.columns = cols;
+    } catch (e) {
+      out.columns_error = String(e);
+    }
+    try {
+      const r = await db.execute(
+        sql`insert into "AgentMessage" ("organizationId", "userId", "conversationKey", "role", "content")
+            select "id", "id", 'diag:probe', 'user', 'diagnostic probe' from "Organization" limit 1 returning "id", "createdAt"`
+      );
+      out.insert = "ok";
+      out.row = r;
+    } catch (e) {
+      out.insert = "failed";
+      out.insert_error = String((e as Error).message ?? e);
+    }
+    try {
+      const cnt = await db.execute(sql`select count(*)::int as n from "AgentMessage"`);
+      out.count = cnt;
+    } catch (e) {
+      out.count_error = String(e);
+    }
+    return NextResponse.json({ diag: out });
+  }
+
   return NextResponse.json({
     security_stats: securityStats,
     applied,
