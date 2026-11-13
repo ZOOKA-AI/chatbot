@@ -98,6 +98,26 @@ export async function POST(request: Request) {
       (select count(*) from "AgentMessage" where "createdAt" > now() - interval '2 days') as agent_msgs_48h`
   )) as unknown as Record<string, string>[];
 
+  if (url.searchParams.get("diag") === "append") {
+    const out: Record<string, unknown> = {};
+    try {
+      const org = await db.execute(sql`select "id" from "Organization" limit 1`);
+      const orgId = (org as unknown as { id: string }[])[0]?.id;
+      await appendAgentMessage({
+        organizationId: orgId as string,
+        userId: orgId as string,
+        conversationKey: "diag:append",
+        role: "user",
+        content: "drizzle append probe",
+      });
+      out.append = "ok";
+    } catch (e) {
+      out.append = "failed";
+      out.error = String((e as Error).message ?? e);
+    }
+    return NextResponse.json({ diag: out });
+  }
+
   const url = new URL(request.url);
   if (url.searchParams.get("diag") === "agent") {
     const out: Record<string, unknown> = {};
