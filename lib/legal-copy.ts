@@ -47,7 +47,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       sections: [
         {
           title: "الاستخدام",
-          body: "نستخدم التخزين المحلي والكوكيز الضرورية لتسجيل الدخول واختيار مساحة العمل وتفضيلات اللغة. قد تستخدم أدوات القياس ملفات تقنية وفق إعدادات النشر.",
+          body: "نستخدم التخزين المحلي والكوكيز الضرورية لتسجيل الدخول واختيار مساحة العمل وتفضيلات اللغة. لا نفعّل أدوات القياس (Vercel Analytics وGoogle Analytics 4) إلا بعد موافقتك من الشريط الظاهر في الموقع، وهي تستخدم معرّفات تقنية لقياس الزيارات.",
         },
         {
           title: "اختيارك",
@@ -72,7 +72,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "ملفات تعريف الارتباط",
-          body: "نستخدم كوكيز ضرورية لتسجيل الدخول واختيار اللغة وتفضيلات الجلسة، وقياساً مجهول الهوية عبر Vercel Analytics. التفاصيل الكاملة في سياسة الكوكيز على zooka-ai.com/cookies.",
+          body: "نستخدم كوكيز ضرورية لتسجيل الدخول واختيار اللغة وتفضيلات الجلسة. وبعد موافقتك فقط نفعّل قياس زيارات الموقع عبر Vercel Analytics وGoogle Analytics 4 (قد تعالج Google بيانات الاستخدام وفق سياساتها). التفاصيل الكاملة في سياسة الكوكيز على zooka-ai.com/cookies.",
         },
         {
           title: "مدة الاحتفاظ والحذف",
@@ -175,7 +175,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       sections: [
         {
           title: "Use",
-          body: "We use local storage and cookies needed for sign-in, workspace selection, and language preferences. Analytics tools may use technical data depending on deployment settings.",
+          body: "We use local storage and cookies needed for sign-in, workspace selection, and language preferences. We turn on measurement tools (Vercel Analytics and Google Analytics 4) only after you accept in the banner shown on the site; they use technical identifiers to measure site visits.",
         },
         {
           title: "Your choice",
@@ -200,7 +200,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "Cookies",
-          body: "We set cookies required for sign-in, language choice and session preferences, plus anonymous product analytics through Vercel Analytics. The full breakdown is in the cookie policy at zooka-ai.com/cookies.",
+          body: "We set cookies required for sign-in, language choice and session preferences. Only after you consent do we enable site-visit measurement through Vercel Analytics and Google Analytics 4 (Google may process usage data under its own policies). The full breakdown is in the cookie policy at zooka-ai.com/cookies.",
         },
         {
           title: "Retention and deletion",
