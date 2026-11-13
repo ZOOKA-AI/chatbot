@@ -15,6 +15,7 @@ import {
   UndoIcon,
 } from "@/components/icons";
 import { generateUUID } from "@/lib/utils";
+import { ensurePyodideLoader, PYODIDE_INDEX_URL } from "@/lib/pyodide-loader";
 
 const OUTPUT_HANDLERS = {
   matplotlib: `
@@ -133,9 +134,10 @@ export const codeArtifact = new Artifact<"code", Metadata>({
         }));
 
         try {
-          // @ts-expect-error - loadPyodide is not defined
-          const currentPyodideInstance = await globalThis.loadPyodide({
-            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/",
+          const loadPyodide = await ensurePyodideLoader();
+          // biome-ignore lint/suspicious/noExplicitAny: Pyodide ships no types here.
+          const currentPyodideInstance: any = await loadPyodide({
+            indexURL: PYODIDE_INDEX_URL,
           });
 
           currentPyodideInstance.setStdout({
