@@ -41,6 +41,7 @@ import { MultimodalInput } from "./multimodal-input";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
+import { NeuralBackground } from "@/components/neural-background";
 
 export function Chat({
   id,
@@ -347,7 +348,8 @@ export function Chat({
 
   return (
     <>
-      <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
+      <div className="overscroll-behavior-contain relative isolate flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
+        <NeuralBackground />
         <ChatHeader
           chatId={id}
           isReadonly={isReadonly}
@@ -373,7 +375,7 @@ export function Chat({
           votes={votes}
         />
 
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl shrink-0 gap-2 border-t-0 bg-background px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-4 md:pb-4">
+        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl shrink-0 gap-2 border-t-0 bg-transparent px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-4 md:pb-4">
           {!isReadonly && (
             <MultimodalInput
               agentMode={agentMode}

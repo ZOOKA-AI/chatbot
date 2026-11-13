@@ -200,7 +200,10 @@ export function AppSidebar({
 
   return (
     <>
-      <Sidebar className="group-data-[side=left]:border-r-0">
+      <Sidebar
+        className="group-data-[side=left]:border-r-0 group-data-[side=right]:border-l-0"
+        side={lang === "ar" ? "right" : "left"}
+      >
         <SidebarHeader>
           <SidebarMenu>
             <div className="flex flex-row items-center justify-between">
