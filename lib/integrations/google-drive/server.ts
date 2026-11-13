@@ -113,6 +113,21 @@ export async function getGoogleAuthorizedProviders(organizationId: string) {
   }
 }
 
+/**
+ * Granted Google providers plus whether the stored credential can actually
+ * mint an access token right now. A connection whose refresh fails (revoked
+ * consent, rotated OAuth client) must not be shown as "connected": the agent
+ * tools would fail with "not granted" while the settings page claims success.
+ */
+export async function getGoogleConnectionHealth(organizationId: string) {
+  const providers = await getGoogleAuthorizedProviders(organizationId);
+  if (providers.length === 0) {
+    return { providers, usable: false };
+  }
+  const accessToken = await getGoogleDriveAccessToken(organizationId);
+  return { providers, usable: accessToken !== null };
+}
+
 export async function isGoogleDriveConnected(organizationId: string) {
   return (await getGoogleAuthorizedProviders(organizationId)).includes(
     "google_drive"
@@ -189,6 +204,13 @@ export async function getGoogleDriveAccessToken(organizationId: string) {
         typeof result === "object" && result !== null && "error" in result
           ? result.error
           : undefined;
+      // Log only Google's error code (e.g. invalid_grant, invalid_client):
+      // never tokens or response bodies. This is what tells an operator
+      // whether the user must reconnect or the OAuth client is misconfigured.
+      console.error("Google token refresh rejected", {
+        error: typeof errorCode === "string" ? errorCode : "unknown",
+        status: response.status,
+      });
       if (isRevokedGoogleDriveGrant(errorCode)) {
         await deleteGoogleDriveConnectionIfUnchanged({
           organizationId,
