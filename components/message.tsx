@@ -1,5 +1,6 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import type { ToolUIPart } from "ai";
 import { useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -22,6 +23,13 @@ import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
+
+const GITHUB_WRITE_TOOLS = new Set([
+  "createGitHubIssue",
+  "commentOnGitHubIssue",
+  "commitGitHubFile",
+  "createGitHubPullRequest",
+]);
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
@@ -321,6 +329,88 @@ const PurePreviewMessage = ({
                     {part.output.warning}
                   </p>
                 </section>
+              );
+            }
+
+            // GitHub write tools need explicit approval; the generic card
+            // below is the only place the user can allow or deny them.
+            if (
+              typeof type === "string" &&
+              type.startsWith("tool-") &&
+              GITHUB_WRITE_TOOLS.has(type.slice("tool-".length))
+            ) {
+              const githubPart = part as unknown as {
+                toolCallId: string;
+                state: ToolUIPart["state"];
+                input?: unknown;
+                output?: unknown;
+                approval?: { id: string; approved?: boolean };
+              };
+              const approvalId = githubPart.approval?.id;
+              const isDenied =
+                githubPart.state === "output-denied" ||
+                (githubPart.state === "approval-responded" &&
+                  githubPart.approval?.approved === false);
+              const toolType = type as ToolUIPart["type"];
+              return (
+                <div
+                  className="w-[min(100%,450px)]"
+                  key={githubPart.toolCallId}
+                >
+                  <Tool className="w-full" defaultOpen={true}>
+                    <ToolHeader state={githubPart.state} type={toolType} />
+                    <ToolContent>
+                      {githubPart.input !== undefined && (
+                        <ToolInput input={githubPart.input as never} />
+                      )}
+                      {githubPart.state === "approval-requested" &&
+                        approvalId && (
+                          <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+                            <button
+                              className="rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+                              onClick={() => {
+                                addToolApprovalResponse({
+                                  id: approvalId,
+                                  approved: false,
+                                  reason: "User denied GitHub action",
+                                });
+                              }}
+                              type="button"
+                            >
+                              Deny
+                            </button>
+                            <button
+                              className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
+                              onClick={() => {
+                                addToolApprovalResponse({
+                                  id: approvalId,
+                                  approved: true,
+                                });
+                              }}
+                              type="button"
+                            >
+                              Allow
+                            </button>
+                          </div>
+                        )}
+                      {isDenied && (
+                        <p className="px-4 py-3 text-muted-foreground text-sm">
+                          Denied. Nothing was changed on GitHub.
+                        </p>
+                      )}
+                      {githubPart.state === "output-available" && (
+                        <ToolOutput
+                          errorText={undefined}
+                          output={
+                            <pre className="whitespace-pre-wrap p-3">
+                              {JSON.stringify(githubPart.output, null, 2)}
+                            </pre>
+                          }
+                        />
+                      )}
+                    </ToolContent>
+                  </Tool>
+                </div>
               );
             }
 

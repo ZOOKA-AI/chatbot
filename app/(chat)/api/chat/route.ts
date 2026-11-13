@@ -38,6 +38,7 @@ import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
 import { createGmailTools } from "@/lib/ai/tools/google-gmail";
+import { createGitHubTools } from "@/lib/ai/tools/github";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -271,6 +272,9 @@ export async function POST(request: Request) {
     const n8nTools = agentAccessAuthorized
       ? createN8nTools(workspaceContext.organizationId)
       : {};
+    const githubTools = agentAccessAuthorized
+      ? createGitHubTools(workspaceContext.organizationId)
+      : {};
     const calendarTools = agentAccessAuthorized
       ? createCalendarTools(workspaceContext.organizationId)
       : {};
@@ -333,6 +337,7 @@ export async function POST(request: Request) {
           ...gmailTools,
           ...calendarTools,
           ...n8nTools,
+          ...githubTools,
         };
 
         const result = streamText({
@@ -354,7 +359,7 @@ export async function POST(request: Request) {
               : "Web search is not configured for this deployment. Do not claim to have searched the web; tell the user that an administrator must configure TAVILY_API_KEY."
           } ${
             agentAccessAuthorized
-              ? "You are in Agent mode. Follow a clear workflow: briefly state your understanding and intended next step, use available tools when useful, then summarize what actually succeeded and what remains. Report tool errors honestly, distinguish verified results from assumptions, and cite sources returned by tools. Google Drive is read-only and Gmail supports search, read and send, all only when a tool returns data; never claim a mail was sent unless sendGmailMessage returns an id; Notion and Shopify are unavailable. Never claim to have accessed data unless a tool confirms it."
+              ? "You are in Agent mode. Follow a clear workflow: briefly state your understanding and intended next step, use available tools when useful, then summarize what actually succeeded and what remains. Report tool errors honestly, distinguish verified results from assumptions, and cite sources returned by tools. Google Drive is read-only and Gmail supports search, read and send, all only when a tool returns data; never claim a mail was sent unless sendGmailMessage returns an id; GitHub supports reading repositories and issues, and writing only after the user approves each action (issues, comments, commits to a non-default branch, and pull requests); never merge and never claim a GitHub write happened unless the tool returns a url; Notion and Shopify are unavailable. Never claim to have accessed data unless a tool confirms it."
               : ""
           }`,
           messages: modelMessages,
@@ -378,6 +383,13 @@ export async function POST(request: Request) {
                       "sendGmailMessage",
                       "listCalendarEvents",
                       "createCalendarEvent",
+                      "listGitHubRepos",
+                      "readGitHubFile",
+                      "listGitHubIssues",
+                      "createGitHubIssue",
+                      "commentOnGitHubIssue",
+                      "commitGitHubFile",
+                      "createGitHubPullRequest",
                     ] as const)
                   : []),
               ],
