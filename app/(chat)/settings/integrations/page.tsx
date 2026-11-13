@@ -6,12 +6,9 @@ import { N8nConnectionControl } from "@/components/n8n-connection-control";
 import { OAuthConnectionControl } from "@/components/oauth-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
-import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
-import {
-  getGoogleAuthorizedProviders,
-  isGoogleDriveConfigured,
-} from "@/lib/integrations/google-drive/server";
+import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
+import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
 import {
   INTEGRATION_PROVIDERS,
   type IntegrationProvider,
@@ -85,33 +82,18 @@ export default async function IntegrationsPage({
   })();
   const feedback = getGoogleDriveCallbackFeedback(googleDrive, lang);
   const googleDriveConfigured = isGoogleDriveConfigured();
-  const authorizedGoogleProviders = googleDriveConfigured
-    ? await getGoogleAuthorizedProviders(context.organizationId)
-    : [];
-  const googleDriveConnected =
-    authorizedGoogleProviders.includes("google_drive");
+  // One source of truth shared with /api/integrations/status: a badge reads
+  // "connected" only when the stored credential works right now.
+  const liveStatus = await getLiveIntegrationStatus(context.organizationId, {
+    googleConfigured: googleDriveConfigured,
+  });
+  const connectedIds = liveStatus.connected;
+  const needsReconnectIds = liveStatus.needsReconnect;
+  const googleDriveConnected = connectedIds.has("google_drive");
+  const googleNeedsReconnect = ["google_drive", "gmail", "google_calendar"].some(
+    (id) => needsReconnectIds.has(id)
+  );
   const providers: IntegrationProvider[] = INTEGRATION_PROVIDERS;
-  const connectedIds = new Set(authorizedGoogleProviders);
-  // Credentials stored by the workspace (Stripe, Supabase, GitHub, Vercel, n8n)
-  // live in integration_connection; surface them so a provider only reads
-  // "connected" when a real encrypted credential exists for this workspace.
-  try {
-    for (const stored of await listWorkspaceIntegrations(
-      context.organizationId
-    )) {
-      if (
-        stored.status === "connected" &&
-        !["google_drive", "gmail", "google_calendar"].includes(
-          stored.providerId
-        )
-      ) {
-        connectedIds.add(stored.providerId);
-      }
-    }
-  } catch {
-    // the table may be unreachable in a degraded deploy; badges fall back to
-    // the Google Drive state only.
-  }
   const grouped = providers.reduce<Record<string, IntegrationProvider[]>>(
     (accumulator, provider) => {
       accumulator[provider.category] = [
@@ -188,6 +170,16 @@ export default async function IntegrationsPage({
                 ? "تُحفظ الرموز مشفّرة ومقيّدة بمساحة العمل. يُرسل نص الملف المقروء إلى النموذج ويُحفظ ضمن المحادثة."
                 : "Tokens are encrypted and scoped to this workspace. Read file text is sent to the model and saved with the chat."}
             </p>
+            {googleNeedsReconnect ? (
+              <p
+                className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-amber-800 text-sm dark:text-amber-300"
+                role="status"
+              >
+                {isArabic
+                  ? "صلاحيات Google المحفوظة لم تعد تعمل، لذلك لا يستطيع الوكيل قراءة Gmail أو Drive أو التقويم. اضغط «تحديث صلاحيات Gmail والتقويم» ووافق على كل الصلاحيات."
+                  : "The saved Google permission no longer works, so the Agent cannot read Gmail, Drive or Calendar. Use “Update Gmail and Calendar permissions” and approve every permission."}
+              </p>
+            ) : null}
           </div>
           {entitlements.canConnectIntegrations ? (
             <GoogleDriveConnectionControl
@@ -276,6 +268,7 @@ export default async function IntegrationsPage({
             <div className="grid gap-3 sm:grid-cols-2">
               {items.map((provider) => {
                 const connected = connectedIds.has(provider.id);
+                const needsReconnect = needsReconnectIds.has(provider.id);
                 const available = provider.status === "available";
                 return (
                   <article
@@ -291,14 +284,20 @@ export default async function IntegrationsPage({
                         className={
                           connected
                             ? "shrink-0 rounded-full border border-emerald-600/40 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-400"
-                            : "text-muted-foreground shrink-0 rounded-full border px-2 py-0.5 text-[11px]"
+                            : needsReconnect
+                              ? "shrink-0 rounded-full border border-amber-500/50 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-400"
+                              : "text-muted-foreground shrink-0 rounded-full border px-2 py-0.5 text-[11px]"
                         }
                       >
                         {connected
                           ? isArabic
                             ? "متصل"
                             : "Connected"
-                          : available
+                          : needsReconnect
+                            ? isArabic
+                              ? "يحتاج إعادة ربط"
+                              : "Reconnect needed"
+                            : available
                             ? isArabic
                               ? "ربط ذاتي"
                               : "Self-serve"

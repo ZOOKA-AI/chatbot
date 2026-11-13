@@ -7,7 +7,7 @@ import {
   switchWorkspace,
 } from "@/app/(chat)/workspace/actions";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { getLang } from "@/lib/i18n";
+import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { displayWorkspaceName } from "@/lib/workspace-name";
 import {
   getWorkspaceInvitations,
@@ -29,23 +29,39 @@ export default async function WorkspacePage() {
   const lang = await getLang();
   const workspaceName = displayWorkspaceName(context.workspace.name, lang);
   const canManage = context.role === "owner" || context.role === "admin";
+  const ar = lang === "ar";
+  const t = (arabic: string, english: string) => (ar ? arabic : english);
+  const roleLabel = (role: string) =>
+    role === "owner"
+      ? t("المالك", "Owner")
+      : role === "admin"
+        ? t("مدير", "Admin")
+        : t("عضو", "Member");
+  const buttonClass =
+    "rounded-full bg-primary px-4 py-2 font-semibold text-primary-foreground text-sm shadow-sm transition-colors hover:bg-primary/90";
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6">
+    <main
+      className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 md:p-6"
+      dir={dirOf(lang)}
+      style={{ fontFamily: fontOf(lang) }}
+    >
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-muted-foreground text-sm">Current workspace</p>
+          <p className="text-muted-foreground text-sm">
+            {t("مساحة العمل الحالية", "Current workspace")}
+          </p>
           <h1 className="font-semibold text-2xl">{workspaceName}</h1>
         </div>
         <Link className="text-sm underline" href="/workspace/billing">
-          Plan and usage
+          {t("الباقة والاستخدام", "Plan and usage")}
         </Link>
       </header>
 
       {workspaces.length > 1 && (
         <form action={switchWorkspace} className="flex items-center gap-3">
           <label className="text-sm" htmlFor="organizationId">
-            Switch workspace
+            {t("تبديل مساحة العمل", "Switch workspace")}
           </label>
           <select
             className="rounded-md border bg-background px-3 py-2 text-sm"
@@ -59,18 +75,20 @@ export default async function WorkspacePage() {
               </option>
             ))}
           </select>
-          <button className="rounded-md border px-3 py-2 text-sm" type="submit">
-            Switch
+          <button className={buttonClass} type="submit">
+            {t("تبديل", "Switch")}
           </button>
         </form>
       )}
 
       <section className="flex flex-col gap-4 rounded-lg border p-5">
-        <h2 className="font-medium text-lg">Workspace settings</h2>
+        <h2 className="font-semibold text-lg">
+          {t("إعدادات مساحة العمل", "Workspace settings")}
+        </h2>
         {canManage ? (
           <form action={renameWorkspace} className="flex flex-col gap-3">
             <label className="flex flex-col gap-1 text-sm" htmlFor="name">
-              Workspace name
+              {t("اسم مساحة العمل", "Workspace name")}
               <input
                 className="rounded-md border bg-background px-3 py-2"
                 defaultValue={workspaceName}
@@ -81,11 +99,8 @@ export default async function WorkspacePage() {
                 required
               />
             </label>
-            <button
-              className="w-fit rounded-md border px-3 py-2 text-sm"
-              type="submit"
-            >
-              Save name
+            <button className={`w-fit ${buttonClass}`} type="submit">
+              {t("حفظ الاسم", "Save name")}
             </button>
           </form>
         ) : (
@@ -94,7 +109,9 @@ export default async function WorkspacePage() {
       </section>
 
       <section className="flex flex-col gap-4 rounded-lg border p-5">
-        <h2 className="font-medium text-lg">Members ({members.length})</h2>
+        <h2 className="font-semibold text-lg">
+          {t("الأعضاء", "Members")} ({members.length})
+        </h2>
         <ul className="flex flex-col divide-y">
           {members.map((member) => (
             <li
@@ -106,21 +123,24 @@ export default async function WorkspacePage() {
                 <form action={changeWorkspaceMemberRole} className="flex gap-2">
                   <input name="userId" type="hidden" value={member.userId} />
                   <select
-                    aria-label={`Role for ${member.email}`}
+                    aria-label={`${t("دور", "Role for")} ${member.email}`}
                     className="rounded-md border bg-background px-2 py-1"
                     defaultValue={member.role}
                     name="role"
                   >
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
+                    <option value="member">{t("عضو", "Member")}</option>
+                    <option value="admin">{t("مدير", "Admin")}</option>
                   </select>
-                  <button className="rounded-md border px-2 py-1" type="submit">
-                    Update
+                  <button
+                    className="rounded-full border px-3 py-1 font-medium"
+                    type="submit"
+                  >
+                    {t("تحديث", "Update")}
                   </button>
                 </form>
               ) : (
-                <span className="capitalize text-muted-foreground">
-                  {member.role}
+                <span className="text-muted-foreground">
+                  {roleLabel(member.role)}
                 </span>
               )}
             </li>
@@ -130,7 +150,9 @@ export default async function WorkspacePage() {
 
       {canManage && (
         <section className="flex flex-col gap-4 rounded-lg border p-5">
-          <h2 className="font-medium text-lg">Invite a member</h2>
+          <h2 className="font-semibold text-lg">
+            {t("دعوة عضو", "Invite a member")}
+          </h2>
           <form action={inviteWorkspaceMember} className="flex flex-wrap gap-3">
             <input
               className="min-w-52 flex-1 rounded-md border bg-background px-3 py-2 text-sm"
@@ -140,24 +162,23 @@ export default async function WorkspacePage() {
               type="email"
             />
             <select
-              aria-label="Invitation role"
+              aria-label={t("دور المدعو", "Invitation role")}
               className="rounded-md border bg-background px-3 py-2 text-sm"
               defaultValue="member"
               name="role"
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              <option value="member">{t("عضو", "Member")}</option>
+              <option value="admin">{t("مدير", "Admin")}</option>
             </select>
-            <button
-              className="rounded-md border px-3 py-2 text-sm"
-              type="submit"
-            >
-              Create invitation
+            <button className={buttonClass} type="submit">
+              {t("إنشاء دعوة", "Create invitation")}
             </button>
           </form>
           <p className="text-muted-foreground text-xs">
-            Invitations are recorded for seven days. Email delivery and
-            self-service acceptance are not enabled yet.
+            {t(
+              "تُحفظ الدعوات لمدة سبعة أيام. إرسال الدعوة بالبريد وقبولها ذاتيًا غير مفعّلين بعد.",
+              "Invitations are recorded for seven days. Email delivery and self-service acceptance are not enabled yet."
+            )}
           </p>
           {invitations.length > 0 && (
             <ul className="flex flex-col divide-y text-sm">
@@ -167,12 +188,12 @@ export default async function WorkspacePage() {
                   key={invitation.id}
                 >
                   <span>{invitation.email}</span>
-                  <span className="capitalize text-muted-foreground">
+                  <span className="text-muted-foreground">
                     {invitation.acceptedAt
-                      ? "Accepted"
+                      ? t("مقبولة", "Accepted")
                       : invitation.expiresAt < new Date()
-                        ? "Expired"
-                        : `Pending · ${invitation.role}`}
+                        ? t("منتهية", "Expired")
+                        : `${t("بانتظار القبول", "Pending")} · ${roleLabel(invitation.role)}`}
                   </span>
                 </li>
               ))}

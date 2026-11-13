@@ -1,6 +1,7 @@
 // Full DB JSON dump, protected by BACKUP_TOKEN header check.
 import { NextResponse } from "next/server";
 import postgres from "postgres";
+import { verifySharedSecret } from "@/lib/webhooks/security";
 
 const TABLES = [
   "User",
@@ -20,8 +21,14 @@ const TABLES = [
 ] as const;
 
 export async function GET(request: Request) {
-  const token = request.headers.get("x-backup-token");
-  if (!process.env.BACKUP_TOKEN || token !== process.env.BACKUP_TOKEN) {
+  // Constant-time comparison: a plain `!==` leaks how many leading characters
+  // matched, which helps an attacker guess the token byte by byte.
+  if (
+    !verifySharedSecret(
+      request.headers.get("x-backup-token"),
+      process.env.BACKUP_TOKEN
+    )
+  ) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

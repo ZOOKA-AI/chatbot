@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Script from "next/script";
 import { Suspense } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BillingProvider } from "@/components/billing-provider";
@@ -14,10 +13,6 @@ import { displayWorkspaceName } from "@/lib/workspace-name";
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <Script
-        src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
-        strategy="beforeInteractive"
-      />
       <DataStreamProvider>
         <Suspense fallback={<div className="flex h-dvh" />}>
           <SidebarWrapper>{children}</SidebarWrapper>

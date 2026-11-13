@@ -8,14 +8,14 @@ const ORBIT_INNER = [
   { label: "n8n", color: "#ea4b71" },
   { label: "Gmail", color: "#ea4335" },
   { label: "Drive", color: "#4285f4" },
-  { label: "Sheets", color: "#0f9d58" },
+  { label: "Calendar", color: "#4285f4" },
 ];
 
 const ORBIT_OUTER = [
   { label: "WhatsApp", color: "#25d366" },
   { label: "Stripe", color: "#635bff" },
-  { label: "Calendar", color: "#4285f4" },
-  { label: "Zoho", color: "#e42527" },
+  { label: "GitHub", color: "#8b949e" },
+  { label: "Supabase", color: "#3ecf8e" },
 ];
 
 function Badge({ label, color }: { label: string; color: string }) {

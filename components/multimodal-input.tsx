@@ -4,7 +4,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import Link from "next/link";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon, Volume2 } from "lucide-react";
+import { Bot, CheckIcon, ChevronDown, Mic, Volume2 } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -103,6 +103,11 @@ function PureMultimodalInput({
   const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang, isGuest } =
     useBilling();
   const { voiceMode, toggleVoiceMode } = useVoiceMode();
+  // Voice controls stay folded until the user opens them: the composer shows
+  // one clear "voice" switch instead of three microphone/speaker buttons, and
+  // the browser is only asked for the microphone when the user taps record.
+  const [voiceToolsOpen, setVoiceToolsOpen] = useState(false);
+  const showVoiceTools = voiceToolsOpen || voiceMode;
   const agentModeAllowed =
     canUseAgentMode && modelSupportsTools(selectedModelId);
   let agentModeUnavailableMessage: string;
@@ -438,6 +443,7 @@ function PureMultimodalInput({
         )}
 
       <input
+        accept="image/png,image/jpeg"
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}
@@ -447,7 +453,7 @@ function PureMultimodalInput({
       />
 
       <PromptInput
-        className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
+        className="rounded-2xl border border-border/80 bg-background/85 p-3 shadow-lg shadow-primary/5 backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out focus-within:border-primary/50 focus-within:shadow-primary/15 hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
           if (!input.trim() && attachments.length === 0) {
@@ -559,13 +565,21 @@ function PureMultimodalInput({
         )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
-            className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
+            className="grow resize-none border-0! border-none! bg-transparent p-2 text-base font-medium leading-relaxed text-foreground outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
             maxHeight={200}
             minHeight={44}
             onChange={handleInput}
-            placeholder="Send a message..."
+            placeholder={
+              agentMode
+                ? lang === "ar"
+                  ? "اكتب المهمة للوكيل…"
+                  : "Describe the task for the Agent…"
+                : lang === "ar"
+                  ? "اكتب رسالتك…"
+                  : "Send a message…"
+            }
             ref={textareaRef}
             rows={1}
             value={input}
@@ -575,7 +589,12 @@ function PureMultimodalInput({
           <PromptInputTools className="min-w-0 flex-1 flex-wrap gap-0 sm:gap-0.5">
             <Button
               aria-pressed={agentMode}
-              className="h-8 px-2"
+              className={cn(
+                "h-9 gap-1.5 rounded-full px-3 font-semibold text-sm transition-all duration-200",
+                agentMode
+                  ? "shadow-md shadow-primary/30"
+                  : "border border-primary/40 text-primary hover:bg-primary/10"
+              )}
               data-testid="agent-mode-toggle"
               disabled={!agentModeAllowed}
               onClick={() => onAgentModeChange(!agentMode)}
@@ -583,7 +602,14 @@ function PureMultimodalInput({
               type="button"
               variant={agentMode ? "default" : "ghost"}
             >
-              {lang === "ar" ? "الوكيل" : "Agent"}
+              <Bot className="size-4" />
+              {agentMode
+                ? lang === "ar"
+                  ? "الوكيل: مفعّل"
+                  : "Agent: on"
+                : lang === "ar"
+                  ? "الوكيل"
+                  : "Agent"}
             </Button>
             {!(canUseAgentMode || hasAgentPlan) && (
               <Link
@@ -593,55 +619,95 @@ function PureMultimodalInput({
                 {lang === "ar" ? "رقّي للوكيل" : "Unlock agent"}
               </Link>
             )}
-            <VoiceInputButton
-              disabled={uploadQueue.length > 0}
-              lang={lang}
-              onTranscript={handleVoiceTranscript}
-            />
             <Button
-              aria-label={
-                lang === "ar" ? "اسمع آخر رد" : "Listen to the last reply"
-              }
-              className="h-8 px-2"
-              data-testid="speak-reply-button"
-              disabled={!lastReplyText}
-              onClick={handleSpeakLastReply}
+              aria-controls="composer-voice-tools"
+              aria-expanded={showVoiceTools}
+              className={cn(
+                "h-9 gap-1 rounded-full px-3 font-medium text-sm transition-colors duration-200",
+                showVoiceTools && "bg-accent"
+              )}
+              data-testid="voice-tools-toggle"
+              onClick={() => setVoiceToolsOpen((open) => !open)}
               title={
                 lang === "ar"
-                  ? "اقرأ لي آخر رد بصوت عالٍ"
-                  : "Read the last reply aloud"
+                  ? "أدوات الصوت: إملاء، قراءة الرد، محادثة صوتية"
+                  : "Voice tools: dictation, read aloud, voice chat"
               }
               type="button"
               variant="ghost"
             >
-              <Volume2 className="size-4" />
+              <Mic className="size-4" />
+              <span className="hidden sm:inline">
+                {lang === "ar" ? "صوت" : "Voice"}
+              </span>
+              <ChevronDown
+                className={cn(
+                  "size-3.5 transition-transform duration-200",
+                  showVoiceTools && "rotate-180"
+                )}
+              />
             </Button>
-            <Button
-              aria-pressed={voiceMode}
-              className="h-8 px-2 text-xs"
-              data-testid="voice-mode-toggle"
-              onClick={() => {
-                if (!voiceMode) {
-                  // This click is the gesture that unlocks audio playback.
-                  speakText(
-                    lang === "ar"
-                      ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
-                      : "Voice mode is on. Speak and I will answer out loud.",
-                    lang,
-                  );
-                }
-                toggleVoiceMode();
-              }}
-              title={
-                lang === "ar"
-                  ? "المحادثة الصوتية: إرسال تلقائي بعد التسجيل وقراءة الرد بصوت عالٍ"
-                  : "Voice chat: auto-send recordings and read replies aloud"
-              }
-              type="button"
-              variant={voiceMode ? "default" : "ghost"}
+            <div
+              aria-hidden={!showVoiceTools}
+              className={cn(
+                "flex items-center gap-0.5 overflow-hidden transition-[max-width,opacity] duration-300 ease-out",
+                showVoiceTools
+                  ? "max-w-[260px] opacity-100"
+                  : "pointer-events-none max-w-0 opacity-0"
+              )}
+              id="composer-voice-tools"
+              inert={!showVoiceTools}
             >
-              {lang === "ar" ? "صوتي" : "Voice"}
-            </Button>
+              <VoiceInputButton
+                disabled={uploadQueue.length > 0}
+                lang={lang}
+                onTranscript={handleVoiceTranscript}
+              />
+              <Button
+                aria-label={
+                  lang === "ar" ? "اسمع آخر رد" : "Listen to the last reply"
+                }
+                className="h-8 px-2"
+                data-testid="speak-reply-button"
+                disabled={!lastReplyText}
+                onClick={handleSpeakLastReply}
+                title={
+                  lang === "ar"
+                    ? "اقرأ لي آخر رد بصوت عالٍ"
+                    : "Read the last reply aloud"
+                }
+                type="button"
+                variant="ghost"
+              >
+                <Volume2 className="size-4" />
+              </Button>
+              <Button
+                aria-pressed={voiceMode}
+                className="h-8 px-2 text-xs"
+                data-testid="voice-mode-toggle"
+                onClick={() => {
+                  if (!voiceMode) {
+                    // This click is the gesture that unlocks audio playback.
+                    speakText(
+                      lang === "ar"
+                        ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
+                        : "Voice mode is on. Speak and I will answer out loud.",
+                      lang,
+                    );
+                  }
+                  toggleVoiceMode();
+                }}
+                title={
+                  lang === "ar"
+                    ? "المحادثة الصوتية: إرسال تلقائي بعد التسجيل وقراءة الرد بصوت عالٍ"
+                    : "Voice chat: auto-send recordings and read replies aloud"
+                }
+                type="button"
+                variant={voiceMode ? "default" : "ghost"}
+              >
+                {lang === "ar" ? "محادثة صوتية" : "Voice chat"}
+              </Button>
+            </div>
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
@@ -662,12 +728,12 @@ function PureMultimodalInput({
             ) : (
               <PromptInputSubmit
                 aria-label={lang === "ar" ? "إرسال الرسالة" : "Send message"}
-                className="size-10 shrink-0 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+                className="size-11 shrink-0 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 transition-all duration-200 hover:scale-105 hover:bg-primary/90 active:scale-95 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
                 data-testid="send-button"
                 disabled={!input.trim() || uploadQueue.length > 0}
                 status={status}
               >
-                <ArrowUpIcon size={14} />
+                <ArrowUpIcon size={18} />
               </PromptInputSubmit>
             )}
           </div>
@@ -682,7 +748,16 @@ function PureMultimodalInput({
                 ? `يستخدم هذا الطلب تشغيلاً من حصة مساحة العمل الشهرية. المتبقي: ${agentRunsRemaining.toLocaleString(lang)}.`
                 : `This request uses one workspace agent run. ${agentRunsRemaining.toLocaleString(lang)} remain this month.`}
             </p>
-          ) : null
+          ) : (
+            <p
+              className="px-2 pt-2 text-xs text-muted-foreground"
+              data-testid="agent-mode-hint"
+            >
+              {lang === "ar"
+                ? "المحادثة العادية لا تستخدم أدواتك. فعّل «الوكيل» ليقرأ Gmail وDrive والتقويم ويبحث في الويب."
+                : "Plain chat does not use your tools. Turn on “Agent” to read Gmail, Drive and Calendar and search the web."}
+            </p>
+          )
         ) : (
           <p className="px-2 pt-2 text-xs text-muted-foreground">
             {agentModeUnavailableMessage}
@@ -764,8 +839,10 @@ function PureAttachmentsButton({
 
   return (
     <Button
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+      className="aspect-square h-9 rounded-full p-1 transition-colors hover:bg-accent"
+      aria-label="Attach image"
       data-testid="attachments-button"
+      title="PNG · JPEG"
       disabled={status !== "ready" || isReasoningModel}
       onClick={(event) => {
         event.preventDefault();

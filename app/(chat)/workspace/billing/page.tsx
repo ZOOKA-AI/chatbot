@@ -150,7 +150,9 @@ export default async function WorkspaceBillingPage({
             {isArabic ? "استكشف الباقات الأعلى" : "Explore higher plans"}
           </Link>
         )}
-        {canUpgrade && hasBillingAccount && <ManageSubscriptionButton />}
+        {canUpgrade && hasBillingAccount && (
+          <ManageSubscriptionButton lang={lang} />
+        )}
       </section>
     </main>
   );

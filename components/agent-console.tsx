@@ -58,7 +58,9 @@ export function AgentConsole({ plan, used, limit }: Props) {
         setError(
           response.status === 401
             ? "انتهت الجلسة. سجّل الدخول من جديد."
-            : "تعذر الوصول للوكيل الآن. جرّب بعد قليل."
+            : data.error === "agent_not_configured"
+              ? "الوكيل التنفيذي غير مفعّل بعد على هذه المنصة. استخدم «الوكيل» داخل الشات حتى يتم تفعيله."
+              : "تعذر الوصول للوكيل الآن. جرّب بعد قليل."
         );
         return;
       }
