@@ -98,6 +98,8 @@ export async function proxy(request: NextRequest) {
     // MCP clients authenticate with a workspace bearer key, not a browser
     // session, so the endpoint must not be bounced to /login.
     pathname === "/api/mcp" ||
+    // Private publishing endpoint for n8n: bearer workspace key, not a session.
+    pathname === "/api/publish" ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||
