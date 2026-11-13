@@ -92,7 +92,10 @@ export async function POST(request: Request) {
       (select count(*) from pg_tables where schemaname = 'public' and rowsecurity) as rls_on,
       (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) as rls_off,
       (select count(*) from "Document" where "embedding" is not null) as doc_embeddings,
-      (select count(*) from "AgentMessage") as agent_msgs`
+      (select count(*) from "AgentMessage") as agent_msgs,
+      (select count(*) from "UsageEvent" where event = 'agent_run') as agent_runs,
+      (select count(*) from "UsageEvent") as usage_total,
+      (select count(*) from "AgentMessage" where "createdAt" > now() - interval '2 days') as agent_msgs_48h`
   )) as unknown as Record<string, string>[];
 
   return NextResponse.json({
