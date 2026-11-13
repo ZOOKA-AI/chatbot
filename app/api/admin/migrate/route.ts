@@ -98,6 +98,7 @@ export async function POST(request: Request) {
       (select count(*) from "AgentMessage" where "createdAt" > now() - interval '2 days') as agent_msgs_48h`
   )) as unknown as Record<string, string>[];
 
+  const url = new URL(request.url);
   if (url.searchParams.get("diag") === "append") {
     const out: Record<string, unknown> = {};
     try {
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ diag: out });
   }
 
-  const url = new URL(request.url);
+  
   if (url.searchParams.get("diag") === "agent") {
     const out: Record<string, unknown> = {};
     try {
