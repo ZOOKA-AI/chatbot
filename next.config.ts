@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
+          // Clickjacking protection: only this site may frame its own pages.
+          // A full script/style CSP is deliberately not enforced here (GA,
+          // Stripe and Vercel Analytics need an audited allowlist first).
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+          },
           {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
