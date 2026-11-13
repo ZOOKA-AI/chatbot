@@ -507,8 +507,15 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   ),
                 },
                 {
-                  value: String(INTEGRATION_PROVIDERS.length),
-                  label: t("تكامل في الكتالوج، واللي جاهز متعلّم صريح", "integrations in the catalog, live ones labelled plainly"),
+                  value: String(
+                    INTEGRATION_PROVIDERS.filter(
+                      (provider) => provider.status === "available"
+                    ).length
+                  ),
+                  label: t(
+                    `تكامل جاهز فعلاً من ${INTEGRATION_PROVIDERS.length} في الكتالوج، والباقي معلّم «قريباً» أو «تجريبي»`,
+                    `integrations live today, out of ${INTEGRATION_PROVIDERS.length} in the catalog; the rest are labelled coming soon or beta`
+                  ),
                 },
                 {
                   value: String(SELF_SERVE.size),
