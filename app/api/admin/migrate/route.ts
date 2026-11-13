@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
-import { db } from "@/lib/db/queries";
+import { db, appendAgentMessage } from "@/lib/db/queries";
 
 const TABLES: Record<string, string[]> = {
   WebhookEvent: [
