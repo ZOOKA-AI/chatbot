@@ -264,8 +264,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
               </h1>
               <p className="max-w-xl text-lg text-muted-foreground">
                 {t(
-                  "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف وجيت هب بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
-                  "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail, Drive and GitHub, and the agent runs the steps and shows you the output before you send it."
+                  "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
+                  "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it."
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -444,8 +444,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 </h2>
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
-                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لخمسة فقط: جوجل درايف، جيميل، جيت هب، فيرسل، وn8n. وباقي الكتالوج (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} من ${INTEGRATION_PROVIDERS.length}) ينتظر موافقة المزوّد أو يعمل عبر جسر الوكيل — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
-                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for five only: Google Drive, Gmail, GitHub, Vercel and n8n. The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
+                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لخمسة فقط: جوجل درايف، جيميل، جيت هب، فيرسل، وn8n (ربط الحساب لجيت هب وفيرسل متاح الآن، وإجراءات الوكيل عليهما قادمة). وباقي الكتالوج (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} من ${INTEGRATION_PROVIDERS.length}) ينتظر موافقة المزوّد أو يعمل عبر جسر الوكيل — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
+                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for five only: Google Drive, Gmail, GitHub, Vercel and n8n (GitHub and Vercel connect your account today; agent actions on them are coming). The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
                   )}
                 </p>
               </div>
