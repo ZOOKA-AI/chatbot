@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
@@ -11,14 +12,26 @@ const TABLES: Record<string, string[]> = {
     'CREATE TABLE IF NOT EXISTS "MediaJob" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "organizationId" uuid NOT NULL REFERENCES "Organization"("id") ON DELETE CASCADE, "actionType" varchar(16) NOT NULL, "prompt" text NOT NULL, "status" varchar(16) DEFAULT \'queued\' NOT NULL, "assetUrl" text, "error" text, "createdAt" timestamp DEFAULT now() NOT NULL, "updatedAt" timestamp DEFAULT now() NOT NULL)',
     'CREATE INDEX IF NOT EXISTS "MediaJob_organizationId_createdAt_idx" ON "MediaJob" ("organizationId", "createdAt")',
   ],
+  BlogPost: [
+    'CREATE TABLE IF NOT EXISTS "BlogPost" ("slug" text PRIMARY KEY NOT NULL, "lang" varchar(8) DEFAULT \'en\' NOT NULL, "title" text NOT NULL, "excerpt" text, "body" text NOT NULL, "keyword" text, "status" varchar(16) DEFAULT \'draft\' NOT NULL, "author" text DEFAULT \'Zooka AI\' NOT NULL, "published_at" timestamp, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL)',
+    'CREATE INDEX IF NOT EXISTS "BlogPost_status_published_at_idx" ON "BlogPost" USING btree ("status", "published_at")',
+    'ALTER TABLE "BlogPost" ENABLE ROW LEVEL SECURITY',
+  ],
   WebhookEvent_drift_0020: [
     'ALTER TABLE "WebhookEvent" ADD COLUMN IF NOT EXISTS "payload" json',
     `DO $$ BEGIN
- LOCK TABLE "WebhookEvent" IN ACCESS EXCLUSIVE MODE;
- IF EXISTS (SELECT 1 FROM "WebhookEvent" WHERE length("externalId") > 255) THEN
-  RAISE EXCEPTION 'WebhookEvent externalId exceeds 255 characters' USING ERRCODE = '22001';
+ IF EXISTS (
+  SELECT 1 FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'WebhookEvent' AND column_name = 'externalId'
+   AND (data_type <> 'character varying' OR character_maximum_length IS DISTINCT FROM 255)
+ ) THEN
+  PERFORM set_config('lock_timeout', '5s', true);
+  LOCK TABLE "WebhookEvent" IN ACCESS EXCLUSIVE MODE;
+  IF EXISTS (SELECT 1 FROM "WebhookEvent" WHERE length("externalId") > 255) THEN
+   RAISE EXCEPTION 'WebhookEvent externalId exceeds 255 characters' USING ERRCODE = '22001';
+  END IF;
+  ALTER TABLE "WebhookEvent" ALTER COLUMN "externalId" TYPE varchar(255);
  END IF;
- ALTER TABLE "WebhookEvent" ALTER COLUMN "externalId" TYPE varchar(255);
 END $$`,
     `DO $$ BEGIN
  IF NOT EXISTS (
@@ -57,7 +70,11 @@ END $$`,
 export async function POST(request: Request) {
   const expected = process.env.MIGRATION_TOKEN;
   const given = request.headers.get("x-migration-token");
-  if (!(expected && given && expected === given)) {
+  const tokenMatches =
+    Boolean(expected && given) &&
+    Buffer.byteLength(expected as string) === Buffer.byteLength(given as string) &&
+    timingSafeEqual(Buffer.from(expected as string), Buffer.from(given as string));
+  if (!tokenMatches) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -97,37 +114,6 @@ export async function POST(request: Request) {
       (select count(*) from "UsageEvent") as usage_total,
       (select count(*) from "AgentMessage" where "createdAt" > now() - interval '2 days') as agent_msgs_48h`
   )) as unknown as Record<string, string>[];
-
-  const url = new URL(request.url);
-  if (url.searchParams.get("diag") === "agent") {
-    const out: Record<string, unknown> = {};
-    try {
-      const cols = await db.execute(
-        sql`select column_name, data_type, is_nullable from information_schema.columns where table_name = 'AgentMessage' order by ordinal_position`
-      );
-      out.columns = cols;
-    } catch (e) {
-      out.columns_error = String(e);
-    }
-    try {
-      const r = await db.execute(
-        sql`insert into "AgentMessage" ("organizationId", "userId", "conversationKey", "role", "content")
-            select "id", "id", 'diag:probe', 'user', 'diagnostic probe' from "Organization" limit 1 returning "id", "createdAt"`
-      );
-      out.insert = "ok";
-      out.row = r;
-    } catch (e) {
-      out.insert = "failed";
-      out.insert_error = String((e as Error).message ?? e);
-    }
-    try {
-      const cnt = await db.execute(sql`select count(*)::int as n from "AgentMessage"`);
-      out.count = cnt;
-    } catch (e) {
-      out.count_error = String(e);
-    }
-    return NextResponse.json({ diag: out });
-  }
 
   return NextResponse.json({
     security_stats: securityStats,
