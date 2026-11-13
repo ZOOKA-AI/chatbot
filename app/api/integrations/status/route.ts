@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
-import { isGoogleDriveConnected } from "@/lib/integrations/google-drive/server";
+import { getGoogleAuthorizedProviders } from "@/lib/integrations/google-drive/server";
 
 /**
  * Lightweight read-only answer to "which integrations does this workspace
@@ -17,10 +17,10 @@ export async function GET() {
   const connected = new Set<string>();
 
   try {
-    if (await isGoogleDriveConnected(context.organizationId)) {
-      connected.add("google_drive");
-      // The Google grant covers Gmail read/send on the same connection.
-      connected.add("gmail");
+    for (const provider of await getGoogleAuthorizedProviders(
+      context.organizationId
+    )) {
+      connected.add(provider);
     }
   } catch {
     // A degraded read should only hide the badge, never break the page.
@@ -28,9 +28,14 @@ export async function GET() {
 
   try {
     for (const stored of await listWorkspaceIntegrations(
-      context.organizationId,
+      context.organizationId
     )) {
-      if (stored.status === "connected") {
+      if (
+        stored.status === "connected" &&
+        !["google_drive", "gmail", "google_calendar"].includes(
+          stored.providerId
+        )
+      ) {
         connected.add(stored.providerId);
       }
     }

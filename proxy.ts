@@ -87,7 +87,6 @@ export async function proxy(request: NextRequest) {
     // signature or shared secret, so they must never be bounced to /login.
     pathname.startsWith("/api/webhooks") ||
     pathname === "/api/stripe/webhook" ||
-    pathname === "/api/billing/reconcile" ||
     pathname === "/api/admin/backup" ||
     // Machine-to-machine: the ingest route authenticates with x-leads-key,
     // so it must not be bounced to the login page.

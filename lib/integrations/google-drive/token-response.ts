@@ -74,3 +74,19 @@ export function parseGoogleDriveTokens(
     scope: scopes.join(" "),
   });
 }
+
+/** Granted scopes are authorization evidence, not a live provider health check. */
+export function googleProvidersForScopes(scope: string): string[] {
+  const scopes = new Set(scope.split(/\s+/).filter(Boolean));
+  const providers: string[] = [];
+  if (scopes.has(GOOGLE_DRIVE_SCOPE)) {
+    providers.push("google_drive");
+  }
+  if (scopes.has(GOOGLE_GMAIL_SCOPE) && scopes.has(GOOGLE_GMAIL_SEND_SCOPE)) {
+    providers.push("gmail");
+  }
+  if (scopes.has(GOOGLE_CALENDAR_SCOPE)) {
+    providers.push("google_calendar");
+  }
+  return providers;
+}

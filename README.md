@@ -103,13 +103,38 @@ are missing, the pricing page disables that upgrade and explains which setting
 is required. Configure a Stripe webhook pointing to
 `https://zooka-ai.com/api/stripe/webhook` (the legacy `/api/webhooks/stripe`
 path still works) and enable `checkout.session.completed`,
-`customer.subscription.updated`, `customer.subscription.deleted`, and
-`invoice.payment_failed`. Checkout is restricted to workspace owners and
+`customer.subscription.updated`, `customer.subscription.deleted`,
+`invoice.payment_failed`, and `invoice.paid`. Checkout is restricted to workspace owners and
 admins; the signed webhook synchronizes subscription status, plan, Stripe
 customer ID, and current period end into the existing `Subscription` table
 (a failed invoice marks the workspace `past_due`). Pro and Business plans
 receive higher hourly and monthly message limits plus access to advanced
 models.
+
+### Credit grants and reconciliation
+
+`invoice.paid` grants the configured recurring plan allowance only after signature
+verification. The grant uses the invoice line's price and billing period, not the
+subscription's current period. Grant failures return HTTP 500 for Stripe retry;
+a 200 response is not a substitute for checking the wallet. Zero-paid and
+proration-only invoices do not replenish the allowance. Multi-line or incomplete
+invoices fail closed for review. Workspace-scoped transaction locks prevent
+concurrent retries from granting twice; an older or same-period invoice cannot
+reset a newer wallet. Period renewal replaces, rather than accumulates, credits.
+
+`POST /api/billing/reconcile` requires a signed-in regular workspace owner/admin
+and a same-origin `Origin` header. It inspects at most the latest 100 paid invoices
+for that workspace's stored customer, verifies subscription ownership, and
+returns `hasMore` if older history remains. GET never reconciles. This is not a
+public cron endpoint. Inspect historical balances in both databases before
+release if the app previously had both `DATABASE_URL` and `POSTGRES_URL` set:
+wallets now follow the app's `DATABASE_URL`-first policy. Do not copy or replay
+balances blindly. No database migration or production reconciliation is performed
+by a build.
+
+The wallet grant ledger alone is **not** a fully implemented token-metered
+billing product: chat currently applies message and agent-run quotas, and wallet
+consumption/top-up purchase flows still require implementation and validation.
 
 ### Subscription management
 
