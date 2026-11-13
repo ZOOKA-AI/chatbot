@@ -167,8 +167,8 @@ const faqs = [
       en: "Is my data shared across workspaces?",
     },
     a: {
-      ar: "لا. كل جدول مرتبط بمساحة عمل، وسياسات الأمان على مستوى الصف (RLS) تمنع أي عضو من رؤية بيانات مساحة أخرى.",
-      en: "No. Every table is scoped to a workspace, and Row Level Security stops any member from seeing another workspace's data.",
+      ar: "لا. كل جدول مرتبط بمساحة عمل، وكل طلب يُفلتر حسب مساحة العمل في الخادم بعد التحقق من الصلاحية، فلا يرى أي عضو بيانات مساحة أخرى.",
+      en: "No. Every table is scoped to a workspace, and every request is filtered by workspace on the server after an access check, so a member cannot see another workspace's data.",
     },
   },
   {
@@ -613,7 +613,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
             <ul className="grid gap-3 text-sm">
               {[
                 t("تشفير AES-256-GCM مع نسخ احتياطي للمفتاح", "AES-256-GCM encryption with key versioning"),
-                t("عزل صفوف (RLS) لكل مساحة عمل", "Row Level Security per workspace"),
+                t("عزل البيانات لكل مساحة عمل على مستوى الخادم", "Server-enforced data isolation per workspace"),
                 t("سجل تدقيق لكل ربط وفصل واستخدام", "Audit log for every connect, revoke and use"),
                 t("فصل الاتصال في أي لحظة يمحو الرموز", "Disconnecting wipes the stored tokens"),
                 t("حدود استهلاك واضحة لكل باقة", "Clear usage limits on every plan"),
