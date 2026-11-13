@@ -29,7 +29,26 @@ vi.mock("@/lib/saas/stripe", () => ({
         data: {
           object: {
             id: "invoice-audit",
+            status: "paid",
+            amount_paid: 1900,
+            customer: "cus-audit",
             parent: { subscription_details: { subscription: "sub-audit" } },
+            lines: {
+              has_more: false,
+              data: [
+                {
+                  amount: 1900,
+                  parent: {
+                    subscription_item_details: {
+                      subscription: "sub-audit",
+                      proration: false,
+                    },
+                  },
+                  pricing: { price_details: { price: "price-audit" } },
+                  period: { start: 1_793_491_200, end: 1_796_083_200 },
+                },
+              ],
+            },
           },
         },
       }),
