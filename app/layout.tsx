@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo, Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import { Toaster } from "sonner";
 import { GlobalSiteComponents } from "@/components/global-site-components";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -120,10 +119,6 @@ export default function RootLayout({
             __html: THEME_COLOR_SCRIPT,
           }}
         />
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-EJX3ENM55L"
-          strategy="afterInteractive"
-        />
         <script
           // Sitewide entity so every page references one Organization node.
           dangerouslySetInnerHTML={{
@@ -144,12 +139,6 @@ export default function RootLayout({
           }}
           type="application/ld+json"
         />
-        <Script id="ga4-init" strategy="afterInteractive">
-          {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-EJX3ENM55L', { send_page_view: true });`}
-        </Script>
       </head>
       <body className="antialiased">
         <ThemeProvider

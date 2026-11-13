@@ -2,10 +2,15 @@
 
 import { Analytics } from "@vercel/analytics/react";
 import Link from "next/link";
+import Script from "next/script";
 import { useEffect, useState } from "react";
 import type { Lang } from "@/lib/i18n";
 
 const CONSENT_KEY = "zooka-cookie-consent";
+// GA4 measurement ID. Override with NEXT_PUBLIC_GA_MEASUREMENT_ID so a new
+// owner can point the site at their own property without a code change.
+const GA_MEASUREMENT_ID =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-EJX3ENM55L";
 
 export function CookieConsent({ lang }: { lang: Lang }) {
   const [consent, setConsent] = useState<"accepted" | "rejected" | null>(null);
@@ -24,7 +29,21 @@ export function CookieConsent({ lang }: { lang: Lang }) {
 
   return (
     <>
-      {consent === "accepted" && <Analytics />}
+      {consent === "accepted" && (
+        <>
+          <Analytics />
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+            strategy="afterInteractive"
+          />
+          <Script id="ga4-init" strategy="afterInteractive">
+            {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: true });`}
+          </Script>
+        </>
+      )}
       {consent === null && (
         <aside
           aria-label={
