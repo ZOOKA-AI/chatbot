@@ -7,11 +7,11 @@ import {
   releaseWebhookEvent,
 } from "@/lib/webhooks/events";
 import { syncWorkspaceSubscription } from "@/lib/db/queries";
-import { grantTokensForBillingPeriod } from "@/lib/db/token-wallets";
+import { grantPaidInvoiceTokens } from "@/lib/saas/invoice-tokens";
 import {
   getPlanFromStripePriceId,
-  workspacePlans,
   type WorkspacePlan,
+  workspacePlans,
 } from "@/lib/saas/plans";
 import { getStripe, getStripeId, mapStripeStatus } from "@/lib/saas/stripe";
 
@@ -91,39 +91,6 @@ async function syncFromFailedInvoice(invoice: Stripe.Invoice) {
   await syncFromSubscription(subscription, "past_due");
 }
 
-async function grantTokensFromSubscription(
-  subscription: Stripe.Subscription,
-  grantKey: string
-) {
-  const organizationId = subscription.metadata.organizationId;
-  const configuredPlan = subscription.metadata.plan;
-  const pricePlan = getPlanFromStripePriceId(
-    subscription.items.data[0]?.price.id ?? ""
-  );
-  const plan =
-    pricePlan ??
-    (configuredPlan === "pro" ||
-    configuredPlan === "business" ||
-    configuredPlan === "starter"
-      ? configuredPlan
-      : null);
-  if (!(organizationId && plan)) {
-    return;
-  }
-  const item = subscription.items.data[0];
-  await grantTokensForBillingPeriod({
-    organizationId,
-    plan,
-    grantKey,
-    periodStart: item?.current_period_start
-      ? new Date(item.current_period_start * 1000)
-      : null,
-    periodEnd: item?.current_period_end
-      ? new Date(item.current_period_end * 1000)
-      : null,
-  });
-}
-
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
@@ -175,10 +142,7 @@ export async function POST(request: Request) {
 
       const affiliateCode = session.metadata?.affiliateCode;
       const paidPlan = session.metadata?.plan;
-      if (
-        affiliateCode &&
-        (paidPlan === "pro" || paidPlan === "business")
-      ) {
+      if (affiliateCode && (paidPlan === "pro" || paidPlan === "business")) {
         await recordReferralEvent({
           code: affiliateCode,
           event: "subscribe",
@@ -203,12 +167,9 @@ export async function POST(request: Request) {
         const subscription =
           await getStripe().subscriptions.retrieve(subscriptionId);
         await syncFromSubscription(subscription);
-        // Grant failures must reach the outer retry path. Acknowledging 200
-        // while retaining the event claim would permanently suppress retries.
-        await grantTokensFromSubscription(
-          subscription,
-          `invoice:${event.data.object.id}`
-        );
+        // Grant failures must reach the outer retry path (which releases the
+        // event claim); acknowledging 200 would permanently suppress retries.
+        await grantPaidInvoiceTokens(event.data.object, subscription);
       }
     }
   } catch {
