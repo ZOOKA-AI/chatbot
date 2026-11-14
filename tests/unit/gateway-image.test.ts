@@ -44,7 +44,9 @@ beforeEach(() => {
       { mediaType: "image/png", uint8Array: new Uint8Array([137, 80, 78, 71]) },
     ],
   });
-  put.mockResolvedValue({ url: "https://assets.example.test/image.png" });
+  put.mockResolvedValue({
+    pathname: "test-workspace/generated-media/test-job-random.png",
+  });
 });
 afterEach(() => vi.unstubAllEnvs());
 test("persists real provider bytes before returning success", async () => {
@@ -54,8 +56,13 @@ test("persists real provider bytes before returning success", async () => {
   assert.equal(put.mock.calls[0]?.[1].length, 4);
   assert.equal(
     finish.mock.calls[0]?.[0].assetUrl,
-    "https://assets.example.test/image.png"
+    "/api/files/test-workspace/generated-media/test-job-random.png"
   );
+  assert.equal(
+    put.mock.calls[0]?.[0],
+    "test-workspace/generated-media/test-job.png"
+  );
+  assert.equal(put.mock.calls[0]?.[2].access, "private");
   assert.equal(generate.mock.calls[0]?.[0].maxRetries, 0);
 });
 test("members, unsupported media, missing storage and daily cap never call provider", async () => {

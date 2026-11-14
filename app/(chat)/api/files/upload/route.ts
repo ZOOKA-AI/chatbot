@@ -2,6 +2,7 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { blobPathToUrl } from "@/lib/blob-path";
 import {
   detectImageType,
   INLINE_FALLBACK_MAX_BYTES,
@@ -20,10 +21,7 @@ import {
  * - The stored name is sanitised (no path separators, no traversal) and the
  *   blob gets a random suffix so one upload can never overwrite another.
  *
- * Reliability: the workspace Blob store is private, so a public `put` can be
- * refused. When that happens a small image is returned inline as a data URL
- * (never made public) so the chat keeps working; larger images get a clear,
- * localised error instead of a silent failure.
+ * If storage is unavailable, only tiny images are returned inline.
  */
 export async function POST(request: Request) {
   const context = await getWorkspaceContext();
@@ -74,12 +72,12 @@ export async function POST(request: Request) {
 
   try {
     const blob = await put(pathname, Buffer.from(bytes), {
-      access: "public",
+      access: "private",
       addRandomSuffix: true,
       contentType: detected.contentType,
     });
     return NextResponse.json({
-      url: blob.url,
+      url: blobPathToUrl(blob.pathname),
       pathname: name,
       contentType: detected.contentType,
     });
