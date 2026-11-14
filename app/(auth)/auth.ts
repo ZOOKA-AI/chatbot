@@ -16,6 +16,7 @@ import {
 import { sendWelcomeEmail } from "@/lib/email/send";
 import { emailForPhone, readLoginTicket } from "@/lib/auth/phone-otp";
 import { phoneLoginEnabled } from "@/lib/auth/sms";
+import { googleLoginChecks } from "@/lib/auth/google-transaction";
 
 /** Google sign-in uses its own non-sensitive client (openid/email/profile). */
 export const googleLoginEnabled = Boolean(
@@ -78,6 +79,7 @@ export const {
           GoogleProvider({
             clientId: process.env.GOOGLE_LOGIN_CLIENT_ID as string,
             clientSecret: process.env.GOOGLE_LOGIN_CLIENT_SECRET as string,
+            checks: googleLoginChecks,
             authorization: {
               params: { prompt: "select_account", scope: "openid email profile" },
             },
@@ -228,4 +230,3 @@ export const {
     },
   },
 });
-

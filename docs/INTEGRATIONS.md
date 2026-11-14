@@ -11,7 +11,7 @@
 | قاعدة البيانات (Supabase Postgres + Drizzle) | `DATABASE_URL` (الأولوية) ثم `POSTGRES_URL` | Transaction pooler، بورت 6543، `?pgbouncer=true&sslmode=require`، المستخدم `postgres.<project-ref>` |
 | ترحيلات | `MIGRATION_TOKEN` | `/api/admin/migrate` بالترويسة `x-migration-token` |
 | نسخ احتياطي | `BACKUP_TOKEN` | `/api/admin/backup` — يغطي 14 جدولًا فقط |
-| المصادقة | `AUTH_SECRET`، `NEXTAUTH_SECRET`، `AUTH_URL`، `NEXT_PUBLIC_APP_URL` | `AUTH_URL` يجب أن يطابق الدومين الذي يسجّل عليه المستخدم الدخول |
+| المصادقة | `AUTH_SECRET`، `NEXTAUTH_SECRET`، `AUTH_URL`، `NEXT_PUBLIC_APP_URL` | في الإنتاج يجب أن يكون `AUTH_URL` هو `https://zooka-ai.com`؛ تُوجَّه صفحات وطلبات الدخول من النطاقات الأخرى إلى هذا النطاق قبل بدء OAuth، وتبقى ملفات التحقق خاصة به |
 | الحد من المعدل | `REDIS_URL` | اختياري لكن بدونه الحد يعمل محليًا فقط |
 | التخزين | `BLOB_READ_WRITE_TOKEN` | مطلوب لرفع الملفات والصور |
 
