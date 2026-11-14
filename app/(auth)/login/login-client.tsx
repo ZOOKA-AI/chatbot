@@ -23,6 +23,7 @@ const strings = {
     noAccount: "ما عندك حساب؟",
     signUpLink: "أنشئ حساباً مجانياً",
     invalid: "بيانات الدخول غير صحيحة!",
+    authError: "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى.",
   },
   en: {
     title: "Sign In",
@@ -33,6 +34,7 @@ const strings = {
     noAccount: "Don't have an account?",
     signUpLink: "Sign up for free",
     invalid: "Invalid credentials!",
+    authError: "Unable to sign in. Please try again or use another sign-in method.",
   },
 } as const;
 
@@ -42,12 +44,14 @@ export function LoginClient({
   facebookEnabled = false,
   microsoftEnabled = false,
   phoneEnabled = false,
+  hasAuthError = false,
 }: {
   lang: "ar" | "en";
   googleEnabled?: boolean;
   facebookEnabled?: boolean;
   microsoftEnabled?: boolean;
   phoneEnabled?: boolean;
+  hasAuthError?: boolean;
 }) {
   const t = strings[lang];
   const router = useRouter();
@@ -87,6 +91,11 @@ export function LoginClient({
           <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
           <p className="text-gray-500 text-sm dark:text-zinc-400">{t.subtitle}</p>
         </div>
+        {hasAuthError ? (
+          <p className="px-4 text-center text-red-600 text-sm" role="alert">
+            {t.authError}
+          </p>
+        ) : null}
         {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
         <SocialSignInButtons
           facebook={facebookEnabled}
@@ -117,4 +126,3 @@ export function LoginClient({
     </div>
   );
 }
-

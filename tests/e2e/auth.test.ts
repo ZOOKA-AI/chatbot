@@ -28,4 +28,23 @@ test.describe("Authentication Pages", () => {
     await page.getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL("/login");
   });
+
+  test("OAuth callback errors are shown in the selected language", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/login");
+    for (const [lang, message] of [
+      ["en", "Unable to sign in. Please try again or use another sign-in method."],
+      ["ar", "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى."],
+    ]) {
+      await context.addCookies([
+        { name: "zooka_lang", value: lang, url: page.url() },
+      ]);
+      await page.goto("/login?error=OAuthCallback");
+      await expect(page.getByRole("alert")).toHaveText(message);
+      await page.goto("/login");
+      await expect(page.getByRole("alert")).toHaveCount(0);
+    }
+  });
 });
