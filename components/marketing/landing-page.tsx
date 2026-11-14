@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { SITE_URL } from "@/lib/site";
 import {
-  INTEGRATION_PROVIDERS,
+  getIntegrationProviders,
+  isWhatsAppConfigured,
   PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
 import {
@@ -213,6 +214,9 @@ export const SELF_SERVE = new Set([
 ]);
 
 export function LandingPage({ lang }: { lang: Lang }) {
+  const INTEGRATION_PROVIDERS = getIntegrationProviders(
+    isWhatsAppConfigured(process.env)
+  );
   const isArabic = lang === "ar";
   const t = (ar: string, en: string) => (isArabic ? ar : en);
   const available = INTEGRATION_PROVIDERS.filter(

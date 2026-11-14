@@ -5,7 +5,7 @@
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 /** Largest image returned inline as a data URL when Blob storage refuses it. */
-export const INLINE_FALLBACK_MAX_BYTES = 1.5 * 1024 * 1024;
+export const INLINE_FALLBACK_MAX_BYTES = 128 * 1024;
 
 /**
  * Only PNG and JPEG: the chat API (`app/(chat)/api/chat/schema.ts`) accepts
@@ -77,8 +77,8 @@ const MESSAGES: Record<UploadErrorCode, { ar: string; en: string }> = {
     en: "Supported attachments right now: PNG and JPEG images only.",
   },
   storage_unavailable: {
-    ar: "التخزين غير متاح الآن. جرّب صورة أصغر من 1.5 ميجابايت أو أعد المحاولة لاحقًا.",
-    en: "Storage is unavailable right now. Try an image under 1.5 MB or retry later.",
+    ar: "التخزين غير متاح الآن. جرّب صورة أصغر من 128 كيلوبايت أو أعد المحاولة لاحقًا.",
+    en: "Storage is unavailable right now. Try an image under 128 KB or retry later.",
   },
 };
 

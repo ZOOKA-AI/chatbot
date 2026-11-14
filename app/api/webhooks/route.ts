@@ -6,6 +6,8 @@ import {
   verifyWhatsAppChallenge,
 } from "@/lib/webhooks/whatsapp";
 
+export const maxDuration = 60;
+
 /**
  * Legacy single entry point kept working for already-registered provider URLs:
  *   /api/webhooks?provider=stripe|whatsapp|n8n

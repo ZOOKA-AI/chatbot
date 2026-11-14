@@ -11,7 +11,8 @@ import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server"
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
 import { isOAuthProviderConfigured } from "@/lib/integrations/oauth/config";
 import {
-  INTEGRATION_PROVIDERS,
+  getIntegrationProviders,
+  isWhatsAppConfigured,
   type IntegrationProvider,
   PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
@@ -97,7 +98,9 @@ export default async function IntegrationsPage({
   const googleNeedsReconnect = ["google_drive", "gmail", "google_calendar"].some(
     (id) => needsReconnectIds.has(id)
   );
-  const providers: IntegrationProvider[] = INTEGRATION_PROVIDERS;
+  const providers: IntegrationProvider[] = getIntegrationProviders(
+    isWhatsAppConfigured(process.env)
+  );
   const grouped = providers.reduce<Record<string, IntegrationProvider[]>>(
     (accumulator, provider) => {
       accumulator[provider.category] = [
@@ -305,20 +308,24 @@ export default async function IntegrationsPage({
                               ? "يحتاج إعادة ربط"
                               : "Reconnect needed"
                             : available && configured
-                            ? isArabic
-                              ? "ربط ذاتي"
-                              : "Self-serve"
+                              ? provider.id === "whatsapp"
+                                ? isArabic
+                                  ? "مهيأ على الخادم"
+                                  : "Server configured"
+                                : isArabic
+                                  ? "ربط ذاتي"
+                                  : "Self-serve"
                             : provider.id === "x"
                               ? isArabic
                                 ? "غير مُعدّ"
                                 : "Not configured"
-                            : provider.status === "beta"
-                              ? isArabic
-                                ? "عبر الوكيل"
-                                : "Via agent"
-                              : isArabic
-                                ? "قريبًا"
-                                : "Coming soon"}
+                              : provider.status === "beta"
+                                ? isArabic
+                                  ? "عبر الوكيل"
+                                  : "Via agent"
+                                : isArabic
+                                  ? "قريبًا"
+                                  : "Coming soon"}
                       </span>
                     </div>
                     <p className="text-muted-foreground text-xs">

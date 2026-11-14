@@ -1,6 +1,7 @@
 import { gateway } from "@ai-sdk/gateway";
 import { put } from "@vercel/blob";
 import { generateImage } from "ai";
+import { blobPathToUrl } from "@/lib/blob-path";
 
 export class ImageStageError extends Error {
   readonly stage: "provider" | "output" | "storage";
@@ -109,9 +110,9 @@ export async function generateStoredImage(input: {
     throw new ImageStageError("output");
   }
   const stored = await put(
-    `generated-media/${input.organizationId}/${input.jobId}.${extension}`,
+    `${input.organizationId}/generated-media/${input.jobId}.${extension}`,
     Buffer.from(image.uint8Array),
-    { access: "public", contentType: image.mediaType, addRandomSuffix: true }
+    { access: "private", contentType: image.mediaType, addRandomSuffix: true }
   ).catch((error: unknown) => {
     const diagnostic = classifyImageError(error);
     throw new ImageStageError(
@@ -120,5 +121,5 @@ export async function generateStoredImage(input: {
       diagnostic.category
     );
   });
-  return stored.url;
+  return blobPathToUrl(stored.pathname);
 }

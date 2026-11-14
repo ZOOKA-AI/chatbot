@@ -20,6 +20,7 @@ import {
 } from "@/lib/ai/agent-access";
 import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
+import { resolvePrivateImageMessages } from "@/lib/ai/private-image-messages";
 import {
   describeModelProviderFailure,
   getMissingModelProviderMessage,
@@ -308,7 +309,12 @@ export async function POST(request: Request) {
 
     const isReasoningModel = !supportsTools;
 
-    const modelMessages = await convertToModelMessages(uiMessages);
+    const modelMessages = await convertToModelMessages(
+      await resolvePrivateImageMessages(
+        uiMessages,
+        workspaceContext.organizationId
+      )
+    );
 
     // Workspace memory loads once per request; a failure returns [] and the
     // reply still streams normally.

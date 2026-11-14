@@ -6,12 +6,13 @@ import { webhookEvent } from "@/lib/db/schema";
 /**
  * Records a webhook delivery exactly once. Returns true when this delivery is the
  * first one (process it), false when it is a duplicate (acknowledge and skip).
- * Fails open: a storage problem must never block billing or messaging.
+ * Fails open by default; callers can fail closed if duplicate actions are unsafe.
  */
 export async function claimWebhookEvent(input: {
   provider: string;
   externalId: string;
   payload?: unknown;
+  failClosed?: boolean;
 }): Promise<boolean> {
   try {
     const inserted = await db
@@ -28,7 +29,7 @@ export async function claimWebhookEvent(input: {
     return inserted.length > 0;
   } catch (error) {
     captureException(error, { tags: { area: "webhook-idempotency" } });
-    return true;
+    return !input.failClosed;
   }
 }
 
