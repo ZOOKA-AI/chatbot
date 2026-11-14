@@ -21,7 +21,19 @@ test("X token refresh keeps a rotated refresh token and records the new expiry",
       scope: "tweet.read tweet.write",
     },
     { clientId: "client-id", clientSecret: "client-secret" },
-    async () => response
+    async (url, init) => {
+      assert.equal(url, "https://api.x.com/2/oauth2/token");
+      assert.equal(
+        new Headers(init?.headers).get("authorization"),
+        `Basic ${Buffer.from("client-id:client-secret").toString("base64")}`
+      );
+      const body = init?.body as URLSearchParams;
+      assert.equal(body.get("grant_type"), "refresh_token");
+      assert.equal(body.get("refresh_token"), "old-refresh");
+      assert.equal(body.has("client_secret"), false);
+      assert.equal(body.has("client_id"), false);
+      return response;
+    }
   );
 
   assert.ok(result);
