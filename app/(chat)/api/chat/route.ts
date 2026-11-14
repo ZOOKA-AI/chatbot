@@ -40,6 +40,7 @@ import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
 import { createGmailTools } from "@/lib/ai/tools/google-gmail";
 import { createGitHubTools } from "@/lib/ai/tools/github";
+import { createXTools } from "@/lib/ai/tools/x";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -276,6 +277,9 @@ export async function POST(request: Request) {
     const githubTools = agentAccessAuthorized
       ? createGitHubTools(workspaceContext.organizationId)
       : {};
+    const xTools = agentAccessAuthorized
+      ? createXTools(workspaceContext.organizationId)
+      : {};
     const calendarTools = agentAccessAuthorized
       ? createCalendarTools(workspaceContext.organizationId)
       : {};
@@ -344,6 +348,7 @@ export async function POST(request: Request) {
           ...calendarTools,
           ...n8nTools,
           ...githubTools,
+          ...xTools,
         };
 
         const result = streamText({

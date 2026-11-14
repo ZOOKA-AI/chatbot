@@ -80,7 +80,7 @@ export async function getLiveIntegrationStatus(
 
   // An OAuth connection can exist without a catalog row (connected through
   // the GitHub/Vercel card): include it so the badges match that card.
-  for (const provider of ["github", "vercel"] as const) {
+  for (const provider of ["github", "vercel", "x"] as const) {
     if (connected.has(provider) || needsReconnect.has(provider)) {
       continue;
     }

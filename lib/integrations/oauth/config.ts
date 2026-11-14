@@ -1,6 +1,6 @@
 import "server-only";
 
-export type OAuthProviderId = "github" | "vercel";
+export type OAuthProviderId = "github" | "vercel" | "x";
 
 export interface OAuthProviderDefinition {
   id: OAuthProviderId;
@@ -69,10 +69,36 @@ export const OAUTH_PROVIDERS: Record<OAuthProviderId, OAuthProviderDefinition> =
         };
       },
     },
+    x: {
+      id: "x",
+      authorizeUrl: "https://x.com/i/oauth2/authorize",
+      tokenUrl: "https://api.x.com/2/oauth2/token",
+      userUrl: "https://api.x.com/2/users/me?user.fields=profile_image_url",
+      scopes: ["tweet.read", "tweet.write", "users.read", "offline.access"],
+      sendScope: true,
+      describeAccount: (payload) => {
+        const user = (payload.data ?? payload) as Record<string, unknown>;
+        const id =
+          typeof user.id === "string" || typeof user.id === "number"
+            ? String(user.id)
+            : null;
+        const username =
+          typeof user.username === "string" ? user.username : null;
+        const name = typeof user.name === "string" ? user.name : null;
+        return {
+          accountId: id,
+          accountName: username ? `@${username}` : name,
+          avatarUrl:
+            typeof user.profile_image_url === "string"
+              ? user.profile_image_url
+              : null,
+        };
+      },
+    },
   };
 
 export function isOAuthProviderId(value: string): value is OAuthProviderId {
-  return value === "github" || value === "vercel";
+  return value === "github" || value === "vercel" || value === "x";
 }
 
 export interface OAuthClientConfig {
@@ -98,8 +124,10 @@ export function getOAuthClientConfig(
   const clientId = process.env[`${prefix}_CLIENT_ID`];
   const clientSecret = process.env[`${prefix}_CLIENT_SECRET`];
   const redirectUri =
-    process.env[`${prefix}_REDIRECT_URI`] ??
-    `${origin}/api/integrations/${provider}/callback`;
+    provider === "x"
+      ? "https://zooka-ai.com/api/integrations/x/callback"
+      : (process.env[`${prefix}_REDIRECT_URI`] ??
+        `${origin}/api/integrations/${provider}/callback`);
   if (!clientId || !clientSecret || !redirectUri) {
     return null;
   }
