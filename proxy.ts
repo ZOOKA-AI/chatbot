@@ -68,6 +68,7 @@ export async function proxy(request: NextRequest) {
   if (
     pathname === "/api/media-engine" ||
     pathname === "/api/integration-hub" ||
+    pathname === "/api/operations" ||
     pathname === "/api/creative/overview" ||
     pathname === "/api/domains" ||
     pathname === "/api/agent" ||

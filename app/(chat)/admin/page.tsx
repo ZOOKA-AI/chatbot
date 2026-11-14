@@ -127,7 +127,7 @@ async function AdminPage({
         {lang === "ar" ? "إدارة المساحة الحالية فقط، وليست صلاحية وصول إلى جميع حسابات المنصة." : "Current workspace administration only, not global platform access."}
       </p>
       <nav aria-label={lang === "ar" ? "أدوات الإدارة" : "Administration tools"} className="flex flex-wrap gap-3">
-        <Link className="rounded-lg border px-4 py-2" href="/chatbot">Command center</Link>
+        <Link className="rounded-lg border px-4 py-2" href="/command-center">Command center</Link>
         <Link className="rounded-lg border px-4 py-2" href="/creative">Creative Studio</Link>
         <Link className="rounded-lg border px-4 py-2" href="/integration-hub">Integration Hub</Link>
       </nav>
