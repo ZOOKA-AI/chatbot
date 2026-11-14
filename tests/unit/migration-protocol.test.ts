@@ -28,6 +28,10 @@ test("real journal, SQL bytes and history execute once through simple-protocol m
       agentTable.rows[0]?.name,
       "AgentMessage must exist after a fresh migration"
     );
+    const checks = await client.query<{ enabled: boolean }>(
+      `SELECT relrowsecurity AS enabled FROM pg_class WHERE oid = '"IntegrationCheck"'::regclass`
+    );
+    assert.equal(checks.rows[0]?.enabled, true, "Integration checks must enforce RLS");
     const files = readMigrationFiles({ migrationsFolder: folder });
     const before = await client.query<{ hash: string; created_at: string }>(
       "SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY created_at"

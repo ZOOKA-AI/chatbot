@@ -80,7 +80,7 @@ export function GoogleDriveConnectionControl({
           className="rounded-full border px-3 py-1 text-xs"
           data-testid="google-drive-status"
         >
-          {isArabic ? "متصل بمساحة العمل" : "Connected to workspace"}
+          {isArabic ? "تفويض محفوظ — اختبره من Integration Hub" : "Stored authorization — test in Integration Hub"}
         </span>
         {canManage && (
           <Button

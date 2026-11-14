@@ -1,0 +1,222 @@
+.root {
+  --brand: #2e86ab;
+  --pink: #a23b72;
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100dvh;
+  padding: 24px;
+  max-width: 1600px;
+  margin: auto;
+}
+.header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.header h1 {
+  font-size: clamp(24px, 3vw, 38px);
+  font-weight: 800;
+}
+.nav,
+.tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.root button,
+.root summary,
+.root a {
+  cursor: pointer;
+}
+.root button,
+.root .link {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  background: var(--card);
+}
+.root button:hover,
+.root .link:hover {
+  border-color: var(--brand);
+}
+.root button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.root button:focus-visible,
+.root input:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+.root input,
+.root select,
+.root textarea {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 16px;
+  margin-top: 20px;
+}
+.panel {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.canvas {
+  background:
+    repeating-conic-gradient(#aaa2 0% 25%, transparent 0% 50%) 50% / 24px 24px;
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  touch-action: none;
+}
+.canvas svg {
+  max-width: 100%;
+  max-height: 65vh;
+  width: auto;
+  height: auto;
+  box-shadow: 0 10px 40px #0002;
+  touch-action: none;
+  user-select: none;
+}
+.templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.preview {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.field {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+}
+.help {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.8;
+}
+.notice {
+  border: 1px solid var(--brand);
+  padding: 12px;
+  border-radius: 12px;
+  margin: 12px 0;
+}
+.active {
+  outline: 2px solid var(--brand);
+}
+.section {
+  margin-top: 28px;
+}
+.section h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.warning {
+  border-inline-start: 4px solid var(--pink);
+  padding: 12px;
+  background: #a23b720a;
+}
+.root details {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.root textarea {
+  min-height: 80px;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.stats strong {
+  font-size: 24px;
+}
+.root p {
+  line-height: 1.8;
+}
+.form {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.root img {
+  max-width: 100%;
+}
+@media (max-width: 950px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .canvas {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .root {
+    padding: 12px;
+  }
+}
+@media (max-width: 540px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .canvas {
+    min-height: 260px;
+  }
+  .two {
+    grid-template-columns: 1fr 1fr;
+  }
+  .header h1 {
+    font-size: 24px;
+  }
+}
+/* Scoped brand tokens: existing application pages keep their current theme. */
+.root {
+  --background: #f8f9fa;
+  --foreground: #172033;
+  --card: #ffffff;
+  --border: #d6dde4;
+  --muted-foreground: #4b5866;
+}
+.root[data-color-mode="dark"] {
+  --background: #101827;
+  --foreground: #f8f9fa;
+  --card: #152135;
+  --border: #35445b;
+  --muted-foreground: #b5c4d9;
+}
