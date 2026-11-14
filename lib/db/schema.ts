@@ -501,3 +501,112 @@ export const agentMessage = pgTable(
 );
 
 export type AgentMessage = InferSelectModel<typeof agentMessage>;
+
+/* -------------------------------------------------------------------------- */
+/* ZOOKA AGENT COMMAND CENTER                                                 */
+/*                                                                            */
+/* Shared coordination state for every agent working on the project. Each     */
+/* agent has its own identity and its own key (only the sha256 hash is        */
+/* stored). Tasks are claimed atomically so the same task can never be        */
+/* executed twice, and approvals / deployments keep a written trail.         */
+/* -------------------------------------------------------------------------- */
+
+export const agentIdentity = pgTable(
+  "AgentIdentity",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    slug: varchar("slug", { length: 64 }).notNull(),
+    displayName: varchar("displayName", { length: 120 }).notNull(),
+    role: varchar("role", { length: 64 }).notNull(),
+    keyHash: varchar("keyHash", { length: 64 }).notNull(),
+    scopes: json("scopes").$type<string[]>().notNull().default([]),
+    environment: varchar("environment", { length: 24 }).notNull().default("production"),
+    status: varchar("status", { length: 24 }).notNull().default("active"),
+    lastSeenAt: timestamp("lastSeenAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    slugIdx: unique("AgentIdentity_slug_key").on(table.slug),
+    keyIdx: index("AgentIdentity_keyHash_idx").on(table.keyHash),
+  })
+);
+
+export const agentTask = pgTable(
+  "AgentTask",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    title: varchar("title", { length: 200 }).notNull(),
+    instruction: text("instruction").notNull(),
+    ownerAgentId: uuid("ownerAgentId").references(() => agentIdentity.id, {
+      onDelete: "set null",
+    }),
+    priority: varchar("priority", { length: 16 }).notNull().default("normal"),
+    dependencies: json("dependencies").$type<string[]>().notNull().default([]),
+    environment: varchar("environment", { length: 24 }).notNull().default("production"),
+    status: varchar("status", { length: 24 }).notNull().default("pending"),
+    evidence: text("evidence"),
+    approvalRequired: boolean("approvalRequired").notNull().default(false),
+    rollbackPlan: text("rollbackPlan"),
+    claimedAt: timestamp("claimedAt"),
+    reportedAt: timestamp("reportedAt"),
+    createdBy: varchar("createdBy", { length: 64 }).notNull().default("owner"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    statusIdx: index("AgentTask_status_idx").on(table.status),
+    ownerIdx: index("AgentTask_ownerAgentId_idx").on(table.ownerAgentId),
+  })
+);
+
+export const agentDecision = pgTable(
+  "AgentDecision",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    agentId: uuid("agentId").references(() => agentIdentity.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 200 }).notNull(),
+    body: text("body").notNull(),
+    state: varchar("state", { length: 24 }).notNull().default("PROPOSED"),
+    taskId: uuid("taskId").references(() => agentTask.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    stateIdx: index("AgentDecision_state_idx").on(table.state),
+  })
+);
+
+export const agentApproval = pgTable(
+  "AgentApproval",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    taskId: uuid("taskId").references(() => agentTask.id, { onDelete: "cascade" }),
+    requestedBy: uuid("requestedBy").references(() => agentIdentity.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("pending"),
+    decidedBy: varchar("decidedBy", { length: 64 }),
+    decidedAt: timestamp("decidedAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    statusIdx: index("AgentApproval_status_idx").on(table.status),
+  })
+);
+
+export const agentDeployment = pgTable(
+  "AgentDeployment",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    environment: varchar("environment", { length: 24 }).notNull().default("production"),
+    commitSha: varchar("commitSha", { length: 64 }),
+    deploymentId: varchar("deploymentId", { length: 120 }),
+    status: varchar("status", { length: 24 }).notNull().default("pending"),
+    notes: text("notes"),
+    agentId: uuid("agentId").references(() => agentIdentity.id, { onDelete: "set null" }),
+    rollbackOf: uuid("rollbackOf"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    envIdx: index("AgentDeployment_environment_idx").on(table.environment),
+  })
+);
