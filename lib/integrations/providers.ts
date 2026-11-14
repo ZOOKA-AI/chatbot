@@ -65,7 +65,7 @@ export function getIntegrationProviders(whatsappConfigured: boolean) {
   );
 }
 
-export function isWhatsAppConfigured(env: NodeJS.ProcessEnv) {
+export function isWhatsAppConfigured(env: Record<string, string | undefined>) {
   return Boolean(
     env.WHATSAPP_ACCESS_TOKEN &&
       env.WHATSAPP_PHONE_NUMBER_ID &&
