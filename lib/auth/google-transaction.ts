@@ -28,8 +28,11 @@ export function withGoogleTransactionCookies(
     const suffix = isCallback
       ? transactionSuffix(request.nextUrl.searchParams.get("state"))
       : null;
+    const hasTransactionCookies = Boolean(
+      suffix && names.some((name) => request.cookies.has(`${name}.${suffix}`))
+    );
     let forwarded = request;
-    if (isCallback) {
+    if (isCallback && hasTransactionCookies) {
       forwarded = new NextRequest(request, {
         headers: new Headers(request.headers),
       });
@@ -43,13 +46,30 @@ export function withGoogleTransactionCookies(
     }
 
     const response = await handler(forwarded);
-    const location = response.headers.get("location");
+    let location = response.headers.get("location");
+    if (
+      isSignIn &&
+      !location &&
+      response.headers.get("content-type")?.includes("application/json")
+    ) {
+      const body: unknown = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      if (body && typeof body === "object" && "url" in body) {
+        location = typeof body.url === "string" ? body.url : null;
+      }
+    }
+    let signInState: string | null = null;
+    if (isSignIn && location) {
+      try {
+        signInState = new URL(location, request.url).searchParams.get("state");
+      } catch {
+        // Leave the original response untouched if the redirect is invalid.
+      }
+    }
     const signInSuffix =
-      isSignIn && location
-        ? transactionSuffix(
-            new URL(location, request.url).searchParams.get("state")
-          )
-        : null;
+      isSignIn && signInState ? transactionSuffix(signInState) : null;
     const activeSuffix = isSignIn ? signInSuffix : suffix;
     if (!activeSuffix) {
       return response;
@@ -62,7 +82,7 @@ export function withGoogleTransactionCookies(
       const name = cookie.slice(0, cookie.indexOf("="));
       headers.append(
         "set-cookie",
-        names.includes(name)
+        names.includes(name) && (isSignIn || hasTransactionCookies)
           ? `${name}.${activeSuffix}${cookie.slice(name.length)}`
           : cookie
       );
@@ -73,6 +93,12 @@ export function withGoogleTransactionCookies(
           "set-cookie",
           `${name}.${activeSuffix}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${prefix ? "; Secure" : ""}`
         );
+        if (!hasTransactionCookies && request.cookies.has(name)) {
+          headers.append(
+            "set-cookie",
+            `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${prefix ? "; Secure" : ""}`
+          );
+        }
       }
     }
     return new Response(response.body, {

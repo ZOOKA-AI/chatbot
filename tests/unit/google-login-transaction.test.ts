@@ -56,8 +56,15 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
       }),
     ],
   };
-  const handler = (request: NextRequest) =>
-    Auth(request, config) as Promise<Response>;
+  const handler = async (request: NextRequest) => {
+    const response = (await Auth(request, config)) as Response;
+    if (request.headers.has("X-Auth-Return-Redirect")) {
+      const headers = new Headers(response.headers);
+      headers.delete("location");
+      return new Response(response.body, { status: response.status, headers });
+    }
+    return response;
+  };
   const get = withGoogleTransactionCookies(handler);
   const post = withGoogleTransactionCookies(handler);
   const csrfResponse = await get(
@@ -78,7 +85,9 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
         body: new URLSearchParams({ csrfToken, callbackUrl: "/" }),
       })
     );
-    const authorization = new URL(response.headers.get("location") ?? "");
+    assert.equal(response.headers.get("location"), null);
+    const { url } = (await response.json()) as { url: string };
+    const authorization = new URL(url);
     const state = authorization.searchParams.get("state");
     const challenge = authorization.searchParams.get("code_challenge");
     assert.ok(state);
@@ -141,6 +150,57 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
   }
   assert.equal(verifiers.length, 2);
 
+  const legacyResponse = (await Auth(
+    new NextRequest("https://zooka-ai.com/api/auth/signin/google", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: csrfCookie,
+      },
+      body: new URLSearchParams({ csrfToken, callbackUrl: "/" }),
+    }),
+    config
+  )) as Response;
+  const legacyAuthorization = new URL(
+    legacyResponse.headers.get("location") ?? ""
+  );
+  const legacyState = legacyAuthorization.searchParams.get("state");
+  const legacyChallenge =
+    legacyAuthorization.searchParams.get("code_challenge");
+  assert.ok(legacyState);
+  assert.ok(legacyChallenge);
+  const legacyCookies = legacyResponse.headers
+    .getSetCookie()
+    .filter((cookie) =>
+      /^__Secure-authjs\.(state|pkce\.code_verifier)=/.test(cookie)
+    )
+    .map((cookie) => cookie.split(";")[0]);
+  assert.equal(legacyCookies.length, 2);
+  const legacyCallback = await get(
+    new NextRequest(
+      `https://zooka-ai.com/api/auth/callback/google?code=code&state=${encodeURIComponent(legacyState)}`,
+      { headers: { Cookie: legacyCookies.join("; ") } }
+    )
+  );
+  const legacyVerifier = verifiers.at(-1);
+  assert.equal(verifiers.length, 3);
+  assert.ok(legacyVerifier);
+  assert.equal(
+    createHash("sha256").update(legacyVerifier).digest("base64url"),
+    legacyChallenge
+  );
+  for (const cookie of legacyCookies) {
+    assert.ok(
+      legacyCallback.headers
+        .getSetCookie()
+        .some(
+          (value) =>
+            value.startsWith(`${cookie.split("=")[0]}=`) &&
+            /Max-Age=0/i.test(value)
+        )
+    );
+  }
+
   const mismatchedCookies = first.cookies.map(
     (cookie, index) =>
       `${cookie.split("=")[0]}=${second.cookies[index].split("=")[1]}`
@@ -151,7 +211,7 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
       { headers: { Cookie: mismatchedCookies.join("; ") } }
     )
   );
-  assert.equal(verifiers.length, 2);
+  assert.equal(verifiers.length, 3);
 
   await get(
     new NextRequest(
@@ -159,5 +219,43 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
       { headers: { Cookie: second.cookies.join("; ") } }
     )
   );
-  assert.equal(verifiers.length, 2);
+  assert.equal(verifiers.length, 3);
+
+  await get(
+    new NextRequest(
+      `https://zooka-ai.com/api/auth/callback/google?code=code&state=${encodeURIComponent(first.state)}`,
+      { headers: { Cookie: [first.cookies[0], ...legacyCookies].join("; ") } }
+    )
+  );
+  assert.equal(verifiers.length, 3);
+});
+
+test("Google sign-in rewrites cookies when the redirect is in a Location header", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  const state = "location-state";
+  const suffix = createHash("sha256").update(state).digest("base64url");
+  const handler = withGoogleTransactionCookies(async () => {
+    const headers = new Headers({
+      location: `https://accounts.google.com/auth?state=${state}`,
+    });
+    headers.append("set-cookie", "__Secure-authjs.state=value; Path=/; Secure");
+    headers.append(
+      "set-cookie",
+      "__Secure-authjs.pkce.code_verifier=value; Path=/; Secure"
+    );
+    return new Response(null, { status: 302, headers });
+  });
+  const response = await handler(
+    new NextRequest("https://zooka-ai.com/api/auth/signin/google", {
+      method: "POST",
+    })
+  );
+  assert.equal(response.status, 302);
+  assert.equal(
+    response.headers.get("location"),
+    `https://accounts.google.com/auth?state=${state}`
+  );
+  const cookies = response.headers.getSetCookie();
+  assert.equal(cookies.length, 2);
+  assert.ok(cookies.every((cookie) => cookie.includes(`.${suffix}=`)));
 });
