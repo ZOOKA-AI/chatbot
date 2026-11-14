@@ -1,4 +1,5 @@
 import "server-only";
+import { accountDatabaseError } from "./diagnostics";
 
 import { agentMessage } from "./schema";
 
@@ -655,11 +656,8 @@ export function trackWorkspaceUsage({
 export async function getUser(email: string): Promise<User[]> {
   try {
     return await db.select().from(user).where(eq(user.email, email));
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get user by email"
-    );
+  } catch (error) {
+    throw accountDatabaseError("lookup", error);
   }
 }
 
@@ -668,8 +666,8 @@ export async function createUser(email: string, password: string) {
 
   try {
     return await db.insert(user).values({ email, password: hashedPassword });
-  } catch (_error) {
-    throw new ChatbotError("bad_request:database", "Failed to create user");
+  } catch (error) {
+    throw accountDatabaseError("create", error);
   }
 }
 

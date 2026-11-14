@@ -6,7 +6,8 @@ import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
-import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { SocialSignInButtons } from "@/components/social-sign-in-buttons";
+import { PhoneSignInForm } from "@/components/phone-sign-in-form";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
@@ -26,6 +27,7 @@ const strings = {
     and: " و",
     privacy: "سياسة الخصوصية",
     exists: "الحساب موجود بالفعل!",
+    unavailable: "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً.",
     failed: "فشل إنشاء الحساب!",
     invalid: "تحقق من البريد الإلكتروني وكلمة المرور (6 أحرف على الأقل)!",
     success: "تم إنشاء الحساب بنجاح!",
@@ -43,6 +45,8 @@ const strings = {
     and: " and ",
     privacy: "Privacy Policy",
     exists: "Account already exists!",
+    unavailable:
+      "Account service is temporarily unavailable. Please try later.",
     failed: "Failed to create account!",
     invalid: "Failed validating your submission!",
     success: "Account created successfully!",
@@ -52,9 +56,15 @@ const strings = {
 export function RegisterClient({
   lang,
   googleEnabled = false,
+  facebookEnabled = false,
+  microsoftEnabled = false,
+  phoneEnabled = false,
 }: {
   lang: "ar" | "en";
   googleEnabled?: boolean;
+  facebookEnabled?: boolean;
+  microsoftEnabled?: boolean;
+  phoneEnabled?: boolean;
 }) {
   const t = strings[lang];
   const router = useRouter();
@@ -71,7 +81,9 @@ export function RegisterClient({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: router and updateSession are stable refs
   useEffect(() => {
-    if (state.status === "user_exists") {
+    if (state.status === "unavailable") {
+      toast({ type: "error", description: t.unavailable });
+    } else if (state.status === "user_exists") {
       toast({ type: "error", description: t.exists });
     } else if (state.status === "failed") {
       toast({ type: "error", description: t.failed });
@@ -96,9 +108,17 @@ export function RegisterClient({
       <div className="flex w-full max-w-md flex-col gap-12 overflow-hidden rounded-2xl">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
           <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">{t.subtitle}</p>
+          <p className="text-gray-500 text-sm dark:text-zinc-400">
+            {t.subtitle}
+          </p>
         </div>
-        {googleEnabled ? <GoogleSignInButton lang={lang} /> : null}
+        {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
+        <SocialSignInButtons
+          lang={lang}
+          google={googleEnabled}
+          facebook={facebookEnabled}
+          microsoft={microsoftEnabled}
+        />
         <AuthForm
           action={handleSubmit}
           defaultEmail={email}

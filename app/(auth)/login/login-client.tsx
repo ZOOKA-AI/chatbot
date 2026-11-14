@@ -22,8 +22,11 @@ const strings = {
     submit: "دخول",
     noAccount: "ما عندك حساب؟",
     signUpLink: "أنشئ حساباً مجانياً",
+    unavailable:
+      "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً؛ لا تحتاج لتغيير كلمة المرور.",
     invalid: "بيانات الدخول غير صحيحة!",
-    authError: "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى.",
+    authError:
+      "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى.",
   },
   en: {
     title: "Sign In",
@@ -33,8 +36,11 @@ const strings = {
     submit: "Sign in",
     noAccount: "Don't have an account?",
     signUpLink: "Sign up for free",
+    unavailable:
+      "Account service is temporarily unavailable. Please try later; you do not need to reset your password.",
     invalid: "Invalid credentials!",
-    authError: "Unable to sign in. Please try again or use another sign-in method.",
+    authError:
+      "Unable to sign in. Please try again or use another sign-in method.",
   },
 } as const;
 
@@ -59,15 +65,20 @@ export function LoginClient({
   const [email, setEmail] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);
 
-  const [state, formAction] = useActionState<LoginActionState, FormData>(login, {
-    status: "idle",
-  });
+  const [state, formAction] = useActionState<LoginActionState, FormData>(
+    login,
+    {
+      status: "idle",
+    }
+  );
 
   const { update: updateSession } = useSession();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: router and updateSession are stable refs
   useEffect(() => {
-    if (state.status === "failed") {
+    if (state.status === "unavailable") {
+      toast({ type: "error", description: t.unavailable });
+    } else if (state.status === "failed") {
       toast({ type: "error", description: t.invalid });
     } else if (state.status === "invalid_data") {
       toast({ type: "error", description: t.invalid });
@@ -89,7 +100,9 @@ export function LoginClient({
       <div className="flex w-full max-w-md flex-col gap-12 overflow-hidden rounded-2xl">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
           <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">{t.subtitle}</p>
+          <p className="text-gray-500 text-sm dark:text-zinc-400">
+            {t.subtitle}
+          </p>
         </div>
         {hasAuthError ? (
           <p className="px-4 text-center text-red-600 text-sm" role="alert">
@@ -111,7 +124,10 @@ export function LoginClient({
           <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {`${t.noAccount} `}
-            <Link className="text-muted-foreground text-xs underline" href="/forgot-password">
+            <Link
+              className="text-muted-foreground text-xs underline"
+              href="/forgot-password"
+            >
               {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
             </Link>{" "}
             <Link
