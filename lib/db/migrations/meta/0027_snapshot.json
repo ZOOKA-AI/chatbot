@@ -1,0 +1,1931 @@
+{
+  "id": "7ca8afab-3f71-4eaa-ad09-a4a6e7c02765",
+  "prevId": "db49874d-2208-484f-9dd1-1852dcc5ea32",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.Affiliate": {
+      "name": "Affiliate",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "platform": {
+          "name": "platform",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "commissionPct": {
+          "name": "commissionPct",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "Affiliate_code_unique": {
+          "name": "Affiliate_code_unique",
+          "columns": [
+            "code"
+          ],
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.Base44AgentSession": {
+      "name": "Base44AgentSession",
+      "schema": "",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "conversationId": {
+          "name": "conversationId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "turns": {
+          "name": "turns",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "credits": {
+          "name": "credits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Base44AgentSession_userId_User_id_fk": {
+          "name": "Base44AgentSession_userId_User_id_fk",
+          "tableFrom": "Base44AgentSession",
+          "columnsFrom": [
+            "userId"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "Base44AgentSession_organizationId_Organization_id_fk": {
+          "name": "Base44AgentSession_organizationId_Organization_id_fk",
+          "tableFrom": "Base44AgentSession",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Chat": {
+      "name": "Chat",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'private'"
+        }
+      },
+      "indexes": {
+        "Chat_organizationId_createdAt_idx": {
+          "name": "Chat_organizationId_createdAt_idx",
+          "columns": [
+            {
+              "expression": "organizationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "Chat_organizationId_Organization_id_fk": {
+          "name": "Chat_organizationId_Organization_id_fk",
+          "tableFrom": "Chat",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "Chat_userId_User_id_fk": {
+          "name": "Chat_userId_User_id_fk",
+          "tableFrom": "Chat",
+          "columnsFrom": [
+            "userId"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Document": {
+      "name": "Document",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "text": {
+          "name": "text",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'text'"
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "Document_organizationId_idx": {
+          "name": "Document_organizationId_idx",
+          "columns": [
+            {
+              "expression": "organizationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "Document_organizationId_Organization_id_fk": {
+          "name": "Document_organizationId_Organization_id_fk",
+          "tableFrom": "Document",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "Document_userId_User_id_fk": {
+          "name": "Document_userId_User_id_fk",
+          "tableFrom": "Document",
+          "columnsFrom": [
+            "userId"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "Document_id_createdAt_pk": {
+          "name": "Document_id_createdAt_pk",
+          "columns": [
+            "id",
+            "createdAt"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.GoogleDriveConnection": {
+      "name": "GoogleDriveConnection",
+      "schema": "",
+      "columns": {
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "connectionId": {
+          "name": "connectionId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "encryptedTokens": {
+          "name": "encryptedTokens",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "GoogleDriveConnection_organizationId_Organization_id_fk": {
+          "name": "GoogleDriveConnection_organizationId_Organization_id_fk",
+          "tableFrom": "GoogleDriveConnection",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.GuestUsage": {
+      "name": "GuestUsage",
+      "schema": "",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "varchar(128)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "count": {
+          "name": "count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Invitation": {
+      "name": "Invitation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
+        "invitedBy": {
+          "name": "invitedBy",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "acceptedAt": {
+          "name": "acceptedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "Invitation_organizationId_idx": {
+          "name": "Invitation_organizationId_idx",
+          "columns": [
+            {
+              "expression": "organizationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "Invitation_organizationId_Organization_id_fk": {
+          "name": "Invitation_organizationId_Organization_id_fk",
+          "tableFrom": "Invitation",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "Invitation_invitedBy_User_id_fk": {
+          "name": "Invitation_invitedBy_User_id_fk",
+          "tableFrom": "Invitation",
+          "columnsFrom": [
+            "invitedBy"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "Invitation_organizationId_email_unique": {
+          "name": "Invitation_organizationId_email_unique",
+          "columns": [
+            "organizationId",
+            "email"
+          ],
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.MediaJob": {
+      "name": "MediaJob",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actionType": {
+          "name": "actionType",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "assetUrl": {
+          "name": "assetUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "MediaJob_organizationId_createdAt_idx": {
+          "name": "MediaJob_organizationId_createdAt_idx",
+          "columns": [
+            {
+              "expression": "organizationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "MediaJob_organizationId_Organization_id_fk": {
+          "name": "MediaJob_organizationId_Organization_id_fk",
+          "tableFrom": "MediaJob",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Message_v2": {
+      "name": "Message_v2",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "chatId": {
+          "name": "chatId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parts": {
+          "name": "parts",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attachments": {
+          "name": "attachments",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Message_v2_chatId_Chat_id_fk": {
+          "name": "Message_v2_chatId_Chat_id_fk",
+          "tableFrom": "Message_v2",
+          "columnsFrom": [
+            "chatId"
+          ],
+          "tableTo": "Chat",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Message": {
+      "name": "Message",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "chatId": {
+          "name": "chatId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Message_chatId_Chat_id_fk": {
+          "name": "Message_chatId_Chat_id_fk",
+          "tableFrom": "Message",
+          "columnsFrom": [
+            "chatId"
+          ],
+          "tableTo": "Chat",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.N8nConnection": {
+      "name": "N8nConnection",
+      "schema": "",
+      "columns": {
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "encryptedCredentials": {
+          "name": "encryptedCredentials",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "N8nConnection_organizationId_Organization_id_fk": {
+          "name": "N8nConnection_organizationId_Organization_id_fk",
+          "tableFrom": "N8nConnection",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.OAuthConnection": {
+      "name": "OAuthConnection",
+      "schema": "",
+      "columns": {
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "encryptedTokens": {
+          "name": "encryptedTokens",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accountId": {
+          "name": "accountId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accountName": {
+          "name": "accountName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatarUrl": {
+          "name": "avatarUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tokenExpiresAt": {
+          "name": "tokenExpiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "OAuthConnection_provider_idx": {
+          "name": "OAuthConnection_provider_idx",
+          "columns": [
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "OAuthConnection_organizationId_Organization_id_fk": {
+          "name": "OAuthConnection_organizationId_Organization_id_fk",
+          "tableFrom": "OAuthConnection",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "OAuthConnection_organizationId_provider_pk": {
+          "name": "OAuthConnection_organizationId_provider_pk",
+          "columns": [
+            "organizationId",
+            "provider"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.Organization": {
+      "name": "Organization",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.OrganizationMember": {
+      "name": "OrganizationMember",
+      "schema": "",
+      "columns": {
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "OrganizationMember_userId_idx": {
+          "name": "OrganizationMember_userId_idx",
+          "columns": [
+            {
+              "expression": "userId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "OrganizationMember_organizationId_Organization_id_fk": {
+          "name": "OrganizationMember_organizationId_Organization_id_fk",
+          "tableFrom": "OrganizationMember",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "OrganizationMember_userId_User_id_fk": {
+          "name": "OrganizationMember_userId_User_id_fk",
+          "tableFrom": "OrganizationMember",
+          "columnsFrom": [
+            "userId"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "OrganizationMember_organizationId_userId_pk": {
+          "name": "OrganizationMember_organizationId_userId_pk",
+          "columns": [
+            "organizationId",
+            "userId"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.PasswordResetToken": {
+      "name": "PasswordResetToken",
+      "schema": "",
+      "columns": {
+        "tokenHash": {
+          "name": "tokenHash",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usedAt": {
+          "name": "usedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "PasswordResetToken_userId_User_id_fk": {
+          "name": "PasswordResetToken_userId_User_id_fk",
+          "tableFrom": "PasswordResetToken",
+          "columnsFrom": [
+            "userId"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Project": {
+      "name": "Project",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subdomain": {
+          "name": "subdomain",
+          "type": "varchar(63)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customDomain": {
+          "name": "customDomain",
+          "type": "varchar(253)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'CREATING'"
+        },
+        "templateId": {
+          "name": "templateId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "templateConfig": {
+          "name": "templateConfig",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "Project_organizationId_idx": {
+          "name": "Project_organizationId_idx",
+          "columns": [
+            {
+              "expression": "organizationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "Project_subdomain_unique": {
+          "name": "Project_subdomain_unique",
+          "columns": [
+            "subdomain"
+          ],
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.ReferralEvent": {
+      "name": "ReferralEvent",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event": {
+          "name": "event",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan": {
+          "name": "plan",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amountCents": {
+          "name": "amountCents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "externalRef": {
+          "name": "externalRef",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "ReferralEvent_code_idx": {
+          "name": "ReferralEvent_code_idx",
+          "columns": [
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Stream": {
+      "name": "Stream",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "chatId": {
+          "name": "chatId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Stream_chatId_Chat_id_fk": {
+          "name": "Stream_chatId_Chat_id_fk",
+          "tableFrom": "Stream",
+          "columnsFrom": [
+            "chatId"
+          ],
+          "tableTo": "Chat",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "Stream_id_pk": {
+          "name": "Stream_id_pk",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.StudioProject": {
+      "name": "StudioProject",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "html": {
+          "name": "html",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "StudioProject_organizationId_idx": {
+          "name": "StudioProject_organizationId_idx",
+          "columns": [
+            {
+              "expression": "organizationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "StudioProject_organizationId_Organization_id_fk": {
+          "name": "StudioProject_organizationId_Organization_id_fk",
+          "tableFrom": "StudioProject",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Subscription": {
+      "name": "Subscription",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'free'"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "externalCustomerId": {
+          "name": "externalCustomerId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "externalSubscriptionId": {
+          "name": "externalSubscriptionId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "periodEnd": {
+          "name": "periodEnd",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Subscription_organizationId_Organization_id_fk": {
+          "name": "Subscription_organizationId_Organization_id_fk",
+          "tableFrom": "Subscription",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "Subscription_organizationId_unique": {
+          "name": "Subscription_organizationId_unique",
+          "columns": [
+            "organizationId"
+          ],
+          "nullsNotDistinct": false
+        }
+      }
+    },
+    "public.Suggestion": {
+      "name": "Suggestion",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "documentId": {
+          "name": "documentId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "documentCreatedAt": {
+          "name": "documentCreatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "originalText": {
+          "name": "originalText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suggestedText": {
+          "name": "suggestedText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "isResolved": {
+          "name": "isResolved",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Suggestion_userId_User_id_fk": {
+          "name": "Suggestion_userId_User_id_fk",
+          "tableFrom": "Suggestion",
+          "columnsFrom": [
+            "userId"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "Suggestion_documentId_documentCreatedAt_Document_id_createdAt_fk": {
+          "name": "Suggestion_documentId_documentCreatedAt_Document_id_createdAt_fk",
+          "tableFrom": "Suggestion",
+          "columnsFrom": [
+            "documentId",
+            "documentCreatedAt"
+          ],
+          "tableTo": "Document",
+          "columnsTo": [
+            "id",
+            "createdAt"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "Suggestion_id_pk": {
+          "name": "Suggestion_id_pk",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.UsageEvent": {
+      "name": "UsageEvent",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organizationId": {
+          "name": "organizationId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event": {
+          "name": "event",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "UsageEvent_organizationId_createdAt_idx": {
+          "name": "UsageEvent_organizationId_createdAt_idx",
+          "columns": [
+            {
+              "expression": "organizationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "createdAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "UsageEvent_organizationId_Organization_id_fk": {
+          "name": "UsageEvent_organizationId_Organization_id_fk",
+          "tableFrom": "UsageEvent",
+          "columnsFrom": [
+            "organizationId"
+          ],
+          "tableTo": "Organization",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "UsageEvent_userId_User_id_fk": {
+          "name": "UsageEvent_userId_User_id_fk",
+          "tableFrom": "UsageEvent",
+          "columnsFrom": [
+            "userId"
+          ],
+          "tableTo": "User",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.User": {
+      "name": "User",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password": {
+          "name": "password",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.Vote_v2": {
+      "name": "Vote_v2",
+      "schema": "",
+      "columns": {
+        "chatId": {
+          "name": "chatId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "messageId": {
+          "name": "messageId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isUpvoted": {
+          "name": "isUpvoted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Vote_v2_chatId_Chat_id_fk": {
+          "name": "Vote_v2_chatId_Chat_id_fk",
+          "tableFrom": "Vote_v2",
+          "columnsFrom": [
+            "chatId"
+          ],
+          "tableTo": "Chat",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "Vote_v2_messageId_Message_v2_id_fk": {
+          "name": "Vote_v2_messageId_Message_v2_id_fk",
+          "tableFrom": "Vote_v2",
+          "columnsFrom": [
+            "messageId"
+          ],
+          "tableTo": "Message_v2",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "Vote_v2_chatId_messageId_pk": {
+          "name": "Vote_v2_chatId_messageId_pk",
+          "columns": [
+            "chatId",
+            "messageId"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.Vote": {
+      "name": "Vote",
+      "schema": "",
+      "columns": {
+        "chatId": {
+          "name": "chatId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "messageId": {
+          "name": "messageId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isUpvoted": {
+          "name": "isUpvoted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Vote_chatId_Chat_id_fk": {
+          "name": "Vote_chatId_Chat_id_fk",
+          "tableFrom": "Vote",
+          "columnsFrom": [
+            "chatId"
+          ],
+          "tableTo": "Chat",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "Vote_messageId_Message_id_fk": {
+          "name": "Vote_messageId_Message_id_fk",
+          "tableFrom": "Vote",
+          "columnsFrom": [
+            "messageId"
+          ],
+          "tableTo": "Message",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "Vote_chatId_messageId_pk": {
+          "name": "Vote_chatId_messageId_pk",
+          "columns": [
+            "chatId",
+            "messageId"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
+    "public.WebhookEvent": {
+      "name": "WebhookEvent",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "provider": {
+          "name": "provider",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "externalId": {
+          "name": "externalId",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "receivedAt": {
+          "name": "receivedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "WebhookEvent_receivedAt_idx": {
+          "name": "WebhookEvent_receivedAt_idx",
+          "columns": [
+            {
+              "expression": "receivedAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "WebhookEvent_provider_externalId_key": {
+          "name": "WebhookEvent_provider_externalId_key",
+          "columns": [
+            "provider",
+            "externalId"
+          ],
+          "nullsNotDistinct": false
+        }
+      }
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

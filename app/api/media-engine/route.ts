@@ -1,6 +1,8 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { imageOptionsSchema } from "@/lib/creative/image-options";
+import { detectImageType } from "@/lib/uploads";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   createMediaJob,
@@ -19,6 +21,7 @@ const requestSchema = z
   .object({
     actionType: z.enum(["IMAGE", "VIDEO", "MAP_3D", "CARTOON"]),
     prompt: z.string().trim().min(1).max(2000),
+    imageOptions: imageOptionsSchema.optional(),
   })
   .strict();
 
@@ -36,7 +39,9 @@ async function createJob(request: Request) {
 
   let raw: unknown;
   try {
-    raw = await request.json();
+    const body = await request.text();
+    if (body.length > 1600000) return NextResponse.json({ error: "Request too large" }, { status: 413 });
+    raw = JSON.parse(body);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -49,6 +54,15 @@ async function createJob(request: Request) {
     );
   }
 
+  if (parsed.data.imageOptions?.reference) {
+    const bytes = Buffer.from(parsed.data.imageOptions.reference.split(",")[1], "base64");
+    if (bytes.length > 1000000 || !detectImageType(bytes)) {
+      return NextResponse.json({ error: "Reference must be a PNG/JPEG under 1MB" }, { status: 400 });
+    }
+  }
+  if (process.env.MEDIA_ENGINE_PROVIDER !== "ai-gateway" && parsed.data.imageOptions) {
+    return NextResponse.json({ error: "Advanced image settings are supported only by the configured Gateway image engine" }, { status: 422 });
+  }
   if (process.env.MEDIA_ENGINE_PROVIDER === "ai-gateway") {
     if (context.role !== "owner") {
       return NextResponse.json(
@@ -89,6 +103,7 @@ async function createJob(request: Request) {
         jobId: job.id,
         prompt,
         cartoon: actionType === "CARTOON",
+        options: parsed.data.imageOptions,
       });
       const saved = await finishMediaJob({
         id: job.id,

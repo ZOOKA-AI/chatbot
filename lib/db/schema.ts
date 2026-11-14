@@ -501,3 +501,13 @@ export const agentMessage = pgTable(
 );
 
 export type AgentMessage = InferSelectModel<typeof agentMessage>;
+
+// Verification history is scoped to a workspace. It stores no plaintext credentials.
+export const integrationCheck = pgTable("IntegrationCheck", {
+  organizationId: uuid("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  provider: varchar("provider", { length: 64 }).notNull(),
+  fingerprint: varchar("fingerprint", { length: 64 }).notNull(),
+  state: varchar("state", { length: 16 }).notNull(),
+  code: varchar("code", { length: 40 }).notNull(),
+  checkedAt: timestamp("checkedAt").notNull().defaultNow(),
+}, (table) => ({ pk: primaryKey({ columns: [table.organizationId, table.provider] }) }));

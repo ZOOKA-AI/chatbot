@@ -447,6 +447,11 @@ export function Studio({ section }: { section: StudioSection }) {
               </button>
             </output>
           )}
+          <div className="mb-4 flex flex-wrap gap-3">
+            <Link className="rounded-lg border px-4 py-2" href="/command-center">Command Center</Link>
+            <Link className="rounded-lg border px-4 py-2" href="/creative">ZOOKA AI Creative Studio</Link>
+            <Link className="rounded-lg border px-4 py-2" href="/integration-hub">ZOOKA Integration Hub</Link>
+          </div>
           {section === "home" && (
             <>
               <div className={styles.welcome}>

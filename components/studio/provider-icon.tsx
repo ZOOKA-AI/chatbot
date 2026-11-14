@@ -1,5 +1,14 @@
 import {
   SiGithub,
+  SiAnthropic,
+  SiOpenai,
+  SiCloudinary,
+  SiFacebook,
+  SiGoogleanalytics,
+  SiPinterest,
+  SiReplicate,
+  SiTelegram,
+  SiYoutube,
   SiGmail,
   SiGoogle,
   SiGoogleads,
@@ -26,6 +35,15 @@ import {
 import { Cable, Hash, Linkedin, MessageCircle, Palette } from "lucide-react";
 
 const icons = {
+  openai: SiOpenai,
+  anthropic: SiAnthropic,
+  cloudinary: SiCloudinary,
+  facebook: SiFacebook,
+  google_analytics: SiGoogleanalytics,
+  pinterest: SiPinterest,
+  replicate: SiReplicate,
+  telegram: SiTelegram,
+  youtube: SiYoutube,
   gmail: SiGmail,
   google_drive: SiGoogledrive,
   google_calendar: SiGooglecalendar,

@@ -1,6 +1,8 @@
 import { gateway } from "@ai-sdk/gateway";
 import { put } from "@vercel/blob";
 import { generateImage } from "ai";
+import { type ImageOptions, imagePrompt } from "@/lib/creative/image-options";
+import { detectImageType } from "@/lib/uploads";
 import { blobPathToUrl } from "@/lib/blob-path";
 
 export class ImageStageError extends Error {
@@ -76,14 +78,21 @@ export async function generateStoredImage(input: {
   jobId: string;
   prompt: string;
   cartoon: boolean;
+  options?: ImageOptions;
 }) {
+  const text = imagePrompt(input.cartoon ? `Cartoon illustration. ${input.prompt}` : input.prompt, input.options);
+  let reference: Uint8Array | undefined;
+  if (input.options?.reference) {
+    reference = Buffer.from(input.options.reference.split(",")[1], "base64");
+    if (reference.length > 1000000 || !detectImageType(reference)) {
+      throw new ImageStageError("output", null, "invalid_reference");
+    }
+  }
   const result = await generateImage({
     model: gateway.imageModel("bfl/flux-2-pro"),
-    prompt: input.cartoon
-      ? `Cartoon illustration. ${input.prompt}`
-      : input.prompt,
+    prompt: reference ? { text, images: [reference] } : text,
     n: 1,
-    size: "1024x1024",
+    ...(input.options ? { aspectRatio: input.options.ratio } : { size: "1024x1024" as const }),
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(120_000),
   }).catch((error: unknown) => {

@@ -181,3 +181,10 @@ test("nested SDK errors expose only allowlisted category and numeric status", as
     { category: "timeout", status: null }
   );
 });
+
+test("advanced ratio/reference reach the provider only after authorization and invalid bytes never reserve budget",async()=>{
+ const reference="data:image/png;base64,"+Buffer.from([137,80,78,71,13,10,26,10]).toString("base64");
+ const input=(imageOptions:unknown)=>new Request("https://example.test/api/media-engine",{method:"POST",body:JSON.stringify({actionType:"IMAGE",prompt:"Product",imageOptions})});
+ const response=await POST(input({ratio:"9:16",style:"minimal",reference}));assert.equal(response.status,200);assert.equal(generate.mock.calls[0][0].aspectRatio,"9:16");assert.equal(typeof generate.mock.calls[0][0].prompt,"object");assert.equal(generate.mock.calls[0][0].prompt.images[0].length,8);
+ const before=reserve.mock.calls.length;assert.equal((await POST(input({reference:"data:image/png;base64,YmFk"}))).status,400);assert.equal(reserve.mock.calls.length,before);
+});

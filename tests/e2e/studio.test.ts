@@ -28,7 +28,7 @@ test("edits, previews, saves and reopens a local project", async ({ page }) => {
   ).toBeVisible();
   await expect(page.locator("iframe")).toHaveAttribute("sandbox", "");
   await page.getByRole("button", { name: "حفظ محلي" }).click();
-  await expect(page.getByRole("status")).toContainText("حُفظ المشروع");
+  await expect(page.getByRole("status")).toContainText("حُفظ محليًا");
   await page.goto("/studio/projects");
   await page.getByRole("link", { name: "فتح المحرر" }).click();
   await expect(page.getByRole("textbox", { name: "اسم المشروع" })).toHaveValue(
@@ -47,7 +47,8 @@ test("searches inactive integrations without pretending to connect", async ({
   await page.getByRole("searchbox").fill("WhatsApp");
   const card = page.getByRole("article");
   await expect(card).toHaveCount(1);
-  await expect(card).toContainText("غير مفعّل");
+  await expect(card).toContainText("قريبًا");
+  await expect(card).not.toContainText("متصل");
   await card.getByRole("button", { name: "متطلبات التفعيل" }).click();
   const guide = page.getByRole("dialog", {
     name: "دليل ربط WhatsApp Business",
@@ -58,7 +59,7 @@ test("searches inactive integrations without pretending to connect", async ({
   ).toHaveAttribute("href", /postman.com\/meta/);
   await guide.getByRole("button", { name: "إغلاق دليل الربط" }).click();
   await page.getByRole("searchbox").fill("n8n");
-  await expect(card).toContainText("مسار ربط متاح");
+  await expect(card).toContainText("ربط حقيقي متاح");
   await expect(
     card.getByRole("link", { name: "فتح إعداد الربط" }),
   ).toHaveAttribute("href", "/settings/integrations");

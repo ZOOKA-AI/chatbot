@@ -167,7 +167,7 @@ export function OAuthConnectionControl({
     return (
       <div className="flex flex-col items-start gap-2 rounded-md border border-emerald-600/30 p-3">
         <p className="text-xs font-medium">
-          {isArabic ? "متصل" : "Connected"}
+          {isArabic ? "اعتماد محفوظ — اختبار حي من Integration Hub" : "Stored credential — live test in Integration Hub"}
           {status.accountName ? ` · ${status.accountName}` : ""}
         </p>
         {canManage ? (

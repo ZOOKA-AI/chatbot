@@ -7,7 +7,7 @@ import { OAuthConnectionControl } from "@/components/oauth-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
-import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
+import { isGoogleDriveConfigured, isGoogleDriveConnected } from "@/lib/integrations/google-drive/server";
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
 import { isOAuthProviderConfigured } from "@/lib/integrations/oauth/config";
 import {
@@ -94,7 +94,7 @@ export default async function IntegrationsPage({
   });
   const connectedIds = liveStatus.connected;
   const needsReconnectIds = liveStatus.needsReconnect;
-  const googleDriveConnected = connectedIds.has("google_drive");
+  const googleDriveConnected = googleDriveConfigured && await isGoogleDriveConnected(context.organizationId);
   const googleNeedsReconnect = ["google_drive", "gmail", "google_calendar"].some(
     (id) => needsReconnectIds.has(id)
   );
@@ -123,6 +123,7 @@ export default async function IntegrationsPage({
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
+      <Link className="rounded-lg border p-3 text-sm underline" href="/integration-hub">Integration Hub — اختبر الاتصال الفعلي / Test actual connection</Link>
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">
           {isArabic ? "التكاملات" : "Integrations"}
