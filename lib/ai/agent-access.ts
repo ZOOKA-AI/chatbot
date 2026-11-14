@@ -5,6 +5,16 @@ const googleDriveToolNames = new Set([
   "tool-readGoogleDriveFile",
 ]);
 
+// Approved calls to these tools must match a server-persisted approval
+// request, so a client cannot forge an approved call with its own input.
+const verifiedApprovalToolNames = new Set([
+  ...googleDriveToolNames,
+  "tool-createGitHubIssue",
+  "tool-commentOnGitHubIssue",
+  "tool-commitGitHubFile",
+  "tool-createGitHubPullRequest",
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -49,7 +59,7 @@ export function hasUnverifiedApprovedGoogleDriveCall(
           if (
             !isRecord(part) ||
             typeof part.type !== "string" ||
-            !googleDriveToolNames.has(part.type) ||
+            !verifiedApprovalToolNames.has(part.type) ||
             part.state !== "approval-responded" ||
             !isRecord(part.approval) ||
             part.approval.approved !== true ||
