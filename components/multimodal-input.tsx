@@ -4,7 +4,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import Link from "next/link";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { Bot, CheckIcon, ChevronDown, Mic, Volume2 } from "lucide-react";
+import { AudioLines, Bot, CheckIcon, Volume2 } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -103,11 +103,7 @@ function PureMultimodalInput({
   const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang, isGuest } =
     useBilling();
   const { voiceMode, toggleVoiceMode } = useVoiceMode();
-  // Voice controls stay folded until the user opens them: the composer shows
-  // one clear "voice" switch instead of three microphone/speaker buttons, and
-  // the browser is only asked for the microphone when the user taps record.
-  const [voiceToolsOpen, setVoiceToolsOpen] = useState(false);
-  const showVoiceTools = voiceToolsOpen || voiceMode;
+
   const agentModeAllowed =
     canUseAgentMode && modelSupportsTools(selectedModelId);
   let agentModeUnavailableMessage: string;
@@ -453,7 +449,7 @@ function PureMultimodalInput({
       />
 
       <PromptInput
-        className="rounded-2xl border border-border/80 bg-background/85 p-3 shadow-lg shadow-primary/5 backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out focus-within:border-primary/50 focus-within:shadow-primary/15 hover:border-muted-foreground/50"
+        className="zk-composer rounded-2xl border border-border/70 bg-background/90 px-3 pt-2 pb-2 backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out"
         onSubmit={(event) => {
           event.preventDefault();
           if (!input.trim() && attachments.length === 0) {
@@ -569,7 +565,7 @@ function PureMultimodalInput({
             data-testid="multimodal-input"
             disableAutoResize={true}
             maxHeight={200}
-            minHeight={44}
+            minHeight={40}
             onChange={handleInput}
             placeholder={
               agentMode
@@ -590,7 +586,7 @@ function PureMultimodalInput({
             <Button
               aria-pressed={agentMode}
               className={cn(
-                "h-9 gap-1.5 rounded-full px-3 font-semibold text-sm transition-all duration-200",
+                "h-8 gap-1.5 rounded-full px-3 font-semibold text-sm transition-all duration-200",
                 agentMode
                   ? "shadow-md shadow-primary/30"
                   : "border border-primary/40 text-primary hover:bg-primary/10"
@@ -619,95 +615,60 @@ function PureMultimodalInput({
                 {lang === "ar" ? "رقّي للوكيل" : "Unlock agent"}
               </Link>
             )}
+            {/* Classic voice row: tap the mic to dictate (tap again to stop
+                and the text lands in the box), tap the speaker to hear the
+                last reply, and the wave toggles hands-free voice chat. The
+                microphone is only requested when the mic is tapped. */}
+            <VoiceInputButton
+              disabled={uploadQueue.length > 0}
+              lang={lang}
+              onTranscript={handleVoiceTranscript}
+            />
             <Button
-              aria-controls="composer-voice-tools"
-              aria-expanded={showVoiceTools}
-              className={cn(
-                "h-9 gap-1 rounded-full px-3 font-medium text-sm transition-colors duration-200",
-                showVoiceTools && "bg-accent"
-              )}
-              data-testid="voice-tools-toggle"
-              onClick={() => setVoiceToolsOpen((open) => !open)}
+              aria-label={
+                lang === "ar" ? "اسمع آخر رد" : "Listen to the last reply"
+              }
+              className="size-8 rounded-full p-0"
+              data-testid="speak-reply-button"
+              disabled={!lastReplyText}
+              onClick={handleSpeakLastReply}
               title={
                 lang === "ar"
-                  ? "أدوات الصوت: إملاء، قراءة الرد، محادثة صوتية"
-                  : "Voice tools: dictation, read aloud, voice chat"
+                  ? "اقرأ لي آخر رد بصوت عالٍ"
+                  : "Read the last reply aloud"
               }
               type="button"
               variant="ghost"
             >
-              <Mic className="size-4" />
-              <span className="hidden sm:inline">
-                {lang === "ar" ? "صوت" : "Voice"}
-              </span>
-              <ChevronDown
-                className={cn(
-                  "size-3.5 transition-transform duration-200",
-                  showVoiceTools && "rotate-180"
-                )}
-              />
+              <Volume2 className="size-4" />
             </Button>
-            <div
-              aria-hidden={!showVoiceTools}
-              className={cn(
-                "flex items-center gap-0.5 overflow-hidden transition-[max-width,opacity] duration-300 ease-out",
-                showVoiceTools
-                  ? "max-w-[260px] opacity-100"
-                  : "pointer-events-none max-w-0 opacity-0"
-              )}
-              id="composer-voice-tools"
-              inert={!showVoiceTools}
+            <Button
+              aria-label={lang === "ar" ? "محادثة صوتية" : "Voice chat"}
+              aria-pressed={voiceMode}
+              className="size-8 rounded-full p-0"
+              data-testid="voice-mode-toggle"
+              onClick={() => {
+                if (!voiceMode) {
+                  // This click is the gesture that unlocks audio playback.
+                  speakText(
+                    lang === "ar"
+                      ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
+                      : "Voice mode is on. Speak and I will answer out loud.",
+                    lang,
+                  );
+                }
+                toggleVoiceMode();
+              }}
+              title={
+                lang === "ar"
+                  ? "المحادثة الصوتية: إرسال تلقائي بعد التسجيل وقراءة الرد بصوت عالٍ"
+                  : "Voice chat: auto-send recordings and read replies aloud"
+              }
+              type="button"
+              variant={voiceMode ? "default" : "ghost"}
             >
-              <VoiceInputButton
-                disabled={uploadQueue.length > 0}
-                lang={lang}
-                onTranscript={handleVoiceTranscript}
-              />
-              <Button
-                aria-label={
-                  lang === "ar" ? "اسمع آخر رد" : "Listen to the last reply"
-                }
-                className="h-8 px-2"
-                data-testid="speak-reply-button"
-                disabled={!lastReplyText}
-                onClick={handleSpeakLastReply}
-                title={
-                  lang === "ar"
-                    ? "اقرأ لي آخر رد بصوت عالٍ"
-                    : "Read the last reply aloud"
-                }
-                type="button"
-                variant="ghost"
-              >
-                <Volume2 className="size-4" />
-              </Button>
-              <Button
-                aria-pressed={voiceMode}
-                className="h-8 px-2 text-xs"
-                data-testid="voice-mode-toggle"
-                onClick={() => {
-                  if (!voiceMode) {
-                    // This click is the gesture that unlocks audio playback.
-                    speakText(
-                      lang === "ar"
-                        ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
-                        : "Voice mode is on. Speak and I will answer out loud.",
-                      lang,
-                    );
-                  }
-                  toggleVoiceMode();
-                }}
-                title={
-                  lang === "ar"
-                    ? "المحادثة الصوتية: إرسال تلقائي بعد التسجيل وقراءة الرد بصوت عالٍ"
-                    : "Voice chat: auto-send recordings and read replies aloud"
-                }
-                type="button"
-                variant={voiceMode ? "default" : "ghost"}
-              >
-                {lang === "ar" ? "محادثة صوتية" : "Voice chat"}
-              </Button>
-            </div>
+              <AudioLines className="size-4" />
+            </Button>
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
@@ -728,12 +689,12 @@ function PureMultimodalInput({
             ) : (
               <PromptInputSubmit
                 aria-label={lang === "ar" ? "إرسال الرسالة" : "Send message"}
-                className="size-11 shrink-0 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 transition-all duration-200 hover:scale-105 hover:bg-primary/90 active:scale-95 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+                className="size-9 shrink-0 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 transition-all duration-200 hover:scale-105 hover:bg-primary/90 active:scale-95 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
                 data-testid="send-button"
                 disabled={!input.trim() || uploadQueue.length > 0}
                 status={status}
               >
-                <ArrowUpIcon size={18} />
+                <ArrowUpIcon size={16} />
               </PromptInputSubmit>
             )}
           </div>
@@ -839,7 +800,7 @@ function PureAttachmentsButton({
 
   return (
     <Button
-      className="aspect-square h-9 rounded-full p-1 transition-colors hover:bg-accent"
+      className="size-8 rounded-full p-0 transition-colors hover:bg-accent"
       aria-label="Attach image"
       data-testid="attachments-button"
       title="PNG · JPEG"

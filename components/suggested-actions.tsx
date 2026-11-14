@@ -43,19 +43,20 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
 
   return (
     <div
-      className="grid w-full gap-2 sm:grid-cols-2"
+      className="flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       data-testid="suggested-actions"
     >
       {suggestedActions.map((suggestedAction, index) => (
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          initial={{ opacity: 0, y: 20 }}
+          className="shrink-0"
+          exit={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 10 }}
           key={suggestedAction}
-          transition={{ delay: 0.05 * index }}
+          transition={{ delay: 0.04 * index }}
         >
           <Suggestion
-            className="h-auto w-full whitespace-normal p-3 text-start"
+            className="zk-neon-hover h-8 max-w-[18rem] truncate rounded-full bg-background/70 px-3 text-xs backdrop-blur"
             onClick={(suggestion) => {
               window.history.pushState({}, "", `/chat/${chatId}`);
               sendMessage({
@@ -64,6 +65,7 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
               });
             }}
             suggestion={suggestedAction}
+            title={suggestedAction}
           >
             {suggestedAction}
           </Suggestion>

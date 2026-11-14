@@ -2,7 +2,17 @@
 
 import { useEffect, useRef } from "react";
 
-type Node = { x: number; y: number; vx: number; vy: number; phase: number };
+type Node = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  phase: number;
+  /** 0 = theme colour, 1 = neon cyan, 2 = neon violet */
+  tone: 0 | 1 | 2;
+};
+
+const NEON: Record<1 | 2, string> = { 1: "34, 211, 238", 2: "167, 139, 250" };
 
 const LINK_DISTANCE = 140;
 const MAX_NODES = 70;
@@ -57,6 +67,10 @@ export function NeuralBackground({ className = "" }: { className?: string }) {
         vx: (Math.random() - 0.5) * 0.25,
         vy: (Math.random() - 0.5) * 0.25,
         phase: Math.random() * Math.PI * 2,
+        tone: (Math.random() < 0.22 ? (Math.random() < 0.5 ? 1 : 2) : 0) as
+          | 0
+          | 1
+          | 2,
       }));
     };
 
@@ -92,8 +106,9 @@ export function NeuralBackground({ className = "" }: { className?: string }) {
           const b = nodes[j];
           const distance = Math.hypot(a.x - b.x, a.y - b.y);
           if (distance < LINK_DISTANCE) {
-            const alpha = (1 - distance / LINK_DISTANCE) * 0.22;
-            context.strokeStyle = `rgba(${color}, ${alpha})`;
+            const alpha = (1 - distance / LINK_DISTANCE) * 0.24;
+            const tone = a.tone || b.tone;
+            context.strokeStyle = `rgba(${tone ? NEON[tone] : color}, ${tone ? alpha * 1.3 : alpha})`;
             context.lineWidth = 0.8;
             context.beginPath();
             context.moveTo(a.x, a.y);
@@ -106,11 +121,24 @@ export function NeuralBackground({ className = "" }: { className?: string }) {
         const pulse = reducedMotion
           ? 0.5
           : 0.5 + 0.5 * Math.sin(time / 900 + node.phase);
-        context.fillStyle = `rgba(${color}, ${0.25 + pulse * 0.35})`;
+        const rgb = node.tone === 0 ? color : NEON[node.tone];
+        // Neon nodes glow softly and breathe; theme nodes stay quiet.
+        context.shadowBlur = node.tone === 0 ? 0 : 6 + pulse * 10;
+        context.shadowColor = `rgba(${rgb}, 0.8)`;
+        context.fillStyle = `rgba(${rgb}, ${
+          node.tone === 0 ? 0.25 + pulse * 0.35 : 0.45 + pulse * 0.45
+        })`;
         context.beginPath();
-        context.arc(node.x, node.y, 1.4 + pulse * 1.2, 0, Math.PI * 2);
+        context.arc(
+          node.x,
+          node.y,
+          (node.tone === 0 ? 1.4 : 1.8) + pulse * 1.3,
+          0,
+          Math.PI * 2
+        );
         context.fill();
       }
+      context.shadowBlur = 0;
     };
 
     const loop = (time: number) => {
@@ -161,7 +189,7 @@ export function NeuralBackground({ className = "" }: { className?: string }) {
   return (
     <canvas
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 -z-10 size-full text-primary opacity-60 dark:opacity-70 ${className}`}
+      className={`pointer-events-none absolute inset-0 -z-10 size-full text-primary opacity-70 dark:opacity-80 ${className}`}
       ref={canvasRef}
     />
   );
