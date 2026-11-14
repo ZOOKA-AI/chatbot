@@ -9,6 +9,7 @@ import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
 import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
+import { isOAuthProviderConfigured } from "@/lib/integrations/oauth/config";
 import {
   INTEGRATION_PROVIDERS,
   type IntegrationProvider,
@@ -27,6 +28,7 @@ export default async function IntegrationsPage({
     googleDrive?: string;
     github?: string;
     vercel?: string;
+    x?: string;
   }>;
 }) {
   const context = await getWorkspaceContext();
@@ -37,11 +39,12 @@ export default async function IntegrationsPage({
   const lang = await getLang();
   const isArabic = lang === "ar";
   const entitlements = await getWorkspaceEntitlements(context.organizationId);
-  const { googleDrive, github, vercel } = await searchParams;
+  const { googleDrive, github, vercel, x } = await searchParams;
   const oauthFeedback = (() => {
     const entries: [string, string | undefined][] = [
       ["GitHub", github],
       ["Vercel", vercel],
+      ["X", x],
     ];
     const active = entries.find(([, value]) => value);
     if (!active) {
@@ -82,6 +85,7 @@ export default async function IntegrationsPage({
   })();
   const feedback = getGoogleDriveCallbackFeedback(googleDrive, lang);
   const googleDriveConfigured = isGoogleDriveConfigured();
+  const xConfigured = isOAuthProviderConfigured("x");
   // One source of truth shared with /api/integrations/status: a badge reads
   // "connected" only when the stored credential works right now.
   const liveStatus = await getLiveIntegrationStatus(context.organizationId, {
@@ -267,8 +271,11 @@ export default async function IntegrationsPage({
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               {items.map((provider) => {
-                const connected = connectedIds.has(provider.id);
-                const needsReconnect = needsReconnectIds.has(provider.id);
+                const configured = provider.id !== "x" || xConfigured;
+                const connected =
+                  connectedIds.has(provider.id) && configured;
+                const needsReconnect =
+                  needsReconnectIds.has(provider.id) && configured;
                 const available = provider.status === "available";
                 return (
                   <article
@@ -297,10 +304,14 @@ export default async function IntegrationsPage({
                             ? isArabic
                               ? "يحتاج إعادة ربط"
                               : "Reconnect needed"
-                            : available
+                            : available && configured
                             ? isArabic
                               ? "ربط ذاتي"
                               : "Self-serve"
+                            : provider.id === "x"
+                              ? isArabic
+                                ? "غير مُعدّ"
+                                : "Not configured"
                             : provider.status === "beta"
                               ? isArabic
                                 ? "عبر الوكيل"
@@ -325,6 +336,16 @@ export default async function IntegrationsPage({
                           ? "ربط التقويم عبر موافقة Google المشتركة"
                           : "Connect Calendar via shared Google consent"}
                       </Link>
+                    ) : null}
+                    {provider.id === "x" ? (
+                      <OAuthConnectionControl
+                        allowToken={false}
+                        canManage={canManage}
+                        label="X"
+                        lang={lang}
+                        provider="x"
+                        tokenHint=""
+                      />
                     ) : null}
                     {available &&
                     (provider.id === "google_drive" ||

@@ -16,20 +16,27 @@ function signature(
   organizationId: string,
   userId: string,
   nonce: string,
-  secret: string
+  secret: string,
+  codeVerifier?: string
 ) {
-  return createHmac("sha256", secret)
-    .update(`${provider}:${organizationId}:${userId}:${nonce}`)
-    .digest("base64url");
+  const hmac = createHmac("sha256", secret).update(
+    `${provider}:${organizationId}:${userId}:${nonce}`
+  );
+  if (codeVerifier) {
+    hmac.update(`:${codeVerifier}`);
+  }
+  return hmac.digest("base64url");
 }
 
 export function createOAuthState(
   provider: OAuthProviderId,
   organizationId: string,
   userId: string,
-  secret: string
+  secret: string,
+  options: { codeVerifier?: string } = {}
 ) {
   const nonce = randomBytes(32).toString("base64url");
+  const codeVerifier = options.codeVerifier;
   return {
     nonce,
     cookie: `${organizationId}.${userId}.${nonce}.${signature(
@@ -37,8 +44,9 @@ export function createOAuthState(
       organizationId,
       userId,
       nonce,
-      secret
-    )}`,
+      secret,
+      codeVerifier
+    )}${codeVerifier ? `.${codeVerifier}` : ""}`,
   };
 }
 
@@ -52,18 +60,26 @@ export function readOAuthState(
   cookieValue: string | undefined,
   nonce: string | null,
   secret: string
-): { organizationId: string; userId: string } | null {
+): { organizationId: string; userId: string; codeVerifier?: string } | null {
   if (!cookieValue || !nonce) {
     return null;
   }
-  const [organizationId, userId, cookieNonce, cookieSignature, ...extra] =
-    cookieValue.split(".");
+  const [
+    organizationId,
+    userId,
+    cookieNonce,
+    cookieSignature,
+    codeVerifier,
+    ...extra
+  ] = cookieValue.split(".");
   if (
     !organizationId ||
     !userId ||
     !cookieNonce ||
     !cookieSignature ||
     extra.length > 0 ||
+    (codeVerifier !== undefined &&
+      !/^[A-Za-z0-9_-]{43,128}$/.test(codeVerifier)) ||
     cookieNonce !== nonce
   ) {
     return null;
@@ -73,7 +89,8 @@ export function readOAuthState(
     organizationId,
     userId,
     cookieNonce,
-    secret
+    secret,
+    codeVerifier
   );
   const expectedBuffer = Buffer.from(expected);
   const actualBuffer = Buffer.from(cookieSignature);
@@ -83,5 +100,9 @@ export function readOAuthState(
   if (!timingSafeEqual(expectedBuffer, actualBuffer)) {
     return null;
   }
-  return { organizationId, userId };
+  return {
+    organizationId,
+    userId,
+    ...(codeVerifier ? { codeVerifier } : {}),
+  };
 }

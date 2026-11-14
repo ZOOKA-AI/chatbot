@@ -13,6 +13,7 @@ const verifiedApprovalToolNames = new Set([
   "tool-commentOnGitHubIssue",
   "tool-commitGitHubFile",
   "tool-createGitHubPullRequest",
+  "tool-postToX",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {

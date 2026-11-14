@@ -40,7 +40,17 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   { id: "whatsapp", name: "WhatsApp Business", nameAr: "واتساب للأعمال", category: "communication", description: "Send messages and manage templates.", descriptionAr: "إرسال الرسائل وإدارة القوالب.", status: "beta", managed: false },
   { id: "snapchat", name: "Snapchat", nameAr: "سناب شات", category: "social", description: "Publish and advertise on Snapchat.", descriptionAr: "النشر والإعلان على سناب شات.", status: "coming_soon", managed: false },
   { id: "tiktok", name: "TikTok", nameAr: "تيك توك", category: "social", description: "Publish videos through the official content API.", descriptionAr: "نشر الفيديوهات عبر واجهة المحتوى الرسمية.", status: "coming_soon", managed: false },
-  { id: "x", name: "X (Twitter)", nameAr: "إكس (تويتر)", category: "social", description: "Post and read timeline content.", descriptionAr: "النشر وقراءة المحتوى.", status: "coming_soon", managed: true },
+  {
+    id: "x",
+    name: "X (Twitter)",
+    nameAr: "إكس (تويتر)",
+    category: "social",
+    description:
+      "Read the connected profile and publish posts after your approval.",
+    descriptionAr: "قراءة الملف الشخصي المتصل ونشر المنشورات بعد موافقتك.",
+    status: "available",
+    managed: true,
+  },
   { id: "linkedin", name: "LinkedIn", nameAr: "لينكدإن", category: "social", description: "Post to a personal profile or company page.", descriptionAr: "النشر على الملف الشخصي أو صفحة الشركة.", status: "coming_soon", managed: true },
   { id: "github", name: "GitHub", nameAr: "جيت هب", category: "dev", description: "Read code and issues; open issues, commit to branches and open pull requests after your approval.", descriptionAr: "قراءة الكود والمهام، وفتح مهام ورفع تعديلات على فروع وطلبات دمج بعد موافقتك.", status: "available", managed: true },
   { id: "supabase", name: "Supabase", nameAr: "سوبا بيز", category: "dev", description: "Manage database, auth and storage projects.", descriptionAr: "إدارة قاعدة البيانات والمصادقة والتخزين.", status: "beta", managed: false },
