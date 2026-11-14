@@ -144,7 +144,7 @@ test("replies asynchronously to each verified text and ignores duplicates", asyn
   assert.equal(generate.mock.calls.length, 2);
   assert.equal(send.mock.calls.length, 2);
   assert.deepEqual(claim.mock.calls[0][0], {
-    provider: "whatsapp",
+    provider: "whatsapp-reply",
     externalId: "m1",
     payload: { id: "m1" },
     failClosed: true,
@@ -202,6 +202,37 @@ test("claim failures and provider errors never send a duplicate or break acknowl
   await runBackground(payload);
   assert.equal(send.mock.calls.length, 1);
   assert.equal(capture.mock.calls.length, 1);
+});
+
+test("n8n forwarding retains its existing claim namespace", async () => {
+  const send = setupReplies();
+  vi.stubEnv("N8N_WHATSAPP_FORWARD_URL", "https://n8n.example.test/webhook");
+  vi.stubEnv("N8N_WEBHOOK_SECRET", "test-n8n-secret");
+  const payload = delivery([{ id: "m1", from: "15550001", type: "text", text: { body: "Hi" } }]);
+  await runBackground(payload);
+  assert.equal(claim.mock.calls[0][0].provider, "whatsapp");
+  assert.equal(claim.mock.calls[0][0].externalId, "m1");
+  assert.equal(claim.mock.calls[1][0].provider, "whatsapp-reply");
+  assert.equal(send.mock.calls[0][0], "https://n8n.example.test/webhook");
+  assert.equal(send.mock.calls[0][1].headers["x-n8n-secret"], "test-n8n-secret");
+  assert.equal(send.mock.calls.length, 2);
+});
+
+test("multiple replies start without waiting for earlier generation", async () => {
+  setupReplies();
+  let finishFirst: (value: { text: string }) => void = () => {};
+  generate.mockImplementationOnce(() => new Promise((resolve) => {
+    finishFirst = resolve;
+  }));
+  const payload = delivery([
+    { id: "m1", from: "15550001", type: "text", text: { body: "Hi" } },
+    { id: "m2", from: "15550002", type: "text", text: { body: "Hello" } },
+  ]);
+  await handleWhatsAppWebhook(signedRequest(payload));
+  const work = afterCallback.mock.calls[0][0]();
+  await vi.waitFor(() => assert.equal(generate.mock.calls.length, 2));
+  finishFirst({ text: "Hello" });
+  await work;
 });
 
 test("WhatsApp is available only when outbound configuration is present", () => {

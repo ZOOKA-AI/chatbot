@@ -27,6 +27,56 @@ interface WhatsAppPayload {
 
 let missingCredentialsLogged = false;
 
+async function replyToMessage(
+  message: { id: string; from: string; body: string },
+  accessToken: string,
+  phoneNumberId: string
+) {
+  try {
+    const firstDelivery = await claimWebhookEvent({
+      provider: "whatsapp-reply",
+      externalId: message.id,
+      payload: { id: message.id },
+      failClosed: true,
+    });
+    if (!firstDelivery) {
+      return;
+    }
+    const { text } = await generateText({
+      model: getLanguageModel(DEFAULT_CHAT_MODEL),
+      system: `${regularPrompt}\n\nYou are replying on WhatsApp. Keep replies concise. You have no tools or access to customer accounts.`,
+      prompt: message.body,
+      abortSignal: AbortSignal.timeout(40_000),
+    });
+    if (!text.trim()) {
+      throw new Error("WhatsApp reply was empty");
+    }
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`,
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer " + accessToken,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: message.from,
+          type: "text",
+          text: { body: text },
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`WhatsApp send failed with status ${response.status}`);
+    }
+  } catch (error) {
+    captureException(error, { tags: { area: "whatsapp-reply" } });
+  }
+}
+
 export async function verifyWhatsAppChallenge(request: Request) {
   const url = new URL(request.url);
   const mode = url.searchParams.get("hub.mode");
@@ -79,7 +129,7 @@ export async function handleWhatsAppWebhook(request: Request) {
     if (forwardUrl) {
       try {
         const firstDelivery = await claimWebhookEvent({
-          provider: "whatsapp-forward",
+          provider: "whatsapp",
           externalId: firstMessage?.id ?? `wa:${crypto.randomUUID()}`,
           payload,
         });
@@ -104,6 +154,7 @@ export async function handleWhatsAppWebhook(request: Request) {
 
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const replies: Promise<void>[] = [];
     for (const entry of payload.entry ?? []) {
       for (const change of entry.changes ?? []) {
         for (const message of change.value?.messages ?? []) {
@@ -125,52 +176,17 @@ export async function handleWhatsAppWebhook(request: Request) {
           if (change.value?.metadata?.phone_number_id !== phoneNumberId) {
             continue;
           }
-          try {
-            const firstDelivery = await claimWebhookEvent({
-              provider: "whatsapp",
-              externalId: message.id,
-              payload: { id: message.id },
-              failClosed: true,
-            });
-            if (!firstDelivery) {
-              continue;
-            }
-            const { text } = await generateText({
-              model: getLanguageModel(DEFAULT_CHAT_MODEL),
-              system: `${regularPrompt}\n\nYou are replying on WhatsApp. Keep replies concise. You have no tools or access to customer accounts.`,
-              prompt: message.text.body,
-              abortSignal: AbortSignal.timeout(45_000),
-            });
-            if (!text.trim()) {
-              throw new Error("WhatsApp reply was empty");
-            }
-            const response = await fetch(
-              `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/messages`,
-              {
-                method: "POST",
-                headers: {
-                  authorization: "Bearer " + accessToken,
-                  "content-type": "application/json",
-                },
-                body: JSON.stringify({
-                  messaging_product: "whatsapp",
-                  recipient_type: "individual",
-                  to: message.from,
-                  type: "text",
-                  text: { body: text },
-                }),
-                signal: AbortSignal.timeout(10_000),
-              }
-            );
-            if (!response.ok) {
-              throw new Error(`WhatsApp send failed with status ${response.status}`);
-            }
-          } catch (error) {
-            captureException(error, { tags: { area: "whatsapp-reply" } });
-          }
+          replies.push(
+            replyToMessage(
+              { id: message.id, from: message.from, body: message.text.body },
+              accessToken,
+              phoneNumberId
+            )
+          );
         }
       }
     }
+    await Promise.all(replies);
   });
 
   return NextResponse.json({ received: true, provider: "whatsapp" });

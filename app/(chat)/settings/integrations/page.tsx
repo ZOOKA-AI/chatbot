@@ -301,9 +301,13 @@ export default async function IntegrationsPage({
                               ? "يحتاج إعادة ربط"
                               : "Reconnect needed"
                             : available
-                            ? isArabic
-                              ? "ربط ذاتي"
-                              : "Self-serve"
+                            ? provider.id === "whatsapp"
+                              ? isArabic
+                                ? "مهيأ على الخادم"
+                                : "Server configured"
+                              : isArabic
+                                ? "ربط ذاتي"
+                                : "Self-serve"
                             : provider.status === "beta"
                               ? isArabic
                                 ? "عبر الوكيل"
