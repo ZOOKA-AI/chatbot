@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Suspense } from "react";
 import { requireWorkspaceRole, getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   getAdminOverview,
@@ -61,7 +63,11 @@ const t = {
   },
 } satisfies Record<Lang, Record<string, string>>;
 
-export default async function AdminPage({
+export default function Page({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  return <Suspense fallback={<main className="p-6" role="status">Loading workspace administration…</main>}><AdminPage searchParams={searchParams} /></Suspense>;
+}
+
+async function AdminPage({
   searchParams,
 }: {
   searchParams: Promise<{ page?: string }>;
@@ -84,7 +90,7 @@ export default async function AdminPage({
   }
 
   const { page } = await searchParams;
-  const pageIndex = Math.max(Math.floor(Number(page) || 0), 0);
+  const pageIndex = Math.min(10000, Math.max(Math.floor(Number(page) || 0), 0));
   const organizationId = context.organizationId;
 
   let data: Awaited<ReturnType<typeof loadData>>;
@@ -117,6 +123,14 @@ export default async function AdminPage({
         <h1 className="font-semibold text-2xl">{copy.title}</h1>
       </div>
 
+      <p className="text-muted-foreground text-sm">
+        {lang === "ar" ? "إدارة المساحة الحالية فقط، وليست صلاحية وصول إلى جميع حسابات المنصة." : "Current workspace administration only, not global platform access."}
+      </p>
+      <nav aria-label={lang === "ar" ? "أدوات الإدارة" : "Administration tools"} className="flex flex-wrap gap-3">
+        <Link className="rounded-lg border px-4 py-2" href="/chatbot">Command center</Link>
+        <Link className="rounded-lg border px-4 py-2" href="/creative">Creative Studio</Link>
+        <Link className="rounded-lg border px-4 py-2" href="/integration-hub">Integration Hub</Link>
+      </nav>
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {stats.map(([label, value]) => (
           <div className="rounded-lg border p-4" key={label}>

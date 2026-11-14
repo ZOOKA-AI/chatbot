@@ -99,7 +99,7 @@ export function N8nConnectionControl({ lang }: { lang: "ar" | "en" }) {
         <div className="flex flex-col gap-2">
           <p className="text-sm">
             <span className="font-medium">
-              {isArabic ? "متصل:" : "Connected:"}
+              {isArabic ? "اعتماد محفوظ:" : "Stored credential:"}
             </span>{" "}
             <span className="break-all font-mono text-xs">{savedUrl}</span>
           </p>
