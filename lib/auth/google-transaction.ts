@@ -1,10 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 
-const cookieNames = [
-  "authjs.pkce.code_verifier",
-  "authjs.state",
-] as const;
+const cookieNames = ["authjs.pkce.code_verifier", "authjs.state"] as const;
 
 export const googleLoginChecks: ("pkce" | "state")[] = ["pkce", "state"];
 
@@ -49,7 +46,9 @@ export function withGoogleTransactionCookies(
     const location = response.headers.get("location");
     const signInSuffix =
       isSignIn && location
-        ? transactionSuffix(new URL(location, request.url).searchParams.get("state"))
+        ? transactionSuffix(
+            new URL(location, request.url).searchParams.get("state")
+          )
         : null;
     const activeSuffix = isSignIn ? signInSuffix : suffix;
     if (!activeSuffix) {

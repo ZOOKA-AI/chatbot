@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import Google from "next-auth/providers/google";
 import { NextRequest } from "next/server";
+import Google from "next-auth/providers/google";
 import { afterEach, test, vi } from "vitest";
 import {
   googleLoginChecks,
@@ -22,14 +22,16 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
   vi.stubEnv("AUTH_URL", "https://zooka-ai.com");
   vi.stubEnv("NEXTAUTH_URL", "");
   const verifiers: string[] = [];
-  const authCorePath = createRequire(import.meta.resolve("next-auth")).resolve("@auth/core");
+  const authCorePath = createRequire(import.meta.resolve("next-auth")).resolve(
+    "@auth/core"
+  );
   const { Auth, customFetch } = await import(authCorePath);
   const config = {
     basePath: "/api/auth",
     secret: "test-secret-for-google-oauth-transaction",
     trustHost: true,
     useSecureCookies: true,
-    logger: { error() {}, warn() {}, debug() {} },
+    logger: { error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
     providers: [
       Google({
         clientId: "test-client",
@@ -39,22 +41,28 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
           if (String(input).includes(".well-known")) {
             return Response.json({
               issuer: "https://accounts.google.com",
-              authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+              authorization_endpoint:
+                "https://accounts.google.com/o/oauth2/v2/auth",
               token_endpoint: "https://oauth2.googleapis.com/token",
-              userinfo_endpoint: "https://openidconnect.googleapis.com/v1/userinfo",
+              userinfo_endpoint:
+                "https://openidconnect.googleapis.com/v1/userinfo",
               code_challenge_methods_supported: ["S256"],
             });
           }
-          verifiers.push((init?.body as URLSearchParams).get("code_verifier") ?? "");
+          assert.ok(init?.body instanceof URLSearchParams);
+          verifiers.push(init.body.get("code_verifier") ?? "");
           return Response.json({ error: "invalid_grant" }, { status: 400 });
         },
       }),
     ],
   };
-  const handler = (request: NextRequest) => Auth(request, config) as Promise<Response>;
+  const handler = (request: NextRequest) =>
+    Auth(request, config) as Promise<Response>;
   const get = withGoogleTransactionCookies(handler);
   const post = withGoogleTransactionCookies(handler);
-  const csrfResponse = await get(new NextRequest("https://zooka-ai.com/api/auth/csrf"));
+  const csrfResponse = await get(
+    new NextRequest("https://zooka-ai.com/api/auth/csrf")
+  );
   const { csrfToken } = (await csrfResponse.json()) as { csrfToken: string };
   const csrfCookie = csrfResponse.headers.getSetCookie()[0].split(";")[0];
 
@@ -75,9 +83,11 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
     const challenge = authorization.searchParams.get("code_challenge");
     assert.ok(state);
     assert.ok(challenge);
-    const cookies = response.headers.getSetCookie().filter((cookie) =>
-      /^__Secure-authjs\.(state|pkce\.code_verifier)\./.test(cookie)
-    );
+    const cookies = response.headers
+      .getSetCookie()
+      .filter((cookie) =>
+        /^__Secure-authjs\.(state|pkce\.code_verifier)\./.test(cookie)
+      );
     assert.equal(cookies.length, 2);
     for (const cookie of cookies) {
       assert.match(cookie, /;\s*HttpOnly/i);
@@ -86,7 +96,11 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
       assert.match(cookie, /;\s*Path=\//i);
       assert.doesNotMatch(cookie, /;\s*Domain=/i);
     }
-    return { state, challenge, cookies: cookies.map((cookie) => cookie.split(";")[0]) };
+    return {
+      state,
+      challenge,
+      cookies: cookies.map((cookie) => cookie.split(";")[0]),
+    };
   }
 
   const [first, second] = await Promise.all([start(), start()]);
@@ -94,31 +108,42 @@ test("parallel Google sign-ins retain their own state and PKCE cookies on the ca
   const cookieHeader = [...first.cookies, ...second.cookies].join("; ");
   for (const attempt of [second, first]) {
     const alias = new NextRequest(
-      `https://www.zooka-ai.com/api/auth/callback/google?code=code&state=${encodeURIComponent(attempt.state)}`,
-      { headers: { Cookie: cookieHeader } }
+      `https://www.zooka-ai.com/api/auth/callback/google?code=code&state=${encodeURIComponent(attempt.state)}`
     );
     const redirect = await proxy(alias);
     assert.equal(redirect.status, 307);
     const location = redirect.headers.get("location");
     assert.ok(location);
     assert.equal(new URL(location).origin, "https://zooka-ai.com");
-    const response = await get(new NextRequest(location, { headers: { Cookie: cookieHeader } }));
-    const cleared = response.headers.getSetCookie().filter((cookie) => /Max-Age=0/i.test(cookie));
+    const response = await get(
+      new NextRequest(location, { headers: { Cookie: cookieHeader } })
+    );
+    const cleared = response.headers
+      .getSetCookie()
+      .filter((cookie) => /Max-Age=0/i.test(cookie));
     for (const cookie of attempt.cookies) {
-      assert.ok(cleared.some((value) => value.startsWith(`${cookie.split("=")[0]}=`)));
+      assert.ok(
+        cleared.some((value) => value.startsWith(`${cookie.split("=")[0]}=`))
+      );
     }
     const other = attempt === first ? second : first;
     for (const cookie of other.cookies) {
-      assert.ok(cleared.every((value) => !value.startsWith(`${cookie.split("=")[0]}=`)));
+      assert.ok(
+        cleared.every((value) => !value.startsWith(`${cookie.split("=")[0]}=`))
+      );
     }
     const verifier = verifiers.at(-1);
     assert.ok(verifier);
-    assert.equal(createHash("sha256").update(verifier).digest("base64url"), attempt.challenge);
+    assert.equal(
+      createHash("sha256").update(verifier).digest("base64url"),
+      attempt.challenge
+    );
   }
   assert.equal(verifiers.length, 2);
 
-  const mismatchedCookies = first.cookies.map((cookie, index) =>
-    `${cookie.split("=")[0]}=${second.cookies[index].split("=")[1]}`
+  const mismatchedCookies = first.cookies.map(
+    (cookie, index) =>
+      `${cookie.split("=")[0]}=${second.cookies[index].split("=")[1]}`
   );
   await get(
     new NextRequest(

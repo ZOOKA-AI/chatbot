@@ -49,7 +49,9 @@ test("X code exchange authenticates with Basic instead of a form secret", async 
   vi.stubGlobal("fetch", fetcher);
 
   const response = await GET(
-    new Request("https://zooka-ai.com/api/integrations/x/callback?code=code&state=state")
+    new Request(
+      "https://zooka-ai.com/api/integrations/x/callback?code=code&state=state"
+    )
   );
   assert.equal(fetcher.mock.calls.length, 1);
   assert.equal(
