@@ -220,3 +220,18 @@
   --border: #35445b;
   --muted-foreground: #b5c4d9;
 }
+/* Keep the canvas visible instead of stretching/centering it against a tall inspector. */
+.root .canvas {
+  align-self: start;
+  position: sticky;
+  top: 12px;
+  display: flex;
+  padding: 20px;
+  background:
+    repeating-conic-gradient(#aaa2 0% 25%, transparent 0% 50%) 50% / 24px 24px;
+}
+@media (max-width: 950px) {
+  .root .canvas {
+    position: static;
+  }
+}

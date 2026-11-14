@@ -154,10 +154,10 @@ match baseline source wording, without removing storage/reopen or no-connection
 assertions. No disabled/skipped tests or reduced lint rules were introduced.
 
 Local results: 166 unit tests across 38 files plus the existing model test passed.
-The full production build (including TypeScript) passed. Eighteen browser
-scenarios passed against the built app, including existing login/HTML Studio
-regressions and the new editor/Hub paths. One additional anonymous-API scenario
-passed separately (JSON 401 without a session and unverified capability hints). New module lint
+The full production build (including TypeScript) passed. Nineteen browser
+scenarios passed together against the built app, including existing login/HTML
+Studio regressions, the new editor/Hub paths, and anonymous API access (JSON 401
+without a session and unverified capability hints). New module lint
 checks passed; the existing repository-wide lint backlog was not globally fixed.
 See PR and delivered report for exact-head preview evidence. A local test
 with synthetic data is not a successful production login, hosted DB connection,
@@ -188,3 +188,14 @@ advanced image editing, video timeline/engines, social account onboarding/publis
 scheduling, analytics collectors, content/discovery agents and a durable autonomous
 runner. Those require explicit provider/product/policy decisions and additional
 reviewed stages. The full Master Upgrade is not marked complete by this slice.
+
+## Command/admin route clarification
+
+`/admin` already existed on the baseline and remains workspace-admin scoped; this
+change does not invent a global platform-owner role. Added a Suspense boundary,
+bounded page index and entry links to the existing agent, Creative Studio and Hub.
+`/chatbot` is now an explicit stable redirect to the existing protected
+`/workspace/agent`, not a second authentication system or a public admin bypass.
+Owner subsequently requested live release, but actual production DB migration/
+login acceptance and source merge remain separate gates; no direct deployment
+is used to bypass them.
