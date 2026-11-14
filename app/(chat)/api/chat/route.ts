@@ -5,11 +5,11 @@ import {
   createUIMessageStreamResponse,
   generateId,
   stepCountIs,
-  streamText,
   type ToolSet,
 } from "ai";
 import { checkBotId } from "botid/server";
 import { after } from "next/server";
+import { createChatTracing } from "@/lib/ai/tracing";
 import { createResumableStreamContext } from "resumable-stream";
 import type { UserType } from "@/app/(auth)/auth";
 import {
@@ -351,7 +351,9 @@ export async function POST(request: Request) {
           ...xTools,
         };
 
-        const result = streamText({
+        const tracing = createChatTracing();
+        after(tracing.flush);
+        const result = tracing.streamText({
           model: getLanguageModel(selectedChatModel),
           // Long agent runs and reasoning models routinely need more than a
           // minute; a tight timeout was cutting replies mid-stream and showing
@@ -415,6 +417,8 @@ export async function POST(request: Request) {
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
+            recordInputs: false,
+            recordOutputs: false,
           },
         });
 

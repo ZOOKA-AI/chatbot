@@ -21,6 +21,13 @@ test("real journal, SQL bytes and history execute once through simple-protocol m
   const client = new PGlite();
   try {
     await migratePglite(client, { migrationsFolder: folder });
+    const agentTable = await client.query<{ name: string | null }>(
+      `SELECT to_regclass('public."AgentMessage"')::text AS name`
+    );
+    assert.ok(
+      agentTable.rows[0]?.name,
+      "AgentMessage must exist after a fresh migration"
+    );
     const files = readMigrationFiles({ migrationsFolder: folder });
     const before = await client.query<{ hash: string; created_at: string }>(
       "SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY created_at"

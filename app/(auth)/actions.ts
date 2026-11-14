@@ -14,14 +14,21 @@ import { sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/email/send";
 import { createHash, randomBytes } from "node:crypto";
 
 import { signIn } from "./auth";
+import { isDatabaseUnavailable } from "@/lib/db/diagnostics";
 
 const authFormSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email().max(64),
   password: z.string().min(6),
 });
 
 export type LoginActionState = {
-  status: "idle" | "in_progress" | "success" | "failed" | "invalid_data";
+  status:
+    | "idle"
+    | "in_progress"
+    | "success"
+    | "failed"
+    | "invalid_data"
+    | "unavailable";
 };
 
 export const login = async (
@@ -42,6 +49,9 @@ export const login = async (
 
     return { status: "success" };
   } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      return { status: "unavailable" };
+    }
     if (error instanceof z.ZodError) {
       return { status: "invalid_data" };
     }
@@ -56,6 +66,7 @@ export type RegisterActionState = {
     | "in_progress"
     | "success"
     | "failed"
+    | "unavailable"
     | "user_exists"
     | "invalid_data";
 };
@@ -104,6 +115,9 @@ export const register = async (
 
     return { status: "success" };
   } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      return { status: "unavailable" };
+    }
     if (error instanceof z.ZodError) {
       return { status: "invalid_data" };
     }
@@ -112,14 +126,15 @@ export const register = async (
   }
 };
 
-
 export type ForgotPasswordState = { status: "idle" | "sent" | "invalid" };
 
 export const requestPasswordReset = async (
   _: ForgotPasswordState,
   formData: FormData
 ): Promise<ForgotPasswordState> => {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   if (!z.string().email().safeParse(email).success) {
     return { status: "invalid" };
   }
