@@ -10,7 +10,9 @@ export default defineConfig({
   out: "./lib/db/migrations",
   dialect: "postgresql",
   dbCredentials: {
+    // Same precedence as lib/db/queries.ts and lib/db/migrate.ts, so drizzle-kit
+    // always targets the database the app actually uses.
     // biome-ignore lint: Forbidden non-null assertion.
-    url: process.env.POSTGRES_URL!,
+    url: (process.env.DATABASE_URL ?? process.env.POSTGRES_URL)!,
   },
 });
