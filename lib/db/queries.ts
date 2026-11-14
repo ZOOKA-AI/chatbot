@@ -64,7 +64,15 @@ import { mediaJobUpdateQuery, type MediaJobUpdate } from "./media-job-state";
 // حذف DATABASE_URL من Vercel يعيد التطبيق للقاعدة القديمة فورًا (rollback بمتغير واحد).
 const connectionString =
   process.env.DATABASE_URL ?? (process.env.POSTGRES_URL as string);
-const client = postgres(connectionString, { prepare: false, max: 1 });
+// Fluid compute serves many requests per instance; a single connection made
+// concurrent chat requests queue behind each other (seen as 300s timeouts).
+// The Supabase transaction pooler handles a small per-instance pool safely.
+const client = postgres(connectionString, {
+  prepare: false,
+  max: 5,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
 export const db = drizzle(client);
 
 async function retryBlobRequest<T>(
