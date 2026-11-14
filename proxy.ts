@@ -21,6 +21,20 @@ const PROTECTED_PREFIXES = [
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (
+    process.env.VERCEL_ENV === "production" &&
+    request.nextUrl.host !== "zooka-ai.com" &&
+    (pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/api/auth" ||
+      pathname.startsWith("/api/auth/"))
+  ) {
+    const url = new URL("https://zooka-ai.com");
+    url.pathname = pathname;
+    url.search = request.nextUrl.search;
+    return NextResponse.redirect(url, 307);
+  }
+
   /*
    * Playwright starts the dev server and requires a 200 status to
    * begin the tests, so this ensures that the tests can start

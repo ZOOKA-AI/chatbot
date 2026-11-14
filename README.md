@@ -75,6 +75,20 @@ Do not point a preview migration at production.
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
 
+### WhatsApp Cloud API
+
+Configure `WHATSAPP_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET` for Meta webhook
+verification, and `WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` for
+outbound replies. Subscribe `/api/webhooks/whatsapp` to message events for that
+phone number and apply the database migrations. Verified incoming text messages
+are claimed by message ID and answered asynchronously using the default chat
+model and assistant prompt. Replies are stateless and cannot access workspace
+data or tools. If either outbound setting is missing, deliveries are acknowledged
+without a reply. Processing failures are logged and acknowledged; a claimed
+message is not automatically retried, to avoid duplicate replies.
+`N8N_WHATSAPP_FORWARD_URL`, when configured, still forwards webhook deliveries
+separately.
+
 ## Workspaces and plans
 
 Every account receives a default workspace and can belong to multiple

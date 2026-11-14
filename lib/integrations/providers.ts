@@ -37,7 +37,7 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   { id: "google_maps", name: "Google Maps Platform", nameAr: "خرائط جوجل", category: "geo", description: "Geocoding, places and map generation.", descriptionAr: "تحديد المواقع والأماكن وإنشاء الخرائط.", status: "beta", managed: false },
   { id: "meta", name: "Meta / Facebook", nameAr: "فيسبوك وميتا", category: "social", description: "Publish and manage Facebook pages and ads.", descriptionAr: "النشر وإدارة صفحات فيسبوك والإعلانات.", status: "coming_soon", managed: false },
   { id: "instagram", name: "Instagram", nameAr: "إنستغرام", category: "social", description: "Publish reels, photos and stories.", descriptionAr: "نشر الريلز والصور والقصص.", status: "coming_soon", managed: false },
-  { id: "whatsapp", name: "WhatsApp Business", nameAr: "واتساب للأعمال", category: "communication", description: "Send messages and manage templates.", descriptionAr: "إرسال الرسائل وإدارة القوالب.", status: "beta", managed: false },
+  { id: "whatsapp", name: "WhatsApp Business", nameAr: "واتساب للأعمال", category: "communication", description: "Reply to incoming text messages through WhatsApp Cloud API.", descriptionAr: "الرد على الرسائل النصية الواردة عبر واجهة واتساب السحابية.", status: "coming_soon", managed: false },
   { id: "snapchat", name: "Snapchat", nameAr: "سناب شات", category: "social", description: "Publish and advertise on Snapchat.", descriptionAr: "النشر والإعلان على سناب شات.", status: "coming_soon", managed: false },
   { id: "tiktok", name: "TikTok", nameAr: "تيك توك", category: "social", description: "Publish videos through the official content API.", descriptionAr: "نشر الفيديوهات عبر واجهة المحتوى الرسمية.", status: "coming_soon", managed: false },
   { id: "x", name: "X (Twitter)", nameAr: "إكس (تويتر)", category: "social", description: "Post and read timeline content.", descriptionAr: "النشر وقراءة المحتوى.", status: "coming_soon", managed: true },
@@ -56,3 +56,20 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   { id: "twilio", name: "Twilio", nameAr: "تويلو", category: "communication", description: "Calls and SMS delivery.", descriptionAr: "المكالمات والرسائل النصية.", status: "coming_soon", managed: false },
   { id: "agora", name: "Agora / Daily", nameAr: "مكالمات الفيديو", category: "communication", description: "Live voice and video meeting rooms.", descriptionAr: "غرف الاجتماعات الصوتية والمرئية.", status: "coming_soon", managed: false },
 ];
+
+export function getIntegrationProviders(whatsappConfigured: boolean) {
+  return INTEGRATION_PROVIDERS.map((provider) =>
+    provider.id === "whatsapp" && whatsappConfigured
+      ? { ...provider, status: "available" as const }
+      : provider
+  );
+}
+
+export function isWhatsAppConfigured(env: Record<string, string | undefined>) {
+  return Boolean(
+    env.WHATSAPP_ACCESS_TOKEN &&
+      env.WHATSAPP_PHONE_NUMBER_ID &&
+      env.WHATSAPP_APP_SECRET &&
+      env.WHATSAPP_VERIFY_TOKEN
+  );
+}

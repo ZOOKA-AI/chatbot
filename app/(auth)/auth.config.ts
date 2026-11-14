@@ -1,8 +1,11 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
+  trustHost: true,
+  useSecureCookies: process.env.NODE_ENV !== "development",
   pages: {
     signIn: "/login",
+    error: "/login",
     newUser: "/",
   },
   providers: [

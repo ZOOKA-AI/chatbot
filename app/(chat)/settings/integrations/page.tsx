@@ -10,7 +10,8 @@ import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/
 import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
 import {
-  INTEGRATION_PROVIDERS,
+  getIntegrationProviders,
+  isWhatsAppConfigured,
   type IntegrationProvider,
   PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
@@ -93,7 +94,9 @@ export default async function IntegrationsPage({
   const googleNeedsReconnect = ["google_drive", "gmail", "google_calendar"].some(
     (id) => needsReconnectIds.has(id)
   );
-  const providers: IntegrationProvider[] = INTEGRATION_PROVIDERS;
+  const providers: IntegrationProvider[] = getIntegrationProviders(
+    isWhatsAppConfigured(process.env)
+  );
   const grouped = providers.reduce<Record<string, IntegrationProvider[]>>(
     (accumulator, provider) => {
       accumulator[provider.category] = [
@@ -298,9 +301,13 @@ export default async function IntegrationsPage({
                               ? "يحتاج إعادة ربط"
                               : "Reconnect needed"
                             : available
-                            ? isArabic
-                              ? "ربط ذاتي"
-                              : "Self-serve"
+                            ? provider.id === "whatsapp"
+                              ? isArabic
+                                ? "مهيأ على الخادم"
+                                : "Server configured"
+                              : isArabic
+                                ? "ربط ذاتي"
+                                : "Self-serve"
                             : provider.status === "beta"
                               ? isArabic
                                 ? "عبر الوكيل"
