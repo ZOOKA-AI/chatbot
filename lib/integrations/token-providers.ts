@@ -7,7 +7,7 @@ import "server-only";
  * connect route calls `validateUrl` with the pasted token and only reports the
  * integration as connected when the provider returns a real account.
  */
-export type TokenProviderId = "instagram" | "meta" | "linkedin";
+export type TokenProviderId = "instagram" | "meta" | "linkedin" | "snapchat";
 
 export type TokenProviderDefinition = {
   id: TokenProviderId;
@@ -117,6 +117,46 @@ export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
       },
       scopes: ["openid", "profile", "email", "w_member_social"],
       docsUrl: "https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api",
+    },
+    snapchat: {
+      id: "snapchat",
+      label: "Snapchat",
+      tokenHint:
+        "Snap Marketing API token, as access_token or access_token|refresh_token",
+      validateUrl: "https://adsapi.snapchat.com/v1/me/organizations",
+      // The connect form accepts "access_token|refresh_token"; only the access
+      // half belongs in the Authorization header.
+      auth: (token) => ({
+        Authorization: `Bearer ${token.split("|")[0].trim()}`,
+      }),
+      describe: (payload) => {
+        const rows = Array.isArray(payload.organizations)
+          ? (payload.organizations as Record<string, unknown>[])
+          : [];
+        const organization = rows
+          .map(
+            (row) =>
+              (row as { organization?: Record<string, unknown> }).organization
+          )
+          .filter((value): value is Record<string, unknown> => Boolean(value))[0];
+        return {
+          accountId: organization && typeof organization.id === "string"
+            ? organization.id
+            : null,
+          accountName:
+            organization && typeof organization.name === "string"
+              ? organization.name
+              : null,
+          extra: {
+            organizationId:
+              organization && typeof organization.id === "string"
+                ? organization.id
+                : null,
+          },
+        };
+      },
+      scopes: ["snapchat-marketing-api"],
+      docsUrl: "https://marketingapi.snapchat.com/docs/",
     },
   };
 

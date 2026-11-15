@@ -381,6 +381,19 @@ export default async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                    {provider.id === "snapchat" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Snapchat"
+                        lang={lang}
+                        provider="snapchat"
+                        tokenHint={
+                          isArabic
+                            ? "توكن تسويق سناب (access_token أو access_token|refresh_token)"
+                            : "Snap Marketing token (access_token or access_token|refresh_token)"
+                        }
+                      />
+                    ) : null}
                     {provider.id === "linkedin" ? (
                       <TokenConnectionControl
                         canManage={canManage}
