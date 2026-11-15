@@ -368,6 +368,19 @@ export default async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                    {provider.id === "meta" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label={isArabic ? "صفحة فيسبوك" : "Facebook page"}
+                        lang={lang}
+                        provider="meta"
+                        tokenHint={
+                          isArabic
+                            ? "توكن وصول لصفحة فيسبوك"
+                            : "Facebook page access token"
+                        }
+                      />
+                    ) : null}
                     {available &&
                     (provider.id === "google_drive" ||
                       provider.id === "gmail") ? (
