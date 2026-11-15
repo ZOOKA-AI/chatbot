@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { requireAcceptanceCredentials } from "./acceptance-guard";
 
 /**
  * Cross-tenant isolation, recorded as an acceptance test against two real
@@ -58,6 +59,13 @@ async function signInAndReadStatus(
   expect(Array.isArray(status.body.connected)).toBe(true);
   return status.body;
 }
+
+requireAcceptanceCredentials(
+  [
+    { name: "A", email: process.env.ZOOKA_TEST_USER_A_EMAIL ?? "", password: process.env.ZOOKA_TEST_USER_A_PASSWORD ?? "" },
+    { name: "B", email: process.env.ZOOKA_TEST_USER_B_EMAIL ?? "", password: process.env.ZOOKA_TEST_USER_B_PASSWORD ?? "" },
+  ]
+);
 
 test.describe("cross-tenant integration isolation", () => {
   test.skip(
