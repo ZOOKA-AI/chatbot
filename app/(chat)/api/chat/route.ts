@@ -44,6 +44,7 @@ import { createXTools } from "@/lib/ai/tools/x";
 import { createInstagramTools } from "@/lib/ai/tools/instagram";
 import { createFacebookTools } from "@/lib/ai/tools/facebook";
 import { createLinkedInTools } from "@/lib/ai/tools/linkedin";
+import { createSnapchatTools } from "@/lib/ai/tools/snapchat";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -295,6 +296,9 @@ export async function POST(request: Request) {
     const linkedInTools = agentAccessAuthorized
       ? createLinkedInTools(workspaceContext.organizationId)
       : {};
+    const snapchatTools = agentAccessAuthorized
+      ? createSnapchatTools(workspaceContext.organizationId)
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -364,6 +368,7 @@ export async function POST(request: Request) {
           ...instagramTools,
           ...facebookTools,
           ...linkedInTools,
+          ...snapchatTools,
         };
 
         const tracing = createChatTracing();

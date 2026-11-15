@@ -38,7 +38,7 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   { id: "meta", name: "Meta / Facebook", nameAr: "فيسبوك وميتا", category: "social", description: "Read the connected Facebook page and its posts, and publish text posts after your approval.", descriptionAr: "قراءة صفحة فيسبوك المتصلة ومنشوراتها، ونشر منشور نصي بعد موافقتك.", status: "available", managed: false },
   { id: "instagram", name: "Instagram", nameAr: "إنستغرام", category: "social", description: "Read the connected business account and publish reels or single images.", descriptionAr: "قراءة الحساب التجاري المتصل ونشر الريلز أو الصور المفردة.", status: "available", managed: false },
   { id: "whatsapp", name: "WhatsApp Business", nameAr: "واتساب للأعمال", category: "communication", description: "Reply to incoming text messages through WhatsApp Cloud API.", descriptionAr: "الرد على الرسائل النصية الواردة عبر واجهة واتساب السحابية.", status: "coming_soon", managed: false },
-  { id: "snapchat", name: "Snapchat", nameAr: "سناب شات", category: "social", description: "Publish and advertise on Snapchat.", descriptionAr: "النشر والإعلان على سناب شات.", status: "coming_soon", managed: false },
+  { id: "snapchat", name: "Snapchat", nameAr: "سناب شات", category: "social", description: "Read the connected organization, its ad accounts and campaign status.", descriptionAr: "قراءة المؤسسة المتصلة وحساباتها الإعلانية وحالة الحملات.", status: "available", managed: false },
   { id: "tiktok", name: "TikTok", nameAr: "تيك توك", category: "social", description: "Publish videos through the official content API.", descriptionAr: "نشر الفيديوهات عبر واجهة المحتوى الرسمية.", status: "coming_soon", managed: false },
   {
     id: "x",
