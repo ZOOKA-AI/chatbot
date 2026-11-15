@@ -142,6 +142,33 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 23 — Commander execution history and approval console (16 Nov 2026)
+
+Branch `feat/commander-tenant-scope`, PR #95, draft, head `be2566d9`. No merge, no deployment, no production migration, no billing change.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 23.1 | Execution history screen | DONE | `app/(chat)/workspace/commander/page.tsx` reads listTasks, listApprovals, listDecisions and listAgents server-side as the signed-in workspace. Columns: task, status, agent identity, created, started, finished, evidence or error, per-task recorded events |
+| 23.2 | Real retry, not a button | DONE | `retryTask` in `lib/agents/command-center.ts`: conditional transition from failed or cancelled only, clears owner and evidence and timestamps, refuses a rejected approval, writes a RETRY decision. Route POST /api/agents/tasks/[id]/retry |
+| 23.3 | Cancellation history | DONE | `cancelTask` writes a CANCELLED decision with reason and actor, so a cancelled task explains itself later |
+| 23.4 | Approval center | DONE | Pending list with task, reason, requester and time; approve and reject behind a confirmation that names what approval authorises; per-action loading and error states |
+| 23.5 | Authorisation in the interface | DONE | `components/commander/permissions.ts` is the single source (canOffer for create, cancel, retry, decide). Buttons render only when it returns true, and the tests import the same function |
+| 23.6 | An agent cannot approve its own action | VERIFIED | The route uses canManage, which narrows the caller to an owner, so the agent branch is a type error; the test asserts 403 with zero domain calls |
+| 23.7 | Arabic RTL and English LTR | DONE | One dictionary per language in `components/commander/copy.ts`; a parity test asserts identical key paths; direction from the language cookie; logical CSS |
+| 23.8 | Accessibility | DONE | Scoped table headers, labelled inputs, one aria-live region for outcomes, aria-busy per action, tablist and tabpanel roles |
+| 23.9 | Reachable navigation | DONE | Commander entry added beside the operations agent in the sidebar |
+| 23.10 | Interface unit tests | DONE | `commander-ui.test.ts`, 14 tests: permission matrix, bilingual parity, status and error coverage, and the retry route refusing no-session, agent key, member, body-supplied tenant, bad id and missing reason before any write |
+| 23.11 | PostgreSQL tests | DONE | `commander-retry-real-pg.test.ts`, 8 tests on real PostgreSQL 15.19 inside the tenant transaction: the transition, the history row, completed and running refusal, a rejected approval that never executed, the defensive rejected-row guard, cross-tenant refusal, and no scope means no execution |
+| 23.12 | Test-infrastructure defect fixed | DONE | The three real-database suites truncated the same tables in parallel and corrupted each other. They now take a PostgreSQL advisory lock and run in turn. Found by running the whole suite, not by reading it |
+| 23.13 | Production build | BLOCKED (sandbox) | `next build` fails here because node_modules is a symlink leaving the project root: a Turbopack resolution error, not a code error. The Vercel build on this PR is the authority |
+| 23.14 | Browser click-through | NOT_DONE | No authenticated session is available to the sandbox agent, so interaction is verified by types, build and tests rather than by hand |
+
+Numbers: 331 tests without a database, 352 with one, tsc clean.
+
+Remaining risks: the console has never been operated by a human; an approval can still be decided with an empty reason because the server does not require one; the history has no pagination beyond 100 rows; and the rejected-approval retry guard is defence in depth rather than a reachable path, since a pending approval already blocks claiming.
+
+Next autonomous task: require a reason server-side for approvals, add pagination and a status filter to the history, then operate the console against the preview deployment once a browser session exists.
+
 ## Stage 22 — Preview database and the route-to-policy path (16 Nov 2026)
 
 Branch `feat/commander-tenant-scope`, PR #95, draft. No production change, no merge,
