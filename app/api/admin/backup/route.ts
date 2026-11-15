@@ -29,7 +29,17 @@ export async function GET(request: Request) {
       process.env.BACKUP_TOKEN
     )
   ) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "unauthorized" },
+      {
+        status: 401,
+        // A credential dump must never be stored by a shared cache or indexed.
+        headers: {
+          "cache-control": "no-store, no-cache, must-revalidate, private",
+          "x-robots-tag": "noindex, nofollow",
+        },
+      }
+    );
   }
 
   if (!(process.env.DATABASE_URL ?? process.env.POSTGRES_URL)) {
@@ -46,13 +56,24 @@ export async function GET(request: Request) {
       const rows = await client.unsafe(`SELECT * FROM "${table}"`);
       tables[table] = rows;
     }
-    return NextResponse.json({
-      generatedAt: new Date().toISOString(),
-      tables,
-    });
-  } catch (error) {
     return NextResponse.json(
-      { error: "backup_failed", details: String(error).slice(0, 300) },
+      {
+        generatedAt: new Date().toISOString(),
+        tables,
+      },
+      {
+        headers: {
+          "cache-control": "no-store, no-cache, must-revalidate, private",
+          "x-robots-tag": "noindex, nofollow",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("[admin/backup] dump failed", String(error).slice(0, 300));
+    return NextResponse.json(
+      // Internal driver messages can name tables, hosts and users; keep the
+      // response generic and the detail in the server log only.
+      { error: "backup_failed" },
       { status: 500 }
     );
   } finally {
