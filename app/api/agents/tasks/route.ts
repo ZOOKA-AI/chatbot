@@ -1,5 +1,12 @@
 import { createTask, listTasks } from "@/lib/agents/command-center";
-import { badRequest, canManage, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import {
+  badRequest,
+  callerOrganizationId,
+  canManage,
+  json,
+  resolveCaller,
+  unauthorized,
+} from "@/lib/agents/auth";
 
 export async function GET(request: Request) {
   const caller = await resolveCaller(request);
@@ -15,6 +22,7 @@ export async function GET(request: Request) {
 
   return json({
     tasks: await listTasks({
+      organizationId: callerOrganizationId(caller),
       status,
       ownerAgentId,
       available,
@@ -47,6 +55,7 @@ export async function POST(request: Request) {
   }
 
   const task = await createTask({
+    organizationId: callerOrganizationId(caller),
     title,
     instruction,
     ownerAgentId: typeof payload.ownerAgentId === "string" ? payload.ownerAgentId : null,

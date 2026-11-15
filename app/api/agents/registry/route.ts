@@ -1,12 +1,19 @@
 import { listAgents, registerAgent } from "@/lib/agents/command-center";
-import { badRequest, canManage, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import {
+  badRequest,
+  callerOrganizationId,
+  canManage,
+  json,
+  resolveCaller,
+  unauthorized,
+} from "@/lib/agents/auth";
 
 export async function GET(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
   }
-  return json({ agents: await listAgents() });
+  return json({ agents: await listAgents(callerOrganizationId(caller)) });
 }
 
 /** Owner-only: registers an agent and returns its key exactly once. */
@@ -42,7 +49,8 @@ export async function POST(request: Request) {
       : "production";
 
   try {
-    const created = await registerAgent({ slug, displayName, role, scopes, environment });
+    const created = await registerAgent({
+    organizationId: callerOrganizationId(caller), slug, displayName, role, scopes, environment });
     return json({ ...created, warning: "store_this_key_now_it_is_never_returned_again" }, 201);
   } catch (error) {
     if (error instanceof Error && /duplicate key/.test(error.message)) {

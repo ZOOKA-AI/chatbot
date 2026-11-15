@@ -519,6 +519,9 @@ export const agentIdentity = pgTable(
     displayName: varchar("displayName", { length: 120 }).notNull(),
     role: varchar("role", { length: 64 }).notNull(),
     keyHash: varchar("keyHash", { length: 64 }).notNull(),
+    organizationId: varchar("organizationId", { length: 64 })
+      .notNull()
+      .default("unclaimed"),
     scopes: json("scopes").$type<string[]>().notNull().default([]),
     environment: varchar("environment", { length: 24 }).notNull().default("production"),
     status: varchar("status", { length: 24 }).notNull().default("active"),
@@ -526,6 +529,7 @@ export const agentIdentity = pgTable(
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => ({
+    orgIdx: index("AgentIdentity_organizationId_idx").on(table.organizationId),
     slugIdx: unique("AgentIdentity_slug_key").on(table.slug),
     keyIdx: index("AgentIdentity_keyHash_idx").on(table.keyHash),
   })
@@ -537,6 +541,9 @@ export const agentTask = pgTable(
     id: uuid("id").primaryKey().notNull().defaultRandom(),
     title: varchar("title", { length: 200 }).notNull(),
     instruction: text("instruction").notNull(),
+    organizationId: varchar("organizationId", { length: 64 })
+      .notNull()
+      .default("unclaimed"),
     ownerAgentId: uuid("ownerAgentId").references(() => agentIdentity.id, {
       onDelete: "set null",
     }),
@@ -553,6 +560,7 @@ export const agentTask = pgTable(
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => ({
+    orgIdx: index("AgentTask_organizationId_idx").on(table.organizationId),
     statusIdx: index("AgentTask_status_idx").on(table.status),
     ownerIdx: index("AgentTask_ownerAgentId_idx").on(table.ownerAgentId),
   })
@@ -565,11 +573,15 @@ export const agentDecision = pgTable(
     agentId: uuid("agentId").references(() => agentIdentity.id, { onDelete: "set null" }),
     title: varchar("title", { length: 200 }).notNull(),
     body: text("body").notNull(),
+    organizationId: varchar("organizationId", { length: 64 })
+      .notNull()
+      .default("unclaimed"),
     state: varchar("state", { length: 24 }).notNull().default("PROPOSED"),
     taskId: uuid("taskId").references(() => agentTask.id, { onDelete: "set null" }),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => ({
+    orgIdx: index("AgentDecision_organizationId_idx").on(table.organizationId),
     stateIdx: index("AgentDecision_state_idx").on(table.state),
   })
 );
@@ -583,12 +595,16 @@ export const agentApproval = pgTable(
       onDelete: "set null",
     }),
     reason: text("reason").notNull(),
+    organizationId: varchar("organizationId", { length: 64 })
+      .notNull()
+      .default("unclaimed"),
     status: varchar("status", { length: 24 }).notNull().default("pending"),
     decidedBy: varchar("decidedBy", { length: 64 }),
     decidedAt: timestamp("decidedAt"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => ({
+    orgIdx: index("AgentApproval_organizationId_idx").on(table.organizationId),
     statusIdx: index("AgentApproval_status_idx").on(table.status),
   })
 );
@@ -598,6 +614,9 @@ export const agentDeployment = pgTable(
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
     environment: varchar("environment", { length: 24 }).notNull().default("production"),
+    organizationId: varchar("organizationId", { length: 64 })
+      .notNull()
+      .default("unclaimed"),
     commitSha: varchar("commitSha", { length: 64 }),
     deploymentId: varchar("deploymentId", { length: 120 }),
     status: varchar("status", { length: 24 }).notNull().default("pending"),
@@ -607,6 +626,7 @@ export const agentDeployment = pgTable(
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => ({
+    orgIdx: index("AgentDeployment_organizationId_idx").on(table.organizationId),
     envIdx: index("AgentDeployment_environment_idx").on(table.environment),
   })
 );

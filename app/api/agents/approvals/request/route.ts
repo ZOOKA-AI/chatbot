@@ -1,5 +1,12 @@
 import { hasScope, requestApproval } from "@/lib/agents/command-center";
-import { badRequest, forbidden, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import {
+  badRequest,
+  callerOrganizationId,
+  forbidden,
+  json,
+  resolveCaller,
+  unauthorized,
+} from "@/lib/agents/auth";
 
 export async function POST(request: Request) {
   const caller = await resolveCaller(request);
@@ -26,6 +33,7 @@ export async function POST(request: Request) {
   }
 
   const approval = await requestApproval(caller.agent, {
+    organizationId: callerOrganizationId(caller),
     taskId: typeof payload.taskId === "string" ? payload.taskId : null,
     reason,
   });

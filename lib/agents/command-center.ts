@@ -47,6 +47,7 @@ export function generateAgentKey() {
 
 export type AgentIdentity = {
   id: string;
+  organizationId: string;
   slug: string;
   displayName: string;
   role: string;
@@ -69,6 +70,7 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
   const [row] = await db
     .select({
       id: agentIdentity.id,
+      organizationId: agentIdentity.organizationId,
       slug: agentIdentity.slug,
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
@@ -89,6 +91,7 @@ export function hasScope(agent: AgentIdentity, scope: AgentScope) {
 }
 
 export type RegisterInput = {
+  organizationId: string;
   slug: string;
   displayName: string;
   role: string;
@@ -106,6 +109,7 @@ export async function registerAgent(input: RegisterInput) {
   const [row] = await db
     .insert(agentIdentity)
     .values({
+      organizationId: input.organizationId,
       slug: input.slug.toLowerCase().replace(/[^a-z0-9-_]/g, "-").slice(0, 64),
       displayName: input.displayName.slice(0, 120),
       role: input.role.slice(0, 64),
@@ -115,6 +119,7 @@ export async function registerAgent(input: RegisterInput) {
     })
     .returning({
       id: agentIdentity.id,
+      organizationId: agentIdentity.organizationId,
       slug: agentIdentity.slug,
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
@@ -125,10 +130,11 @@ export async function registerAgent(input: RegisterInput) {
   return { agent: row, key };
 }
 
-export async function listAgents() {
+export async function listAgents(organizationId: string) {
   return db
     .select({
       id: agentIdentity.id,
+      organizationId: agentIdentity.organizationId,
       slug: agentIdentity.slug,
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
@@ -139,6 +145,7 @@ export async function listAgents() {
       createdAt: agentIdentity.createdAt,
     })
     .from(agentIdentity)
+    .where(eq(agentIdentity.organizationId, organizationId))
     .orderBy(desc(agentIdentity.createdAt));
 }
 
@@ -150,7 +157,7 @@ export async function heartbeat(agent: AgentIdentity) {
   return { ok: true, agent: agent.slug, at: new Date().toISOString() };
 }
 
-export async function commandCenterStatus() {
+export async function commandCenterStatus(organizationId: string) {
   const since = new Date(Date.now() - LIVENESS_WINDOW_MINUTES * 60_000);
 
   const [agents] = await db
@@ -159,7 +166,12 @@ export async function commandCenterStatus() {
       live: sql<number>`count(*) filter (where ${agentIdentity.lastSeenAt} >= ${since})::int`,
     })
     .from(agentIdentity)
-    .where(eq(agentIdentity.status, "active"));
+    .where(
+      and(
+        eq(agentIdentity.status, "active"),
+        eq(agentIdentity.organizationId, organizationId)
+      )
+    );
 
   const taskCounts = await db
     .select({
@@ -167,16 +179,23 @@ export async function commandCenterStatus() {
       count: sql<number>`count(*)::int`,
     })
     .from(agentTask)
+    .where(eq(agentTask.organizationId, organizationId))
     .groupBy(agentTask.status);
 
   const [approvals] = await db
     .select({ pending: sql<number>`count(*)::int` })
     .from(agentApproval)
-    .where(eq(agentApproval.status, "pending"));
+    .where(
+      and(
+        eq(agentApproval.status, "pending"),
+        eq(agentApproval.organizationId, organizationId)
+      )
+    );
 
   const [deployments] = await db
     .select({ last: sql<string | null>`max(${agentDeployment.createdAt})::text` })
-    .from(agentDeployment);
+    .from(agentDeployment)
+    .where(eq(agentDeployment.organizationId, organizationId));
 
   return {
     livenessWindowMinutes: LIVENESS_WINDOW_MINUTES,
@@ -188,6 +207,7 @@ export async function commandCenterStatus() {
 }
 
 export type CreateTaskInput = {
+  organizationId: string;
   title: string;
   instruction: string;
   ownerAgentId?: string | null;
@@ -203,6 +223,7 @@ export async function createTask(input: CreateTaskInput) {
   const [row] = await db
     .insert(agentTask)
     .values({
+      organizationId: input.organizationId,
       title: input.title.slice(0, 200),
       instruction: input.instruction.slice(0, 8000),
       ownerAgentId: input.ownerAgentId ?? null,
@@ -218,12 +239,15 @@ export async function createTask(input: CreateTaskInput) {
 }
 
 export async function listTasks(options: {
+  organizationId: string;
   status?: string;
   ownerAgentId?: string;
   limit?: number;
   available?: boolean;
-} = {}) {
-  const filters = [];
+}) {
+  const filters: (ReturnType<typeof eq> | undefined)[] = [
+    eq(agentTask.organizationId, options.organizationId),
+  ];
   if (options.status) {
     filters.push(eq(agentTask.status, options.status));
   }
@@ -238,7 +262,7 @@ export async function listTasks(options: {
   return db
     .select()
     .from(agentTask)
-    .where(filters.length > 0 ? and(...filters) : undefined)
+    .where(and(...filters))
     .orderBy(desc(agentTask.createdAt))
     .limit(Math.min(options.limit ?? 50, 200));
 }
@@ -258,6 +282,7 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
     .where(
       and(
         eq(agentTask.id, taskId),
+        eq(agentTask.organizationId, agent.organizationId),
         eq(agentTask.status, "pending"),
         or(isNull(agentTask.ownerAgentId), eq(agentTask.ownerAgentId, agent.id))
       )
@@ -272,7 +297,12 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
         title: agentTask.title,
       })
       .from(agentTask)
-      .where(eq(agentTask.id, taskId))
+      .where(
+        and(
+          eq(agentTask.id, taskId),
+          eq(agentTask.organizationId, agent.organizationId)
+        )
+      )
       .limit(1);
 
     if (!current) {
@@ -303,27 +333,41 @@ export async function reportTask(agent: AgentIdentity, input: ReportInput) {
       evidence: input.evidence.slice(0, 8000),
       reportedAt: new Date(),
     })
-    .where(and(eq(agentTask.id, input.taskId), eq(agentTask.ownerAgentId, agent.id)))
+    .where(
+      and(
+        eq(agentTask.id, input.taskId),
+        eq(agentTask.ownerAgentId, agent.id),
+        eq(agentTask.organizationId, agent.organizationId)
+      )
+    )
     .returning();
 
   return row ?? null;
 }
 
-export async function listDecisions(limit = 50) {
+export async function listDecisions(organizationId: string, limit = 50) {
   return db
     .select()
     .from(agentDecision)
+    .where(eq(agentDecision.organizationId, organizationId))
     .orderBy(desc(agentDecision.createdAt))
     .limit(Math.min(limit, 200));
 }
 
 export async function recordDecision(
   agent: AgentIdentity | null,
-  input: { title: string; body: string; state?: string; taskId?: string | null }
+  input: {
+    organizationId: string;
+    title: string;
+    body: string;
+    state?: string;
+    taskId?: string | null;
+  }
 ) {
   const [row] = await db
     .insert(agentDecision)
     .values({
+      organizationId: input.organizationId,
       agentId: agent?.id ?? null,
       title: input.title.slice(0, 200),
       body: input.body.slice(0, 8000),
@@ -336,11 +380,12 @@ export async function recordDecision(
 
 export async function requestApproval(
   agent: AgentIdentity,
-  input: { taskId?: string | null; reason: string }
+  input: { organizationId: string; taskId?: string | null; reason: string }
 ) {
   const [row] = await db
     .insert(agentApproval)
     .values({
+      organizationId: input.organizationId,
       taskId: input.taskId ?? null,
       requestedBy: agent.id,
       reason: input.reason.slice(0, 4000),
@@ -349,10 +394,11 @@ export async function requestApproval(
   return row;
 }
 
-export async function listDeployments(limit = 50) {
+export async function listDeployments(organizationId: string, limit = 50) {
   return db
     .select()
     .from(agentDeployment)
+    .where(eq(agentDeployment.organizationId, organizationId))
     .orderBy(desc(agentDeployment.createdAt))
     .limit(Math.min(limit, 200));
 }
@@ -360,6 +406,7 @@ export async function listDeployments(limit = 50) {
 export async function recordDeployment(
   agent: AgentIdentity,
   input: {
+    organizationId: string;
     environment?: string;
     commitSha?: string | null;
     deploymentId?: string | null;
@@ -371,6 +418,7 @@ export async function recordDeployment(
   const [row] = await db
     .insert(agentDeployment)
     .values({
+      organizationId: input.organizationId,
       environment: input.environment ?? "production",
       commitSha: input.commitSha ?? null,
       deploymentId: input.deploymentId ?? null,
@@ -383,7 +431,7 @@ export async function recordDeployment(
   return row;
 }
 
-export async function recentAgentActivity(limit = 20) {
+export async function recentAgentActivity(organizationId: string, limit = 20) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   return db
     .select({
@@ -393,7 +441,12 @@ export async function recentAgentActivity(limit = 20) {
       status: agentIdentity.status,
     })
     .from(agentIdentity)
-    .where(gte(agentIdentity.lastSeenAt, since))
+    .where(
+      and(
+        gte(agentIdentity.lastSeenAt, since),
+        eq(agentIdentity.organizationId, organizationId)
+      )
+    )
     .orderBy(desc(agentIdentity.lastSeenAt))
     .limit(limit);
 }

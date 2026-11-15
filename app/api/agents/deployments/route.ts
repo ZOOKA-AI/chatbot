@@ -1,5 +1,12 @@
 import { hasScope, listDeployments, recordDeployment } from "@/lib/agents/command-center";
-import { badRequest, forbidden, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import {
+  badRequest,
+  callerOrganizationId,
+  forbidden,
+  json,
+  resolveCaller,
+  unauthorized,
+} from "@/lib/agents/auth";
 
 export async function GET(request: Request) {
   const caller = await resolveCaller(request);
@@ -7,7 +14,7 @@ export async function GET(request: Request) {
     return unauthorized();
   }
   const limit = Number(new URL(request.url).searchParams.get("limit") ?? 50);
-  return json({ deployments: await listDeployments(Number.isFinite(limit) ? limit : 50) });
+  return json({ deployments: await listDeployments(callerOrganizationId(caller), Number.isFinite(limit) ? limit : 50) });
 }
 
 export async function POST(request: Request) {
@@ -30,6 +37,7 @@ export async function POST(request: Request) {
   }
 
   const deployment = await recordDeployment(caller.agent, {
+    organizationId: callerOrganizationId(caller),
     environment: typeof payload.environment === "string" ? payload.environment : "production",
     commitSha: typeof payload.commitSha === "string" ? payload.commitSha : null,
     deploymentId: typeof payload.deploymentId === "string" ? payload.deploymentId : null,

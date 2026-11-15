@@ -1,5 +1,12 @@
 import { hasScope, listDecisions, recordDecision } from "@/lib/agents/command-center";
-import { badRequest, forbidden, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import {
+  badRequest,
+  callerOrganizationId,
+  forbidden,
+  json,
+  resolveCaller,
+  unauthorized,
+} from "@/lib/agents/auth";
 
 export async function GET(request: Request) {
   const caller = await resolveCaller(request);
@@ -7,7 +14,7 @@ export async function GET(request: Request) {
     return unauthorized();
   }
   const limit = Number(new URL(request.url).searchParams.get("limit") ?? 50);
-  return json({ decisions: await listDecisions(Number.isFinite(limit) ? limit : 50) });
+  return json({ decisions: await listDecisions(callerOrganizationId(caller), Number.isFinite(limit) ? limit : 50) });
 }
 
 export async function POST(request: Request) {
@@ -38,6 +45,7 @@ export async function POST(request: Request) {
     : "PROPOSED";
 
   const decision = await recordDecision(caller.kind === "agent" ? caller.agent : null, {
+    organizationId: callerOrganizationId(caller),
     title,
     body,
     state,
