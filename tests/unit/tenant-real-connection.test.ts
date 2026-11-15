@@ -70,6 +70,9 @@ async function seed() {
 describe.skipIf(!ready)("real PostgreSQL: tenant isolation over independent connections", () => {
   beforeAll(async () => {
     admin = postgres(ADMIN as string, { max: 1 });
+    // Vitest runs files in parallel and these suites share one database, so they
+    // take turns instead of truncating each other's fixtures mid-run.
+    await admin.unsafe("select pg_advisory_lock(727272)");
     runtime = postgres(RUNTIME as string, { max: 1 });
     second = postgres(RUNTIME as string, { max: 1 });
     await applyMigrations();
@@ -77,6 +80,7 @@ describe.skipIf(!ready)("real PostgreSQL: tenant isolation over independent conn
   }, 60_000);
 
   afterAll(async () => {
+    await admin.unsafe("select pg_advisory_unlock(727272)").catch(() => {});
     await Promise.all([admin?.end(), runtime?.end(), second?.end()]);
   });
 

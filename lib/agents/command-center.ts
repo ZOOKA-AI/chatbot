@@ -614,5 +614,119 @@ export async function cancelTask(input: {
     )
     .returning();
 
+  if (row) {
+    // History, not decoration: the reason and the actor are stored where the
+    // interface reads them, so a cancelled task explains itself later.
+    await recordDecision(null, {
+      organizationId: input.organizationId,
+      title: `Cancelled: ${row.title}`.slice(0, 200),
+      body: input.reason,
+      state: "CANCELLED",
+      taskId: row.id,
+    });
+  }
+
   return row ?? null;
+}
+
+/**
+ * Puts a failed or cancelled task back in the queue, and records why.
+ *
+ * A retry is a real state transition with conditions, never a status edit:
+ *   - only failed or cancelled work is retryable, so a completed task cannot be
+ *     quietly re-run and lose its evidence;
+ *   - a task whose approval was rejected is refused, because retrying must not
+ *     become the way to execute something a human said no to;
+ *   - the previous owner and evidence are cleared, so the next claimer starts
+ *     from the task rather than from somebody else's failure.
+ */
+export async function retryTask(input: {
+  organizationId: string;
+  taskId: string;
+  by: string;
+  reason: string;
+}): Promise<
+  | { ok: true; task: typeof agentTask.$inferSelect }
+  | { ok: false; error: "task_not_found" | "not_retryable" | "approval_rejected" }
+> {
+  const [target] = await db
+    .select({
+      status: agentTask.status,
+      title: agentTask.title,
+      approvalRequired: agentTask.approvalRequired,
+    })
+    .from(agentTask)
+    .where(
+      and(
+        eq(agentTask.id, input.taskId),
+        eq(agentTask.organizationId, input.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!target) {
+    return { ok: false, error: "task_not_found" };
+  }
+  if (target.status !== "failed" && target.status !== "cancelled") {
+    return { ok: false, error: "not_retryable" };
+  }
+  if (target.approvalRequired) {
+    const state = await approvalState(input.taskId, input.organizationId);
+    if (state === "rejected") {
+      return { ok: false, error: "approval_rejected" };
+    }
+  }
+
+  // Conditional on the status that was read, so a retry racing a late report or a
+  // second retry cannot both win.
+  const [row] = await db
+    .update(agentTask)
+    .set({
+      status: "pending",
+      ownerAgentId: null,
+      claimedAt: null,
+      reportedAt: null,
+      evidence: null,
+    })
+    .where(
+      and(
+        eq(agentTask.id, input.taskId),
+        eq(agentTask.organizationId, input.organizationId),
+        inArray(agentTask.status, ["failed", "cancelled"])
+      )
+    )
+    .returning();
+
+  if (!row) {
+    return { ok: false, error: "not_retryable" };
+  }
+
+  await recordDecision(null, {
+    organizationId: input.organizationId,
+    title: `Retry: ${row.title}`.slice(0, 200),
+    body: `Was ${target.status}. ${input.reason} (by ${input.by})`,
+    state: "RETRY",
+    taskId: row.id,
+  });
+
+  return { ok: true, task: row };
+}
+
+/** Decisions attached to one task: retries, cancellations, the audit trail. */
+export async function listTaskHistory(
+  organizationId: string,
+  taskId: string,
+  limit = 50
+) {
+  return db
+    .select()
+    .from(agentDecision)
+    .where(
+      and(
+        eq(agentDecision.organizationId, organizationId),
+        eq(agentDecision.taskId, taskId)
+      )
+    )
+    .orderBy(desc(agentDecision.createdAt))
+    .limit(Math.min(limit, 100));
 }

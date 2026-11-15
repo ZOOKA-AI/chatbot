@@ -80,6 +80,9 @@ describe.skipIf(!ready)("Commander runs on the tenant connection", () => {
     process.env.DATABASE_URL_TENANT = RUNTIME as string;
 
     admin = postgres(ADMIN as string, { max: 1 });
+    // Vitest runs files in parallel and these suites share one database, so they
+    // take turns instead of truncating each other's fixtures mid-run.
+    await admin.unsafe("select pg_advisory_lock(727272)");
     await applyMigrations();
     await admin`delete from "AgentTask"`;
     await admin`delete from "AgentApproval"`;
@@ -90,6 +93,7 @@ describe.skipIf(!ready)("Commander runs on the tenant connection", () => {
   }, 60_000);
 
   afterAll(async () => {
+    await admin.unsafe("select pg_advisory_unlock(727272)").catch(() => {});
     await admin?.end();
   });
 
