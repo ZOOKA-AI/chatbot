@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
 
 import { REFERRAL_COOKIE, recordReferralEvent } from "@/lib/affiliate";
@@ -15,6 +15,12 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { signIn } from "./auth";
 import { isDatabaseUnavailable } from "@/lib/db/diagnostics";
+import {
+  allowAuthAction,
+  clientAddress,
+  readLoginLock,
+} from "@/lib/auth/login-guard";
+import { getThrottleStore } from "@/lib/auth/throttle";
 
 const authFormSchema = z.object({
   email: z.string().trim().email().max(64),
@@ -28,8 +34,24 @@ export type LoginActionState = {
     | "success"
     | "failed"
     | "invalid_data"
-    | "unavailable";
+    | "unavailable"
+    | "rate_limited";
+  /** Present with "rate_limited": seconds until the lock ends. */
+  retryAfterSeconds?: number;
 };
+
+/**
+ * A lock applies to unknown accounts exactly as to real ones, so telling the
+ * caller "try again in N seconds" does not disclose whether the account exists.
+ */
+async function currentLoginLock(email: string) {
+  try {
+    const address = clientAddress(new Headers(await headers()));
+    return await readLoginLock(getThrottleStore(), email, address);
+  } catch {
+    return { locked: false as const };
+  }
+}
 
 export const login = async (
   _: LoginActionState,
@@ -40,6 +62,11 @@ export const login = async (
       email: formData.get("email"),
       password: formData.get("password"),
     });
+
+    const lock = await currentLoginLock(validatedData.email);
+    if (lock.locked) {
+      return { status: "rate_limited", retryAfterSeconds: lock.retryAfterSeconds };
+    }
 
     await signIn("credentials", {
       email: validatedData.email,
@@ -139,6 +166,19 @@ export const requestPasswordReset = async (
     return { status: "invalid" };
   }
   try {
+    // Three reset emails an hour per address book entry, ten per client. Over
+    // the allowance the answer is the same "sent", so the limit discloses
+    // nothing and nobody's inbox can be flooded through this form.
+    const store = getThrottleStore();
+    const hour = 60 * 60 * 1000;
+    const address = clientAddress(new Headers(await headers()));
+    const allowed =
+      (await allowAuthAction(store, "reset-email", email, 3, hour)) &&
+      (address === "unknown" ||
+        (await allowAuthAction(store, "reset-address", address, 10, hour)));
+    if (!allowed) {
+      return { status: "sent" };
+    }
     const [existing] = await getUser(email);
     if (existing) {
       const token = randomBytes(32).toString("hex");
