@@ -12,13 +12,20 @@ export type TokenProviderId =
   | "meta"
   | "linkedin"
   | "snapchat"
-  | "telegram_ads";
+  | "telegram_ads"
+  | "telegram_bot"
+  | "improvmx"
+  | "ryze";
 
 export type TokenProviderDefinition = {
   id: TokenProviderId;
   label: string;
   tokenHint: string;
-  validateUrl: string;
+  /** Static endpoint, or one built from the token (Telegram puts it in the path). */
+  validateUrl: string | ((token: string) => string);
+  /** Defaults to GET; POST providers also supply validateBody. */
+  validateMethod?: "GET" | "POST";
+  validateBody?: (token: string) => string;
   auth: (token: string) => Record<string, string>;
   describe: (payload: Record<string, unknown>) => {
     accountId: string | null;
@@ -183,6 +190,80 @@ export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
       },
       scopes: ["telegram-ads-api"],
       docsUrl: "https://ads.telegram.org/docs/api",
+    },
+    telegram_bot: {
+      id: "telegram_bot",
+      label: "Telegram Bot",
+      tokenHint: "Bot token from @BotFather",
+      validateUrl: (token) =>
+        `https://api.telegram.org/bot${token.trim()}/getMe`,
+      auth: () => ({}),
+      describe: (payload) => {
+        const bot =
+          (payload.result as Record<string, unknown> | undefined) ?? {};
+        const id =
+          typeof bot.id === "number" || typeof bot.id === "string"
+            ? String(bot.id)
+            : null;
+        const username = asString(bot.username);
+        const firstName = asString(bot.first_name);
+        return {
+          accountId: id,
+          accountName: username ? `@${username}` : firstName,
+          extra: { botName: firstName, botUsername: username },
+        };
+      },
+      scopes: ["telegram-bot-api"],
+      docsUrl: "https://core.telegram.org/bots/api",
+    },
+    improvmx: {
+      id: "improvmx",
+      label: "ImprovMX email routing",
+      tokenHint: "ImprovMX API key (sk_…)",
+      validateUrl: "https://api.improvmx.com/v3/domains/",
+      auth: (token) => ({ Authorization: `Basic ${token.trim()}` }),
+      describe: (payload) => {
+        const domains = Array.isArray(payload.domains)
+          ? (payload.domains as unknown[])
+          : [];
+        const first = (domains[0] as Record<string, unknown> | undefined) ?? {};
+        const domain = asString(first.domain);
+        return {
+          accountId: domain,
+          accountName: domain ? `${domain} email routing` : null,
+          extra: {
+            domains: domains
+              .map((row) => asString((row as Record<string, unknown>).domain))
+              .filter((value): value is string => Boolean(value)),
+          },
+        };
+      },
+      scopes: ["improvmx-api"],
+      docsUrl: "https://improvmx.com/api",
+    },
+    ryze: {
+      id: "ryze",
+      label: "Ryze Ads",
+      tokenHint: "Ryze OAuth refresh token",
+      validateUrl: "https://connector.get-ryze.ai/token",
+      validateMethod: "POST",
+      validateBody: (token) =>
+        new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: token.trim(),
+          client_id: process.env.RYZE_CLIENT_ID ?? "",
+        }).toString(),
+      auth: () => ({}),
+      describe: (payload) => {
+        const access = asString(payload.access_token);
+        return {
+          accountId: null,
+          accountName: access ? "Ryze Ads" : null,
+          extra: {},
+        };
+      },
+      scopes: ["ryze-mcp"],
+      docsUrl: "https://get-ryze.ai",
     },
   };
 
