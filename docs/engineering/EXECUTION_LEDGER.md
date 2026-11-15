@@ -120,6 +120,28 @@ Baseline at creation: `main` = `19473c0d`, production deployment `dpl` on
 | 16.1 | Architecture and cost review | VERIFIED (document) | `docs/live-browser-architecture.md` |
 | 16.2 | Implementation | NOT_STARTED | no paid provider enabled, no spend |
 
+## Stage 21 — Database isolation and Commander safety (15-16 Nov 2026)
+
+Branch `feat/commander-tenant-scope`, PR #95, head `5bea188`. Draft. No migration
+applied anywhere, no merge, no deployment, no billing or secret change.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 21.1 | Engine can carry RLS claims | VERIFIED | PGlite reports `PostgreSQL 18.6 on wasm3`; roles, `SET ROLE`, `ENABLE`/`FORCE ROW LEVEL SECURITY`, `WITH CHECK` and custom GUCs (local and session) all exercised by real SQL in `tests/unit/commander-rls-policies.test.ts` |
+| 21.2 | RLS enabled and forced on 5 Commander tables | IMPLEMENTED_NOT_DEPLOYED | migration `pending/0030`; assertions 1-2 read `pg_tables.rowsecurity` and `pg_class.relforcerowsecurity` |
+| 21.3 | Request role cannot bypass RLS | IMPLEMENTED_NOT_DEPLOYED | `zooka_app` NOLOGIN NOSUPERUSER NOBYPASSRLS, asserted from `pg_roles`; the migration self-check raises if any attribute is wrong |
+| 21.4 | Cross-tenant read, insert, update, delete | VERIFIED (policy level) | A sees only A and B only B; cross INSERT raises; moving a row into another tenant raises on `WITH CHECK`; DELETE matches nothing outside the tenant |
+| 21.5 | Missing or invalid tenant context | VERIFIED | empty, `''`, wrong case and `' or 1=1 --` all return zero rows (fail closed) |
+| 21.6 | Pooled-connection leak | VERIFIED | session-scoped (`is_local=false`) context is inherited by the next request and is asserted as the failure mode; transaction-local dies at `COMMIT`; outside a transaction it fails closed instead of falling back to all rows |
+| 21.7 | Tenant GUC is caller-asserted | LIMITATION (documented) | anything with SQL on the connection can `set_config` any workspace. The policy guards a missing predicate, not an attacker holding SQL. Trust rests on route code resolving the organisation from the session |
+| 21.8 | Application connection is a superuser | BLOCKER (documented) | `DATABASE_URL` authenticates as `postgres`, a superuser, which ignores RLS even with `FORCE`. Policies are a precondition; connecting as `zooka_app` is the fix and is a deployment decision |
+| 21.9 | Migrations 0027-0030 in order | VERIFIED (isolated) | six cases: fresh chain, out-of-order refusal, legacy rows quarantined as `unclaimed`, duplicate addresses stopping 0029 before its index, interrupted 0028 resumed and re-run, full rollback that keeps rows and can be re-applied |
+| 21.10 | `reportTask` could settle cancelled work | FIXED | no status guard: a cancelled task could be flipped to completed by the agent mid-run and a finished result rewritten. Restricted to open states; allowing terminal states again fails two tests |
+| 21.11 | Commander concurrency | VERIFIED | 16 cases: double claim (one winner, loser told), approve vs reject (one decision sticks), cross-tenant decide/claim/cancel/report all null, cancellation during execution, duplicate completion report is inert, retry from `failed` allowed |
+| 21.12 | Chat cost safety | VERIFIED | per-field caps plus a 60k-character conversation budget; 200 messages x 2000 chars was ~400k characters with every field legal. Payload ceiling 2MB before parsing |
+| 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
+| 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
+
 ## Stage 17-20 — Billing, QA, release
 
 | ID | Task | Status |
