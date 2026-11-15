@@ -66,12 +66,23 @@ export async function POST(
       extra: {} as Record<string, unknown>,
     };
     try {
-      const response = await fetch(definition.validateUrl, {
+      const url =
+        typeof definition.validateUrl === "function"
+          ? definition.validateUrl(token)
+          : definition.validateUrl;
+      const response = await fetch(url, {
+        method: definition.validateMethod ?? "GET",
         headers: {
           ...definition.auth(token),
           Accept: "application/json",
           "User-Agent": "zooka-ai",
+          ...(definition.validateMethod === "POST"
+            ? { "Content-Type": "application/x-www-form-urlencoded" }
+            : {}),
         },
+        ...(definition.validateMethod === "POST" && definition.validateBody
+          ? { body: definition.validateBody(token) }
+          : {}),
         cache: "no-store",
         signal: AbortSignal.timeout(15_000),
       });

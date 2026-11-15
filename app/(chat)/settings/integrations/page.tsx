@@ -381,6 +381,43 @@ export default async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                    {provider.id === "telegram_bot" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Telegram Bot"
+                        lang={lang}
+                        provider="telegram_bot"
+                        tokenHint={
+                          isArabic
+                            ? "توكن البوت من @BotFather"
+                            : "Bot token from @BotFather"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "improvmx" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="ImprovMX"
+                        lang={lang}
+                        provider="improvmx"
+                        tokenHint={
+                          isArabic ? "مفتاح ImprovMX (sk_…)" : "ImprovMX API key (sk_…)"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "google_ads" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Google Ads"
+                        lang={lang}
+                        provider="ryze"
+                        tokenHint={
+                          isArabic
+                            ? "توكن تجديد Ryze (refresh token)"
+                            : "Ryze refresh token"
+                        }
+                      />
+                    ) : null}
                     {provider.id === "telegram_ads" ? (
                       <TokenConnectionControl
                         canManage={canManage}

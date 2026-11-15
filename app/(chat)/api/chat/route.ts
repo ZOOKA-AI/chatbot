@@ -46,6 +46,9 @@ import { createFacebookTools } from "@/lib/ai/tools/facebook";
 import { createLinkedInTools } from "@/lib/ai/tools/linkedin";
 import { createSnapchatTools } from "@/lib/ai/tools/snapchat";
 import { createTelegramAdsTools } from "@/lib/ai/tools/telegram-ads";
+import { createTelegramBotTools } from "@/lib/ai/tools/telegram-bot";
+import { createEmailRoutingTools } from "@/lib/ai/tools/email-routing";
+import { createGoogleAdsTools } from "@/lib/ai/tools/google-ads";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -303,6 +306,15 @@ export async function POST(request: Request) {
     const telegramAdsTools = agentAccessAuthorized
       ? createTelegramAdsTools(workspaceContext.organizationId)
       : {};
+    const telegramBotTools = agentAccessAuthorized
+      ? createTelegramBotTools(workspaceContext.organizationId)
+      : {};
+    const emailRoutingTools = agentAccessAuthorized
+      ? createEmailRoutingTools(workspaceContext.organizationId)
+      : {};
+    const googleAdsTools = agentAccessAuthorized
+      ? createGoogleAdsTools(workspaceContext.organizationId)
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -374,6 +386,9 @@ export async function POST(request: Request) {
           ...linkedInTools,
           ...snapchatTools,
           ...telegramAdsTools,
+          ...telegramBotTools,
+          ...emailRoutingTools,
+          ...googleAdsTools,
         };
 
         const tracing = createChatTracing();
