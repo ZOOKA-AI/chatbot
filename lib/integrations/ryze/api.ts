@@ -128,17 +128,18 @@ function parseRpc(body: string): Record<string, unknown> {
   return JSON.parse(dataLine.slice(6)) as Record<string, unknown>;
 }
 
-async function ryzeTool(
+async function ryzeTools(
   workspaceId: string,
-  toolName: string,
-  args: Record<string, unknown>
-): Promise<Result<unknown>> {
+  calls: { name: string; args: Record<string, unknown> }[]
+): Promise<Result<unknown>[]> {
   const session = await ryzeSession(workspaceId);
   if (!session.ok) {
-    return session;
+    return calls.map(() => ({ ok: false as const, error: session.error }));
   }
+  const accessToken = session.data.accessToken;
+  let sessionId: string | null = null;
   try {
-    const init = await mcpRpc(session.data.accessToken, {
+    const init = await mcpRpc(accessToken, {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -148,48 +149,75 @@ async function ryzeTool(
         clientInfo: { name: "zooka-ai", version: "1" },
       },
     });
-    const sessionId = init.sessionId;
+    sessionId = init.sessionId;
     if (sessionId) {
       await mcpRpc(
-        session.data.accessToken,
+        accessToken,
         { jsonrpc: "2.0", method: "notifications/initialized" },
         sessionId
       );
     }
-    const call = await mcpRpc(
-      session.data.accessToken,
-      {
-        jsonrpc: "2.0",
-        id: 2,
-        method: "tools/call",
-        params: { name: toolName, arguments: args },
-      },
-      sessionId ?? undefined
-    );
-    const parsed = parseRpc(call.body);
-    const error = parsed.error as { message?: string } | undefined;
-    if (error) {
-      return { ok: false, error: error.message ?? "Ryze tool call failed" };
-    }
-    const result = (parsed.result as Record<string, unknown> | undefined) ?? {};
-    const content = Array.isArray(result.content)
-      ? (result.content as { type?: string; text?: string }[])
-      : [];
-    const text = content.find((item) => typeof item.text === "string")?.text;
-    if (!text) {
-      return { ok: true, data: result };
-    }
-    try {
-      return { ok: true, data: JSON.parse(text) as unknown };
-    } catch {
-      return { ok: true, data: text };
-    }
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Ryze tool call failed",
-    };
+    const message =
+      error instanceof Error ? error.message : "Ryze session failed";
+    return calls.map(() => ({ ok: false as const, error: message }));
   }
+
+  const results: Result<unknown>[] = [];
+  let id = 2;
+  for (const call of calls) {
+    try {
+      const response = await mcpRpc(
+        accessToken,
+        {
+          jsonrpc: "2.0",
+          id: id++,
+          method: "tools/call",
+          params: { name: call.name, arguments: call.args },
+        },
+        sessionId ?? undefined
+      );
+      const parsed = parseRpc(response.body);
+      const rpcError = parsed.error as { message?: string } | undefined;
+      if (rpcError) {
+        results.push({
+          ok: false,
+          error: rpcError.message ?? "Ryze tool call failed",
+        });
+        continue;
+      }
+      const result = (parsed.result as Record<string, unknown> | undefined) ?? {};
+      const content = Array.isArray(result.content)
+        ? (result.content as { type?: string; text?: string }[])
+        : [];
+      const text = content.find((item) => typeof item.text === "string")?.text;
+      if (!text) {
+        results.push({ ok: true, data: result });
+        continue;
+      }
+      try {
+        results.push({ ok: true, data: JSON.parse(text) as unknown });
+      } catch {
+        results.push({ ok: true, data: text });
+      }
+    } catch (error) {
+      results.push({
+        ok: false,
+        error:
+          error instanceof Error ? error.message : "Ryze tool call failed",
+      });
+    }
+  }
+  return results;
+}
+
+async function ryzeTool(
+  workspaceId: string,
+  toolName: string,
+  args: Record<string, unknown>
+): Promise<Result<unknown>> {
+  const [first] = await ryzeTools(workspaceId, [{ name: toolName, args }]);
+  return first ?? { ok: false, error: "Ryze returned no result" };
 }
 
 function customerId(value: string) {
@@ -207,23 +235,32 @@ export async function listGoogleAdsCustomers(workspaceId: string) {
     return accessible;
   }
   const payload = (accessible.data ?? {}) as { resourceNames?: string[] };
-  const ids = (payload.resourceNames ?? []).map(customerId);
-  const customers: Record<string, unknown>[] = [];
-  for (const id of ids.slice(0, 10)) {
-    const hierarchy = await ryzeTool(workspaceId, "google_ads__getAccountHierarchy", {
-      customerId: id,
-    });
-    const rows = Array.isArray(hierarchy.ok ? hierarchy.data : [])
-      ? ((hierarchy.ok ? hierarchy.data : []) as Record<string, unknown>[])
+  const ids = (payload.resourceNames ?? []).map(customerId).slice(0, 6);
+
+  const results = ids.length
+    ? await ryzeTools(
+        workspaceId,
+        ids.map((id) => ({
+          name: "google_ads__getAccountHierarchy",
+          args: { customerId: id },
+        }))
+      )
+    : [];
+
+  const customers = ids.map((id, index) => {
+    const result = results[index];
+    const rows = Array.isArray(result && result.ok ? result.data : [])
+      ? ((result && result.ok ? result.data : []) as Record<string, unknown>[])
       : [];
     const row = rows[0] ?? {};
-    customers.push({
+    return {
       customerId: id,
       name: typeof row.descriptiveName === "string" ? row.descriptiveName : null,
       manager: row.manager ?? null,
       parentCustomerId: row.parentCustomerId ?? null,
-    });
-  }
+    };
+  });
+
   return {
     ok: true as const,
     data: { count: customers.length, customers },
