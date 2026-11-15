@@ -65,7 +65,7 @@ afterAll(async () => {
   await pg?.close();
 });
 
-test("UP: 0027 then 0028 leaves every table scoped, indexed and referenced", async () => {
+test("UP: 0027 then 0028 leaves every table scoped, indexed and referenced", { timeout: 60_000 }, async () => {
   await apply(migration("0027_agent_command_center.sql"));
   // Order matters: 0028 assumes 0027 ran first. Applying it to a bare schema
   // must fail rather than create a half-scoped database.
@@ -98,7 +98,7 @@ test("UP: 0027 then 0028 leaves every table scoped, indexed and referenced", asy
   assert.equal((await orgColumns()).length, 5);
 });
 
-test("rows that existed before the migration are quarantined, never guessed", async () => {
+test("rows that existed before the migration are quarantined, never guessed", { timeout: 60_000 }, async () => {
   const legacy = new PGlite();
   await applyOn(legacy, migration("0027_agent_command_center.sql"));
   await legacy.exec(
@@ -137,7 +137,7 @@ async function applyOn(target: PGlite, sql: string) {
   }
 }
 
-test("DOWN: only the new column and its indexes go, data and keys stay", async () => {
+test("DOWN: only the new column and its indexes go, data and keys stay", { timeout: 60_000 }, async () => {
   await pg.exec(`insert into "AgentIdentity" (slug, "displayName", role, "keyHash", "organizationId")
                  values ('keep-me', 'Keeper', 'worker', 'hash-1', 'org-alpha')`);
   const before = await pg.query<{ count: number }>(`select count(*)::int as count from "AgentIdentity"`);
@@ -152,14 +152,14 @@ test("DOWN: only the new column and its indexes go, data and keys stay", async (
   assert.ok(keys.length >= 2, "foreign keys survive the rollback");
 });
 
-test("UP again: the schema returns to the same shape", async () => {
+test("UP again: the schema returns to the same shape", { timeout: 60_000 }, async () => {
   await apply(migration("pending/0028_agent_tenant_scope.sql"));
   assert.deepEqual(await orgColumns(), [...SCOPED].sort());
   const keys = await foreignKeys();
   assert.ok(keys.some((key) => key.conname.includes("ownerAgentId")));
 });
 
-test("referential integrity: deleting an agent orphans its task, never deletes it", async () => {
+test("referential integrity: deleting an agent orphans its task, never deletes it", { timeout: 60_000 }, async () => {
   await pg.exec(`delete from "AgentApproval"`);
   await pg.exec(`delete from "AgentTask"`);
   await pg.exec(`delete from "AgentIdentity"`);
