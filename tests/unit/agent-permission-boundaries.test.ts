@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, test, vi } from "vitest";
 
+// The routes now import the tenant wrapper, which is server-only by design.
+vi.mock("server-only", () => ({}));
+
 /**
  * Permission boundaries for the Commander, at the route layer.
  *

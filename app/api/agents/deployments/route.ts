@@ -10,8 +10,9 @@ import {
   unauthorized,
 } from "@/lib/agents/auth";
 import { fields, validateJson, validateQuery } from "@/lib/validation/api";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -73,3 +74,9 @@ export async function POST(request: Request) {
 
   return json({ deployment }, 201);
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const GET = withCommanderTenant(GETHandler);
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);

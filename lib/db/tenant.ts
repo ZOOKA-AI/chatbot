@@ -116,7 +116,7 @@ export type TenantRunner = {
  * DATABASE_URL_TENANT at the superuser by mistake, the request fails instead of
  * succeeding without the isolation it was supposed to have.
  */
-async function assertUnprivilegedRole(tx: TenantTx) {
+export async function assertUnprivilegedRole(tx: TenantTx) {
   const { rows } = await tx.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
     "select rolsuper, rolbypassrls from pg_roles where rolname = current_user"
   );

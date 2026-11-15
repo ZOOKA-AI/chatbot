@@ -11,9 +11,10 @@ import {
   unauthorized,
 } from "@/lib/agents/auth";
 import { fields, validateJson } from "@/lib/validation/api";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
 
 /** Cancelling is a human action, like deciding an approval. */
-export async function POST(
+async function POSTHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -51,3 +52,6 @@ export async function POST(
   }
   return json({ task });
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);

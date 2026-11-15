@@ -9,9 +9,10 @@ import {
   unauthorized,
 } from "@/lib/agents/auth";
 import { fields, validateQuery } from "@/lib/validation/api";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
 
 /** Approvals are always read inside the caller's own organisation. */
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -36,3 +37,6 @@ export async function GET(request: Request) {
   });
   return json({ approvals });
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const GET = withCommanderTenant(GETHandler);

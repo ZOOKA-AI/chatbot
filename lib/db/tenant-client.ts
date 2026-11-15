@@ -1,9 +1,19 @@
 import "server-only";
 
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import type { TenantRunner, TenantTx } from "./tenant";
+import {
+  TENANT_SETTING,
+  TenantScopeError,
+  assertUnprivilegedRole,
+  isUuid,
+  type TenantContext,
+  type TenantRunner,
+  type TenantTx,
+} from "./tenant";
+import { runWithCommanderDb } from "./tenant-context";
 
 /**
  * The flagged, preview-only connection for tenant-scoped work.
@@ -93,4 +103,55 @@ export async function closeTenantClient() {
     await cached.end({ timeout: 5 });
     cached = null;
   }
+}
+
+/**
+ * Runs work inside a tenant transaction on the runtime connection, publishing the
+ * transaction's query builder so the Commander functions use it automatically.
+ *
+ * Returns the work's own value; the transaction commits only if the work resolves.
+ */
+export async function runInTenantTransaction<T>(
+  context: TenantContext | null,
+  work: () => Promise<T>
+): Promise<T> {
+  if (!context) {
+    throw new TenantScopeError("missing_context", "no authenticated organisation");
+  }
+  if (!isUuid(context.organizationId)) {
+    throw new TenantScopeError("invalid_context", "organisation is not a valid identifier");
+  }
+
+  const base = drizzle(client());
+
+  // drizzle's own transaction, so the handle published below is a real query
+  // builder over one pinned connection rather than a foreign object.
+  return base.transaction(async (tx) => {
+    await tx.execute(sql`select set_config(${TENANT_SETTING}, ${context.organizationId}, true)`);
+
+    // drizzle's postgres-js driver returns the row list itself, not a { rows } envelope.
+    const applied = await tx.execute<{ current: string | null }>(
+      sql`select current_setting(${TENANT_SETTING}, true) as current`
+    );
+    if (applied[0]?.current !== context.organizationId) {
+      throw new TenantScopeError("invalid_context", "tenant context did not take effect");
+    }
+
+    // Refuses a superuser or BYPASSRLS connection before any Commander work runs.
+    const role = await tx.execute<{ rolsuper: boolean; rolbypassrls: boolean }>(
+      sql`select rolsuper, rolbypassrls from pg_roles where rolname = current_user`
+    );
+    const current = role[0];
+    if (!current) {
+      throw new TenantScopeError("privileged_role", "cannot determine the current role");
+    }
+    if (current.rolsuper || current.rolbypassrls) {
+      throw new TenantScopeError(
+        "privileged_role",
+        "tenant-scoped work refused: the connection role bypasses row level security"
+      );
+    }
+
+    return runWithCommanderDb(tx, () => work());
+  }) as Promise<T>;
 }

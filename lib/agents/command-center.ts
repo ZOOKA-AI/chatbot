@@ -9,7 +9,28 @@ import {
   agentIdentity,
   agentTask,
 } from "@/lib/db/schema";
-import { db } from "@/lib/db/queries";
+import * as queriesModule from "@/lib/db/queries";
+import { commanderActiveDb } from "@/lib/db/tenant-context";
+
+/**
+ * The handle every function below uses.
+ *
+ * Reads resolve against the transaction published for the current request, so a
+ * Commander call made inside a tenant transaction is subject to that tenant's
+ * policies. With nothing published it is the shared connection, unchanged.
+ */
+const db = new Proxy({} as typeof queriesModule.db, {
+  get(_target, property) {
+    const active = commanderActiveDb() as Record<PropertyKey, unknown> | null;
+    if (active) return Reflect.get(active, property, active);
+
+    // Read lazily: touching the shared connection is what an escape looks like,
+    // so it must happen only if something actually uses it.
+    const shared = queriesModule.db as unknown as Record<PropertyKey, unknown>;
+    return Reflect.get(shared, property, shared);
+  },
+}) as typeof queriesModule.db;
+
 
 /**
  * ZOOKA AGENT COMMAND CENTER — shared coordination state for every agent.

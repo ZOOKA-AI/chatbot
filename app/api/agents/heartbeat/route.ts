@@ -1,7 +1,8 @@
 import { hasScope, heartbeat } from "@/lib/agents/command-center";
 import { forbidden, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -14,3 +15,6 @@ export async function POST(request: Request) {
   }
   return json(await heartbeat(caller.agent));
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);

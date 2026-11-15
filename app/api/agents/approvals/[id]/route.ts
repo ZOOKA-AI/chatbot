@@ -11,6 +11,7 @@ import {
   unauthorized,
 } from "@/lib/agents/auth";
 import { fields, validateJson } from "@/lib/validation/api";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
 
 /**
  * Deciding an approval is a human action.
@@ -20,7 +21,7 @@ import { fields, validateJson } from "@/lib/validation/api";
  * UPDATE scoped to the caller's organisation and to `status = 'pending'`, so a
  * second decision, or a decision on another tenant's approval, changes no row.
  */
-export async function POST(
+async function POSTHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -66,3 +67,6 @@ export async function POST(
 
   return json({ approval });
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);

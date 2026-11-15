@@ -10,8 +10,9 @@ import {
   resolveCaller,
   unauthorized,
 } from "@/lib/agents/auth";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
 }
 
 /** Owner-only: puts work into the shared queue. */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -90,3 +91,9 @@ export async function POST(request: Request) {
 
   return json({ task }, 201);
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const GET = withCommanderTenant(GETHandler);
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);
