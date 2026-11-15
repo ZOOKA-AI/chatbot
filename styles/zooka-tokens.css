@@ -1,0 +1,20 @@
+/* ZOOKA-AI design tokens as CSS variables.
+   ملاحظة P0: غير مستورد في layout بعد، حتى لا يتغير إنتاج بلا اعتماد. */
+:root {
+  --zk-royal-blue: #2E86AB;
+  --zk-purple: #A23B72;
+  --zk-snow: #F8F9FA;
+  --zk-neural-base: #070B12;
+  --zk-neural-layer: #0C121C;
+  --zk-surface: #111925;
+  --zk-surface-raised: #16202E;
+  --zk-border: rgba(46, 134, 171, 0.22);
+  --zk-neon-sky: rgba(46, 134, 171, 0.55);
+  --zk-neon-violet: rgba(162, 59, 114, 0.45);
+  --zk-text: #F8F9FA;
+  --zk-text-muted: rgba(248, 249, 250, 0.66);
+  --zk-radius-md: 12px;
+  --zk-radius-lg: 18px;
+  --zk-motion-base: 220ms;
+  --zk-easing: cubic-bezier(0.22, 1, 0.36, 1);
+}
