@@ -42,6 +42,7 @@ import { createGmailTools } from "@/lib/ai/tools/google-gmail";
 import { createGitHubTools } from "@/lib/ai/tools/github";
 import { createXTools } from "@/lib/ai/tools/x";
 import { createInstagramTools } from "@/lib/ai/tools/instagram";
+import { createFacebookTools } from "@/lib/ai/tools/facebook";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -287,6 +288,9 @@ export async function POST(request: Request) {
     const instagramTools = agentAccessAuthorized
       ? createInstagramTools(workspaceContext.organizationId)
       : {};
+    const facebookTools = agentAccessAuthorized
+      ? createFacebookTools(workspaceContext.organizationId)
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -354,6 +358,7 @@ export async function POST(request: Request) {
           ...githubTools,
           ...xTools,
           ...instagramTools,
+          ...facebookTools,
         };
 
         const tracing = createChatTracing();

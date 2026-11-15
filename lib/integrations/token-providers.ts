@@ -7,7 +7,7 @@ import "server-only";
  * connect route calls `validateUrl` with the pasted token and only reports the
  * integration as connected when the provider returns a real account.
  */
-export type TokenProviderId = "instagram";
+export type TokenProviderId = "instagram" | "meta";
 
 export type TokenProviderDefinition = {
   id: TokenProviderId;
@@ -73,6 +73,30 @@ export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
       ],
       docsUrl:
         "https://developers.facebook.com/docs/instagram-platform/content-publishing",
+    },
+    meta: {
+      id: "meta",
+      label: "Facebook page",
+      tokenHint: "Facebook page access token",
+      validateUrl: `${GRAPH}/me?fields=id,name,fan_count,followers_count,link`,
+      auth: (token) => ({ Authorization: `Bearer ${token}` }),
+      describe: (payload) => {
+        const pageName = asString(payload.name);
+        return {
+          accountId: asString(payload.id),
+          accountName: pageName,
+          extra: {
+            pageId: asString(payload.id),
+            pageName,
+          },
+        };
+      },
+      scopes: [
+        "pages_show_list",
+        "pages_read_engagement",
+        "pages_manage_posts",
+      ],
+      docsUrl: "https://developers.facebook.com/docs/pages-api/posts",
     },
   };
 
