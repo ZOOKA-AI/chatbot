@@ -163,9 +163,10 @@ export async function withTenantScope<T>(
     ]);
 
     // Read it back: what the policies will use must be exactly what was resolved.
+    const settingName = TENANT_SETTING;
     const { rows } = await tx.query<{ current: string | null }>(
       "select current_setting($1, true) as current",
-      [TENANT_SETTING]
+      [settingName]
     );
     if (rows[0]?.current !== context.organizationId) {
       throw new TenantScopeError("invalid_context", "tenant context did not take effect");

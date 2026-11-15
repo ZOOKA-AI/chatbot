@@ -1,4 +1,4 @@
-import { decideApproval } from "@/lib/agents/command-center";
+import { decideApproval, recordDecision } from "@/lib/agents/command-center";
 import { z } from "zod";
 
 import {
@@ -39,17 +39,42 @@ async function POSTHandler(
     return badRequest("invalid_body");
   }
 
+  // Both spellings are accepted so existing callers keep working; whichever is
+  // sent must survive the same trimming rules.
   const parsed = await validateJson(
     request,
     z
       .object({
         decision: z.enum(["approved", "rejected"]),
-        note: z.string().trim().max(2000).optional(),
+        note: z.string().max(2000).optional(),
+        reason: z.string().max(2000).optional(),
       })
       .strict()
   );
   if (!parsed.ok) {
     return badRequest(parsed.reason);
+  }
+
+  const rawReason = (parsed.data.reason ?? parsed.data.note ?? "").trim();
+
+  /**
+   * A rejection refuses somebody's work, so it has to be explainable later.
+   * The rule lives here, on the server: the console also asks for a reason, but
+   * an interface is not a control, and a request can arrive without one.
+   *
+   * Approval stays optional-reason deliberately: refusing to let an owner say
+   * "yes" without a note would break existing clients, and a yes needs no excuse.
+   */
+  if (parsed.data.decision === "rejected") {
+    if (rawReason.length === 0) {
+      return badRequest("reason_required");
+    }
+    if (rawReason.length < 4) {
+      return badRequest("reason_too_short");
+    }
+  }
+  if (rawReason.length > 1000) {
+    return badRequest("reason_too_long");
   }
 
   const approval = await decideApproval({
@@ -64,6 +89,16 @@ async function POSTHandler(
     // the endpoint cannot be used to probe another tenant's approvals.
     return json({ error: "not_found" }, 404);
   }
+
+  // Written only after the conditional UPDATE won, so history gained by a second
+  // decision racing this one cannot appear: the loser changed no row.
+  await recordDecision(null, {
+    organizationId: callerOrganizationId(caller),
+    title: `${parsed.data.decision === "approved" ? "Approved" : "Rejected"}: ${approval.reason}`.slice(0, 200),
+    body: rawReason.length > 0 ? rawReason : "(no reason recorded)",
+    state: parsed.data.decision === "approved" ? "APPROVAL_APPROVED" : "APPROVAL_REJECTED",
+    taskId: approval.taskId,
+  });
 
   return json({ approval });
 }

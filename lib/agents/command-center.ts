@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import {
   agentApproval,
   agentDecision,
@@ -11,6 +11,8 @@ import {
 } from "@/lib/db/schema";
 import * as queriesModule from "@/lib/db/queries";
 import { commanderActiveDb } from "@/lib/db/tenant-context";
+import type { Cursor } from "./pagination";
+import { encodeCursor } from "./pagination";
 
 /**
  * The handle every function below uses.
@@ -729,4 +731,60 @@ export async function listTaskHistory(
     )
     .orderBy(desc(agentDecision.createdAt))
     .limit(Math.min(limit, 100));
+}
+
+/**
+ * One page of execution history, newest first.
+ *
+ * Ordered by (createdAt DESC, id DESC) so the order is total even when timestamps
+ * collide, and filtered by keyset so a page never repeats or skips a row. The
+ * organisation is a mandatory argument, not an option: there is no way to ask for
+ * a page without saying whose page it is.
+ *
+ * Both the ordering and the comparison use the same millisecond bucket. A cursor
+ * travels as a JavaScript Date, which holds milliseconds, while PostgreSQL keeps
+ * microseconds: comparing a truncated cursor against full-precision values drops
+ * every row inside the boundary millisecond, which is exactly the bug the paging
+ * test found. Bucketing both sides makes the order and the boundary agree.
+ * Cost: date_trunc prevents a plain index scan on createdAt. At the sizes this
+ * table is heading for that is the right trade; if history grows into millions of
+ * rows, carry the microsecond literal in the cursor instead.
+ */
+export async function listTaskPage(options: {
+  organizationId: string;
+  status?: string;
+  limit?: number;
+  cursor?: Cursor | null;
+}): Promise<{ tasks: (typeof agentTask.$inferSelect)[]; nextCursor: string | null }> {
+  const limit = Math.min(Math.max(options.limit ?? 25, 1), 100);
+  const cursor = options.cursor ?? null;
+  const bucket = sql`date_trunc('milliseconds', ${agentTask.createdAt})`;
+
+  const conditions = [eq(agentTask.organizationId, options.organizationId)];
+  if (options.status) {
+    conditions.push(eq(agentTask.status, options.status));
+  }
+  if (cursor) {
+    const boundary = sql`${cursor.createdAt.toISOString()}::timestamptz`;
+    conditions.push(
+      or(lt(bucket, boundary), and(eq(bucket, boundary), lt(agentTask.id, cursor.id)))!
+    );
+  }
+
+  // One extra row answers "is there a next page" without a second query.
+  const rows = await db
+    .select()
+    .from(agentTask)
+    .where(and(...conditions))
+    .orderBy(sql`${bucket} desc`, desc(agentTask.id))
+    .limit(limit + 1);
+
+  const page = rows.slice(0, limit);
+  const hasMore = rows.length > limit;
+  const last = page.at(-1);
+
+  return {
+    tasks: page,
+    nextCursor: hasMore && last ? encodeCursor(last.createdAt, last.id) : null,
+  };
 }

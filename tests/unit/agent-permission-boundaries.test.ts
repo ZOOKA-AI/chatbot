@@ -41,6 +41,9 @@ vi.mock("@/lib/agents/auth", () => {
 });
 
 vi.mock("@/lib/agents/command-center", () => ({
+  // The route now records a decision after a successful write, so the mock has to
+  // expose it; its behaviour is asserted in approval-decisions.test.ts.
+  recordDecision: vi.fn(),
   listApprovals: (...args: unknown[]) => mocks.listApprovals(...args),
   decideApproval: (...args: unknown[]) => mocks.decideApproval(...args),
   cancelTask: (...args: unknown[]) => mocks.cancelTask(...args),

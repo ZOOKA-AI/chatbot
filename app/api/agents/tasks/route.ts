@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { createTask, listTasks } from "@/lib/agents/command-center";
+import { createTask, listTaskPage, listTasks } from "@/lib/agents/command-center";
+import { decodeCursor } from "@/lib/agents/pagination";
 import { fields, validateJson, validateQuery } from "@/lib/validation/api";
 import {
   badRequest,
@@ -29,11 +30,28 @@ async function GETHandler(request: Request) {
         ownerAgentId: fields.id.optional(),
         available: z.enum(["true", "false"]).optional(),
         limit: fields.limit.optional(),
+        cursor: z.string().max(200).optional(),
       })
       .strict()
   );
   if (!query.ok) {
     return badRequest(query.reason);
+  }
+
+  // A cursor switches to keyset paging. The legacy `tasks` field stays, so an old
+  // client that ignores `nextCursor` still reads a usable first page.
+  if (query.data.cursor !== undefined) {
+    const cursor = decodeCursor(query.data.cursor);
+    if (!cursor) {
+      return badRequest("invalid_cursor");
+    }
+    const page = await listTaskPage({
+      organizationId: callerOrganizationId(caller),
+      status: query.data.status,
+      limit: query.data.limit ?? 25,
+      cursor,
+    });
+    return json(page);
   }
 
   return json({
