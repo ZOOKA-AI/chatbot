@@ -10,6 +10,7 @@ import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
 import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
+import { INTEGRATION_PLAYBOOKS } from "@/lib/integrations/playbooks";
 import { isOAuthProviderConfigured } from "@/lib/integrations/oauth/config";
 import {
   getIntegrationProviders,
@@ -238,6 +239,83 @@ export default async function IntegrationsPage({
             </p>
           )}
         </article>
+        <section className="flex flex-col gap-3 rounded-lg border p-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium">
+              {isArabic
+                ? "دليل الربط من الصفر لكل منصة"
+                : "Connect any provider from zero"}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {isArabic
+                ? "كل منصة هنا فيها خطوات إنشاء الحساب واستخراج الاعتماد وموضع لصقه وفحص التأكيد. الوكيل يستخدم نفس الدليل ليجيب أي مستخدم، ولا يطلب أي سر داخل المحادثة."
+                : "Each provider lists how to create the account, where the credential comes from, where to paste it and how it is verified. The agent answers tenants from this same guide and never asks for a secret in chat."}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            {INTEGRATION_PLAYBOOKS.map((playbook) => {
+              const provider = providers.find(
+                (entry) => entry.id === playbook.providerId
+              );
+              if (!provider) {
+                return null;
+              }
+              return (
+                <details
+                  className="rounded-md border px-3 py-2"
+                  key={playbook.providerId}
+                >
+                  <summary className="cursor-pointer text-sm font-medium">
+                    {isArabic ? provider.nameAr : provider.name}
+                    {playbook.selfServe ? null : (
+                      <span className="text-muted-foreground">
+                        {isArabic ? " · يحتاج خطوة منصة" : " · platform step needed"}
+                      </span>
+                    )}
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-2 text-sm">
+                    <p className="text-muted-foreground">
+                      {isArabic ? "الاعتماد: " : "Credential: "}
+                      {isArabic ? playbook.credentialAr : playbook.credentialEn}
+                    </p>
+                    {playbook.prerequisites.length ? (
+                      <div>
+                        <p className="font-medium">
+                          {isArabic ? "قبل البدء" : "Prerequisites"}
+                        </p>
+                        <ul className="text-muted-foreground list-disc ps-5">
+                          {playbook.prerequisites.map((item) => (
+                            <li key={item.en}>{isArabic ? item.ar : item.en}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    <div>
+                      <p className="font-medium">
+                        {isArabic ? "الخطوات" : "Steps"}
+                      </p>
+                      <ol className="text-muted-foreground list-decimal ps-5">
+                        {playbook.steps.map((step) => (
+                          <li key={step.en}>{isArabic ? step.ar : step.en}</li>
+                        ))}
+                      </ol>
+                    </div>
+                    <p className="text-muted-foreground">
+                      {isArabic ? "التحقق: " : "Verification: "}
+                      {isArabic ? playbook.verifyAr : playbook.verifyEn}
+                    </p>
+                    {playbook.limitsAr || playbook.limitsEn ? (
+                      <p className="text-muted-foreground">
+                        {isArabic ? "حدود معروفة: " : "Known limits: "}
+                        {isArabic ? playbook.limitsAr : playbook.limitsEn}
+                      </p>
+                    ) : null}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        </section>
         <article className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex flex-col gap-1">
             <h2 className="font-medium">
@@ -283,8 +361,9 @@ export default async function IntegrationsPage({
                 const available = provider.status === "available";
                 return (
                   <article
-                    className="flex flex-col gap-2 rounded-lg border p-4"
+                    className="flex scroll-mt-24 flex-col gap-2 rounded-lg border p-4"
                     data-provider={provider.id}
+                    id={provider.id}
                     key={provider.id}
                   >
                     <div className="flex items-start justify-between gap-2">
