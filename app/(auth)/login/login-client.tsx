@@ -25,6 +25,8 @@ const strings = {
     unavailable:
       "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً؛ لا تحتاج لتغيير كلمة المرور.",
     invalid: "بيانات الدخول غير صحيحة!",
+    rateLimited: (minutes: number) =>
+      `محاولات كثيرة. حاول مرة أخرى بعد ${minutes} دقيقة تقريبًا، أو استخدم «نسيت كلمة المرور».`,
     authError:
       "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى.",
   },
@@ -39,6 +41,8 @@ const strings = {
     unavailable:
       "Account service is temporarily unavailable. Please try later; you do not need to reset your password.",
     invalid: "Invalid credentials!",
+    rateLimited: (minutes: number) =>
+      `Too many attempts. Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}, or reset your password.`,
     authError:
       "Unable to sign in. Please try again or use another sign-in method.",
   },
@@ -80,6 +84,9 @@ export function LoginClient({
       toast({ type: "error", description: t.unavailable });
     } else if (state.status === "failed") {
       toast({ type: "error", description: t.invalid });
+    } else if (state.status === "rate_limited") {
+      const minutes = Math.max(1, Math.ceil((state.retryAfterSeconds ?? 60) / 60));
+      toast({ type: "error", description: t.rateLimited(minutes) });
     } else if (state.status === "invalid_data") {
       toast({ type: "error", description: t.invalid });
     } else if (state.status === "success") {
@@ -87,7 +94,7 @@ export function LoginClient({
       updateSession();
       router.refresh();
     }
-  }, [state.status]);
+  }, [state]);
 
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get("email") as string);

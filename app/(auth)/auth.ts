@@ -20,6 +20,7 @@ import {
   parseCredentials,
   verifyCredentialAttempt,
 } from "@/lib/auth/login-guard";
+import { getThrottleStore } from "@/lib/auth/throttle";
 import { phoneLoginEnabled } from "@/lib/auth/sms";
 
 /** Google sign-in uses its own non-sensitive client (openid/email/profile). */
@@ -128,6 +129,7 @@ export const {
         );
 
         const result = await verifyCredentialAttempt({
+          store: getThrottleStore(),
           parsed,
           address,
           lookup: getUser,

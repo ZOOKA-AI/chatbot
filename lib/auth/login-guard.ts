@@ -1,39 +1,47 @@
+import { createHmac, randomBytes } from "node:crypto";
+import type { ThrottleStore } from "@/lib/auth/throttle-store";
+
 /**
  * Credential-attempt guard for the password sign-in path.
  *
- * Why this exists: `authorize()` compares a password on every request, and
- * nothing counted the failures. lib/ratelimit.ts cannot help — it is scoped to
- * chat/account routes and returns early when REDIS_URL is absent, which is the
- * case in this deployment. So the login endpoint accepted unlimited guesses.
+ * Three windows, because one is not enough:
  *
- * This guard is deliberately dependency-free (no Redis, no DB): a sliding window
- * of failures per email AND per client address, with a lockout. It fails closed
- * in the only sense that matters here — it never blocks a correct password, but
- * it stops the guessing once the window is full.
+ *   pair     same account from the same address    5 attempts  / 15 min
+ *   account  same account from any address        20 attempts  / 15 min
+ *   address  any account from the same address   100 failures  / 15 min
  *
- * Known limit, stated rather than hidden: the store is per process. On Vercel
- * several instances each keep their own counters, so the effective global limit
- * is roughly MAX_FAILURES x instance count. A shared store (Redis/Upstash) is the
- * correct next step and is cheap, but it needs a credential the owner has not
- * provided, and shipping an inert Redis path is exactly the mistake that made
- * lib/ratelimit.ts useless. Per-instance limit now, shared store when configured.
+ *  - `pair` stops ordinary guessing.
+ *  - `account` stops guessing spread over many addresses. One address can add at
+ *    most 5 to it per window, so locking somebody else's account takes several
+ *    addresses, and the lock ends with the window.
+ *  - `address` stops one address spraying many accounts. It counts failures
+ *    only and is set high, so an office or a mobile carrier behind one address
+ *    is not locked by ordinary typos, and successful sign-ins never count.
+ *
+ * `pair` and `account` are reserved atomically BEFORE the password is compared,
+ * so a burst of parallel requests cannot all pass a check and then all fail.
+ *
+ * What this module does not decide: where the counters live. That is the
+ * ThrottleStore. With the in-memory store the limits hold per instance only; see
+ * lib/auth/throttle.ts for which store is active and why.
  */
 
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_FAILURES = 5;
-const MAX_TRACKED_KEYS = 10_000;
+export const LOGIN_LIMITS = {
+  windowMs: 15 * 60 * 1000,
+  pair: 5,
+  account: 20,
+  address: 100,
+} as const;
+
 const MAX_EMAIL_LENGTH = 320;
 const MAX_PASSWORD_LENGTH = 1024;
-
-/** failure timestamps per key, oldest first */
-const failures = new Map<string, number[]>();
+const UNKNOWN_ADDRESS = "unknown";
 
 export type ParsedCredentials = { email: string; password: string; raw: string };
 
 /**
  * Rejects anything that is not a plausible credential pair without touching the
- * database or bcrypt. A non-string body used to reach `getUser()` and could throw
- * a 500; now it is a plain refusal.
+ * database, the counters or bcrypt.
  */
 export function parseCredentials(input: unknown): ParsedCredentials | null {
   if (typeof input !== "object" || input === null) {
@@ -43,7 +51,6 @@ export function parseCredentials(input: unknown): ParsedCredentials | null {
   if (typeof email !== "string" || typeof password !== "string") {
     return null;
   }
-  const raw = email;
   const normalized = normalizeEmail(email);
   if (!normalized || normalized.length > MAX_EMAIL_LENGTH) {
     return null;
@@ -54,90 +61,133 @@ export function parseCredentials(input: unknown): ParsedCredentials | null {
   if (password.length > MAX_PASSWORD_LENGTH) {
     return null;
   }
-  return { email: normalized, password, raw };
+  return { email: normalized, password, raw: email };
 }
 
-/** Case and surrounding whitespace must not create a second rate-limit bucket. */
+/** Case and surrounding whitespace must not create a second bucket. */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** Forwarded headers are set by the platform; the first entry is the client. */
-export function clientAddress(headers: Headers | undefined): string {
-  const forwarded = headers?.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
+const ADDRESS_SHAPE = /^[0-9a-fA-F.:]{3,45}$/;
+
+function cleanAddress(value: string | null | undefined): string | null {
+  const candidate = value?.split(",")[0]?.trim();
+  return candidate && ADDRESS_SHAPE.test(candidate) ? candidate : null;
+}
+
+export type ProxyTrust = {
+  /** True when the platform itself sets the forwarding headers (Vercel). */
+  platformSetsForwardedFor: boolean;
+  /** A header set by a proxy the owner put in front, e.g. cf-connecting-ip. */
+  trustedHeader?: string;
+};
+
+export function proxyTrustFromEnv(
+  env: Record<string, string | undefined> = process.env
+): ProxyTrust {
+  return {
+    platformSetsForwardedFor: env.VERCEL === "1",
+    trustedHeader: env.AUTH_TRUSTED_IP_HEADER?.trim().toLowerCase() || undefined,
+  };
+}
+
+/**
+ * The client address, from a header that the client cannot forge.
+ *
+ * x-forwarded-for is only trustworthy when the platform overwrites it. Vercel
+ * does (documented: it replaces the header with the client's public address and
+ * does not forward external values), so on Vercel x-real-ip / x-forwarded-for
+ * are used. Anywhere else the header is whatever the caller typed, so it is
+ * ignored unless the owner names a trusted header. An untrusted or malformed
+ * value yields "unknown", which switches the address windows off rather than
+ * letting an attacker pick a fresh bucket per request.
+ */
+export function clientAddress(
+  headers: Headers | undefined,
+  trust: ProxyTrust = proxyTrustFromEnv()
+): string {
+  if (!headers) return UNKNOWN_ADDRESS;
+  if (trust.trustedHeader) {
+    return cleanAddress(headers.get(trust.trustedHeader)) ?? UNKNOWN_ADDRESS;
   }
-  return headers?.get("x-real-ip")?.trim() || "unknown";
-}
-
-export function loginGuardKey(email: string, address: string): string {
-  return `${normalizeEmail(email)}|${address}`;
-}
-
-function prune(list: number[], now: number): number[] {
-  const cutoff = now - WINDOW_MS;
-  return list.filter((stamp) => stamp > cutoff);
-}
-
-function boundedSet(key: string, list: number[]) {
-  if (failures.size >= MAX_TRACKED_KEYS && !failures.has(key)) {
-    // Oldest insertion goes first; a Map keeps insertion order.
-    const oldest = failures.keys().next();
-    if (!oldest.done) failures.delete(oldest.value);
+  if (!trust.platformSetsForwardedFor) {
+    return UNKNOWN_ADDRESS;
   }
-  failures.set(key, list);
+  return (
+    cleanAddress(headers.get("x-real-ip")) ??
+    cleanAddress(headers.get("x-forwarded-for")) ??
+    UNKNOWN_ADDRESS
+  );
 }
 
-export function recordFailure(key: string, now: number = Date.now()): number {
-  const list = prune(failures.get(key) ?? [], now);
-  list.push(now);
-  boundedSet(key, list);
-  return list.length;
+// Keys are HMACs, so a shared counter table holds no email and no address.
+const processSecret = randomBytes(32).toString("hex");
+
+function digest(scope: string, value: string): string {
+  const secret = process.env.AUTH_SECRET || processSecret;
+  return `${scope}:${createHmac("sha256", secret).update(`${scope}|${value}`).digest("hex").slice(0, 40)}`;
 }
 
-export function isLocked(key: string, now: number = Date.now()): boolean {
-  const list = prune(failures.get(key) ?? [], now);
-  if (list.length === 0) {
-    failures.delete(key);
-    return false;
+export function loginKeys(email: string, address: string) {
+  const account = normalizeEmail(email);
+  const known = address !== UNKNOWN_ADDRESS;
+  return {
+    pair: digest("p", `${account}|${address}`),
+    account: digest("a", account),
+    address: known ? digest("i", address) : null,
+  };
+}
+
+function secondsUntil(resetAt: number, now: number): number {
+  return Math.max(1, Math.ceil((resetAt - now) / 1000));
+}
+
+export type LockState =
+  | { locked: false }
+  | { locked: true; retryAfterSeconds: number; scope: "pair" | "account" | "address" };
+
+/** Read-only: counts nothing. Used to answer "try again in N seconds". */
+export async function readLoginLock(
+  store: ThrottleStore,
+  email: string,
+  address: string,
+  now: number = Date.now()
+): Promise<LockState> {
+  const keys = loginKeys(email, address);
+  const checks: [typeof keys.pair | null, number, "pair" | "account" | "address"][] = [
+    [keys.pair, LOGIN_LIMITS.pair, "pair"],
+    [keys.account, LOGIN_LIMITS.account, "account"],
+    [keys.address, LOGIN_LIMITS.address, "address"],
+  ];
+  for (const [key, limit, scope] of checks) {
+    if (!key) continue;
+    const hit = await store.peek(key, now);
+    if (hit && hit.count >= limit) {
+      return { locked: true, retryAfterSeconds: secondsUntil(hit.resetAt, now), scope };
+    }
   }
-  boundedSet(key, list);
-  return list.length >= MAX_FAILURES;
+  return { locked: false };
 }
-
-export function clearFailures(key: string): void {
-  failures.delete(key);
-}
-
-/** Only for tests: the module state is process-wide on purpose. */
-export function resetLoginGuard(): void {
-  failures.clear();
-}
-
-export const LOGIN_GUARD_LIMITS = {
-  windowMs: WINDOW_MS,
-  maxFailures: MAX_FAILURES,
-  maxTrackedKeys: MAX_TRACKED_KEYS,
-} as const;
 
 type StoredUser = { id?: string; email?: string | null; password?: string | null };
 
 export type CredentialAttempt =
   | { outcome: "ok"; user: StoredUser }
   | { outcome: "invalid" }
-  | { outcome: "locked" };
+  | { outcome: "locked"; retryAfterSeconds: number };
 
 /**
- * The whole decision in one place, so it can be tested without NextAuth.
+ * The whole decision in one place, testable without NextAuth.
  *
- * Order matters and is the point: shape -> lock -> lookup -> compare. A locked
- * caller triggers no database query and no bcrypt work; an unknown address still
- * pays one dummy comparison so the response time does not reveal that the account
- * does not exist.
+ * Order: reserve pair -> reserve account -> read address -> lookup -> compare.
+ * A locked caller triggers no database lookup and no bcrypt work. An unknown
+ * address still pays one dummy comparison, and a lock is applied to unknown
+ * accounts exactly as to real ones, so neither timing nor the lock reveals
+ * whether an account exists.
  */
 export async function verifyCredentialAttempt(input: {
+  store: ThrottleStore;
   parsed: ParsedCredentials;
   address: string;
   lookup: (email: string) => Promise<StoredUser[]>;
@@ -145,12 +195,26 @@ export async function verifyCredentialAttempt(input: {
   dummyHash: string;
   now?: number;
 }): Promise<CredentialAttempt> {
-  const { parsed, address, lookup, verify, dummyHash } = input;
+  const { store, parsed, address, lookup, verify, dummyHash } = input;
   const now = input.now ?? Date.now();
-  const key = loginGuardKey(parsed.email, address);
+  const keys = loginKeys(parsed.email, address);
+  const { windowMs } = LOGIN_LIMITS;
 
-  if (isLocked(key, now)) {
-    return { outcome: "locked" };
+  const pair = await store.hit(keys.pair, windowMs, now);
+  if (pair.count > LOGIN_LIMITS.pair) {
+    return { outcome: "locked", retryAfterSeconds: secondsUntil(pair.resetAt, now) };
+  }
+
+  const account = await store.hit(keys.account, windowMs, now);
+  if (account.count > LOGIN_LIMITS.account) {
+    return { outcome: "locked", retryAfterSeconds: secondsUntil(account.resetAt, now) };
+  }
+
+  if (keys.address) {
+    const seen = await store.peek(keys.address, now);
+    if (seen && seen.count >= LOGIN_LIMITS.address) {
+      return { outcome: "locked", retryAfterSeconds: secondsUntil(seen.resetAt, now) };
+    }
   }
 
   const candidates =
@@ -167,18 +231,36 @@ export async function verifyCredentialAttempt(input: {
     }
   }
 
-  if (!user?.password) {
-    await verify(parsed.password, dummyHash);
-    recordFailure(key, now);
+  const matches = user?.password
+    ? await verify(parsed.password, user.password)
+    : (await verify(parsed.password, dummyHash), false);
+
+  if (!user || !matches) {
+    if (keys.address) {
+      await store.hit(keys.address, windowMs, now);
+    }
     return { outcome: "invalid" };
   }
 
-  const matches = await verify(parsed.password, user.password);
-  if (!matches) {
-    recordFailure(key, now);
-    return { outcome: "invalid" };
-  }
-
-  clearFailures(key);
+  // Only the pair window is cleared. Clearing the account or address window on
+  // success would let an attacker reset them by signing in to an account of
+  // their own from the same address.
+  await store.clear(keys.pair);
   return { outcome: "ok", user };
+}
+
+/**
+ * Generic "N events per window" check for other auth actions (password-reset
+ * requests). Returns false once the allowance is used up.
+ */
+export async function allowAuthAction(
+  store: ThrottleStore,
+  scope: string,
+  subject: string,
+  limit: number,
+  windowMs: number,
+  now: number = Date.now()
+): Promise<boolean> {
+  const hit = await store.hit(digest(scope, subject), windowMs, now);
+  return hit.count <= limit;
 }
