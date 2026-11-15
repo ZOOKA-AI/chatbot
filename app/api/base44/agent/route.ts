@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requestIdFrom } from "@/lib/http/request-id";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   Base44AgentError,
@@ -141,8 +142,19 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof Base44AgentError) {
+      // The message can carry upstream response text and the names of the
+      // server's configuration variables, so it goes to the log, not the client.
+      const requestId = requestIdFrom(request.headers);
+      console.error(
+        JSON.stringify({
+          route: "/api/base44/agent",
+          requestId,
+          status: error.status,
+          message: error.message,
+        })
+      );
       return NextResponse.json(
-        { error: "base44_error", message: error.message },
+        { error: "base44_error", requestId },
         { status: error.status === 401 ? 502 : error.status }
       );
     }
