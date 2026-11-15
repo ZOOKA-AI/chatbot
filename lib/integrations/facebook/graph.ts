@@ -108,8 +108,10 @@ export async function listFacebookPosts(workspaceId: string, limit = 10) {
     `/${credentials.pageId}/posts`,
     {
       body: {
-        fields:
-          "id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)",
+        // reactions/comments summaries need pages_read_user_content, which the
+        // page token we hold does not carry, so they are left out instead of
+        // failing the whole read.
+        fields: "id,message,created_time,permalink_url,full_picture,shares",
         limit: String(Math.min(Math.max(limit, 1), 25)),
       },
     }
