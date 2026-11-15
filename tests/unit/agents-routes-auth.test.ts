@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 test("nothing is readable without a caller", async () => {
-  assert.equal((await statusGET()).status, 401);
+  assert.equal((await statusGET(req())).status, 401);
   assert.equal((await tasksGET(req())).status, 401);
   assert.equal((await decisionsGET(req())).status, 401);
 });
@@ -71,7 +71,7 @@ test("an authenticated agent sees the command centre status", async () => {
   h.commandCenterStatus.mockResolvedValue({ pendingApprovals: 2, openTasks: 5 });
   h.recentAgentActivity.mockResolvedValue([]);
 
-  const response = await statusGET();
+  const response = await statusGET(req());
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.pendingApprovals, 2);
