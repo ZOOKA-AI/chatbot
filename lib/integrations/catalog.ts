@@ -229,6 +229,22 @@ export async function recordIntegrationUsage(
   `);
 }
 
+/** Current usage for a metric in the active monthly period (0 when unused). */
+export async function getIntegrationUsage(
+  workspaceId: string,
+  metric: string
+) {
+  const rows = (await db.execute(sql`
+    select used from usage_counter
+    where workspace_id = ${workspaceId}
+      and metric = ${metric}
+      and period_start = date_trunc('month', now())::date
+    limit 1
+  `)) as unknown as Record<string, unknown>[];
+  const row = rows[0];
+  return row ? Number(row.used ?? 0) : 0;
+}
+
 export async function appendAudit(input: {
   workspaceId: string;
   providerId: string;

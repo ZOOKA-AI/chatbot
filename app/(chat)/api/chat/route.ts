@@ -50,6 +50,7 @@ import { createTelegramBotTools } from "@/lib/ai/tools/telegram-bot";
 import { createEmailRoutingTools } from "@/lib/ai/tools/email-routing";
 import { createGoogleAdsTools } from "@/lib/ai/tools/google-ads";
 import { createIntegrationSetupTools } from "@/lib/ai/tools/integration-setup";
+import { createConnectorTools } from "@/lib/ai/tools/connectors";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -319,6 +320,9 @@ export async function POST(request: Request) {
     const integrationSetupTools = agentAccessAuthorized
       ? createIntegrationSetupTools(workspaceContext.organizationId)
       : {};
+    const connectorTools = agentAccessAuthorized
+      ? createConnectorTools(workspaceContext.organizationId, session.user.id)
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -394,6 +398,7 @@ export async function POST(request: Request) {
           ...emailRoutingTools,
           ...googleAdsTools,
           ...integrationSetupTools,
+          ...connectorTools,
         };
 
         const tracing = createChatTracing();

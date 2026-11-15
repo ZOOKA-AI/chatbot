@@ -590,6 +590,75 @@ export const INTEGRATION_PLAYBOOKS: IntegrationPlaybook[] = [
     docsUrl: "https://shopify.dev/docs/apps/auth/admin-app-access-tokens",
   },
   {
+    providerId: "cloudflare",
+    selfServe: true,
+    connection: "token",
+    tokenProviderId: "cloudflare",
+    credentialEn: "Cloudflare API token (scoped: Zone:Read, plus DNS:Edit if needed)",
+    credentialAr: "توكن Cloudflare API (بنطاق Zone:Read وDNS:Edit عند الحاجة)",
+    prerequisites: [
+      {
+        en: "A Cloudflare account with at least one zone (domain).",
+        ar: "حساب كلاودفلير فيه نطاق واحد على الأقل.",
+      },
+    ],
+    steps: [
+      {
+        en: "dash.cloudflare.com → My Profile → API Tokens → Create Token → use the 'Read all resources' template or a custom token with Zone:Read.",
+        ar: "dash.cloudflare.com → الملف الشخصي → توكنات API → إنشاء توكن → استخدم قالب قراءة كل الموارد أو توكنًا مخصصًا بصلاحية Zone:Read.",
+      },
+      {
+        en: "Restrict the token to the account and zones you actually want the agent to read.",
+        ar: "قيّد التوكن على الحساب والنطاقات التي تريد أن يقرأها الوكيل فقط.",
+      },
+      {
+        en: "Paste the token into the Cloudflare card here; we verify it against /user/tokens/verify before storing it.",
+        ar: "الصق التوكن في كارت كلاودفلير هنا؛ نتحقق منه عبر /user/tokens/verify قبل حفظه.",
+      },
+    ],
+    verifyEn: "We call /client/v4/user/tokens/verify and then list up to 20 zones.",
+    verifyAr: "نستدعي /client/v4/user/tokens/verify ثم نسرد حتى 20 نطاقًا.",
+    limitsEn: "Reads only: token status and zones. DNS record changes are not implemented.",
+    limitsAr: "قراءة فقط: حالة التوكن والنطاقات. تعديل سجلات DNS غير منفّذ.",
+    docsUrl: "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
+  },
+  {
+    providerId: "namecheap",
+    selfServe: false,
+    connection: "blocked",
+    credentialEn: "Namecheap API user + key, with the egress IP allowlisted",
+    credentialAr: "مستخدم ومفتاح Namecheap API مع السماح لعنوان IP الصادر",
+    prerequisites: [
+      {
+        en: "API access enabled on the Namecheap account (Profile → Tools → Namecheap API Access).",
+        ar: "تفعيل وصول API في حساب نيم تشيب (الملف → الأدوات → Namecheap API Access).",
+      },
+      {
+        en: "This platform's egress IP added to the allowlist; Namecheap rejects every other IP with error 1011100.",
+        ar: "إضافة عنوان IP الصادر للمنصة إلى قائمة السماح؛ نيم تشيب يرفض أي IP آخر بالخطأ 1011100.",
+      },
+    ],
+    steps: [
+      {
+        en: "Enable API access and copy the API user and key.",
+        ar: "فعّل وصول API وانسخ مستخدم API والمفتاح.",
+      },
+      {
+        en: "Add the egress IP shown by our diagnostic to the allowlist in the same screen.",
+        ar: "أضف عنوان IP الصادر الذي يعرضه تشخيصنا إلى قائمة السماح في نفس الشاشة.",
+      },
+      {
+        en: "Until the IP is allowlisted the connector cannot answer at all, so the card stays closed instead of failing silently.",
+        ar: "قبل السماح للـIP لا يستطيع الموصل الرد إطلاقًا، لذلك يبقى الكارت مغلقًا بدل الفشل الصامت.",
+      },
+    ],
+    verifyEn: "namecheap.users.getBalances over HTTPS with the client IP sent explicitly.",
+    verifyAr: "نداء namecheap.users.getBalances عبر HTTPS مع إرسال IP العميل صراحةً.",
+    limitsEn: "Blocked by the IP allowlist today; reads only when it opens.",
+    limitsAr: "محجوب بقائمة السماح اليوم؛ قراءة فقط عند فتحها.",
+    docsUrl: "https://www.namecheap.com/support/api/",
+  },
+  {
     providerId: "gmail",
     selfServe: true,
     connection: "oauth",
