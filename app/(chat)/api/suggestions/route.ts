@@ -1,10 +1,20 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getSuggestionsByDocumentId } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { queryParamIsValid, uuidSchema } from "@/lib/validation/chat";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const documentId = searchParams.get("documentId");
+  const documentIdValid = queryParamIsValid(
+    documentId,
+    uuidSchema,
+    "documentId",
+    "must be a valid document id"
+  );
+  if (!documentIdValid.ok) {
+    return documentIdValid.response;
+  }
 
   if (!documentId) {
     return new ChatbotError(

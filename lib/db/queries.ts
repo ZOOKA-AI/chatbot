@@ -54,6 +54,7 @@ import {
   mediaJob,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
+import { claimPasswordResetToken } from "@/lib/auth/verification";
 import { mediaJobUpdateQuery, type MediaJobUpdate } from "./media-job-state";
 
 // Optionally, if not using email/pass login, you can
@@ -1701,26 +1702,29 @@ export async function createPasswordResetToken(userId: string, tokenHash: string
   await db.insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
 }
 
+/**
+ * Consumes a reset token exactly once.
+ *
+ * The old version read the row, checked it, then wrote: two submissions arriving
+ * together both passed the check, so one token could reset the password twice.
+ * The claim is now a single conditional UPDATE (claimPasswordResetToken) that
+ * returns the userId only to the caller that won, and the password is written for
+ * that winner alone.
+ */
 export async function consumePasswordResetToken(
   tokenHash: string,
   newPassword: string
 ): Promise<boolean> {
-  const [row] = await db
-    .select()
-    .from(passwordResetToken)
-    .where(eq(passwordResetToken.tokenHash, tokenHash))
-    .limit(1);
-  if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+  const userId = await claimPasswordResetToken(tokenHash, { db });
+  if (!userId) {
     return false;
   }
+
   await db
     .update(user)
     .set({ password: generateHashedPassword(newPassword) })
-    .where(eq(user.id, row.userId));
-  await db
-    .update(passwordResetToken)
-    .set({ usedAt: new Date() })
-    .where(eq(passwordResetToken.tokenHash, tokenHash));
+    .where(eq(user.id, userId));
+
   return true;
 }
 

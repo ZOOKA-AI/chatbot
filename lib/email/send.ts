@@ -58,3 +58,41 @@ export function sendPasswordResetEmail(
     : `<p>We received a request to reset your password. The link is valid for 30 minutes and can be used once.</p>${button(link, "Set a new password")}<p style="font-size:13px;color:#9ca3af">If you did not request this, ignore this email; your password is unchanged.</p>`;
   return sendMail(to, title, shell(title, body, lang));
 }
+
+/**
+ * Sent to the address that was just registered, when verification is switched on.
+ * The link is single use and expires in 24 hours (see lib/auth/verification.ts).
+ */
+export function sendVerificationEmail(
+  to: string,
+  token: string,
+  lang: "ar" | "en" = "ar"
+) {
+  const ar = lang === "ar";
+  const link = `${BASE}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  const title = ar ? "أكّد بريدك الإلكتروني" : "Confirm your email address";
+  const body = ar
+    ? `<p>لتأكيد بريدك، افتح الرابط التالي. الرابط صالح 24 ساعة ويُستخدم مرة واحدة فقط.</p>${button(link, "تأكيد البريد")}<p style="font-size:13px;color:#9ca3af">لو ما أنشأتش حسابًا، تجاهل هذه الرسالة ولن يُفعَّل شيء.</p>`
+    : `<p>Open the link below to confirm your address. It is valid for 24 hours and can be used once.</p>${button(link, "Confirm email")}<p style="font-size:13px;color:#9ca3af">If you did not create an account, ignore this email and nothing will happen.</p>`;
+  return sendMail(to, title, shell(title, body, lang));
+}
+
+/**
+ * Sent to the owner of an address when someone tries to register with it.
+ * This is the only place the two registration branches differ, and the difference
+ * is inside the mailbox, not in the response.
+ */
+export function sendExistingAccountNotice(to: string, lang: "ar" | "en" = "ar") {
+  const ar = lang === "ar";
+  const title = ar ? "محاولة إنشاء حساب ببريدك" : "A sign-up attempt used your email";
+  const body = ar
+    ? `<p>حاول أحدهم إنشاء حساب جديد بهذا البريد، وهو مسجّل عندنا بالفعل، فلم يُنشأ حساب جديد ولم يتغيّر حسابك.</p>${button(`${BASE}/login`, "تسجيل الدخول")}${button(
+        `${BASE}/forgot-password`,
+        "نسيت كلمة المرور"
+      )}<p style="font-size:13px;color:#9ca3af">لو ما كنتش أنت، لا حاجة لأي إجراء.</p>`
+    : `<p>Someone tried to create a new account with this address. It is already registered, so no new account was created and nothing about yours changed.</p>${button(`${BASE}/login`, "Sign in")}${button(
+        `${BASE}/forgot-password`,
+        "Forgot password"
+      )}<p style="font-size:13px;color:#9ca3af">If this was not you, no action is needed.</p>`;
+  return sendMail(to, title, shell(title, body, lang));
+}

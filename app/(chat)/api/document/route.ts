@@ -6,10 +6,15 @@ import {
   saveDocument,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { optionalIntIsValid, queryParamIsValid, uuidSchema } from "@/lib/validation/chat";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const idValid = queryParamIsValid(id, uuidSchema, "id", "must be a valid document id");
+  if (!idValid.ok) {
+    return idValid.response;
+  }
 
   if (!id) {
     return new ChatbotError(
@@ -41,6 +46,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const idValid = queryParamIsValid(id, uuidSchema, "id", "must be a valid document id");
+  if (!idValid.ok) {
+    return idValid.response;
+  }
 
   if (!id) {
     return new ChatbotError(
@@ -77,7 +86,15 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const idValid = queryParamIsValid(id, uuidSchema, "id", "must be a valid document id");
+  if (!idValid.ok) {
+    return idValid.response;
+  }
   const timestamp = searchParams.get("timestamp");
+  const timestampValid = optionalIntIsValid(timestamp, "timestamp");
+  if (!timestampValid.ok) {
+    return timestampValid.response;
+  }
 
   if (!id) {
     return new ChatbotError(

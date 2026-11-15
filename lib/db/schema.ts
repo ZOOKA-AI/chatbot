@@ -18,7 +18,30 @@ export const user = pgTable("User", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   email: varchar("email", { length: 64 }).notNull(),
   password: varchar("password", { length: 64 }),
+  // Set only by the verification flow (pending migration 0029).
+  emailVerifiedAt: timestamp("emailVerifiedAt"),
 });
+
+/**
+ * One row per issued verification token. Only the SHA-256 digest is stored, so a
+ * database read cannot be replayed as a working link. Single use is enforced by
+ * a conditional UPDATE in lib/auth/verification.ts, not by reading first.
+ */
+export const emailVerificationToken = pgTable(
+  "EmailVerificationToken",
+  {
+    tokenHash: varchar("tokenHash", { length: 64 }).primaryKey().notNull(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expiresAt").notNull(),
+    usedAt: timestamp("usedAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdx: index("EmailVerificationToken_userId_idx").on(table.userId),
+  })
+);
 
 export type User = InferSelectModel<typeof user>;
 

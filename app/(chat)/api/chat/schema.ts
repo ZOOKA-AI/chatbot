@@ -17,24 +17,31 @@ const partSchema = z.union([textPartSchema, filePartSchema]);
 const userMessageSchema = z.object({
   id: z.string().uuid(),
   role: z.enum(["user"]),
-  parts: z.array(partSchema),
+  parts: z.array(partSchema).max(8),
 });
 
-// For tool approval flows, we accept all messages (more permissive schema)
+// For tool approval flows, we accept all messages (more permissive schema).
+// Permissive is not unbounded: every field below carries a ceiling, because this
+// payload is forwarded to a paid model call.
 const messageSchema = z.object({
-  id: z.string(),
-  role: z.string(),
-  parts: z.array(z.any()),
+  id: z.string().max(64),
+  role: z.enum(["user", "assistant", "system", "tool", "data"]),
+  parts: z.array(z.any()).max(20),
 });
 
 export const postRequestBodySchema = z.object({
   id: z.string().uuid(),
   // Either a single new message or all messages (for tool approvals)
   message: userMessageSchema.optional(),
-  messages: z.array(messageSchema).optional(),
+  // A long conversation is legitimate; an unbounded array is not.
+  messages: z.array(messageSchema).max(200).optional(),
   // Prior turns for guests, whose conversations are not stored server-side
   history: z.array(messageSchema).max(20).optional(),
-  selectedChatModel: z.string(),
+  selectedChatModel: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-zA-Z0-9._:-]+$/, "unknown model identifier"),
   selectedVisibilityType: z.enum(["public", "private"]),
   agentMode: z.boolean().default(false),
 });

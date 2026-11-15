@@ -81,6 +81,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import { uuidSchema as idSchema } from "@/lib/validation/chat";
 
 /** Hard ceiling for one assistant turn (Vercel Pro allows 300s). */
 const RESPONSE_TIMEOUT_MS = 240_000;
@@ -99,6 +100,12 @@ export { getStreamContext };
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
+
+  // A ceiling on the whole payload, before it is parsed or sent to a model.
+  const declaredSize = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredSize) && declaredSize > 2_000_000) {
+    return new ChatbotError("bad_request:api", "Request body is too large").toResponse();
+  }
 
   try {
     const json = await request.json();
@@ -616,6 +623,9 @@ export async function DELETE(request: Request) {
 
   if (!id) {
     return new ChatbotError("bad_request:api").toResponse();
+  }
+  if (!idSchema.safeParse(id).success) {
+    return new ChatbotError("bad_request:api", "Parameter id must be a valid chat id").toResponse();
   }
 
   const workspaceContext = await getWorkspaceContext();
