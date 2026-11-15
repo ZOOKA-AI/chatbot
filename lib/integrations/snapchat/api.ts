@@ -260,3 +260,122 @@ export async function listSnapchatCampaigns(
     },
   };
 }
+
+/**
+ * Campaign performance for a window. Snap returns spend in micro-currency
+ * (1_000_000 = one currency unit) and only for campaigns that actually ran, so
+ * the totals below are sums over what the API returned.
+ */
+export async function getSnapchatCampaignStats(
+  workspaceId: string,
+  options: { days?: number; adAccountId?: string; limit?: number } = {}
+) {
+  const overview = await getSnapchatOverview(workspaceId);
+  if (!overview.ok) {
+    return overview;
+  }
+  const accounts = overview.data.adAccounts.filter(
+    (account) => account.id
+  ) as { id: string; name: string | null; currency: string | null }[];
+  const targets = options.adAccountId
+    ? accounts.filter((account) => account.id === options.adAccountId)
+    : accounts.slice(0, 2);
+  if (targets.length === 0) {
+    return {
+      ok: false as const,
+      error: options.adAccountId
+        ? "That ad account id is not on this Snapchat organization."
+        : "This Snapchat organization has no ad accounts.",
+    };
+  }
+
+  const days = Math.min(Math.max(options.days ?? 30, 1), 90);
+  const limit = Math.min(Math.max(options.limit ?? 5, 1), 10);
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+  const startTime = `${start.toISOString().slice(0, 10)}T00:00:00.000Z`;
+  const endTime = `${end.toISOString().slice(0, 10)}T00:00:00.000Z`;
+
+  type StatRow = {
+    campaignId: string;
+    campaignName: string | null;
+    status: string | null;
+    impressions: number;
+    swipes: number;
+    spend: number;
+    adAccountName: string | null;
+  };
+  const rows: StatRow[] = [];
+  let currency: string | null = null;
+
+  for (const account of targets) {
+    currency = currency ?? account.currency;
+    const campaigns = await snapGet(
+      workspaceId,
+      `/adaccounts/${account.id}/campaigns`
+    );
+    if (!campaigns.ok) {
+      return campaigns;
+    }
+    const ids = ((campaigns.data.campaigns as unknown[]) ?? [])
+      .map((row) => (row as { campaign?: Record<string, unknown> }).campaign)
+      .filter((value): value is Record<string, unknown> => Boolean(value))
+      .slice(0, limit);
+
+    for (const campaign of ids) {
+      const campaignId = asString(campaign.id);
+      if (!campaignId) {
+        continue;
+      }
+      const query = new URLSearchParams({
+        start_time: startTime,
+        end_time: endTime,
+        granularity: "TOTAL",
+        fields: "impressions,spend,swipes",
+      }).toString();
+      const stats = await snapGet(
+        workspaceId,
+        `/campaigns/${campaignId}/stats?${query}`
+      );
+      if (!stats.ok) {
+        return stats;
+      }
+      const totals = ((stats.data.total_stats as unknown[]) ?? [])
+        .map((row) => (row as { total_stat?: Record<string, unknown> }).total_stat)
+        .filter((value): value is Record<string, unknown> => Boolean(value))[0];
+      const numbers = (totals?.stats as Record<string, unknown>) ?? {};
+      rows.push({
+        campaignId,
+        campaignName: asString(campaign.name),
+        status: asString(campaign.status),
+        impressions: typeof numbers.impressions === "number" ? numbers.impressions : 0,
+        swipes: typeof numbers.swipes === "number" ? numbers.swipes : 0,
+        spend:
+          typeof numbers.spend === "number"
+            ? Math.round((numbers.spend / 1_000_000) * 100) / 100
+            : 0,
+        adAccountName: account.name,
+      });
+    }
+  }
+
+  const totals = rows.reduce(
+    (sum, row) => ({
+      impressions: sum.impressions + row.impressions,
+      swipes: sum.swipes + row.swipes,
+      spend: Math.round((sum.spend + row.spend) * 100) / 100,
+    }),
+    { impressions: 0, swipes: 0, spend: 0 }
+  );
+
+  return {
+    ok: true as const,
+    data: {
+      organizationName: overview.data.organizationName,
+      window: { days, startTime, endTime },
+      currency,
+      totals,
+      campaigns: rows,
+    },
+  };
+}
