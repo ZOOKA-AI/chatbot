@@ -1,4 +1,7 @@
+import { z } from "zod";
+
 import { createTask, listTasks } from "@/lib/agents/command-center";
+import { fields, validateJson, validateQuery } from "@/lib/validation/api";
 import {
   badRequest,
   callerOrganizationId,
@@ -14,19 +17,31 @@ export async function GET(request: Request) {
     return unauthorized();
   }
 
-  const url = new URL(request.url);
-  const status = url.searchParams.get("status") ?? undefined;
-  const ownerAgentId = url.searchParams.get("ownerAgentId") ?? undefined;
-  const available = url.searchParams.get("available") === "true";
-  const limit = Number(url.searchParams.get("limit") ?? 50);
+  // Query shape first: an unparsed limit reached the SQL LIMIT clause.
+  const query = validateQuery(
+    request,
+    z
+      .object({
+        status: z
+          .enum(["pending", "in_progress", "completed", "failed", "blocked"])
+          .optional(),
+        ownerAgentId: fields.id.optional(),
+        available: z.enum(["true", "false"]).optional(),
+        limit: fields.limit.optional(),
+      })
+      .strict()
+  );
+  if (!query.ok) {
+    return badRequest(query.reason);
+  }
 
   return json({
     tasks: await listTasks({
       organizationId: callerOrganizationId(caller),
-      status,
-      ownerAgentId,
-      available,
-      limit: Number.isFinite(limit) ? limit : 50,
+      status: query.data.status,
+      ownerAgentId: query.data.ownerAgentId,
+      available: query.data.available === "true",
+      limit: query.data.limit ?? 50,
     }),
   });
 }
@@ -41,33 +56,35 @@ export async function POST(request: Request) {
     return badRequest("owner_or_admin_required");
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        title: fields.shortText,
+        instruction: fields.body,
+        ownerAgentId: fields.id.nullish(),
+        // Optional in the contract: the route defaults them to "normal" and [].
+        priority: fields.priority.optional(),
+        dependencies: fields.list.optional(),
+        environment: fields.environment,
+        approvalRequired: z.boolean().optional(),
+        rollbackPlan: z.string().trim().max(4000).nullish(),
+      })
+      .strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
-
-  const title = typeof payload.title === "string" ? payload.title.trim() : "";
-  const instruction = typeof payload.instruction === "string" ? payload.instruction.trim() : "";
-  if (!title || !instruction) {
-    return badRequest("title_and_instruction_required");
-  }
-
   const task = await createTask({
     organizationId: callerOrganizationId(caller),
-    title,
-    instruction,
-    ownerAgentId: typeof payload.ownerAgentId === "string" ? payload.ownerAgentId : null,
-    priority: ["low", "normal", "high", "critical"].includes(String(payload.priority))
-      ? (payload.priority as "low" | "normal" | "high" | "critical")
-      : "normal",
-    dependencies: Array.isArray(payload.dependencies)
-      ? payload.dependencies.filter((value): value is string => typeof value === "string")
-      : [],
-    environment: typeof payload.environment === "string" ? payload.environment : "production",
-    approvalRequired: payload.approvalRequired === true,
-    rollbackPlan: typeof payload.rollbackPlan === "string" ? payload.rollbackPlan : null,
+    title: parsed.data.title,
+    instruction: parsed.data.instruction,
+    ownerAgentId: parsed.data.ownerAgentId ?? null,
+    priority: parsed.data.priority ?? "normal",
+    dependencies: parsed.data.dependencies ?? [],
+    environment: parsed.data.environment ?? "production",
+    approvalRequired: parsed.data.approvalRequired === true,
+    rollbackPlan: parsed.data.rollbackPlan ?? null,
     createdBy: `owner:${caller.userId.slice(0, 8)}`,
   });
 

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { hasScope, listDecisions, recordDecision } from "@/lib/agents/command-center";
 import {
   badRequest,
@@ -7,14 +9,26 @@ import {
   resolveCaller,
   unauthorized,
 } from "@/lib/agents/auth";
+import { fields, validateJson, validateQuery } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
   }
-  const limit = Number(new URL(request.url).searchParams.get("limit") ?? 50);
-  return json({ decisions: await listDecisions(callerOrganizationId(caller), Number.isFinite(limit) ? limit : 50) });
+  const query = validateQuery(
+    request,
+    z.object({ limit: fields.limit.optional() }).strict()
+  );
+  if (!query.ok) {
+    return badRequest(query.reason);
+  }
+  return json({
+    decisions: await listDecisions(
+      callerOrganizationId(caller),
+      query.data.limit ?? 50
+    ),
+  });
 }
 
 export async function POST(request: Request) {
@@ -26,15 +40,23 @@ export async function POST(request: Request) {
     return forbidden("missing_scope:decision:write");
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        title: fields.shortText,
+        body: fields.body,
+        state: z.enum(["PROPOSED", "ACCEPTED", "REJECTED", "SUPERSEDED"]).optional(),
+        taskId: fields.uuid.nullish(),
+      })
+      .strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
-
-  const title = typeof payload.title === "string" ? payload.title.trim() : "";
-  const body = typeof payload.body === "string" ? payload.body.trim() : "";
+  const payload = parsed.data as Record<string, unknown>;
+  const title = parsed.data.title;
+  const body = parsed.data.body;
   if (!title || !body) {
     return badRequest("title_and_body_required");
   }

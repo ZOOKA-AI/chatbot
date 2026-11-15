@@ -50,7 +50,20 @@ BEGIN
   END IF;
 END $$;
 
--- ROLLBACK (run by hand; the columns carry no other meaning):
+-- Report, do not hide, any row that could not be attributed. The tables are
+-- empty today, so a healthy run notices 0; a non-zero count means legacy rows
+-- exist and must be re-assigned by hand before that data is used again.
+DO $$
+DECLARE quarantined bigint;
+BEGIN
+  SELECT count(*) INTO quarantined FROM "AgentIdentity" WHERE "organizationId" = 'unclaimed';
+  IF quarantined > 0 THEN
+    RAISE NOTICE '0028: % AgentIdentity row(s) quarantined as unclaimed', quarantined;
+  END IF;
+END $$;
+
+-- ROLLBACK lives in 0028_agent_tenant_scope.down.sql so it can be run as one
+-- step instead of pasted by hand:
 --   DROP INDEX IF EXISTS "AgentDeployment_organizationId_idx";
 --   DROP INDEX IF EXISTS "AgentApproval_organizationId_idx";
 --   DROP INDEX IF EXISTS "AgentDecision_organizationId_idx";

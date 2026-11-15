@@ -125,9 +125,11 @@ export async function registerAgent(input: RegisterInput) {
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
       environment: agentIdentity.environment,
+      status: agentIdentity.status,
+      lastSeenAt: agentIdentity.lastSeenAt,
     });
 
-  return { agent: row, key };
+  return { agent: row as AgentIdentity, key };
 }
 
 export async function listAgents(organizationId: string) {
@@ -272,6 +274,33 @@ export async function listTasks(options: {
  * (or self-owned) row, so exactly one caller can transition pending -> claimed.
  */
 export async function claimTask(agent: AgentIdentity, taskId: string) {
+  const [target] = await db
+    .select({
+      approvalRequired: agentTask.approvalRequired,
+      status: agentTask.status,
+    })
+    .from(agentTask)
+    .where(
+      and(
+        eq(agentTask.id, taskId),
+        eq(agentTask.organizationId, agent.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!target) {
+    return { ok: false as const, error: "task_not_found" };
+  }
+  if (target.approvalRequired) {
+    const state = await approvalState(taskId, agent.organizationId);
+    if (state !== "approved") {
+      return {
+        ok: false as const,
+        error: state === "rejected" ? "approval_rejected" : "approval_required",
+      };
+    }
+  }
+
   const claimed = await db
     .update(agentTask)
     .set({
@@ -319,6 +348,27 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
   return { ok: true as const, task: claimed[0] };
 }
 
+/**
+ * A task that needs approval cannot be worked on until that approval exists and
+ * is approved, and cannot be completed after it was rejected. Both checks read
+ * the same organisation, so another tenant's approval can never unlock a task.
+ */
+async function approvalState(taskId: string, organizationId: string) {
+  const rows = await db
+    .select({ status: agentApproval.status })
+    .from(agentApproval)
+    .where(
+      and(
+        eq(agentApproval.taskId, taskId),
+        eq(agentApproval.organizationId, organizationId)
+      )
+    )
+    .orderBy(desc(agentApproval.createdAt))
+    .limit(1);
+
+  return rows[0]?.status ?? null;
+}
+
 export type ReportInput = {
   taskId: string;
   status: "completed" | "failed" | "blocked";
@@ -326,6 +376,27 @@ export type ReportInput = {
 };
 
 export async function reportTask(agent: AgentIdentity, input: ReportInput) {
+  const [target] = await db
+    .select({ approvalRequired: agentTask.approvalRequired })
+    .from(agentTask)
+    .where(
+      and(
+        eq(agentTask.id, input.taskId),
+        eq(agentTask.organizationId, agent.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!target) {
+    return null;
+  }
+  if (target.approvalRequired && input.status === "completed") {
+    const state = await approvalState(input.taskId, agent.organizationId);
+    if (state !== "approved") {
+      return null;
+    }
+  }
+
   const [row] = await db
     .update(agentTask)
     .set({
@@ -449,4 +520,73 @@ export async function recentAgentActivity(organizationId: string, limit = 20) {
     )
     .orderBy(desc(agentIdentity.lastSeenAt))
     .limit(limit);
+}
+
+export async function listApprovals(
+  organizationId: string,
+  options: { status?: string; limit?: number } = {}
+) {
+  const filters: (ReturnType<typeof eq> | undefined)[] = [
+    eq(agentApproval.organizationId, organizationId),
+  ];
+  if (options.status) {
+    filters.push(eq(agentApproval.status, options.status));
+  }
+  return db
+    .select()
+    .from(agentApproval)
+    .where(and(...filters))
+    .orderBy(desc(agentApproval.createdAt))
+    .limit(Math.min(options.limit ?? 50, 200));
+}
+
+/**
+ * A decision is a single conditional UPDATE: the row must still be pending and
+ * must belong to the caller's organisation. Two decisions cannot both win, and
+ * a decision on another tenant's approval matches no row.
+ */
+export async function decideApproval(input: {
+  organizationId: string;
+  approvalId: string;
+  decision: "approved" | "rejected";
+  decidedBy: string;
+}) {
+  const [row] = await db
+    .update(agentApproval)
+    .set({
+      status: input.decision,
+      decidedBy: input.decidedBy.slice(0, 64),
+      decidedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(agentApproval.id, input.approvalId),
+        eq(agentApproval.organizationId, input.organizationId),
+        eq(agentApproval.status, "pending")
+      )
+    )
+    .returning();
+
+  return row ?? null;
+}
+
+export async function cancelTask(input: {
+  organizationId: string;
+  taskId: string;
+  reason: string;
+  by: string;
+}) {
+  const [row] = await db
+    .update(agentTask)
+    .set({ status: "cancelled", evidence: input.reason.slice(0, 8000) })
+    .where(
+      and(
+        eq(agentTask.id, input.taskId),
+        eq(agentTask.organizationId, input.organizationId),
+        or(eq(agentTask.status, "pending"), eq(agentTask.status, "in_progress"))
+      )
+    )
+    .returning();
+
+  return row ?? null;
 }

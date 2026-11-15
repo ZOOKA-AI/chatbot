@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { hasScope, requestApproval } from "@/lib/agents/command-center";
 import {
   badRequest,
@@ -7,6 +9,7 @@ import {
   resolveCaller,
   unauthorized,
 } from "@/lib/agents/auth";
+import { fields, validateJson, validateQuery } from "@/lib/validation/api";
 
 export async function POST(request: Request) {
   const caller = await resolveCaller(request);
@@ -20,21 +23,18 @@ export async function POST(request: Request) {
     return forbidden("missing_scope:approval:request");
   }
 
-  let payload: { taskId?: unknown; reason?: unknown };
-  try {
-    payload = (await request.json()) as typeof payload;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z.object({ taskId: fields.uuid.nullish(), reason: fields.reason }).strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
-
-  const reason = typeof payload.reason === "string" ? payload.reason.trim() : "";
-  if (!reason) {
-    return badRequest("reason_required");
-  }
+  const { reason } = parsed.data;
 
   const approval = await requestApproval(caller.agent, {
     organizationId: callerOrganizationId(caller),
-    taskId: typeof payload.taskId === "string" ? payload.taskId : null,
+    taskId: parsed.data.taskId ?? null,
     reason,
   });
 

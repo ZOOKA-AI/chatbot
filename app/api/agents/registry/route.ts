@@ -1,4 +1,11 @@
-import { listAgents, registerAgent } from "@/lib/agents/command-center";
+import { z } from "zod";
+
+import {
+  AGENT_SCOPES,
+  listAgents,
+  registerAgent,
+} from "@/lib/agents/command-center";
+import { fields, validateJson } from "@/lib/validation/api";
 import {
   badRequest,
   callerOrganizationId,
@@ -26,27 +33,24 @@ export async function POST(request: Request) {
     return badRequest("owner_or_admin_required");
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        slug: fields.slug,
+        displayName: fields.name,
+        role: z.string().trim().min(2).max(64),
+        scopes: z.array(z.enum(AGENT_SCOPES)).max(AGENT_SCOPES.length).optional(),
+        environment: fields.environment,
+      })
+      .strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
-
-  const slug = typeof payload.slug === "string" ? payload.slug.trim() : "";
-  const displayName = typeof payload.displayName === "string" ? payload.displayName.trim() : "";
-  const role = typeof payload.role === "string" ? payload.role.trim() : "";
-  if (!slug || !displayName || !role) {
-    return badRequest("slug_displayName_role_required");
-  }
-
-  const scopes = Array.isArray(payload.scopes)
-    ? payload.scopes.filter((scope): scope is string => typeof scope === "string")
-    : undefined;
-  const environment =
-    payload.environment === "preview" || payload.environment === "development"
-      ? payload.environment
-      : "production";
+  const { slug, displayName, role } = parsed.data;
+  const scopes = parsed.data.scopes;
+  const environment = parsed.data.environment ?? "production";
 
   try {
     const created = await registerAgent({

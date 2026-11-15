@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { hasScope, listDeployments, recordDeployment } from "@/lib/agents/command-center";
 import {
   badRequest,
@@ -7,14 +9,26 @@ import {
   resolveCaller,
   unauthorized,
 } from "@/lib/agents/auth";
+import { fields, validateJson, validateQuery } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
   }
-  const limit = Number(new URL(request.url).searchParams.get("limit") ?? 50);
-  return json({ deployments: await listDeployments(callerOrganizationId(caller), Number.isFinite(limit) ? limit : 50) });
+  const query = validateQuery(
+    request,
+    z.object({ limit: fields.limit.optional() }).strict()
+  );
+  if (!query.ok) {
+    return badRequest(query.reason);
+  }
+  return json({
+    deployments: await listDeployments(
+      callerOrganizationId(caller),
+      query.data.limit ?? 50
+    ),
+  });
 }
 
 export async function POST(request: Request) {
@@ -29,12 +43,23 @@ export async function POST(request: Request) {
     return forbidden("missing_scope:deployment:write");
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        environment: fields.environment,
+        commitSha: fields.commitSha.nullish(),
+        deploymentId: z.string().trim().min(1).max(120).nullish(),
+        status: z.enum(["pending", "running", "succeeded", "failed"]).optional(),
+        notes: z.string().trim().max(2000).nullish(),
+        rollbackOf: fields.uuid.nullish(),
+      })
+      .strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
+  const payload = parsed.data as Record<string, unknown>;
 
   const deployment = await recordDeployment(caller.agent, {
     organizationId: callerOrganizationId(caller),

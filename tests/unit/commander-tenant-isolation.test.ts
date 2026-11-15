@@ -250,3 +250,157 @@ test("a row left at the migration default is visible to nobody", async () => {
   assert.equal(status.tasks.pending, undefined, "and they are not counted either");
   assert.ok(a.key.startsWith("zk_"));
 });
+
+test("a gated task cannot be claimed until its own organisation approved it", async () => {
+  const a = await register(ORG_A, "alpha-gated");
+  const task = await center.createTask({
+    organizationId: ORG_A,
+    title: "delete the old bucket",
+    instruction: "remove it",
+    approvalRequired: true,
+  });
+
+  const blocked = await center.claimTask(a.agent, task.id);
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.error, "approval_required");
+
+  const approval = await center.requestApproval(a.agent, {
+    organizationId: ORG_A,
+    taskId: task.id,
+    reason: "destroying a bucket is irreversible",
+  });
+
+  const stillBlocked = await center.claimTask(a.agent, task.id);
+  assert.equal(stillBlocked.ok, false);
+  assert.equal(stillBlocked.error, "approval_required", "pending is not approved");
+
+  const decided = await center.decideApproval({
+    organizationId: ORG_A,
+    approvalId: approval.id,
+    decision: "approved",
+    decidedBy: "owner:11111111",
+  });
+  assert.equal(decided?.status, "approved");
+
+  const claimed = await center.claimTask(a.agent, task.id);
+  assert.equal(claimed.ok, true);
+});
+
+test("a rejected approval can never be claimed or completed", async () => {
+  const a = await register(ORG_A, "alpha-rejected");
+  const task = await center.createTask({
+    organizationId: ORG_A,
+    title: "rotate production credentials",
+    instruction: "rotate",
+    approvalRequired: true,
+  });
+  const approval = await center.requestApproval(a.agent, {
+    organizationId: ORG_A,
+    taskId: task.id,
+    reason: "production credentials",
+  });
+  await center.decideApproval({
+    organizationId: ORG_A,
+    approvalId: approval.id,
+    decision: "rejected",
+    decidedBy: "owner:11111111",
+  });
+
+  const refused = await center.claimTask(a.agent, task.id);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error, "approval_rejected");
+
+  const reported = await center.reportTask(a.agent, {
+    taskId: task.id,
+    status: "completed",
+    evidence: "pretended to finish",
+  });
+  assert.equal(reported, null, "a forced report cannot complete a rejected action");
+
+  const [row] = await center.listTasks({ organizationId: ORG_A });
+  assert.equal(row.status, "pending");
+});
+
+test("another tenant cannot decide an approval, and a second decision changes nothing", async () => {
+  const a = await register(ORG_A, "alpha-approve");
+  await register(ORG_B, "beta-approve");
+  const task = await center.createTask({
+    organizationId: ORG_A,
+    title: "drop a table",
+    instruction: "drop",
+    approvalRequired: true,
+  });
+  const approval = await center.requestApproval(a.agent, {
+    organizationId: ORG_A,
+    taskId: task.id,
+    reason: "destructive",
+  });
+
+  const fromB = await center.decideApproval({
+    organizationId: ORG_B,
+    approvalId: approval.id,
+    decision: "approved",
+    decidedBy: "owner:22222222",
+  });
+  assert.equal(fromB, null);
+
+  const fromA = await center.decideApproval({
+    organizationId: ORG_A,
+    approvalId: approval.id,
+    decision: "approved",
+    decidedBy: "owner:11111111",
+  });
+  assert.equal(fromA?.status, "approved");
+
+  const again = await center.decideApproval({
+    organizationId: ORG_A,
+    approvalId: approval.id,
+    decision: "rejected",
+    decidedBy: "owner:22222222",
+  });
+  assert.equal(again, null, "a decided approval cannot be flipped");
+
+  assert.deepEqual(await center.listApprovals(ORG_B), []);
+  assert.equal((await center.listApprovals(ORG_A)).length, 1);
+});
+
+test("cancelling a task is scoped, and a cancelled task cannot be claimed", async () => {
+  const a = await register(ORG_A, "alpha-cancel");
+  const task = await center.createTask({
+    organizationId: ORG_A,
+    title: "long job",
+    instruction: "run",
+  });
+
+  const fromB = await center.cancelTask({
+    organizationId: ORG_B,
+    taskId: task.id,
+    reason: "not mine but trying anyway",
+    by: "owner:22222222",
+  });
+  assert.equal(fromB, null);
+
+  const fromA = await center.cancelTask({
+    organizationId: ORG_A,
+    taskId: task.id,
+    reason: "no longer needed",
+    by: "owner:11111111",
+  });
+  assert.equal(fromA?.status, "cancelled");
+
+  const claim = await center.claimTask(a.agent, task.id);
+  assert.equal(claim.ok, false);
+  assert.equal(claim.error, "task_already_claimed");
+});
+
+test("the recent-activity audit trail is per organisation", async () => {
+  await register(ORG_A, "alpha-audit");
+  await register(ORG_B, "beta-audit");
+  await center.createTask({ organizationId: ORG_A, title: "A only", instruction: "x" });
+  await center.createTask({ organizationId: ORG_B, title: "B only", instruction: "y" });
+
+  const activityA = JSON.stringify(await center.recentAgentActivity(ORG_A));
+  const activityB = JSON.stringify(await center.recentAgentActivity(ORG_B));
+  assert.ok(!activityA.includes("B only"));
+  assert.ok(!activityB.includes("A only"));
+});
