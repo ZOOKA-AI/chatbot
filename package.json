@@ -20,7 +20,10 @@
     "test:unit": "vitest run tests/unit && tsx --test lib/ai/models.test.ts",
     "check:placeholders": "node scripts/check-placeholders.mjs",
     "prebuild": "node scripts/check-placeholders.mjs",
-    "test:composer": "node scripts/test-composer.mjs"
+    "test:composer": "node scripts/test-composer.mjs",
+    "test:p0": "vitest run tests/unit/p0",
+    "dev:db:apply": "node scripts/dev/apply-dev-schema.mjs",
+    "dev:db:check": "node scripts/dev/check-dev-db.mjs"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.235",
