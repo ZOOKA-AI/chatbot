@@ -382,35 +382,13 @@ export async function POST(request: Request) {
           }`,
           messages: modelMessages,
           stopWhen: stepCountIs(agentAccessAuthorized ? 10 : 5),
+          // Every tool that was actually built above is exposed to the model.
+          // A hand-maintained allowlist silently dropped whole tool families
+          // (n8n, X, Instagram) even though they were passed in `tools`, so the
+          // agent answered from general knowledge and never called them.
           experimental_activeTools: isReasoningModel
             ? []
-            : [
-                "getWeather",
-                "createDocument",
-                "updateDocument",
-                "requestSuggestions",
-                "saveMemory",
-                ...(process.env.TAVILY_API_KEY ? ["searchWeb"] : []),
-                "readUrl",
-                ...(agentAccessAuthorized
-                  ? ([
-                      "searchGoogleDrive",
-                      "readGoogleDriveFile",
-                      "searchGmail",
-                      "readGmailMessage",
-                      "sendGmailMessage",
-                      "listCalendarEvents",
-                      "createCalendarEvent",
-                      "listGitHubRepos",
-                      "readGitHubFile",
-                      "listGitHubIssues",
-                      "createGitHubIssue",
-                      "commentOnGitHubIssue",
-                      "commitGitHubFile",
-                      "createGitHubPullRequest",
-                    ] as const)
-                  : []),
-              ],
+            : (Object.keys(tools) as (keyof typeof tools)[]),
           providerOptions: isReasoningModel
             ? {
                 anthropic: {
