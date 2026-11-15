@@ -142,6 +142,33 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 22 — Preview database and the route-to-policy path (16 Nov 2026)
+
+Branch `feat/commander-tenant-scope`, PR #95, draft. No production change, no merge,
+no billing, no paid resource.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 22.1 | Free isolated PostgreSQL for real connection tests | DONE (local, ephemeral) | PostgreSQL 15.19 installed in the sandbox: own cluster, own database `zooka_tenant`, own password, port 55432 on 127.0.0.1. No production credentials, no production data, no cost |
+| 22.2 | Hosted free preview database | BLOCKED (owner decision) | Supabase free limit is spent (two active projects per user) and no Neon credential exists in the workspace. Needs the owner to authorise an account or provide credentials |
+| 22.3 | Migrations 0027-0031 on a real server | VERIFIED | All four applied cleanly in order; RLS `true` and `force=true` on all five tables, owner `postgres`, `zooka_runtime` LOGIN and not superuser/BYPASSRLS |
+| 22.4 | Runtime role privileges, real server | VERIFIED | `current_user = zooka_runtime`; not superuser, not BYPASSRLS, no CREATEDB/CREATEROLE, owns zero relations, `has_schema_privilege('public','CREATE') = false`; `ALTER TABLE ... DISABLE RLS` refused |
+| 22.5 | RLS actually enforced, not just present | VERIFIED | Same connection: no context → 0 rows; context A → 1 row; `''`, `ORG-A` and a non-uuid each → 0 rows |
+| 22.6 | Two independent connections at once | VERIFIED | Two pools, two overlapping transactions with `pg_sleep`, each sees only its own tenant and reports its own `current_setting` |
+| 22.7 | Pool reuse | VERIFIED | Same max-1 pool: after COMMIT the next transaction sees 0 rows and `current_setting` is empty |
+| 22.8 | Transaction rollback | VERIFIED | A write followed by an error leaves no row (checked with the owner connection) |
+| 22.9 | Cross-tenant writes | VERIFIED | INSERT into another tenant and moving a row out of the tenant both raise `row-level security`; neither writes an invisible row |
+| 22.10 | Superuser bypass, demonstrated | VERIFIED | The same policies and data are fully visible to the `postgres` connection, which is why `runInTenantTransaction` refuses a privileged role before any work |
+| 22.11 | Routes actually use the tenant path | FIXED | The hole: all 12 Commander routes used the shared connection, so no policy was ever evaluated for a real request. `lib/db/tenant-context.ts` (ALS) + lazy Proxy handle in `command-center` + `withCommanderTenant` on all 12 routes |
+| 22.12 | The wiring cannot silently regress | VERIFIED | `commander-route-scope-guard.test.ts` reads every route and fails if a handler is exported unwrapped or a new route skips the wrapper (13 assertions) |
+| 22.13 | End-to-end chain, real server | VERIFIED | `commander-tenant-end-to-end.test.ts`: create in A visible to A and not to B; B cannot claim A's task with its id; the shared connection is a throwing stub so an escape fails loudly; full create→claim→report inside one transaction with the row confirmed by the owner connection; refused organisation opens no transaction |
+| 22.14 | UI integration, execution history panel | NOT_STARTED | No dashboard reads Commander state; the data layer it would need is in place and tested |
+
+Honest limits: the local cluster is ephemeral and part of the sandbox, so it proves
+behaviour but is not a deployment target; the hosted preview database at 22.2 is
+still the blocker for a durable preview. Priority 4 items (execution history,
+retry policy, UI) remain open.
+
 ## Stage 17-20 — Billing, QA, release
 
 | ID | Task | Status |
