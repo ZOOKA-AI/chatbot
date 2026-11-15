@@ -27,7 +27,8 @@ export type DecideResult =
   | { outcome: "decided"; id: string; status: ApprovalDecision }
   | { outcome: "already_decided"; id: string; status: string }
   | { outcome: "expired"; id: string }
-  | { outcome: "not_found"; id: string };
+  | { outcome: "not_found"; id: string }
+  | { outcome: "unauthorized"; reason: "decided_by_required" };
 
 export async function decideApproval(
   exec: SqlExecutor,
@@ -39,6 +40,13 @@ export async function decideApproval(
     log?: boolean;
   }
 ): Promise<DecideResult> {
+  // An unattributed decision is not a decision: the audit trail must name who
+  // accepted or refused, so an empty decider is refused before any read.
+  const decidedBy = typeof input.decidedBy === "string" ? input.decidedBy.trim() : "";
+  if (!decidedBy) {
+    return { outcome: "unauthorized", reason: "decided_by_required" };
+  }
+
   const now = input.now ?? new Date();
   const cutoff = new Date(now.getTime() - APPROVAL_TTL_HOURS * 3600_000);
 
@@ -71,7 +79,7 @@ export async function decideApproval(
         set status = $2, "decidedBy" = $3, "decidedAt" = $4
       where id = $1 and status = 'pending'
       returning id, status`,
-    [input.id, input.decision, input.decidedBy, now.toISOString()]
+    [input.id, input.decision, decidedBy, now.toISOString()]
   );
   if (!updated[0]) {
     return { outcome: "already_decided", id: input.id, status: "pending" };
@@ -83,7 +91,7 @@ export async function decideApproval(
        values ($1, $2, $3, $4)`,
       [
         `Approval ${input.decision === "approved" ? "granted" : "refused"}`,
-        `Approval ${input.id} was ${input.decision} by ${input.decidedBy}.`,
+        `Approval ${input.id} was ${input.decision} by ${decidedBy}.`,
         input.decision === "approved" ? "APPROVED" : "REJECTED",
         (row.taskId as string | null) ?? null,
       ]

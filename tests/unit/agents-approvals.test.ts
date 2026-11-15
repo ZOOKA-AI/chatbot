@@ -155,3 +155,24 @@ test("deciding an unknown approval reports not_found and writes nothing", async 
   const log = await exec(`select count(*)::int as n from "AgentDecision"`);
   assert.equal(Number(log[0].n), 0);
 });
+
+test("a decision without an identified decider is refused and writes nothing", async () => {
+  const { exec } = await freshDb();
+  const now = new Date();
+  const { approvalId, taskId } = await seed(exec, now);
+
+  for (const decidedBy of ["", "   "]) {
+    const result = await decideApproval(exec, {
+      id: approvalId,
+      decision: "approved",
+      decidedBy,
+      now,
+    });
+    assert.deepEqual(result, { outcome: "unauthorized", reason: "decided_by_required" });
+  }
+
+  const [row] = await exec(`select status from "AgentApproval" where id = $1`, [approvalId]);
+  assert.equal(row.status, "pending", "an unattributed decision must not change the row");
+  const log = await exec(`select count(*)::int as n from "AgentDecision" where "taskId" = $1`, [taskId]);
+  assert.equal(Number(log[0].n), 0, "and must not write an audit row");
+});
