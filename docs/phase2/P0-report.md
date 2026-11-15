@@ -30,3 +30,27 @@
 1. إيقاف مؤقت لمشروع أيرلندا من لوحة Supabase (إجراء مالك) ثم إنشاء `zooka-dev` مجانًا.
 2. ترقية المنظمة إلى Pro (≈25$/شهر) — تكلفة تحتاج موافقة.
 3. استخدام Postgres بديل للتطوير (Neon Free) — انحراف عن «Supabase dev» يحتاج موافقة.
+
+---
+
+## P0 متابعة (15 نوفمبر، 21:xx) — مسار Neon Free
+
+### ماذا يحتاج Supabase فعلًا؟ (فحص الكود لا التخمين)
+| الحاجة | مستخدمة؟ | الدليل |
+|---|---|---|
+| Supabase Auth | **لا** | صفر استخدام لـ`supabase-js` أو `@supabase/*` (0 ملف). المصادقة NextAuth مع Google OIDC: `GET /api/auth/providers` يرجّع google فقط، و`/api/auth/session` يرجّع null لغير المسجل. |
+| Supabase Storage | **لا** | التخزين عبر `@vercel/blob` في `lib/db/queries.ts` و`lib/media/gateway-image.ts`، والوسائط عبر Base44. صفر `storage.from`. |
+| Supabase Vault | **لا** | لا استدعاء لأي Vault. الأسرار في متغيرات Vercel ومخزن n8n المشفّر. |
+| Edge Functions | **لا** | لا `functions.invoke`. كل المنطق في Next.js Route Handlers تحت `app/api`. |
+| Postgres (Drizzle) | **نعم** | 25 ملف هجرة، 40 جدولًا و12 view في الإنتاج، القراءة/الكتابة عبر `DATABASE_URL`/`POSTGRES_URL`. |
+
+النتيجة: Supabase هنا مجرّد Postgres مُدار. لذلك Neon Free يصلح لقاعدة التطوير **دون** أي تغيير في `SUPABASE_URL` (الذي يبقى كما هو) وبدون نسخ أي سر إنتاج.
+
+### الأدوات الجاهزة (مضافة على الفرع)
+- `scripts/dev/apply-dev-schema.mjs`: يطبّق الهجرات 0000–0020 ثم هجرة نواة الوكيل على `DEV_DATABASE_URL` فقط، ويرفض أي عنوان يشير إلى `krzfrsaquvmwctsajhlm` أو `bylfizytgayoefuyliix`، ويرفض العمل في بيئة إنتاج، ويطبع عدد الجداول وتغطية الجداول الأحد عشر.
+- `scripts/dev/check-dev-db.mjs`: يشغّل سبعة فحوص حقيقية (اتصال، RLS، صلاحيات anon/authenticated، قراءة/كتابة، سجل تدقيق غير قابل للتعديل، تفرد سياسة الوكيل، تنظيف بيانات الاختبار) بنتيجة PASS/FAIL لكل بند.
+- `app/api/dev/db-health/route.ts`: مسار صحة للمعاينة فقط، يرفض العمل إن لم يكن `VERCEL_ENV=preview`، ويحمي نفسه بترويسة `x-dev-health-token`، ويرفض أي عنوان إنتاج، ولا يعيد أي سر (هوست + تأخير + عدد الجداول فقط).
+- `package.json`: `dev:db:apply` و`dev:db:check`. و`.env.example`: `DEV_DATABASE_URL` و`DEV_HEALTH_TOKEN` بقيم فارغة.
+
+### العائق الوحيد المتبقي
+لا يوجد اعتماد Neon في أي مكان في المساحة: لا `NEON_API_KEY` في `.env` ولا في `vault.json` ولا في نسخه الاحتياطية، والرابط الوحيد الموجود (`ep-fragrant-cherry-…`) كلمة سره صارت `__ROTATED_SECRET__` بعد تنقية الأسرار، فهو غير قابل للاستخدام. إنشاء مشروع Neon يحتاج مفتاح API أو رابط اتصال من المالك.
