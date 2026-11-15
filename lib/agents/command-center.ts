@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, gte, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   agentApproval,
   agentDecision,
@@ -397,6 +397,10 @@ export async function reportTask(agent: AgentIdentity, input: ReportInput) {
     }
   }
 
+  // A report may only settle work that is still open. Without this guard a
+  // cancelled task could be flipped back to "completed" by the agent that was
+  // executing it when the owner cancelled, and a finished result could be
+  // overwritten afterwards, which breaks the audit trail.
   const [row] = await db
     .update(agentTask)
     .set({
@@ -408,7 +412,8 @@ export async function reportTask(agent: AgentIdentity, input: ReportInput) {
       and(
         eq(agentTask.id, input.taskId),
         eq(agentTask.ownerAgentId, agent.id),
-        eq(agentTask.organizationId, agent.organizationId)
+        eq(agentTask.organizationId, agent.organizationId),
+        inArray(agentTask.status, ["in_progress", "pending", "failed"])
       )
     )
     .returning();

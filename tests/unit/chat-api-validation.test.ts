@@ -263,6 +263,50 @@ describe("chat POST body", () => {
     );
   });
 
+  test("the whole conversation has a content budget, not just each field", () => {
+    // 60 messages x 1500 chars = 90k, each field legal, the total is not.
+    const heavy = Array.from({ length: 60 }, (_, i) => ({
+      id: `m${i}`,
+      role: "user",
+      parts: [{ type: "text", text: "x".repeat(1500) }],
+    }));
+    const result = postRequestBodySchema.safeParse({ ...base, messages: heavy });
+    assert.equal(result.success, false);
+
+    // An ordinary long conversation stays well inside it.
+    const ordinary = Array.from({ length: 40 }, (_, i) => ({
+      id: `m${i}`,
+      role: "user",
+      parts: [{ type: "text", text: "x".repeat(500) }],
+    }));
+    assert.equal(postRequestBodySchema.safeParse({ ...base, messages: ordinary }).success, true);
+  });
+
+  test("the budget counts message, messages and history together", () => {
+    const nearMiss = {
+      ...base,
+      message: { id: UUID, role: "user", parts: [{ type: "text", text: "x".repeat(2000) }] },
+      history: Array.from({ length: 20 }, (_, i) => ({
+        id: `h${i}`,
+        role: "user",
+        parts: [{ type: "text", text: "x".repeat(2000) }],
+      })),
+    };
+    // 2000 + 20x2000 = 42k: legal.
+    assert.equal(postRequestBodySchema.safeParse(nearMiss).success, true);
+
+    const over = {
+      ...nearMiss,
+      history: Array.from({ length: 20 }, (_, i) => ({
+        id: `h${i}`,
+        role: "user",
+        parts: [{ type: "text", text: "x".repeat(3000) }],
+      })),
+    };
+    // 2000 + 20x3000 = 62k: refused even though every field is legal.
+    assert.equal(postRequestBodySchema.safeParse(over).success, false);
+  });
+
   test("an unknown role is refused", () => {
     const bad = {
       ...base,
