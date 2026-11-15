@@ -2,7 +2,15 @@
 -- لا يُطبَّق على الإنتاج. يُطبَّق على zooka-dev ثم يُرقّى بقرار مستقل.
 -- كله idempotent: IF NOT EXISTS / DO blocks.
 
-create extension if not exists pgcrypto;
+-- gen_random_uuid() مدمج في PG13+؛ الامتداد اختياري (غير متاح في pglite للاختبار)
+do $$
+begin
+  begin
+    create extension if not exists pgcrypto;
+  exception when others then
+    raise notice 'pgcrypto unavailable, relying on built-in gen_random_uuid()';
+  end;
+end $$;
 
 -- 1) تشغيل الوكيل
 create table if not exists "AgentRun" (
@@ -168,6 +176,13 @@ create trigger audit_log_no_update before update on "AuditLog"
 drop trigger if exists audit_log_no_delete on "AuditLog";
 create trigger audit_log_no_delete before delete on "AuditLog"
   for each row execute function audit_log_immutable();
+
+-- أدوار Supabase القياسية قد لا تكون موجودة خارج Supabase (مثل pglite) — ننشئها ليكون الترحيل قابلًا للاختبار
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+end $$;
 
 -- عزل: RLS على كل الجداول الجديدة + سحب صلاحيات anon/authenticated (نمط الإنتاج)
 do $$
