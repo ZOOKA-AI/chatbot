@@ -11,6 +11,7 @@ import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/
 import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
 import { INTEGRATION_PLAYBOOKS } from "@/lib/integrations/playbooks";
+import { CONNECTOR_SPECS } from "@/lib/integrations/connectors/registry";
 import { isOAuthProviderConfigured } from "@/lib/integrations/oauth/config";
 import {
   getIntegrationProviders,
@@ -426,14 +427,39 @@ export default async function IntegrationsPage({
                     ) : null}
                     {provider.id === "x" ? (
                       <OAuthConnectionControl
-                        allowToken={false}
+                        allowToken={canManage}
                         canManage={canManage}
                         label="X"
                         lang={lang}
                         provider="x"
-                        tokenHint=""
+                        tokenHint="X user access token"
                       />
                     ) : null}
+                    {["slack", "notion", "twilio", "shopify", "tiktok", "whatsapp", "cloudflare"].includes(
+                      provider.id
+                    )
+                      ? (() => {
+                          const spec = CONNECTOR_SPECS.find(
+                            (entry) => entry.providerId === provider.id
+                          );
+                          if (!spec) {
+                            return null;
+                          }
+                          return (
+                            <TokenConnectionControl
+                              canManage={canManage}
+                              label={spec.label}
+                              lang={lang}
+                              provider={provider.id}
+                              tokenHint={
+                                isArabic
+                                  ? spec.credentialHintAr
+                                  : spec.credentialHintEn
+                              }
+                            />
+                          );
+                        })()
+                      : null}
                     {provider.id === "instagram" ? (
                       <TokenConnectionControl
                         canManage={canManage}

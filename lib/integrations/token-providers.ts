@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  CONNECTOR_TOKEN_PROVIDERS,
+  type ConnectorTokenProviderId,
+} from "@/lib/integrations/connectors/token-specs";
+
 /**
  * Providers that are connected by pasting a long-lived access token instead of
  * running an OAuth dance (their OAuth app is not registered with us yet, or the
@@ -7,7 +12,7 @@ import "server-only";
  * connect route calls `validateUrl` with the pasted token and only reports the
  * integration as connected when the provider returns a real account.
  */
-export type TokenProviderId =
+export type BespokeTokenProviderId =
   | "instagram"
   | "meta"
   | "linkedin"
@@ -16,6 +21,13 @@ export type TokenProviderId =
   | "telegram_bot"
   | "improvmx"
   | "ryze";
+
+/**
+ * Every provider the secure card can accept a credential for: the bespoke ones
+ * built earlier plus the declarative connectors (Slack, Notion, Twilio, Shopify,
+ * TikTok, WhatsApp, X, Cloudflare) whose validation lives with their spec.
+ */
+export type TokenProviderId = BespokeTokenProviderId | ConnectorTokenProviderId;
 
 export type TokenProviderDefinition = {
   id: TokenProviderId;
@@ -43,8 +55,10 @@ function asString(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
 }
 
-export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
-  {
+const BESPOKE_TOKEN_PROVIDERS: Record<
+  BespokeTokenProviderId,
+  TokenProviderDefinition
+> = {
     instagram: {
       id: "instagram",
       label: "Instagram",
@@ -266,6 +280,12 @@ export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
       docsUrl: "https://get-ryze.ai",
     },
   };
+
+export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
+  {
+    ...BESPOKE_TOKEN_PROVIDERS,
+    ...CONNECTOR_TOKEN_PROVIDERS,
+  } as Record<TokenProviderId, TokenProviderDefinition>;
 
 export function isTokenProviderId(value: string): value is TokenProviderId {
   return Object.prototype.hasOwnProperty.call(TOKEN_PROVIDERS, value);

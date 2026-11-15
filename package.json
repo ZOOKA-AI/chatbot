@@ -20,7 +20,8 @@
     "test:unit": "vitest run tests/unit && tsx --test lib/ai/models.test.ts",
     "check:placeholders": "node scripts/check-placeholders.mjs",
     "prebuild": "node scripts/check-placeholders.mjs",
-    "test:composer": "node scripts/test-composer.mjs"
+    "test:composer": "node scripts/test-composer.mjs",
+    "test:acceptance": "playwright test tests/e2e/connectors-acceptance.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.235",
