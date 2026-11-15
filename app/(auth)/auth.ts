@@ -15,6 +15,11 @@ import {
 } from "@/lib/db/queries";
 import { sendWelcomeEmail } from "@/lib/email/send";
 import { emailForPhone, readLoginTicket } from "@/lib/auth/phone-otp";
+import {
+  clientAddress,
+  parseCredentials,
+  verifyCredentialAttempt,
+} from "@/lib/auth/login-guard";
 import { phoneLoginEnabled } from "@/lib/auth/sms";
 
 /** Google sign-in uses its own non-sensitive client (openid/email/profile). */
@@ -111,28 +116,30 @@ export const {
       : []),
     Credentials({
       credentials: {},
-      async authorize({ email, password }: any) {
-        const users = await getUser(email);
-
-        if (users.length === 0) {
-          await compare(password, DUMMY_PASSWORD);
+      async authorize(credentials: any, request?: any) {
+        // Shape first: a non-string body never reaches the database or bcrypt.
+        const parsed = parseCredentials(credentials);
+        if (!parsed) {
           return null;
         }
 
-        const [user] = users;
+        const address = clientAddress(
+          request?.headers instanceof Headers ? request.headers : undefined
+        );
 
-        if (!user.password) {
-          await compare(password, DUMMY_PASSWORD);
+        const result = await verifyCredentialAttempt({
+          parsed,
+          address,
+          lookup: getUser,
+          verify: compare,
+          dummyHash: DUMMY_PASSWORD,
+        });
+
+        if (result.outcome !== "ok") {
           return null;
         }
 
-        const passwordsMatch = await compare(password, user.password);
-
-        if (!passwordsMatch) {
-          return null;
-        }
-
-        return { ...user, type: "regular" };
+        return { ...result.user, type: "regular" };
       },
     }),
     ...(phoneLoginEnabled
