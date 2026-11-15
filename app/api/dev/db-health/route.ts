@@ -6,8 +6,6 @@ import postgres from "postgres";
  * لا يعمل في الإنتاج أبدًا، ولا يكشف أي سر: يرجّع فقط الهوست والتأخير وعدد الجداول.
  * الحماية: VERCEL_ENV === "preview" + ترويسة x-dev-health-token تطابق DEV_HEALTH_TOKEN.
  */
-export const dynamic = "force-dynamic";
-
 export async function GET(request: Request) {
   if (process.env.VERCEL_ENV !== "preview") {
     return NextResponse.json({ ok: false, reason: "preview_only" }, { status: 404 });
