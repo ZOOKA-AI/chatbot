@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { GoogleDriveConnectionControl } from "@/components/google-drive-connection-control";
 import { N8nConnectionControl } from "@/components/n8n-connection-control";
 import { OAuthConnectionControl } from "@/components/oauth-connection-control";
+import { TokenConnectionControl } from "@/components/token-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
@@ -352,6 +353,19 @@ export default async function IntegrationsPage({
                         lang={lang}
                         provider="x"
                         tokenHint=""
+                      />
+                    ) : null}
+                    {provider.id === "instagram" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Instagram"
+                        lang={lang}
+                        provider="instagram"
+                        tokenHint={
+                          isArabic
+                            ? "توكن وصول لصفحة فيسبوك/إنستغرام"
+                            : "Instagram / Facebook page access token"
+                        }
                       />
                     ) : null}
                     {available &&
