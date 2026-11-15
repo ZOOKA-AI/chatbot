@@ -210,6 +210,7 @@ export const SELF_SERVE = new Set([
   "gmail",
   "instagram",
   "meta",
+  "linkedin",
   "github",
   "vercel",
   "n8n",
@@ -450,8 +451,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 </h2>
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
-                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لسبعة: جوجل درايف، جيميل، إنستغرام، فيسبوك، جيت هب، فيرسل، وn8n (جيت هب: الوكيل يقرأ ويكتب بعد موافقتك. فيرسل: ربط الحساب الآن، وإجراءات الوكيل قادمة). وباقي الكتالوج (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} من ${INTEGRATION_PROVIDERS.length}) ينتظر موافقة المزوّد أو يعمل عبر جسر الوكيل — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
-                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for seven: Google Drive, Gmail, Instagram, Facebook, GitHub, Vercel and n8n (GitHub: the agent reads and writes after your approval. Vercel: account connection today, agent actions coming). The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
+                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لثمانية: جوجل درايف، جيميل، إنستغرام، فيسبوك، لينكدإن، جيت هب، فيرسل، وn8n (جيت هب: الوكيل يقرأ ويكتب بعد موافقتك. فيرسل: ربط الحساب الآن، وإجراءات الوكيل قادمة). وباقي الكتالوج (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} من ${INTEGRATION_PROVIDERS.length}) ينتظر موافقة المزوّد أو يعمل عبر جسر الوكيل — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
+                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for eight: Google Drive, Gmail, Instagram, Facebook, LinkedIn, GitHub, Vercel and n8n (GitHub: the agent reads and writes after your approval. Vercel: account connection today, agent actions coming). The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
                   )}
                 </p>
               </div>

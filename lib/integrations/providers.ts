@@ -51,7 +51,7 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     status: "available",
     managed: true,
   },
-  { id: "linkedin", name: "LinkedIn", nameAr: "لينكدإن", category: "social", description: "Post to a personal profile or company page.", descriptionAr: "النشر على الملف الشخصي أو صفحة الشركة.", status: "coming_soon", managed: true },
+  { id: "linkedin", name: "LinkedIn", nameAr: "لينكدإن", category: "social", description: "Read the connected member profile and publish a text post after your approval.", descriptionAr: "قراءة الملف الشخصي المتصل ونشر منشور نصي بعد موافقتك.", status: "available", managed: false },
   { id: "github", name: "GitHub", nameAr: "جيت هب", category: "dev", description: "Read code and issues; open issues, commit to branches and open pull requests after your approval.", descriptionAr: "قراءة الكود والمهام، وفتح مهام ورفع تعديلات على فروع وطلبات دمج بعد موافقتك.", status: "available", managed: true },
   { id: "supabase", name: "Supabase", nameAr: "سوبا بيز", category: "dev", description: "Manage database, auth and storage projects.", descriptionAr: "إدارة قاعدة البيانات والمصادقة والتخزين.", status: "beta", managed: false },
   { id: "vercel", name: "Vercel", nameAr: "فيرسل", category: "dev", description: "Connect your account. Agent actions on projects are coming.", descriptionAr: "ربط الحساب. إجراءات الوكيل على المشاريع قادمة.", status: "available", managed: false },

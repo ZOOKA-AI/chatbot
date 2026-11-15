@@ -381,6 +381,19 @@ export default async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                    {provider.id === "linkedin" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="LinkedIn"
+                        lang={lang}
+                        provider="linkedin"
+                        tokenHint={
+                          isArabic
+                            ? "توكن وصول لعضو لينكدإن"
+                            : "LinkedIn member access token"
+                        }
+                      />
+                    ) : null}
                     {available &&
                     (provider.id === "google_drive" ||
                       provider.id === "gmail") ? (

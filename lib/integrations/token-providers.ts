@@ -7,7 +7,7 @@ import "server-only";
  * connect route calls `validateUrl` with the pasted token and only reports the
  * integration as connected when the provider returns a real account.
  */
-export type TokenProviderId = "instagram" | "meta";
+export type TokenProviderId = "instagram" | "meta" | "linkedin";
 
 export type TokenProviderDefinition = {
   id: TokenProviderId;
@@ -97,6 +97,26 @@ export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
         "pages_manage_posts",
       ],
       docsUrl: "https://developers.facebook.com/docs/pages-api/posts",
+    },
+    linkedin: {
+      id: "linkedin",
+      label: "LinkedIn",
+      tokenHint: "LinkedIn member access token",
+      validateUrl: "https://api.linkedin.com/v2/userinfo",
+      auth: (token) => ({ Authorization: `Bearer ${token}` }),
+      describe: (payload) => {
+        const name = asString(payload.name);
+        return {
+          accountId: asString(payload.sub),
+          accountName: name,
+          extra: {
+            memberId: asString(payload.sub),
+            email: asString(payload.email),
+          },
+        };
+      },
+      scopes: ["openid", "profile", "email", "w_member_social"],
+      docsUrl: "https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api",
     },
   };
 
