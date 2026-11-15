@@ -142,6 +142,31 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 24 — Approval semantics, the Vercel cause, and keyset history (16 Nov 2026)
+
+PR #95 head `31d7da54`, draft. No merge, no deployment to production, no migration applied, no billing change, no paid resource.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 24.1 | Rejection must carry a reason | DONE | `app/api/agents/approvals/[id]/route.ts`: empty, whitespace-only and under-four-character reasons refused with `reason_required` / `reason_too_short`; over 1000 characters refused with `reason_too_long` rather than truncated. Validated on the server, before any write |
+| 24.2 | Backward compatibility | VERIFIED | The legacy `note` field still satisfies the rule; approval without a reason still succeeds, so an existing client keeps working. Unexpected fields are still rejected outright |
+| 24.3 | Decisions become audit history | DONE | A successful decision writes `APPROVAL_APPROVED` / `APPROVAL_REJECTED` with its reason, and only after the conditional UPDATE won, so a decision that lost a race writes nothing |
+| 24.4 | Vercel build failure, root cause | FOUND and FIXED | Read from the platform, not guessed: `prebuild` runs `scripts/check-placeholders.mjs`, which flagged the array literal `[TENANT_SETTING]` in `lib/db/tenant.ts` as unresolved marketing copy. Locally I had run `next build` directly, which skips `prebuild`; Vercel runs `pnpm run build`. Fixed by binding the array to a name. Deployment `dpl_E6KzVtKwDb` on `31d7da54` is READY |
+| 24.5 | Evidence for the failure | RECORDED | `dpl_4tdFUmm9sc6ubV6Wu4nNVipsNaZR` (be2566d9) and `dpl_3nGMAvNxACjqjkqjYtgC87nsNXxy` (f97365f) both ERROR with the same prebuild message; the credential was read from vault storage, never from chat |
+| 24.6 | Keyset pagination | DONE | `listTaskPage` pages on (createdAt, id) descending, tenant-filtered, one extra row to know whether a next page exists. Unit-tested cursor codec; the route returns `invalid_cursor` for anything it did not issue |
+| 24.7 | Pagination correctness defect | FIXED | Cursor carried milliseconds while PostgreSQL stores microseconds, so every row inside the boundary millisecond was dropped (105 rows read as 25). Both sides now use one millisecond bucket. Found by the paging test, not by reasoning |
+| 24.8 | Paging tests | DONE | 105 rows read as 6 complete pages with no repeat and no gap; total ordering under five identical timestamps; a cursor from another tenant returns nothing; the last page offers no next cursor |
+| 24.9 | Approval tests | DONE | 15 route tests: empty, blank and short reasons, over-long reason, legacy note, approval without reason, no session, agent key, member, duplicate decision, cross-tenant, body-supplied tenant, malformed id, forged cursor |
+| 24.10 | Test-infrastructure defect | FIXED | Two real-database suites were given different advisory lock ids and corrupted each other's fixtures in parallel; they now share one lock |
+| 24.11 | Browser verification of the interface | NOT DONE | Preview deployment protection plus a session cookie bound to the production domain means there is no authenticated browser session available to this agent. Reported as unverified rather than claimed |
+| 24.12 | Interface pagination control | NOT DONE | The API pages correctly and returns `nextCursor`; the console still reads its first 100 rows and has no "load more" control |
+
+Numbers: 367 tests without a database, 372 with one, tsc clean, prebuild guard PASS, `next build` compiles, Vercel READY on `31d7da54`.
+
+Remaining risks: the rejection rule is enforced at the route but `decideApproval` itself accepts any reason, so a second caller of that function would bypass it; the console has still never been operated by a human; `date_trunc` costs the createdAt index and that trade should be revisited if history reaches millions of rows.
+
+Next autonomous task: move the reason rule into `decideApproval` so the domain and not only the route enforces it, wire "load more" into the console, then operate the console against a preview with a real session.
+
 ## Stage 23 — Commander execution history and approval console (16 Nov 2026)
 
 Branch `feat/commander-tenant-scope`, PR #95, draft, head `be2566d9`. No merge, no deployment, no production migration, no billing change.
