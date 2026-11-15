@@ -142,6 +142,31 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 25 — Domain reason rule, Load More, and a measured index (16 Nov 2026)
+
+PR #95 head `b5e10fe5`, draft. No merge, no production deployment, no migration applied, no billing change, no paid service, no secret rotated.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 25.1 | Reason rule in the domain | DONE | `decideApproval` throws `ApprovalDecisionError` for `reason_required`, `reason_too_short` and `reason_too_long` before touching a row; an approval still needs no reason |
+| 25.2 | Route stays a second layer | DONE | The route validates first, then maps the domain refusal onto the same 400 shape, so both layers agree and neither is decorative |
+| 25.3 | Refusals do not consume the approval | VERIFIED | Test reads the row after four refused attempts and finds it still `pending` |
+| 25.4 | Direct domain tests | DONE | `approval-domain.test.ts`, 7 tests calling `decideApproval` with no HTTP: empty, blank and short reasons, over-long reason, approval without reason, two concurrent decisions with exactly one winner, another tenant receiving `null`, and a missing row answering identically |
+| 25.5 | Load More | DONE | Real cursor, rows appended by id so a duplicate cannot be shown twice, `aria-busy` and `aria-label` on the control, an `aria-live` count, an explicit end-of-history line instead of a dead button, failures routed to the existing error region |
+| 25.6 | Bilingual labels | DONE | `paging` block in both dictionaries; the existing parity test would fail if one drifted |
+| 25.7 | Legacy API compatibility | VERIFIED | Paging is opt-in through `paginate=1`; a caller that does not ask keeps the exact response it had, and the tests that assert the old `listTasks` arguments still pass |
+| 25.8 | Index-friendly keyset | DONE | Boundary is a plain column comparison against a bound parameter; migration `pending/0032` adds `(organizationId, createdAt DESC, id DESC)` matching the ORDER BY exactly. Cursor carries the database's microsecond timestamp text, so no function is applied to the column |
+| 25.9 | Benchmark | MEASURED | 50,000 rows over 20 workspaces, deep page inside one 2,500-row workspace, EXPLAIN ANALYZE: new 0.603 ms / 51 buffers, old 1.285 ms / 99 buffers. Without the new index: new 1.047 ms / 99, old 1.313 ms / 99. Single-tenant 50,000-row table (worst case for any index): old 19.5 ms, new 14.7 ms |
+| 25.10 | Preview deployment | READY | `dpl_3SoAi69EJa` on `b5e10fe5`, `chatbot-q3t963f3h-zooka-ai1.vercel.app` |
+| 25.11 | Browser verification | BLOCKED | `GET /workspace/commander` on the preview returns 302 into Vercel authentication and there is no authorized session; the directive forbids bypassing it, so no click-through was performed and none is claimed |
+| 25.12 | `pnpm run build` | DONE | Prebuild placeholder guard passes, compile succeeds, 124 pages generated, exit 0 |
+
+Numbers: 379 tests across 55 files with PostgreSQL, tsc clean.
+
+Remaining risks: the console has never been operated by a human; the domain writes no decision history, so a caller that bypasses the route validates a reason but records no audit row; paging performance for a single workspace beyond ~100,000 rows is unmeasured.
+
+Next autonomous task: move decision-history writing into the domain alongside the validation, then run the console against a preview with an authorized session.
+
 ## Stage 24 — Approval semantics, the Vercel cause, and keyset history (16 Nov 2026)
 
 PR #95 head `31d7da54`, draft. No merge, no deployment to production, no migration applied, no billing change, no paid resource.
