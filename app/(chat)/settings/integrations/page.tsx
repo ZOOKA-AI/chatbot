@@ -381,6 +381,19 @@ export default async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                    {provider.id === "telegram_ads" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Telegram Ads"
+                        lang={lang}
+                        provider="telegram_ads"
+                        tokenHint={
+                          isArabic
+                            ? "توكن Promote API من ads.telegram.org → API"
+                            : "Promote API token from ads.telegram.org → API"
+                        }
+                      />
+                    ) : null}
                     {provider.id === "snapchat" ? (
                       <TokenConnectionControl
                         canManage={canManage}

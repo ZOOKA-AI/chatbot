@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import {
+  getSnapchatCampaignStats,
   getSnapchatOverview,
   listSnapchatCampaigns,
 } from "@/lib/integrations/snapchat/api";
@@ -45,6 +46,34 @@ export function createSnapchatTools(organizationId: string) {
         const result = await listSnapchatCampaigns(organizationId, {
           adAccountId,
           limit,
+        });
+        if (!result.ok) {
+          return { error: result.error };
+        }
+        return result.data;
+      },
+    }),
+
+    snapchatCampaignStats: tool({
+      description:
+        "Read Snapchat campaign performance (impressions, swipes, spend) for the last N days, with totals in the ad account currency.",
+      inputSchema: z.object({
+        days: z
+          .number()
+          .int()
+          .min(1)
+          .max(90)
+          .optional()
+          .describe("How many days back to measure (default 30)."),
+        adAccountId: z
+          .string()
+          .optional()
+          .describe("Restrict to one ad account id from readSnapchatOverview."),
+      }),
+      execute: async ({ days, adAccountId }) => {
+        const result = await getSnapchatCampaignStats(organizationId, {
+          days,
+          adAccountId,
         });
         if (!result.ok) {
           return { error: result.error };

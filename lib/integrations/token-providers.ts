@@ -7,7 +7,12 @@ import "server-only";
  * connect route calls `validateUrl` with the pasted token and only reports the
  * integration as connected when the provider returns a real account.
  */
-export type TokenProviderId = "instagram" | "meta" | "linkedin" | "snapchat";
+export type TokenProviderId =
+  | "instagram"
+  | "meta"
+  | "linkedin"
+  | "snapchat"
+  | "telegram_ads";
 
 export type TokenProviderDefinition = {
   id: TokenProviderId;
@@ -157,6 +162,27 @@ export const TOKEN_PROVIDERS: Record<TokenProviderId, TokenProviderDefinition> =
       },
       scopes: ["snapchat-marketing-api"],
       docsUrl: "https://marketingapi.snapchat.com/docs/",
+    },
+    telegram_ads: {
+      id: "telegram_ads",
+      label: "Telegram Ads",
+      tokenHint: "Promote API token from ads.telegram.org → API",
+      validateUrl: "https://promoteapi.telegram.org/getCurrentAccount",
+      auth: (token) => ({ Authorization: `Bearer ${token.trim()}` }),
+      describe: (payload) => {
+        const account =
+          (payload.result as Record<string, unknown> | undefined) ?? {};
+        return {
+          accountId:
+            typeof account.account_id === "string" ? account.account_id : null,
+          accountName: typeof account.title === "string" ? account.title : null,
+          extra: {
+            currency: typeof account.currency === "string" ? account.currency : null,
+          },
+        };
+      },
+      scopes: ["telegram-ads-api"],
+      docsUrl: "https://ads.telegram.org/docs/api",
     },
   };
 
