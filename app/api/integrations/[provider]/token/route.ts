@@ -95,9 +95,15 @@ export async function POST(
           { status: 502 }
         );
       }
-      account = definition.describe(
-        (await response.json()) as Record<string, unknown>
-      );
+      const payload = (await response.json()) as Record<string, unknown>;
+      try {
+        account = definition.describe(payload);
+      } catch {
+        // Slack answers 200 with {ok:false} for a bad token, and several
+        // providers embed the error in a 200 body. A credential that cannot be
+        // described is rejected, never stored as "connected".
+        return NextResponse.json({ error: "token_rejected" }, { status: 400 });
+      }
     } catch {
       return NextResponse.json(
         { error: "provider_unreachable" },
