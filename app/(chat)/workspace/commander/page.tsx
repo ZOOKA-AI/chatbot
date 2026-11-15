@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 
 import { CommanderConsole } from "@/components/commander/commander-console";
-import { listAgents, listApprovals, listDecisions, listTasks } from "@/lib/agents/command-center";
+import {
+  listAgents,
+  listApprovals,
+  listDecisions,
+  listTaskPage,
+} from "@/lib/agents/command-center";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getLang } from "@/lib/i18n";
 
@@ -24,8 +29,8 @@ export default async function CommanderPage() {
   const lang = await getLang();
   const dir = lang === "ar" ? "rtl" : "ltr";
 
-  const [tasks, approvals, decisions, agents] = await Promise.all([
-    listTasks({ organizationId: context.organizationId, limit: 100 }),
+  const [historyPage, approvals, decisions, agents] = await Promise.all([
+    listTaskPage({ organizationId: context.organizationId, limit: 50 }),
     listApprovals(context.organizationId, { limit: 100 }),
     listDecisions(context.organizationId, 200),
     listAgents(context.organizationId),
@@ -42,7 +47,8 @@ export default async function CommanderPage() {
         lang={lang}
         canManage={canManage}
         currentUserId={context.user.id}
-        initialTasks={tasks}
+        initialTasks={historyPage.tasks}
+        initialNextCursor={historyPage.nextCursor}
         initialApprovals={approvals}
         initialDecisions={decisions}
         agents={agents}

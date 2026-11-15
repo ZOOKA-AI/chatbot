@@ -1,4 +1,8 @@
-import { decideApproval, recordDecision } from "@/lib/agents/command-center";
+import {
+  ApprovalDecisionError,
+  decideApproval,
+  recordDecision,
+} from "@/lib/agents/command-center";
 import { z } from "zod";
 
 import {
@@ -77,12 +81,23 @@ async function POSTHandler(
     return badRequest("reason_too_long");
   }
 
-  const approval = await decideApproval({
-    organizationId: callerOrganizationId(caller),
-    approvalId: parsedId.data,
-    decision: parsed.data.decision,
-    decidedBy: `owner:${caller.userId.slice(0, 8)}`,
-  });
+  let approval;
+  try {
+    approval = await decideApproval({
+      organizationId: callerOrganizationId(caller),
+      approvalId: parsedId.data,
+      decision: parsed.data.decision,
+      decidedBy: `owner:${caller.userId.slice(0, 8)}`,
+      reason: rawReason,
+    });
+  } catch (error) {
+    // The domain repeats the reason rule for every caller, not just this route;
+    // its refusal becomes the same 400 shape this endpoint has always returned.
+    if (error instanceof ApprovalDecisionError) {
+      return badRequest(error.code);
+    }
+    throw error;
+  }
 
   if (!approval) {
     // Same answer for "not yours", "already decided" and "does not exist", so

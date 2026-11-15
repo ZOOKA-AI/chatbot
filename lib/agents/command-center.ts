@@ -573,12 +573,43 @@ export async function listApprovals(
  * must belong to the caller's organisation. Two decisions cannot both win, and
  * a decision on another tenant's approval matches no row.
  */
+/** Thrown when a decision is refused before any row is touched. */
+export class ApprovalDecisionError extends Error {
+  constructor(readonly code: "reason_required" | "reason_too_short" | "reason_too_long") {
+    super(code);
+    this.name = "ApprovalDecisionError";
+  }
+}
+
+export const MIN_REJECTION_REASON = 4;
+export const MAX_REJECTION_REASON = 1000;
+
+/**
+ * Deciding an approval.
+ *
+ * The reason rule lives here rather than in the route, because a route is only
+ * one of the callers: a job, a script, or tomorrow's endpoint would otherwise
+ * bypass it. The route keeps its own copy as a second layer, so a malformed
+ * request is refused before this function is even reached.
+ *
+ * A rejection refuses somebody's work and has to be explainable afterwards, so it
+ * must carry a reason. An approval may carry one, and does not need it.
+ */
 export async function decideApproval(input: {
   organizationId: string;
   approvalId: string;
   decision: "approved" | "rejected";
   decidedBy: string;
+  reason?: string;
 }) {
+  const reason = (input.reason ?? "").trim();
+
+  if (input.decision === "rejected") {
+    if (reason.length === 0) throw new ApprovalDecisionError("reason_required");
+    if (reason.length < MIN_REJECTION_REASON) throw new ApprovalDecisionError("reason_too_short");
+  }
+  if (reason.length > MAX_REJECTION_REASON) throw new ApprovalDecisionError("reason_too_long");
+
   const [row] = await db
     .update(agentApproval)
     .set({
@@ -741,14 +772,12 @@ export async function listTaskHistory(
  * organisation is a mandatory argument, not an option: there is no way to ask for
  * a page without saying whose page it is.
  *
- * Both the ordering and the comparison use the same millisecond bucket. A cursor
- * travels as a JavaScript Date, which holds milliseconds, while PostgreSQL keeps
- * microseconds: comparing a truncated cursor against full-precision values drops
- * every row inside the boundary millisecond, which is exactly the bug the paging
- * test found. Bucketing both sides makes the order and the boundary agree.
- * Cost: date_trunc prevents a plain index scan on createdAt. At the sizes this
- * table is heading for that is the right trade; if history grows into millions of
- * rows, carry the microsecond literal in the cursor instead.
+ * The boundary comparison is written as plain column versus bound parameter, so
+ * `AgentTask_organizationId_createdAt_idx` can serve both the filter and the
+ * order. An earlier version wrapped the column in date_trunc to align a
+ * millisecond cursor with microsecond rows; that worked but forced a sequential
+ * scan. The cursor now carries the row's exact timestamp text instead, which is
+ * exact and index-friendly at the same time.
  */
 export async function listTaskPage(options: {
   organizationId: string;
@@ -758,16 +787,15 @@ export async function listTaskPage(options: {
 }): Promise<{ tasks: (typeof agentTask.$inferSelect)[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(options.limit ?? 25, 1), 100);
   const cursor = options.cursor ?? null;
-  const bucket = sql`date_trunc('milliseconds', ${agentTask.createdAt})`;
 
   const conditions = [eq(agentTask.organizationId, options.organizationId)];
   if (options.status) {
     conditions.push(eq(agentTask.status, options.status));
   }
   if (cursor) {
-    const boundary = sql`${cursor.createdAt.toISOString()}::timestamptz`;
+    const boundary = sql`${cursor.stamp}::timestamp`;
     conditions.push(
-      or(lt(bucket, boundary), and(eq(bucket, boundary), lt(agentTask.id, cursor.id)))!
+      or(lt(agentTask.createdAt, boundary), and(eq(agentTask.createdAt, boundary), lt(agentTask.id, cursor.id)))!
     );
   }
 
@@ -776,15 +804,27 @@ export async function listTaskPage(options: {
     .select()
     .from(agentTask)
     .where(and(...conditions))
-    .orderBy(sql`${bucket} desc`, desc(agentTask.id))
+    .orderBy(desc(agentTask.createdAt), desc(agentTask.id))
     .limit(limit + 1);
 
   const page = rows.slice(0, limit);
   const hasMore = rows.length > limit;
   const last = page.at(-1);
+  if (!hasMore || !last) {
+    return { tasks: page, nextCursor: null };
+  }
+
+  // The last row's timestamp as the database renders it, microseconds included.
+  // Read by primary key, so it costs one index lookup and cannot drift from the
+  // page that was just returned.
+  const [exact] = await db
+    .select({ stamp: sql<string>`to_char(${agentTask.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US')` })
+    .from(agentTask)
+    .where(eq(agentTask.id, last.id))
+    .limit(1);
 
   return {
     tasks: page,
-    nextCursor: hasMore && last ? encodeCursor(last.createdAt, last.id) : null,
+    nextCursor: encodeCursor(exact?.stamp ?? last.createdAt, last.id),
   };
 }

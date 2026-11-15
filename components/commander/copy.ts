@@ -14,6 +14,7 @@ export type Copy = {
   tabs: { history: string; approvals: string; create: string };
   refresh: string;
   empty: { tasks: string; approvals: string; history: string };
+  paging: { loadMore: string; loadingMore: string; allLoaded: string; shown: string };
   columns: {
     task: string;
     status: string;
@@ -72,6 +73,12 @@ export type Copy = {
 const en: Copy = {
   title: "Commander",
   subtitle: "Execution history, approvals and task control for this workspace.",
+  paging: {
+    loadMore: "Load more",
+    loadingMore: "Loading…",
+    allLoaded: "End of history.",
+    shown: "tasks shown",
+  },
   tabs: { history: "Execution history", approvals: "Approvals", create: "New task" },
   refresh: "Refresh",
   empty: {
@@ -167,6 +174,12 @@ const en: Copy = {
 const ar: Copy = {
   title: "القائد",
   subtitle: "سجل التنفيذ والموافقات والتحكم بمهام هذه المساحة.",
+  paging: {
+    loadMore: "تحميل المزيد",
+    loadingMore: "جارٍ التحميل…",
+    allLoaded: "نهاية السجل.",
+    shown: "مهمة معروضة",
+  },
   tabs: { history: "سجل التنفيذ", approvals: "الموافقات", create: "مهمة جديدة" },
   refresh: "تحديث",
   empty: {

@@ -82,6 +82,7 @@ type Props = {
   canManage: boolean;
   currentUserId: string;
   initialTasks: CommanderTask[];
+  initialNextCursor: string | null;
   initialApprovals: CommanderApproval[];
   initialDecisions: CommanderDecision[];
   agents: CommanderAgent[];
@@ -128,12 +129,15 @@ export function CommanderConsole({
   canManage,
   currentUserId,
   initialTasks,
+  initialNextCursor,
   initialApprovals,
   initialDecisions,
   agents,
 }: Props) {
   const copy = copyOf(lang);
   const [tasks, setTasks] = useState<CommanderTask[]>(initialTasks);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [approvals, setApprovals] = useState<CommanderApproval[]>(initialApprovals);
   const [decisions, setDecisions] = useState<CommanderDecision[]>(initialDecisions);
 
@@ -167,11 +171,13 @@ export function CommanderConsole({
     setFailure(null);
     try {
       const [taskBody, approvalBody, decisionBody] = await Promise.all([
-        callApi("/api/agents/tasks?limit=100"),
+        callApi("/api/agents/tasks?limit=50&paginate=1"),
         callApi("/api/agents/approvals?limit=100"),
         callApi("/api/agents/decisions?limit=200"),
       ]);
-      setTasks((taskBody as { tasks: CommanderTask[] }).tasks ?? []);
+      const first = taskBody as { tasks: CommanderTask[]; nextCursor?: string | null };
+      setTasks(first.tasks ?? []);
+      setNextCursor(first.nextCursor ?? null);
       setApprovals((approvalBody as { approvals: CommanderApproval[] }).approvals ?? []);
       setDecisions((decisionBody as { decisions: CommanderDecision[] }).decisions ?? []);
     } catch (error) {
@@ -196,6 +202,33 @@ export function CommanderConsole({
   }
 
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
+  /**
+   * Fetch the next page and append it.
+   *
+   * Appended by id, so a row that arrives twice (because it was inserted between
+   * two page reads, or because a click landed twice) is shown once. The cursor
+   * comes from the server and is passed back untouched.
+   */
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setFailure(null);
+    try {
+      const body = (await callApi(
+        `/api/agents/tasks?limit=50&paginate=1&cursor=${encodeURIComponent(nextCursor)}`
+      )) as { tasks: CommanderTask[]; nextCursor: string | null };
+      setTasks((current) => {
+        const seen = new Set(current.map((task) => task.id));
+        return [...current, ...(body.tasks ?? []).filter((task) => !seen.has(task.id))];
+      });
+      setNextCursor(body.nextCursor ?? null);
+    } catch (error) {
+      setFailure(errorText(lang, (error as ApiFailure).reason));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor, loadingMore, lang]);
+
   const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) ?? null : null;
 
   function confirmTitle() {
@@ -322,6 +355,7 @@ export function CommanderConsole({
           {tasks.length === 0 ? (
             <p className="text-sm text-muted-foreground">{copy.empty.tasks}</p>
           ) : (
+            <>
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full min-w-[44rem] text-start text-sm" aria-label={copy.tabs.history}>
                 <thead className="bg-muted/50">
@@ -354,6 +388,26 @@ export function CommanderConsole({
                 </tbody>
               </table>
             </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {nextCursor ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  aria-busy={loadingMore}
+                  aria-label={copy.paging.loadMore}
+                >
+                  {loadingMore ? copy.paging.loadingMore : copy.paging.loadMore}
+                </Button>
+              ) : (
+                <p className="text-xs text-muted-foreground">{copy.paging.allLoaded}</p>
+              )}
+              <p className="text-xs text-muted-foreground" aria-live="polite">
+                {tasks.length} {copy.paging.shown}
+              </p>
+            </div>
+            </>
           )}
         </section>
       ) : null}

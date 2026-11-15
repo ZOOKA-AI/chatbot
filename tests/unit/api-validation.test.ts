@@ -64,6 +64,10 @@ vi.mock("@/lib/agents/command-center", () => ({
     Array.isArray(agent.scopes) && agent.scopes.includes(scope),
   createTask: mocks.createTask,
   listTasks: mocks.listTasks,
+  listTaskPage: async (...a: unknown[]) => ({
+    tasks: await (mocks.listTasks as (...x: unknown[]) => Promise<unknown[]>)(...a),
+    nextCursor: null,
+  }),
   claimTask: mocks.claimTask,
   reportTask: mocks.reportTask,
   listDecisions: mocks.listDecisions,

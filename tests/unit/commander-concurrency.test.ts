@@ -143,7 +143,7 @@ describe("approvals", () => {
   test("simultaneous approve and reject: exactly one decision sticks", async () => {
     const results = await Promise.all([
       decideApproval({ organizationId: ORG_A, approvalId, decision: "approved", decidedBy: "owner-1" }),
-      decideApproval({ organizationId: ORG_A, approvalId, decision: "rejected", decidedBy: "owner-1" }),
+      decideApproval({ organizationId: ORG_A, approvalId, decision: "rejected", reason: "not safe", decidedBy: "owner-1" }),
     ]);
 
     const applied = results.filter(Boolean);
@@ -167,8 +167,7 @@ describe("approvals", () => {
     const second = await decideApproval({
       organizationId: ORG_A,
       approvalId,
-      decision: "rejected",
-      decidedBy: "owner-1",
+      decision: "rejected", reason: "not safe", decidedBy: "owner-1",
     });
 
     assert.ok(first);
@@ -192,7 +191,7 @@ describe("approvals", () => {
   });
 
   test("a rejected task is never executable, even if someone claims it directly", async () => {
-    await decideApproval({ organizationId: ORG_A, approvalId, decision: "rejected", decidedBy: "owner-1" });
+    await decideApproval({ organizationId: ORG_A, approvalId, decision: "rejected", reason: "not safe", decidedBy: "owner-1" });
     await pg.query(`update "AgentTask" set "approvalRequired" = true where id = $1`, [taskId]);
 
     const claim = await claimTask(agent(ORG_A, A_ID), taskId);

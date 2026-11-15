@@ -173,7 +173,7 @@ describe.skipIf(!ready)("retry on real PostgreSQL, inside the tenant transaction
       requestApproval(agent(), { organizationId: ORG_A, taskId: task.id, reason: "spends money" })
     );
     await withCommanderScope(ORG_A, () =>
-      decideApproval({ organizationId: ORG_A, approvalId: approval.id, decision: "rejected", decidedBy: "o" })
+      decideApproval({ organizationId: ORG_A, approvalId: approval.id, decision: "rejected", reason: "not safe", decidedBy: "o" })
     );
 
     // Stronger than expected: a required approval that is merely pending already
@@ -207,7 +207,7 @@ describe.skipIf(!ready)("retry on real PostgreSQL, inside the tenant transaction
       requestApproval(agent(), { organizationId: ORG_A, taskId: task.id, reason: "spends money" })
     );
     await withCommanderScope(ORG_A, () =>
-      decideApproval({ organizationId: ORG_A, approvalId: approval.id, decision: "rejected", decidedBy: "o" })
+      decideApproval({ organizationId: ORG_A, approvalId: approval.id, decision: "rejected", reason: "not safe", decidedBy: "o" })
     );
     await admin`update "AgentTask" set status = 'failed' where id = ${task.id}`;
 

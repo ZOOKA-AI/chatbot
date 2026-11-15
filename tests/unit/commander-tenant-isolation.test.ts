@@ -302,8 +302,7 @@ test("a rejected approval can never be claimed or completed", async () => {
   await center.decideApproval({
     organizationId: ORG_A,
     approvalId: approval.id,
-    decision: "rejected",
-    decidedBy: "owner:11111111",
+    decision: "rejected", reason: "not safe", decidedBy: "owner:11111111",
   });
 
   const refused = await center.claimTask(a.agent, task.id);
@@ -355,8 +354,7 @@ test("another tenant cannot decide an approval, and a second decision changes no
   const again = await center.decideApproval({
     organizationId: ORG_A,
     approvalId: approval.id,
-    decision: "rejected",
-    decidedBy: "owner:22222222",
+    decision: "rejected", reason: "not safe", decidedBy: "owner:22222222",
   });
   assert.equal(again, null, "a decided approval cannot be flipped");
 

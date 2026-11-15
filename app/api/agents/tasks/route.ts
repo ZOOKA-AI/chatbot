@@ -31,6 +31,7 @@ async function GETHandler(request: Request) {
         available: z.enum(["true", "false"]).optional(),
         limit: fields.limit.optional(),
         cursor: z.string().max(200).optional(),
+        paginate: z.enum(["1"]).optional(),
       })
       .strict()
   );
@@ -40,9 +41,11 @@ async function GETHandler(request: Request) {
 
   // A cursor switches to keyset paging. The legacy `tasks` field stays, so an old
   // client that ignores `nextCursor` still reads a usable first page.
-  if (query.data.cursor !== undefined) {
-    const cursor = decodeCursor(query.data.cursor);
-    if (!cursor) {
+  // Opt-in: a client that asks for paging gets `nextCursor`; one that does not
+  // keeps the exact response it has always received.
+  if (query.data.paginate === "1" || query.data.cursor !== undefined) {
+    const cursor = query.data.cursor === undefined ? null : decodeCursor(query.data.cursor);
+    if (query.data.cursor !== undefined && !cursor) {
       return badRequest("invalid_cursor");
     }
     const page = await listTaskPage({

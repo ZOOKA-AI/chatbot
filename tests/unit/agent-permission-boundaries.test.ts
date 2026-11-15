@@ -104,8 +104,7 @@ describe("deciding an approval", () => {
     const { POST } = await import("@/app/api/agents/approvals/[id]/route");
     const response = await POST(
       post(`/api/agents/approvals/${APPROVAL_ID}`, {
-        decision: "rejected",
-        organizationId: "org-victim",
+        decision: "rejected", reason: "not safe", organizationId: "org-victim",
       }),
       params(APPROVAL_ID)
     );

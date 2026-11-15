@@ -339,7 +339,7 @@ describe("10-12. Commander behaviour with RLS actually applied", () => {
       requestApproval(agent(ORG_A), { organizationId: ORG_A, taskId: task.id, reason: "needs a human" })
     );
     await asTenant(ORG_A, () =>
-      decideApproval({ organizationId: ORG_A, approvalId: approval.id, decision: "rejected", decidedBy: "o" })
+      decideApproval({ organizationId: ORG_A, approvalId: approval.id, decision: "rejected", reason: "not safe", decidedBy: "o" })
     );
     const gated = await asTenant(ORG_A, () =>
       pg.query(`update "AgentTask" set "approvalRequired" = true where id = $1 returning id`, [task.id])

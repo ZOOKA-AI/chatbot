@@ -1,25 +1,44 @@
 /**
  * Cursors for the execution history.
  *
- * Keyset, not offset: a cursor carries the last row's (createdAt, id), so a page
- * is "the next rows after exactly this one". That is what makes the ordering
- * stable when several tasks share a timestamp, and it is why paging does not
- * drift when rows are added while somebody is reading.
+ * Keyset, not offset: a cursor carries the last row's exact (createdAt, id), so a
+ * page is "the rows after exactly this one". That is what makes the ordering
+ * stable when several tasks share a timestamp, and why paging does not drift when
+ * rows are added while somebody is reading.
  *
- * The cursor is opaque and self-contained, but it is never trusted: it is parsed,
- * type-checked and only then used as a comparison value, never as SQL text.
+ * The stamp is the database's own text rendering with microseconds, not a
+ * JavaScript date: a date holds milliseconds, and a cursor truncated to
+ * milliseconds can neither equal a microsecond row nor be compared against the
+ * column without applying a function to it. Keeping the exact stamp lets the
+ * query compare the indexed column itself.
+ *
+ * The cursor is opaque and never trusted: it is parsed, type-checked, and only
+ * then bound as a parameter, never concatenated into SQL.
  */
 
-export type Cursor = { createdAt: Date; id: string };
+export type Cursor = {
+  /** Exact timestamp text, microseconds included. */
+  stamp: string;
+  /** Parsed form, for callers that want a date. Never used as the boundary. */
+  createdAt: Date;
+  id: string;
+};
 
 const MAX_CURSOR_LENGTH = 200;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function encodeCursor(createdAt: Date | string, id: string): string {
-  const when = createdAt instanceof Date ? createdAt : new Date(String(createdAt));
-  if (Number.isNaN(when.getTime())) {
+  const stamp =
+    createdAt instanceof Date
+      ? createdAt.toISOString()
+      : String(createdAt).replace(" ", "T");
+  if (Number.isNaN(new Date(stamp).getTime())) {
     throw new TypeError("encodeCursor needs a real timestamp");
   }
-  return Buffer.from(`${when.toISOString()}|${String(id)}`, "utf8").toString("base64url");
+  if (!UUID.test(id)) {
+    throw new TypeError("encodeCursor needs a real identifier");
+  }
+  return Buffer.from(`${stamp}|${id}`, "utf8").toString("base64url");
 }
 
 /** Returns null for anything that is not a cursor this application issued. */
@@ -36,12 +55,11 @@ export function decodeCursor(raw: string | null | undefined): Cursor | null {
   const split = decoded.lastIndexOf("|");
   if (split <= 0) return null;
 
-  const when = new Date(decoded.slice(0, split));
+  const stamp = decoded.slice(0, split);
   const id = decoded.slice(split + 1);
-  if (Number.isNaN(when.getTime())) return null;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-    return null;
-  }
+  const parsed = new Date(stamp);
+  if (Number.isNaN(parsed.getTime())) return null;
+  if (!UUID.test(id)) return null;
 
-  return { createdAt: when, id };
+  return { stamp, createdAt: parsed, id };
 }
