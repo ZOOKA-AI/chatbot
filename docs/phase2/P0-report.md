@@ -1,12 +1,32 @@
-# ZOOKA-AI — Phase 2 · P0 تنفيذ (مسودة داخلية)
+# ZOOKA-AI · Phase 2 · P0 — تقرير التنفيذ
 
-## ما نُفِّذ على الفرع p0/dev-foundation
-- `lib/design/tokens.ts` و`styles/zooka-tokens.css`: Design Tokens للهوية المعتمدة (#2E86AB / #A23B72 / #F8F9FA + طبقة عصبية داكنة + حركة خفيفة). **غير مستوردين في layout** فلا أثر على الإنتاج.
-- `lib/agent/*`: أنواع، سجل أدوات (13 أداة معلنة)، محرّك سياسات حتمي (إيقاف ← منع ← سماح ← سقوف ← موافقة)، مفتاح إيقاف بمستويين، سجل تدقيق مع تنقية أسرار.
-- `lib/integrations/*`: تعريف 8 مزوّدين بصلاحياتهم الحقيقية + سجل اتصال يحمل مرجع سر فقط.
-- `lib/db/migrations/dev/0021_p0_agent_core.sql`: 11 جدولًا + فهارس + RLS + سحب صلاحيات anon/authenticated + trigger يمنع تعديل/حذف AuditLog + تحقق ذاتي يفشل الترحيل لو نقص جدول.
+التاريخ: 15 نوفمبر 2026 · الفرع: `p0/dev-foundation` · PR: #76 (draft) · الإنتاج: **لم يُلمس**
 
-## ما لم يُنفَّذ والسبب
-- إنشاء zooka-dev: **محجوب بحصة Supabase** — المنظمة على Free، والحد مشروعان نشطان مجانيان، والمستخدم ZOOKA-AI مستهلك حصته (مشروع أيرلندا bylfizytgayoefuyliix خارج هذا الحساب). لا يمكن إنشاء مشروع ثالث بلا: إيقاف مؤقت لمشروع أيرلندا (إجراء مالك) أو ترقية المنظمة إلى Pro (25$/شهر، قرار مالك) أو استخدام Postgres بديل للتطوير.
-- ربط Preview بقاعدة تطوير: يتبع البند السابق.
-- نشر أي شيء: لم يُلمس الإنتاج ولا main.
+## ما نُفِّذ فعليًا
+| البند | الحالة |
+|---|---|
+| Design Tokens للهوية المعتمدة | ✅ `lib/design/tokens.ts` + `styles/zooka-tokens.css` (غير مستوردين في layout) |
+| عقود نواة الوكيل | ✅ `lib/agent/{types,registry,policy,killswitch,audit}.ts` |
+| Integration Hub (مواصفات) | ✅ `lib/integrations/hub/providers.ts` + `connections.ts` |
+| مخطط قاعدة التطوير | ✅ `lib/db/migrations/dev/0021_p0_agent_core.sql` (11 جدولًا + RLS + AuditLog append-only + تحقق ذاتي) |
+| بناء Preview | ✅ READY على الالتزام `2db1833` |
+| إنشاء zooka-dev | ⛔ محجوب بحصة Supabase Free |
+| ربط Preview بقاعدة تطوير | ⛔ يتبع البند السابق |
+| تطبيق الجداول واختبار الصلاحيات | ⛔ لا قاعدة تطوير بعد |
+
+## عطل أُصلح داخل P0
+الالتزام الأول `15198ff` كسر البناء بـ8 أخطاء Turbopack لأنه **استبدل** `lib/integrations/providers.ts` الموجود (INTEGRATION_PROVIDERS / PROVIDER_CATEGORIES). أُعيد الملف الأصلي من `main` ونُقلت المواصفات إلى `lib/integrations/hub/providers.ts`، ثم نجح البناء.
+
+## الأمان
+- فحص الأسرار في شجرة العمل (بلا node_modules/.next/.git): **0 ملف** يحتوي نمط سر.
+- Secret scanning على GitHub: **معطّل** على `chatbot` → يُنصح بتفعيله مع Push Protection (بلا تكلفة).
+- Code scanning: لا تحليل مضبوط (no analysis found).
+- Dependabot المفتوح: `chatbot` **39** (high 16 · medium 16 · low 7 · critical 0) — تصحيح للرقم الشائع 187/14.
+  `royalharoon` **110** (high 49 · medium 49 · low 11 · critical 1).
+- اكتشاف حرج: **12 متغيرًا مشتركًا بين Production وPreview** ومنها أسرار: `AUTH_SECRET`, `BRAND_SEAL_KEY`, `BLOB_READ_WRITE_TOKEN`, `BASE44_AGENT_API_KEY`, `GEMINI_API_KEY` → المعاينات ترى أسرار الإنتاج. لا يمكن فصلها دون تعديل مدخلات الإنتاج، وهو غير مصرّح به.
+
+## القرار المطلوب
+حصة Supabase Free = مشروعان نشطان، والمستخدم ZOOKA-AI استهلكها (المشروع الآخر `bylfizytgayoefuyliix` أيرلندا، خارج هذا الحساب). الخيارات:
+1. إيقاف مؤقت لمشروع أيرلندا من لوحة Supabase (إجراء مالك) ثم إنشاء `zooka-dev` مجانًا.
+2. ترقية المنظمة إلى Pro (≈25$/شهر) — تكلفة تحتاج موافقة.
+3. استخدام Postgres بديل للتطوير (Neon Free) — انحراف عن «Supabase dev» يحتاج موافقة.
