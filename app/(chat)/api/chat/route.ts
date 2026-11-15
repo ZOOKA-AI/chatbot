@@ -49,6 +49,7 @@ import { createTelegramAdsTools } from "@/lib/ai/tools/telegram-ads";
 import { createTelegramBotTools } from "@/lib/ai/tools/telegram-bot";
 import { createEmailRoutingTools } from "@/lib/ai/tools/email-routing";
 import { createGoogleAdsTools } from "@/lib/ai/tools/google-ads";
+import { createIntegrationSetupTools } from "@/lib/ai/tools/integration-setup";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -315,6 +316,9 @@ export async function POST(request: Request) {
     const googleAdsTools = agentAccessAuthorized
       ? createGoogleAdsTools(workspaceContext.organizationId)
       : {};
+    const integrationSetupTools = agentAccessAuthorized
+      ? createIntegrationSetupTools(workspaceContext.organizationId)
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -389,6 +393,7 @@ export async function POST(request: Request) {
           ...telegramBotTools,
           ...emailRoutingTools,
           ...googleAdsTools,
+          ...integrationSetupTools,
         };
 
         const tracing = createChatTracing();
