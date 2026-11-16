@@ -11,8 +11,6 @@ import { listWorkspaceDocuments } from "@/lib/projects/documents";
  * who closed the project page had no way back to their own file. This page is the list: it reads
  * from the database on every request, scoped to the caller's workspace by the query itself.
  */
-export const dynamic = "force-dynamic";
-
 export default async function DocumentsPage() {
   const context = await getWorkspaceContext();
   if (!context) redirect("/login");
