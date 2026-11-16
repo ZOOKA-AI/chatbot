@@ -71,6 +71,9 @@ beforeAll(async () => {
   await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0038_schedule_and_agent_model.sql"), "utf8"));
   await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0039_launch_plan.sql"), "utf8"));
   await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0040_agent_tools_and_instructions.sql"), "utf8"));
+  // The Drizzle schema declares AgentTask.projectId, so this database must carry the column that
+  // backs it; without 0041 every insert selects a column the schema built here does not have.
+  await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0041_workspace_projects.sql"), "utf8"));
   db = drizzle(pg, { schema });
   holder.db = db;
 }, 60_000);

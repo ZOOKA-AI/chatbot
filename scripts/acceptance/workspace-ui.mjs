@@ -106,6 +106,59 @@ try {
   await page.screenshot({ path: `${OUT}/launch.png`, fullPage: true });
   check("launch plan created through the UI is listed", launchText.includes(planName), planName);
   check("launch page shows persisted plans", /Launch plans \(\d+\)/.test(launchText), (launchText.match(/Launch plans \(\d+\)/) || [""])[0]);
+  // ---- projects: create from the UI, reload, and read the real detail back
+  await page.goto(`${BASE}/workspace/projects`, { waitUntil: "networkidle" });
+  const projectName = `Acceptance project ${stamp}`;
+  await page.getByLabel("Project name").fill(projectName);
+  await page.getByLabel("Project summary").fill("Created by the acceptance run");
+  await page.getByRole("button", { name: /Create/i }).first().click();
+  await page.waitForTimeout(2500);
+  await page.reload({ waitUntil: "networkidle" });
+  const projectsText = await page.locator("body").innerText();
+  await page.screenshot({ path: `${OUT}/projects.png`, fullPage: true });
+  check("project created through the UI survives a reload", projectsText.includes(projectName), projectName);
+  check("projects page reports a real count", /Projects \(\d+\)/.test(projectsText), (projectsText.match(/Projects \(\d+\)/) || [""])[0]);
+
+  // Opening the project must show its real rollup, not a placeholder.
+  await page.getByRole("button", { name: new RegExp(projectName.split(" ").pop()) }).first().click();
+  await page.waitForTimeout(2000);
+  const detailText = await page.locator("body").innerText();
+  await page.screenshot({ path: `${OUT}/project-detail.png`, fullPage: true });
+  check(
+    "opening a project shows its tasks and execution record",
+    /Tasks \(\d+\)/.test(detailText) && /Execution evidence \(\d+\)/.test(detailText),
+    (detailText.match(/Tasks \(\d+\)|Execution evidence \(\d+\)/g) || []).join(" ")
+  );
+  check(
+    "a project with no work says so rather than implying success",
+    /No tasks yet|Nothing has executed yet/.test(detailText)
+  );
+
+  // ---- actions: the catalog renders, and execution is withheld when no agent holds the tool
+  await page.goto(`${BASE}/workspace/actions`, { waitUntil: "networkidle" });
+  const actionsText = await page.locator("body").innerText();
+  await page.screenshot({ path: `${OUT}/actions.png`, fullPage: true });
+  check("the action catalog lists a versioned action", /v\d+/.test(actionsText));
+  check("the catalog is Arabic-first", /[\u0600-\u06FF]/.test(actionsText));
+  const openButton = page.getByRole("button", { name: /Open/i }).first();
+  const hasCatalogEntry = (await openButton.count()) > 0;
+  check("an action can be opened for its details", hasCatalogEntry);
+  if (hasCatalogEntry) {
+    await openButton.click();
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${OUT}/action-detail.png`, fullPage: true });
+    const runButton = page.getByRole("button", { name: /Run/i }).first();
+    const disabled = (await runButton.count()) === 0 ? true : await runButton.isDisabled();
+    const detailBody = await page.locator("body").innerText();
+    // New agents are created with no tools, so nothing here can be executed yet. The page must
+    // say that instead of offering a button that would fail on the server.
+    check(
+      "execution is withheld while no agent on the project holds the tool",
+      disabled || /Needs an agent with the tool|no agent on this project holds the tool/.test(detailBody),
+      disabled ? "run control is disabled" : "page states the missing assignment"
+    );
+  }
+
 } catch (error) {
   check("acceptance run completed without throwing", false, String(error).slice(0, 200));
 } finally {

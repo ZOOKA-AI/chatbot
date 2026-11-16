@@ -116,6 +116,16 @@ export function AppSidebar({
           label: isArabic ? "المهام المجدولة" : "Scheduled tasks",
         },
         {
+          href: "/workspace/projects",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "المشاريع" : "Projects",
+        },
+        {
+          href: "/workspace/actions",
+          icon: <Bot />,
+          label: isArabic ? "الإجراءات الجاهزة" : "Action catalog",
+        },
+        {
           href: "/workspace/launch",
           icon: <BriefcaseBusiness />,
           label: isArabic ? "إطلاق النشاط" : "Business launch",

@@ -8,12 +8,13 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 646 passed, 6 skipped, 652 total, 80 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 707 passed, 6 skipped, 713 total, 87 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
 | Tenant isolation | passed | `tests/unit/commander-tenant-*.test.ts`, `tenant-*.test.ts` against real PostgreSQL 15.19 on 127.0.0.1:55432 |
-| Browser acceptance | 9/9 passed | `scripts/acceptance/workspace-ui.mjs` against a local production build over TLS, screenshots in `acceptance/` |
+| Browser acceptance | 17/17 passed | `scripts/acceptance/workspace-ui.mjs` against a local production build over TLS with a real form login, screenshots in `acceptance/`, trace in `acceptance/trace.zip` |
+| Migration 0041 verification | 18/18 checks passed | `scripts/verify/workspace-projects-migration.sh` on a database rebuilt from all 42 migrations |
 
 Parallel full-suite runs showed one intermittent failure in
 `tests/unit/schedule.test.ts > two passes in the same second do not create two tasks`
@@ -150,3 +151,76 @@ Commit `c5a7e128` committed a scratch probe (`probe.comparison.mts`) containing 
 local acceptance password. It is a test credential for an isolated local database, not a
 production secret, but it is in history: that file has been deleted here, and the password should
 be treated as burnt and never reused anywhere else.
+
+### Phase 1 — Workspace OS and action catalog — PARTIAL
+
+A project is now the thing work belongs to. `AgentProject` is a tenant-scoped table; agents,
+tasks and schedules carry a nullable `projectId`, so a project groups the agents assigned to it,
+the tasks they produced, and the evidence from every execution.
+
+**Schema and migration.** `lib/db/migrations/pending/0041_workspace_projects.sql` is additive
+only: one new table, three nullable columns, a unique `(organizationId, name)` index, RLS enabled
+with a tenant policy that also applies to writes (`WITH CHECK`), and a paired `.down.sql`.
+Verified 18/18 on a database built from all 42 migrations: objects present, three foreign keys,
+policy enforced, workspace A and B each seeing only their own row, no tenant context seeing
+nothing, a cross-tenant insert refused by policy, rollback dropping only the new objects, and
+re-apply restoring them.
+
+**Conditional link to the hosted site.** `siteProjectId` points at the existing `Project` table
+(a hosted website), but that foreign key is created only when that table exists in the database.
+This is deliberate, not defensive noise: a deployment built from the agent migrations alone has
+no `Project` table, and an unconditional key made the migration fail there. Both shapes are
+covered by `tests/unit/workspace-project-schema.test.ts` — with the table present the key exists
+with `ON DELETE SET NULL`; with it absent the column still exists so a later deployment can
+attach the link.
+
+**Store.** `lib/projects/store.ts` scopes every read and write by `organizationId`; another
+workspace's project reads as missing rather than forbidden. Deleting a project with no work
+removes it; deleting one that holds tasks archives it instead and keeps the work, because tasks
+are a record of what really ran. Verified on real PostgreSQL by `tests/unit/workspace-projects.test.ts`
+(17 tests): isolation, name uniqueness per workspace, rename collisions, unknown status and empty
+patch refused, cross-tenant edit not found, delete versus archive, agent assignment refusing an
+agent from another workspace, an agent holding the tool being the one resolved for a run, a
+disabled agent never resolved, and tasks/executions/schedules rolling up through the project.
+
+**Action catalog.** `lib/actions/catalog.ts` is a versioned contract: bilingual title and
+description, typed inputs with patterns, responsible role, required tools and integrations,
+approval flag, workflow and outputs. `executable` is derived from the worker's own tool registry
+rather than asserted, so an action naming a tool the worker does not implement cannot appear as
+available. `planActionExecution` refuses a template that is not executable, a tool that is not
+assigned, an inactive agent, a plan without agent runs, and an exhausted allowance — every
+refusal before a task exists. 20 catalog tests, 21 runner and route tests.
+
+**Duplicate submissions.** `runAction` treats an identical request inside a five-minute window,
+still queued or running, as the same task and returns it with `deduplicated: true` instead of
+queueing it twice. A finished task is not reused, and an older identical request is new work.
+
+**Interface.** `/workspace/projects` and `/workspace/actions` render server-side permissions and
+client-side data from the API only; nothing on the page states a state the database does not
+hold. The catalog is Arabic-first, searchable, filtered by category, and an action is refused in
+the UI when no agent on the chosen project holds its tool. Reached from the sidebar.
+
+**Browser acceptance.** 17/17 against a production build over TLS with a real credentials login
+(no session minting): session established, agent created and persisted, schedule created and
+persisted, launch plan created and persisted, project created and persisted across a reload with
+a true count, project detail showing its task and execution rollups at zero rather than a
+placeholder, the Arabic-first catalog rendering, an action opening for details, and the run
+control disabled because the newly created agent holds no tools. Screenshots:
+`acceptance/projects.png`, `project-detail.png`, `actions.png`, `action-detail.png`.
+
+**Regression found and fixed during this milestone.** Adding `projectId` to the Drizzle schema
+broke 15 tests in `commander-concurrency` and 15 in `commander-tenant-isolation`. The cause was
+not the migration: eleven PGlite harnesses build their own schema from an explicit list of
+migration files that ended at 0040, so they had a database without the column the ORM declares.
+The fix was to add 0041 to each chain and to make the runtime-role grant conditional, because
+those harnesses never create `zooka_runtime`; the migration now reports the absent role instead
+of failing silently. No assertion was weakened.
+
+**Not verified in this milestone.**
+- Running an action all the way to a stored result in the browser. The path from a request to a
+  queued task is proven (unit, route and browser), but claiming and executing need an agent
+  holding a tool plus a live provider credential; the browser run's agent was created with the
+  new zero-tool default, so the UI withheld execution rather than pretending.
+- Project membership beyond owner/admin. There is no per-project member list; access follows the
+  workspace role, and the UI hides write controls from members. A finer model is not built.
+- Mobile layout beyond a responsive check at one viewport; no device matrix was run.

@@ -324,6 +324,10 @@ export type CreateTaskInput = {
   approvalRequired?: boolean;
   rollbackPlan?: string | null;
   createdBy?: string;
+  /** Which project the work belongs to, when it belongs to one. */
+  projectId?: string | null;
+  /** What the worker needs to run this: the tool id and its inputs, as the catalog declared them. */
+  payload?: Record<string, unknown> | null;
 };
 
 export async function createTask(input: CreateTaskInput) {
@@ -339,6 +343,8 @@ export async function createTask(input: CreateTaskInput) {
       environment: input.environment ?? "production",
       approvalRequired: input.approvalRequired ?? false,
       rollbackPlan: input.rollbackPlan ?? null,
+      projectId: input.projectId ?? null,
+      payload: input.payload ?? null,
       createdBy: input.createdBy ?? "owner",
     })
     .returning();

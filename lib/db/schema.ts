@@ -504,6 +504,40 @@ export const project = pgTable(
 
 export type Project = InferSelectModel<typeof project>;
 
+/**
+ * A customer's project: the thing work belongs to.
+ *
+ * This is deliberately not `project` above. That table is a hosted website record (subdomain,
+ * custom domain, template) and predates the agent platform; reusing it would have meant either
+ * breaking its NOT NULL subdomain contract or pretending every workspace project is a website.
+ * A project here groups agents, tasks, schedules and their evidence, and may optionally point at
+ * the hosted site it produced through `siteProjectId`.
+ */
+export const agentProject = pgTable(
+  "AgentProject",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    name: varchar("name", { length: 200 }).notNull(),
+    summary: text("summary"),
+    status: varchar("status", { length: 24 }).notNull().default("active"),
+    // The brief the customer gave, kept exactly as entered so the project can be re-read later.
+    brief: json("brief").$type<Record<string, unknown>>(),
+    // The hosted site this project produced, when it produced one.
+    siteProjectId: uuid("siteProjectId").references(() => project.id, { onDelete: "set null" }),
+    createdBy: varchar("createdBy", { length: 64 }).notNull().default("owner"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    orgIdx: index("AgentProject_organizationId_idx").on(table.organizationId),
+    nameUnique: unique("AgentProject_organizationId_name_key").on(table.organizationId, table.name),
+    siteIdx: index("AgentProject_siteProjectId_idx").on(table.siteProjectId),
+  })
+);
+
+export type AgentProject = InferSelectModel<typeof agentProject>;
+
 export const agentMessage = pgTable(
   "AgentMessage",
   {
@@ -558,6 +592,8 @@ export const agentIdentity = pgTable(
     // array is a restriction on which worker tools this agent's tasks may run.
     allowedTools: json("allowedTools").$type<string[]>(),
     instructions: text("instructions"),
+    // Which project this agent works on. Null means it is not attached to one yet.
+    projectId: uuid("projectId").references(() => agentProject.id, { onDelete: "set null" }),
     lastSeenAt: timestamp("lastSeenAt"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
@@ -581,6 +617,7 @@ export const agentSchedule = pgTable(
     timezone: varchar("timezone", { length: 64 }).notNull().default("Asia/Dubai"),
     enabled: boolean("enabled").notNull().default(true),
     missedRunPolicy: varchar("missedRunPolicy", { length: 16 }).notNull().default("skip"),
+    projectId: uuid("projectId").references(() => agentProject.id, { onDelete: "set null" }),
     nextRunAt: timestamp("nextRunAt", { withTimezone: true }),
     lastRunAt: timestamp("lastRunAt", { withTimezone: true }),
     createdBy: varchar("createdBy", { length: 64 }).notNull().default("owner"),
@@ -637,6 +674,8 @@ export const agentTask = pgTable(
     scheduledFor: timestamp("scheduledFor", { withTimezone: true }),
     payload: json("payload").$type<Record<string, unknown>>(),
     approvalRequired: boolean("approvalRequired").notNull().default(false),
+    // Which project this work belongs to. Evidence is read back through the task's executions.
+    projectId: uuid("projectId").references(() => agentProject.id, { onDelete: "set null" }),
     rollbackPlan: text("rollbackPlan"),
     claimedAt: timestamp("claimedAt"),
     reportedAt: timestamp("reportedAt"),
