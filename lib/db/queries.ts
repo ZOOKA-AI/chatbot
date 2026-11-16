@@ -1935,3 +1935,13 @@ export async function appendAgentMessage({
     content: content.slice(0, 8000),
   });
 }
+
+/** Owner of a workspace, used by the launch testing program to resolve a claim. */
+export async function getWorkspaceOwnerId(organizationId: string) {
+  const [row] = await adminDb()
+    .select({ userId: organizationMember.userId })
+    .from(organizationMember)
+    .where(eq(organizationMember.organizationId, organizationId))
+    .limit(1);
+  return row?.userId ?? null;
+}
