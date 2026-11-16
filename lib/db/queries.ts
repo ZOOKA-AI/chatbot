@@ -1,5 +1,6 @@
 import "server-only";
 import { accountDatabaseError } from "./diagnostics";
+import { commanderActiveDb } from "./tenant-context";
 
 import { agentMessage } from "./schema";
 
@@ -75,7 +76,27 @@ const client = postgres(connectionString, {
   idle_timeout: 20,
   connect_timeout: 10,
 });
-export const db = drizzle(client);
+const sharedDb = drizzle(client);
+
+/**
+ * The database handle the application uses.
+ *
+ * When a request has published its tenant transaction (see request-tenant.ts),
+ * this resolves to that transaction, so every query issued by the handler is
+ * evaluated against the caller's tenant policies without changing the forty-odd
+ * call sites that import `db`.
+ *
+ * When nothing is published it resolves to the shared connection, which is the
+ * unchanged behaviour while enforcement is off.
+ */
+export const db = new Proxy(sharedDb as unknown as object, {
+  get(target, property) {
+    const active = commanderActiveDb() as Record<string | symbol, unknown> | null;
+    const resolved = (active ?? target) as Record<string | symbol, unknown>;
+    const value = Reflect.get(resolved, property, resolved);
+    return typeof value === "function" ? value.bind(resolved) : value;
+  },
+}) as typeof sharedDb;
 
 async function retryBlobRequest<T>(
   operation: (signal: AbortSignal) => Promise<T>

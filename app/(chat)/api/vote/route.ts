@@ -1,10 +1,11 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getChatById, getVotesByChatId, voteMessage } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 import { queryParamIsValid, uuidSchema } from "@/lib/validation/chat";
 import { z } from "zod";
 
-export async function GET(request: Request) {
+async function GETImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
   const chatIdValid = queryParamIsValid(chatId, uuidSchema, "chatId", "must be a valid chat id");
@@ -54,7 +55,7 @@ const voteBodySchema = z
   })
   .strict();
 
-export async function PATCH(request: Request) {
+async function PATCHImpl(request: Request) {
   let raw: unknown;
   try {
     raw = await request.json();
@@ -100,3 +101,7 @@ export async function PATCH(request: Request) {
 
   return new Response("Message voted", { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const PATCH = withRequestTenantHandler(PATCHImpl);

@@ -1,4 +1,5 @@
 import { geolocation, ipAddress } from "@vercel/functions";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -100,7 +101,7 @@ function getStreamContext() {
 
 export { getStreamContext };
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   let requestBody: PostRequestBody;
 
   // A ceiling on the whole payload, before it is parsed or sent to a model.
@@ -632,7 +633,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function DELETEImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
@@ -670,3 +671,7 @@ export async function DELETE(request: Request) {
 
   return Response.json(deletedChat, { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const POST = withRequestTenantHandler(POSTImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

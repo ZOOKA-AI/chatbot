@@ -1,11 +1,12 @@
 import { auth } from "@/app/(auth)/auth";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { db } from "@/lib/db/queries";
 import { studioProject } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+async function GETImpl() {
   const session = await auth();
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,7 +21,7 @@ export async function GET() {
   return NextResponse.json({ projects });
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const session = await auth();
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -69,3 +70,7 @@ export async function POST(request: Request) {
     .returning();
   return NextResponse.json({ project });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);

@@ -1,9 +1,10 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getSuggestionsByDocumentId } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 import { queryParamIsValid, uuidSchema } from "@/lib/validation/chat";
 
-export async function GET(request: Request) {
+async function GETImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const documentId = searchParams.get("documentId");
   const documentIdValid = queryParamIsValid(
@@ -42,3 +43,6 @@ export async function GET(request: Request) {
 
   return Response.json(suggestions, { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);

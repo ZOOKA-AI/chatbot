@@ -6,6 +6,7 @@ import postgres from "postgres";
 
 import {
   TENANT_SETTING,
+  TENANT_USER_SETTING,
   TenantScopeError,
   assertUnprivilegedRole,
   isUuid,
@@ -128,6 +129,13 @@ export async function runInTenantTransaction<T>(
   // builder over one pinned connection rather than a foreign object.
   return base.transaction(async (tx) => {
     await tx.execute(sql`select set_config(${TENANT_SETTING}, ${context.organizationId}, true)`);
+
+    // Membership rows and other user-owned data are looked up by user id before
+    // any organisation is known (workspace resolution at login). Without this the
+    // user-owned policies would see no user and fail closed on a valid session.
+    if (context.userId) {
+      await tx.execute(sql`select set_config(${TENANT_USER_SETTING}, ${context.userId}, true)`);
+    }
 
     // drizzle's postgres-js driver returns the row list itself, not a { rows } envelope.
     const applied = await tx.execute<{ current: string | null }>(

@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import {
   getWorkspaceContext,
   requireWorkspaceRole,
@@ -10,7 +11,7 @@ import {
 import { ChatbotError } from "@/lib/errors";
 import { cursorSchema, limitSchema } from "@/lib/validation/chat";
 
-export async function GET(request: NextRequest) {
+async function GETImpl(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
   // "abc" used to become NaN and reach the query builder; a repeated or huge
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
   return Response.json(chats);
 }
 
-export async function DELETE() {
+async function DELETEImpl() {
   const workspaceContext = await requireWorkspaceRole("admin");
 
   if (!workspaceContext) {
@@ -76,3 +77,7 @@ export async function DELETE() {
 
   return Response.json(result, { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

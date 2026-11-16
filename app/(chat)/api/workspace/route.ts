@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { z } from "zod";
 import { requireWorkspaceRole } from "@/lib/auth/workspace";
 import { updateWorkspaceName } from "@/lib/db/queries";
@@ -8,7 +9,7 @@ const renameSchema = z.object({
   name: z.string().trim().min(WORKSPACE_NAME_MIN).max(WORKSPACE_NAME_MAX),
 });
 
-export async function PATCH(request: Request) {
+async function PATCHImpl(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context) {
     return NextResponse.json(
@@ -41,3 +42,6 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ name: parsed.data.name });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const PATCH = withRequestTenantHandler(PATCHImpl);
