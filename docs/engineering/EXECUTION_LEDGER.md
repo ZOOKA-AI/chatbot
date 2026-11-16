@@ -142,6 +142,43 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 28 — Scheduled, leased, tenant-credentialled (16 Nov 2026)
+
+PR #95 head `8d0ae10`, draft. PR #92 carries this entry. No merge, no production deployment, no production migration, no billing change, no paid service, no credential exposed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 28.1 | Overlap impossible at the database | DONE | Session-scoped advisory lock `8135713` on a dedicated connection; a held-lock test proves the second pass returns `overlapping_run` and claims nothing |
+| 28.2 | Atomic selection | DONE | Each task is claimed by the worker's conditional UPDATE on `status='pending'`, not by the selector |
+| 28.3 | Per-organisation ceiling | DONE | `SCHEDULER_PER_ORG_LIMIT`; test queues three tasks for one workspace and asserts exactly one is taken |
+| 28.4 | Global ceiling | DONE | `SCHEDULER_GLOBAL_LIMIT`; test queues two workspaces and asserts one attempt |
+| 28.5 | Fair scheduling | DONE | One task per workspace per pass, oldest first; test asserts both organisations appear when one has three tasks and the other one |
+| 28.6 | Bounded batch | DONE | `SCHEDULER_BATCH_SIZE`, capacity computed from attempts actually running |
+| 28.7 | Explicit failure handling | DONE | An unauthorised tool is refused per task, the pass still finishes, and `SchedulerRun` records it |
+| 28.8 | Observability | DONE | `SchedulerRun` row per pass with claimed/succeeded/failed/skipped/reclaimed counts and a JSON detail |
+| 28.9 | Deployment-compatible scheduling | DONE | HTTP endpoint, no persistent process assumed; hosting requirements documented in `docs/engineering/SCHEDULER.md` |
+| 28.10 | Execution lease | DONE | `leaseExpiresAt` + heartbeat every 30 s while the tool works |
+| 28.11 | Lease expiration and recovery | DONE | Sweeper closes expired attempts `timed_out` and their tasks `failed`; test asserts `error='lease_expired'` and task `failed`, never completed |
+| 28.12 | Lease ownership before completion | DONE | The worker asks for a heartbeat before claiming success; a null answer returns `lease_lost` and claims nothing |
+| 28.13 | Expired worker cannot overwrite | DONE | Closure is conditional on a live lease; test has a stale worker try to close an expired attempt and asserts the row is untouched |
+| 28.14 | Idempotency keys | DONE | `idempotencyKey = task:tool:attempt` with a unique partial index |
+| 28.15 | Tenant-scoped credentials | DONE | Workspace connection read through the tenant handle; live run records `credentialSource: workspace` |
+| 28.16 | Fail closed | DONE | Missing, malformed, unreadable and not-connected are distinct refusals; a malformed value is refused and left exactly as stored (test reads it back) |
+| 28.17 | No fallback to the platform token | DONE | A workspace with no connection returns `platform_credential_not_enabled` when shared credentials are off; test asserts it |
+| 28.18 | Repository authorisation | DONE | Installation tokens must list the repository; a listing that omits it refuses with `repo_not_in_installation` |
+| 28.19 | No secrets in evidence or responses | DONE | Token never stored, evidence redacted, `SchedulerRun.detail` carries ids and counts only |
+| 28.20 | Least privilege in migration 0035 | DONE | `zooka_runtime` gets SELECT/INSERT/UPDATE on `SchedulerRun` and SELECT only on `integration_connection`; DELETE on executions stays denied |
+| 28.21 | Second read-only tool | DONE | `vercel_deployment_inspect`: five GETs, no deployment, rollback, environment or billing path |
+| 28.22 | Real end-to-end | VERIFIED | task `9ef159f7` → scheduler run `524041f6` → execution `ebbe981e` → `completed` in 280 ms; second task read the Vercel project, 5 deployments, latest READY |
+| 28.23 | Full suite | DONE | 414 passed across 58 files with PostgreSQL; 3 skipped are the opt-in live tests |
+| 28.24 | Build | DONE | `pnpm run build` exit 0, 126 pages |
+
+Two hardening gaps were found during the security review and fixed before commit: completion was not lease-verified (a late worker could have settled an attempt recovery already owned), and the scheduler token was compared with `===` (a byte-by-byte oracle). Both now have tests.
+
+Remaining blockers, stated plainly: no cron calls the endpoint yet, so nothing runs on a cadence; the scheduler needs `DATABASE_URL_PLATFORM`, a cross-tenant credential that must be created and approved before any deployment uses it; one tool per provider exists (GitHub, Vercel) and there is no scheduler UI; and nobody has driven the endpoint with a real agent key outside these tests.
+
+Next milestone: authenticated browser acceptance and the complete chat-to-execution user journey.
+
 ## Stage 27 — The first execution worker (16 Nov 2026)
 
 PR #95 head `27ff1f07`, draft. No merge, no production deployment, no production migration, no billing change, no paid service, no credential exposed.
