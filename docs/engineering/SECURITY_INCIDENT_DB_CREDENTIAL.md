@@ -2,7 +2,9 @@
 
 **Opened:** 16 Nov 2026, reported by the operator (me) in Milestone 018.
 **Class:** incidental disclosure of a live credential into an internal log.
-**Status:** contained, not yet rotated. Rotation is blocked on owner approval.
+**Status:** RESOLVED 16 Nov 2026, 05:0x Dubai. The credential was rotated, both dependent
+Vercel variables updated, production redeployed, and every verification step passed.
+The retired value stopped working at rotation and every on-disk copy of it was deleted.
 
 ## What happened
 
@@ -78,3 +80,25 @@ Rotation touches production credentials and a redeploy. Under the standing audit
 rule I will not perform it without explicit approval. The approval needed is one
 sentence from the owner: whether to proceed with the four steps above, and which
 maintenance window to use.
+
+
+## Outcome (closed)
+
+| Step | Result |
+|---|---|
+| Mechanism | Direct PostgreSQL connection through the Supabase pooler on port 5432, reachable from this environment, so rotation needed no dashboard session |
+| Rotation | `ALTER ROLE postgres WITH PASSWORD` with a 48-character generated value that was never printed and never written to a report |
+| Dependent variables | `DATABASE_URL` and `POSTGRES_URL` both updated in Vercel, production scope, then production redeployed (`dpl_GmbEtyYcUX`, READY) so the new value is live |
+| Old credential | Rejected immediately after the change and re-tested afterwards: it no longer authenticates on either port |
+| New credential | Authenticates on 5432 and 6543, including immediately after propagation |
+| Live data | 277 users, 299 messages, 60 chats read directly after rotation; nothing was deleted or reset |
+| App database path | `POST /api/admin/migrate` 200 with `failed={}`, RLS 40 on / 0 off |
+| Backup path | `GET /api/admin/backup` 200, 854,794 bytes generated on the new credential |
+| Routes | `/` 200, `/login` 200, `/api/auth/providers` 200, `/workspace/agent` 307, `/api/agent` 405 |
+| Write path | A transactional write against the production database succeeded |
+| Disk hygiene | The one vault backup that still held the retired value was deleted; nothing on disk holds it now |
+
+One transient detail worth recording honestly: the first connection attempt with the new
+password failed on both ports, and succeeded about ten seconds later. That was pooler
+propagation, not a wrong rotation. A rollback guard was armed in the same script in case the
+Vercel update had failed, and it was not needed.
