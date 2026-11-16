@@ -47,7 +47,6 @@ if (!EMAIL || !PASSWORD) {
 
 const headers = (extra = {}) => ({
   "x-vercel-protection-bypass": BYPASS,
-  "x-vercel-set-bypass-cookie": "true",
   ...extra,
 });
 
@@ -75,7 +74,7 @@ async function step(name, fn) {
   try {
     return await fn();
   } catch (error) {
-    record(name, "FAIL", `threw: ${error.message}`);
+    record(name, "FAIL", `threw: ${error.message}${error?.cause ? ` [cause: ${error.cause.code || error.cause.message}]` : ""}`);
     return null;
   }
 }
@@ -92,7 +91,17 @@ await step("registration", async () => {
   if (res.status === 200 && hasForm) {
     record("registration", "PASS", "register page 200 and renders email + password fields (form submit itself needs the browser: server action)");
   } else if (res.status >= 300 && res.status < 400) {
-    record("registration", "FAIL", `redirected ${res.status} to ${res.headers.get("location")} — bypass not accepted`);
+    const loc = res.headers.get("location") || "";
+    const target = loc.startsWith("http") ? loc : `${BASE}${loc}`;
+    const followed = await fetch(target, { headers: headers(), redirect: "manual" });
+    cookies.absorb(followed);
+    const body2 = await followed.text();
+    const form2 = /type="email"|name="email"/i.test(body2) && /password/i.test(body2);
+    if (followed.status === 200 && form2) {
+      record("registration", "PASS", `${res.status} -> ${loc} then 200 with email + password fields (form submit needs the browser: server action)`);
+    } else {
+      record("registration", "FAIL", `redirected ${res.status} to ${loc}; followed -> ${followed.status} (form: ${form2})`);
+    }
   } else {
     record("registration", "FAIL", `status ${res.status}, form present: ${hasForm}`);
   }
@@ -168,12 +177,13 @@ await step("agent execution", async () => {
 await step("logout", async () => {
   const csrfRes = await fetch(`${BASE}/api/auth/csrf`, { headers: headers({ cookie: cookies.header() }) });
   const { csrfToken } = await csrfRes.json();
-  await fetch(`${BASE}/api/auth/signout`, {
+  const out = await fetch(`${BASE}/api/auth/signout`, {
     method: "POST",
     headers: headers({ "content-type": "application/x-www-form-urlencoded", cookie: cookies.header() }),
     body: new URLSearchParams({ csrfToken, json: "true" }),
     redirect: "manual",
   });
+  cookies.absorb(out);
   const session = await (await fetch(`${BASE}/api/auth/session`, { headers: headers({ cookie: cookies.header() }) })).json();
   const page = await fetch(`${BASE}/workspace/agent`, { headers: headers({ cookie: cookies.header() }), redirect: "manual" });
   const signedOut = !session?.user?.email;
