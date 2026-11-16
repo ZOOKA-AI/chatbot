@@ -152,12 +152,43 @@ try {
   const squareVideo = squareProbe.streams.find((s) => s.codec_type === "video");
   check("the 1:1 render is really 1080×1080 H.264", squareVideo?.width === 1080 && squareVideo?.height === 1080 && squareVideo?.codec_name === "h264", `${squareVideo?.width}×${squareVideo?.height} ${squareVideo?.codec_name}`);
 
+  // 4d. a real cutout: transparency is measured, not assumed
+  const bgStatus = await api("/api/studio/background");
+  check("the cutout engine reports itself ready", bgStatus.body.engine?.ready === true, String(bgStatus.body.engine?.detail));
+  const cut = await api("/api/studio/background", { method: "POST", data: { assetId: firstId, model: "u2net" } });
+  const cutId = cut.body.asset?.id ?? null;
+  check("background removal produces an asset", cut.status === 201 && Boolean(cutId), `${cut.status} ${cut.body.error ?? ""}`);
+  check("the cutout records an Apache-2.0 model, not the non-commercial default", cut.body.asset?.operation?.model === "u2net" && cut.body.asset?.operation?.license === "Apache-2.0", `${cut.body.asset?.operation?.model} ${cut.body.asset?.operation?.license}`);
+  const cutDownload = await context.request.get(`${BASE}/api/studio/assets/${cutId}/file?download=1`, { maxRedirects: 0 });
+  const cutBytes = await cutDownload.body();
+  await writeFile("acceptance/studio-cutout.png", cutBytes);
+  const alpha = await run("python3", ["-c", "from PIL import Image; import sys; im=Image.open(sys.argv[1]).convert('RGBA'); px=im.load(); print(px[0,0][3], px[im.size[0]//2, im.size[1]//2][3])", "acceptance/studio-cutout.png"]);
+  const [cornerAlpha, centreAlpha] = alpha.stdout.trim().split(/\s+/).map(Number);
+  check("the downloaded cutout really has a transparent corner and an opaque subject", cornerAlpha === 0 && centreAlpha > 200, `corner ${cornerAlpha} centre ${centreAlpha}`);
+  const ncModel = await api("/api/studio/background", { method: "POST", data: { assetId: firstId, model: "bria-rmbg" } });
+  check("a non-commercial model is refused with its licence", ncModel.status === 403 && ncModel.body.error === "license_not_commercial", `${ncModel.status} ${ncModel.body.detail}`);
+
+  // 4e. real Arabic speech, synthesised on this machine
+  const ttsStatus = await api("/api/studio/tts");
+  check("the narration engine reports its voice", ttsStatus.body.tts?.ready === true, String(ttsStatus.body.tts?.voice));
+  const speech = await api("/api/studio/tts", { method: "POST", data: { text: "تقنية بإيمان، تقدم بأخلاق. شركة زوكا للذكاء الاصطناعي." } });
+  check("Arabic narration produces an audio asset", speech.status === 201 && Number(speech.body.asset?.durationSeconds ?? 0) > 1, `${speech.status} ${speech.body.asset?.durationSeconds ?? speech.body.error}s`);
+  const speechDownload = await context.request.get(`${BASE}/api/studio/assets/${speech.body.asset?.id}/file?download=1`, { maxRedirects: 0 });
+  await writeFile("acceptance/studio-narration.m4a", await speechDownload.body());
+  const speechProbe = JSON.parse((await run("ffprobe", ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", "acceptance/studio-narration.m4a"])).stdout);
+  check("the narration downloads as real AAC audio", speechProbe.streams?.some((s) => s.codec_type === "audio") && Number(speechProbe.format.duration) > 1, `${Number(speechProbe.format.duration).toFixed(2)}s`);
+  const latin = await api("/api/studio/tts", { method: "POST", data: { text: "hello world this is english" } });
+  check("an Arabic voice refuses Latin text instead of mangling it", latin.status === 409 && latin.body.error === "not_arabic", `${latin.status} ${latin.body.error}`);
+
   // 5. the provider panel tells the truth about generation
   const providers = await api("/api/studio/providers");
   const localReady = (providers.body.providers ?? []).find((p) => p.provider === "local-ffmpeg")?.ready === true;
   const comfyBlocked = (providers.body.providers ?? []).find((p) => p.provider === "comfyui");
   check("the local provider is reported ready", localReady, "local-ffmpeg");
   check("ComfyUI reports its exact blocker instead of pretending", comfyBlocked?.ready === false && Boolean(comfyBlocked?.blocked), `${comfyBlocked?.blocked ?? "missing"}`);
+  const actors = await api("/api/actions");
+  const creative = (actors.body.actions ?? []).filter((a) => a.category === "creative");
+  check("the catalog exposes four creative actions, all executable", creative.length === 4 && creative.every((a) => a.executable), `${creative.length} ${creative.map((a) => a.id).join(",")}`);
   const generate = await api("/api/studio/generate", { method: "POST", data: { prompt: "لوحة تنظيف أنيقة", capability: "image" } });
   check("generation is refused with blockers, never faked", generate.status === 409 && generate.body.error === "no_provider_ready", `${generate.status} ${(generate.body.blockers ?? []).join(",")}`);
 

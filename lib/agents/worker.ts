@@ -37,6 +37,14 @@ import type { WorkerTool } from "@/lib/agents/worker-types";
 type WorkerAgent = { id: string; organizationId: string };
 
 import { browserTaskRun } from "./worker-tools/browser-task";
+import {
+  studioAssetList,
+  studioAudioEdit,
+  studioBackgroundRemove,
+  studioImageEdit,
+  studioNarration,
+  studioVideoRender,
+} from "./worker-tools/studio-media";
 
 export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
@@ -44,6 +52,12 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
   [projectDocumentCreate.name]: projectDocumentCreate,
   browser_task_run: browserTaskRun,
+  studio_asset_list: studioAssetList,
+  studio_image_edit: studioImageEdit,
+  studio_background_remove: studioBackgroundRemove,
+  studio_video_render: studioVideoRender,
+  studio_narration: studioNarration,
+  studio_audio_edit: studioAudioEdit,
 };
 
 export class WorkerRefusal extends Error {

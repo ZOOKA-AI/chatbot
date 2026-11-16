@@ -27,6 +27,7 @@ export const ACTION_CATEGORIES = [
   "marketing",
   "operations",
   "design",
+  "creative",
 ] as const;
 
 export type ActionCategory = (typeof ACTION_CATEGORIES)[number];
@@ -306,6 +307,175 @@ const DRAFTS: TemplateDraft[] = [
       { ar: "دليل تنفيذ محفوظ يمكن مراجعته", en: "Stored execution evidence you can re-read" },
     ],
   },
+  {
+    id: "studio_image_edit",
+    version: 1,
+    category: "creative",
+    title: { ar: "تعديل صورة", en: "Edit an image" },
+    description: {
+      ar: "يعدّل صورة موجودة في مكتبتك — تكبير أو تصغير، قص، أو طباعة نص — وينتج ملفًا جديدًا يحتفظ بأصله. لا يحتاج أي مزوّد خارجي ولا يخترع صورة.",
+      en: "Edits an image already in your library — resize, crop or print text — and produces a new file that keeps its original. It needs no external provider and invents nothing.",
+    },
+    inputs: [
+      {
+        key: "asset",
+        type: "text",
+        required: true,
+        label: { ar: "الصورة", en: "Image" },
+        help: { ar: "اسم الصورة كما رفعتها أو معرّفها.", en: "The image's name as you uploaded it, or its id." },
+        placeholder: "صورة-المتجر",
+        pattern: "^[A-Za-z0-9\\u0600-\\u06FF _:.\\-]{2,80}$",
+      },
+      {
+        key: "instruction",
+        type: "text",
+        required: true,
+        label: { ar: "ما تريده بالعربية", en: "What you want, in Arabic" },
+        help: {
+          ar: "مثال: «كبّرها إلى 1080×1920» أو «قص 600×600» أو «اكتب نص: عرض خاص».",
+          en: "For example: resize to 1080×1920, crop 600x600, or write the text: special offer.",
+        },
+        placeholder: "كبّرها إلى 1080×1920",
+        pattern: "^[\\s\\S]{3,300}$",
+      },
+    ],
+    responsibleRole: "designer",
+    requiredTools: ["studio_image_edit"],
+    requiredIntegrations: [],
+    approval: "none",
+    workflow: [
+      { ar: "إيجاد الصورة داخل مساحتك بالاسم أو المعرّف", en: "Find the image in your workspace by name or id" },
+      { ar: "قراءة طلبك وتحديد التعديل المطلوب", en: "Read your request and identify the edit" },
+      { ar: "تنفيذ التعديل وحفظ الناتج كملف جديد قابل للتنزيل", en: "Run the edit and store the result as a new downloadable file" },
+    ],
+    outputs: [
+      { ar: "صورة معدّلة بمقاساتها الحقيقية", en: "An edited image with its real dimensions" },
+      { ar: "سجل يربط الناتج بأصله", en: "A record tying the result to its original" },
+    ],
+  },
+  {
+    id: "studio_background_remove",
+    version: 1,
+    category: "creative",
+    title: { ar: "إزالة خلفية صورة", en: "Remove an image background" },
+    description: {
+      ar: "يزيل خلفية صورة داخل مساحتك ويحفظ الشفافية الحقيقية، بمحرّك يعمل على الخادم نفسه بلا أي خدمة مدفوعة. النموذج الافتراضي مرخّص للاستخدام التجاري، ورخصة النموذج تُسجَّل مع الملف.",
+      en: "Removes an image's background and keeps real transparency, using an engine that runs on your own server with no paid service. The default model is licensed for commercial use, and the model's licence is recorded with the file.",
+    },
+    inputs: [
+      {
+        key: "asset",
+        type: "text",
+        required: true,
+        label: { ar: "الصورة", en: "Image" },
+        help: { ar: "اسم الصورة أو معرّفها.", en: "The image's name or id." },
+        placeholder: "منتج-1",
+        pattern: "^[A-Za-z0-9\\u0600-\\u06FF _:.\\-]{2,80}$",
+      },
+    ],
+    responsibleRole: "designer",
+    requiredTools: ["studio_background_remove"],
+    requiredIntegrations: [],
+    approval: "none",
+    workflow: [
+      { ar: "إيجاد الصورة داخل مساحتك", en: "Find the image in your workspace" },
+      { ar: "التحقق من رخصة النموذج قبل التشغيل", en: "Check the model licence before running" },
+      { ar: "إزالة الخلفية وحفظ PNG بشفافية مؤكدة", en: "Remove the background and store a PNG with verified transparency" },
+    ],
+    outputs: [
+      { ar: "صورة PNG بخلفية شفافة", en: "A PNG with a transparent background" },
+      { ar: "اسم النموذج ورخصته محفوظان مع الملف", en: "The model name and licence stored with the file" },
+    ],
+  },
+  {
+    id: "studio_video_render",
+    version: 1,
+    category: "creative",
+    title: { ar: "إنتاج فيديو MP4", en: "Render an MP4" },
+    description: {
+      ar: "يجمع صورك ومقاطعك في فيديو MP4 حقيقي بمقاس 9:16 أو 1:1 أو 16:9، بمدة تحددها أنت، مع إمكانية إضافة تعليق صوتي عربي. التوليد يتم على الخادم بـffmpeg بلا أي مزوّد مدفوع.",
+      en: "Assembles your images and clips into a real MP4 at 9:16, 1:1 or 16:9, with the duration you choose and an optional Arabic narration. Rendering happens on your own server with ffmpeg and no paid provider.",
+    },
+    inputs: [
+      {
+        key: "scenes",
+        type: "text",
+        required: true,
+        label: { ar: "المشاهد بالترتيب", en: "Scenes in order" },
+        help: {
+          ar: "أسماء الوسائط مفصولة بفاصلة، مثل: صورة-1، صورة-2، مقطع-أ.",
+          en: "Media names separated by commas, for example: image-1, image-2, clip-a.",
+        },
+        placeholder: "صورة-1، صورة-2",
+        pattern: "^[\\s\\S]{2,300}$",
+      },
+      {
+        key: "aspect",
+        type: "text",
+        required: false,
+        label: { ar: "المقاس", en: "Aspect" },
+        help: { ar: "9:16 للستوري، 1:1 للمربع، 16:9 للأفقي. الافتراضي 9:16.", en: "9:16 for stories, 1:1 for square, 16:9 for landscape. Default 9:16." },
+        placeholder: "9:16",
+        pattern: "^(9:16|1:1|16:9)$",
+      },
+      {
+        key: "narration",
+        type: "text",
+        required: false,
+        label: { ar: "تعليق صوتي عربي", en: "Arabic narration" },
+        help: { ar: "اكتب النص وسيُحوَّل إلى صوت على الخادم. اتركه فارغًا لفيديو بلا تعليق.", en: "Type the script and it becomes speech on your server. Leave empty for a silent film." },
+        placeholder: "شركة تنظيف في الإمارات، جودة تستحق الثقة.",
+        pattern: "^[\\s\\S]{0,600}$",
+      },
+    ],
+    responsibleRole: "designer",
+    requiredTools: ["studio_video_render"],
+    requiredIntegrations: [],
+    approval: "none",
+    workflow: [
+      { ar: "إيجاد كل مشهد داخل مساحتك والتحقق من مدته", en: "Find every scene in your workspace and validate its duration" },
+      { ar: "توليد التعليق الصوتي إن كتبته", en: "Synthesise the narration if you wrote one" },
+      { ar: "تركيب الفيديو بـffmpeg وقياس الناتج قبل تسليمه", en: "Assemble the film with ffmpeg and measure the output before delivery" },
+    ],
+    outputs: [
+      { ar: "ملف MP4 قابل للتشغيل والتنزيل", en: "A playable, downloadable MP4" },
+      { ar: "مدته ومقاسه مقروءان من الملف نفسه", en: "Its duration and size read from the file itself" },
+    ],
+  },
+  {
+    id: "studio_narration",
+    version: 1,
+    category: "creative",
+    title: { ar: "تعليق صوتي عربي", en: "Arabic narration" },
+    description: {
+      ar: "يحوّل نصًا عربيًا كتبته إلى ملف صوتي حقيقي بصوت عصبي يعمل على الخادم بلا مفاتيح ولا فواتير. الصوت جاهز للاستخدام في فيديو أو للتنزيل وحده.",
+      en: "Turns Arabic text you wrote into a real audio file with a neural voice that runs on your server with no keys and no billing. The track is ready for a video or to download on its own.",
+    },
+    inputs: [
+      {
+        key: "script",
+        type: "text",
+        required: true,
+        label: { ar: "النص العربي", en: "Arabic script" },
+        help: { ar: "من ٢ إلى ١٢٠٠ حرف. التشكيل والرموز تُنظَّف تلقائيًا قبل النطق.", en: "2 to 1200 characters. Diacritics and markup are cleaned before speaking." },
+        placeholder: "تقنية بإيمان، تقدم بأخلاق.",
+        pattern: "^[\\s\\S]{2,1200}$",
+      },
+    ],
+    responsibleRole: "designer",
+    requiredTools: ["studio_narration"],
+    requiredIntegrations: [],
+    approval: "none",
+    workflow: [
+      { ar: "تنظيف النص والتحقق من وجود حروف عربية", en: "Clean the script and confirm it contains Arabic" },
+      { ar: "توليد الصوت على الخادم", en: "Synthesise the audio on your server" },
+      { ar: "تحويله إلى AAC وقياس مدته", en: "Convert it to AAC and measure its duration" },
+    ],
+    outputs: [
+      { ar: "ملف صوتي بمدة حقيقية", en: "An audio file with a real duration" },
+      { ar: "مسار جاهز للدمج في فيديو", en: "A track ready to be muxed into a video" },
+    ],
+  },
 ];
 
 function publish(draft: TemplateDraft): ActionTemplate {
@@ -417,7 +587,59 @@ export function actionPayload(
     // projectId is added by the runner from the project the customer chose, never from the form.
     return { tool, payload: { title: inputs.title ?? "", brief: inputs.brief ?? "" } };
   }
+  if (tool === "studio_image_edit") {
+    return { tool, payload: { asset: inputs.asset ?? "", instruction: inputs.instruction ?? "" } };
+  }
+  if (tool === "studio_background_remove") {
+    return { tool, payload: { asset: inputs.asset ?? "" } };
+  }
+  if (tool === "studio_video_render") {
+    // Scenes are a list the customer wrote; the tool resolves each name inside their own workspace.
+    const scenes = (inputs.scenes ?? "")
+      .split(/[,،\n]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((asset) => ({ asset, seconds: 2 }));
+    return {
+      tool,
+      payload: {
+        scenes,
+        aspect: inputs.aspect || "9:16",
+        narration: inputs.narration ?? "",
+      },
+    };
+  }
+  if (tool === "studio_narration") {
+    return { tool, payload: { text: inputs.script ?? "" } };
+  }
   // Unreachable while `executable` is derived from isKnownTool, and refused rather than guessed
   // if a new tool is added to the registry without a mapping here.
   throw new Error(`no payload mapping for tool ${tool}`);
+}
+
+/**
+ * Reads an Arabic request and names the studio actions that match it.
+ *
+ * This is deliberately deterministic: a keyword map, not a model. A customer who writes "أزل خلفية
+ * الصورة" gets the background action, and a request that matches nothing gets an empty list rather
+ * than a plausible-looking guess. The agent may still choose an action another way, but it can always
+ * fall back to this, and the reason it chose is inspectable.
+ */
+const REQUEST_KEYWORDS: Array<{ action: string; match: RegExp }> = [
+  // Ordered by what the request is *about*. A film made of photos is about the film, and a caption
+  // inside it is a step, so the video wins over the image; a cutout is about the background.
+  { action: "studio_background_remove", match: /خلفي|خلفية|اقتطع|افصل|background/i },
+  { action: "studio_video_render", match: /فيديو|مقطع|ريلز|موشن|video|reel|mp4/i },
+  { action: "studio_narration", match: /تعليق صوتي|نطق|تسجيل صوتي|voiceover|narration|tts/i },
+  { action: "studio_image_edit", match: /صورة|صور|قص|تكبير|تصغير|مقاس|طباعة|نص على|image|photo|resize|crop/i },
+];
+
+export function matchActionsForRequest(text: string): string[] {
+  const request = text.trim();
+  if (request.length < 2) return [];
+  // One answer, not a pile: the first intention that matches is the one the customer is asking for.
+  // Returning every keyword hit would offer "edit an image" to somebody who asked for a film.
+  const winner = REQUEST_KEYWORDS.find((entry) => entry.match.test(request));
+  if (!winner) return [];
+  return findAction(winner.action)?.executable === true ? [winner.action] : [];
 }

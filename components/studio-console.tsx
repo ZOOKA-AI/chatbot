@@ -68,6 +68,7 @@ export function StudioConsole() {
   const [caption, setCaption] = useState("تقنية بإيمان، تقدم بأخلاق");
   const [aspect, setAspect] = useState<"9:16" | "1:1" | "16:9">("9:16");
   const [sceneSeconds, setSceneSeconds] = useState(2);
+  const [narration, setNarration] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -122,6 +123,37 @@ export function StudioConsole() {
     setBusy(false);
     setNotice(ok ? `أُنجز التعديل: ${data.asset?.label ?? ""}` : `تعذّر التعديل: ${data.error ?? "سبب غير معروف"}${data.detail ? ` (${data.detail})` : ""}`);
     await load();
+  };
+
+  const removeBackground = async () => {
+    if (!selectedImage) return;
+    setBusy(true);
+    setNotice(null);
+    const { ok, data } = await post<{ asset?: Asset; error?: string; detail?: string }>("/api/studio/background", {
+      assetId: selectedImage,
+      model: "u2net",
+    });
+    setBusy(false);
+    setNotice(
+      ok
+        ? `أُزيلت الخلفية: PNG بشفافية · ${humanBytes(data.asset?.bytes ?? 0)}`
+        : `تعذّرت إزالة الخلفية: ${data.error ?? "سبب غير معروف"}${data.detail ? ` (${data.detail})` : ""}`
+    );
+    await load();
+  };
+
+  const narrate = async () => {
+    setBusy(true);
+    setNotice(null);
+    const { ok, data } = await post<{ asset?: Asset; error?: string; detail?: string }>("/api/studio/tts", { text: narration });
+    setBusy(false);
+    setNotice(
+      ok
+        ? `وُلّد تعليق صوتي: ${Number(data.asset?.durationSeconds ?? 0).toFixed(1)} ثانية`
+        : `تعذّر التوليد الصوتي: ${data.error ?? "سبب غير معروف"}${data.detail ? ` (${data.detail})` : ""}`
+    );
+    await load();
+    setTab("audio");
   };
 
   const render = async () => {
@@ -286,6 +318,14 @@ export function StudioConsole() {
             >
               إضافة الشعار
             </button>
+            <button
+              type="button"
+              disabled={busy || !selectedImage}
+              onClick={removeBackground}
+              className="rounded border border-white/25 px-2 py-1 text-xs"
+            >
+              إزالة الخلفية (U2Net)
+            </button>
           </div>
           {selectedImage ? (
             <a
@@ -338,6 +378,22 @@ export function StudioConsole() {
           <p className="text-[11px] opacity-60">
             يستخدم أول {Math.min(images.length, 6)} صورة من مكتبتك بالترتيب. الإنتاج حتمي ويستغرق ثوانٍ.
           </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={narration}
+              onChange={(event) => setNarration(event.target.value)}
+              className="flex-1 rounded border border-white/20 bg-transparent px-2 py-1 text-xs"
+              placeholder="تعليق صوتي عربي (اختياري) — يُنطق على الخادم"
+            />
+            <button
+              type="button"
+              disabled={busy || narration.trim().length < 2}
+              onClick={narrate}
+              className="rounded border border-white/25 px-2 py-1 text-xs"
+            >
+              توليد التعليق الصوتي
+            </button>
+          </div>
           <div className="flex flex-wrap gap-3">
             {videos.map((asset) => (
               <div key={asset.id} className="flex w-56 flex-col gap-1 rounded border border-white/10 p-1">

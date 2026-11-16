@@ -55,6 +55,59 @@ ducked by `gainDb`, voice at unity, `amix`, `alimiter`). All through ffmpeg; the
 Text-to-speech and AI voice are **not implemented**: they need a provider with rights-cleared voices,
 and the studio does not pretend otherwise.
 
+## Background removal
+
+`rembg` (MIT) runs in a short-lived Python subprocess so a slow segmenter cannot take the web process
+with it. The model is the legal question, so the model is an allowlist that carries each licence:
+
+| Model | Licence | Commercial | Used by default |
+|---|---|---|---|
+| `u2net` | Apache-2.0 | yes | **yes** |
+| `isnet-general-use` | Apache-2.0 | yes | no |
+| `bria-rmbg` | CC-BY-NC-4.0 | **no** | refused |
+
+`rembg` 2.x defaults to the BRIA model, which is non-commercial. Naming it in a request returns **403
+`license_not_commercial`** unless an operator sets `STUDIO_ALLOW_NONCOMMERCIAL_MODEL=1`, and the licence
+that was used is written into the asset's `operation` so a cutout can always be traced to its model.
+
+Transparency is verified rather than assumed: the corner alpha must be near zero and the centre near
+opaque, and a cutout without transparency is an error, not a re-encode.
+
+## Arabic narration
+
+Piper (MIT) synthesises speech offline on the CPU — no key, no account, no per-character cost. The voice
+is a separate file (`STUDIO_PIPER_VOICE`, used here with `ar_JO-kareem-medium`, 63 MB, 22.05 kHz). The
+engine's licence is MIT; **the voice model's licence is on its model card and must be checked before
+commercial distribution**, which the status endpoint says out loud.
+
+The script is cleaned first (diacritics and markup removed, bounded to 1200 characters) and Latin-only
+text is refused with `not_arabic`, because an Arabic voice reading English produces nonsense. Output is
+AAC in an MP4 container, mux-ready for a render.
+
+## The agent surface
+
+Six worker tools, registered and named in `INTERNAL_WRITE_TOOLS` because they write files and rows:
+
+| Tool | Writes | Purpose |
+|---|---|---|
+| `studio_asset_list` | no | what the workspace holds |
+| `studio_image_edit` | yes | resize, crop, text, logo |
+| `studio_background_remove` | yes | cutout with licence recorded |
+| `studio_video_render` | yes | 1–12 scenes to MP4 |
+| `studio_narration` | yes | Arabic speech |
+| `studio_audio_edit` | yes | trim, gain, voiceover mix |
+
+Four catalog actions sit on them (`studio_image_edit`, `studio_background_remove`,
+`studio_video_render`, `studio_narration`), in a `creative` category, all `executable` because
+`executable` is derived from the tool registry rather than declared.
+
+`matchActionsForRequest` maps a plain Arabic sentence to **one** action, in priority order background →
+video → narration → image, and returns nothing for a request the studio cannot serve. It is a keyword
+map, not a model, so the reason for a choice is inspectable; the tests caught two real defects in it
+(returning every keyword hit, and a stripped wildcard matching every asset).
+
+Assets are referenced by id or by the label the customer typed, resolved inside their own workspace only.
+
 ## Providers, and why generation is blocked
 
 `lib/studio/providers.ts` defines one neutral interface with `kind: local | self_hosted | external_api`
@@ -88,11 +141,15 @@ duration limits, and `ffprobe` on every upload. A worker host with a volume is t
 
 ## What is verified, and what is not
 
-Verified by `scripts/acceptance/studio-acceptance.mjs` (30/30 on real files): upload with server-side
+Verified by `scripts/acceptance/studio-acceptance.mjs` (40/40 on real files): upload with server-side
 measurement, resize to 1080×1920, crop to 600×600, PNG download of 103,989 bytes, 9:16 render
 (45,894-byte MP4, H.264 1080×1920, 4.00 s, audio muxed), audio gain (AAC, 2.02 s), voiceover mix, 1:1
 render with title and fades (1080×1080 H.264), provider status telling the truth, generation refused
 with blockers, cross-tenant 404 on file/list/edit, and persistence across logout/login.
 
-Not built: AI generation (blocked, no endpoint), text-to-speech, background removal, transition types
-beyond cut and fade, and interactive timeline scrubbing in the panel.
+Also verified: a real cutout whose downloaded corner alpha is 0 and centre is opaque, a non-commercial
+model refused with 403, 6.84 s of Arabic narration downloaded as AAC, and Latin text refused by the
+Arabic voice.
+
+Not built: AI generation (blocked, no endpoint), transition types beyond cut and fade, voice cloning, and
+interactive timeline scrubbing in the panel.

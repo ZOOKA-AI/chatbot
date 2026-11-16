@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 767 passed, 6 skipped, 773 total, 93 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 784 passed, 6 skipped, 790 total, 94 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -472,3 +472,22 @@ across logout and login.
 against fixtures (12 tests) but no `COMFYUI_ENDPOINT` exists, so `/api/studio/generate` answers 409 with
 its blockers and no generated image is ever displayed. Text-to-speech and background removal are not
 built.
+
+### Milestone 015 — studio wired to the agent, cutouts and Arabic narration — COMPLETE
+
+Six studio tools are registered with the worker and named in `INTERNAL_WRITE_TOOLS`, so the agent can
+edit, cut out, render, narrate and mix on the customer's own media. Four catalog actions in a `creative`
+category are `executable` because executability is derived from the tool registry.
+
+Arabic requests route deterministically to one action (background, video, narration, image, in that
+priority) with no model involved; a request the studio cannot serve returns nothing.
+
+Background removal runs `rembg` with **U2Net (Apache-2.0)** by default and refuses the non-commercial BRIA
+model with 403 unless an operator opts in, recording the licence with the file. Arabic narration runs
+Piper offline; Latin text is refused by the Arabic voice.
+
+**Gates:** 784 passed / 6 skipped / 790 in 94 files, `tsc` 0, build compiled. One intermittent failure
+was observed once in `schedule.test.ts` and passed 18/18 three times in isolation and in the next full
+run; it is reported as intermittent, not fixed, and not weakened. Studio acceptance 40/40 on real files.
+
+**Still blocked:** AI generation (no `COMFYUI_ENDPOINT`; adapter and setup guide complete).

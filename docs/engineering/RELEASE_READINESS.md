@@ -113,3 +113,20 @@ The run: sign-in by form → agent holding one tool → project → action → w
 document of 1,017 characters stored → project page lists it → viewer opens it → download returns
 `text/markdown` of the exact stored length → reload still shows it → sign-out refuses it → sign-in
 restores it → second workspace gets 404 on read, list and download.
+
+## Studio additions (Directive #052)
+
+| Migration | Status |
+|---|---|
+| 0044_studio_media | verified up/down on a local database; applied to development (zooka_ui, zooka_ws) only |
+
+New runtime dependencies, all on the server and all free: `ffmpeg`/`ffprobe` on the host, `rembg` +
+`onnxruntime` + `pillow` (Python, for cutouts), `piper-tts` (Python, for Arabic narration) plus one voice
+model file.
+
+Release blockers unchanged in kind, plus two new machine requirements: a host with a writable volume
+(`STUDIO_MEDIA_DIR`) and enough RAM for a segmentation model. Serverless functions are unsuitable for
+both rendering and cutouts.
+
+Generation remains blocked: no `COMFYUI_ENDPOINT`. Setup is documented in `COMFYUI_SETUP.md`; nothing in
+the deterministic path depends on it.

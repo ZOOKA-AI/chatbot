@@ -56,4 +56,13 @@ export function redact(value: string): string {
  * a flag a tool can set for itself: a tool that sets `internalWrite` but is missing here is still
  * refused, and the worker's default stays "refuse anything that writes".
  */
-export const INTERNAL_WRITE_TOOLS = new Set<string>(["project_document_create", "browser_task_run"]);
+export const INTERNAL_WRITE_TOOLS = new Set<string>([
+  "project_document_create",
+  "browser_task_run",
+  // The studio creates files and rows, so each of these is named rather than granted by a flag.
+  "studio_image_edit",
+  "studio_background_remove",
+  "studio_video_render",
+  "studio_narration",
+  "studio_audio_edit",
+]);

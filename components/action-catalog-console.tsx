@@ -65,6 +65,7 @@ const CATEGORIES: { id: string; ar: string; en: string }[] = [
   { id: "marketing", ar: "التسويق", en: "Marketing" },
   { id: "operations", ar: "التشغيل", en: "Operations" },
   { id: "design", ar: "التصميم", en: "Design" },
+  { id: "creative", ar: "الاستوديو الإبداعي", en: "Creative studio" },
 ];
 
 const TERMINAL = new Set(["completed", "failed", "cancelled", "canceled", "rejected", "timed_out"]);

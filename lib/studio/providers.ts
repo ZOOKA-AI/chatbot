@@ -18,7 +18,7 @@ export type ProviderKind = "local" | "self_hosted" | "external_api";
 export type Capability = "image" | "video" | "audio";
 
 export type ProviderStatus =
-  | { ready: true; provider: string; kind: ProviderKind; capabilities: Capability[]; detail: string }
+  | { ready: true; provider: string; kind: ProviderKind; capabilities: Capability[]; detail: string; models?: string[] }
   | { ready: false; provider: string; kind: ProviderKind; capabilities: Capability[]; blocked: string; detail: string | null };
 
 export type GenerateInput = {
@@ -177,13 +177,28 @@ export function createComfyProvider(
             detail: `HTTP ${response.status}`,
           };
         }
-        const stats = (await response.json().catch(() => ({}))) as { devices?: Array<{ name?: string }> };
+        const stats = (await response.json().catch(() => ({}))) as { devices?: Array<{ name?: string; vram_total?: number }> };
+        // A ComfyUI that answers but holds no checkpoint cannot render anything, so the models it
+        // actually has are part of the answer rather than something the operator discovers on failure.
+        const models = await listCheckpoints(endpoint, headers, doFetch);
+        if (models !== null && models.length === 0) {
+          return {
+            ready: false,
+            provider: "comfyui",
+            kind: "self_hosted",
+            capabilities: ["image"],
+            blocked: "no_models_installed",
+            detail: "the instance answered but lists no checkpoint; install one before use",
+          };
+        }
+        const device = stats.devices?.[0];
         return {
           ready: true,
           provider: "comfyui",
           kind: "self_hosted",
           capabilities: ["image"],
-          detail: stats.devices?.[0]?.name ? `device: ${stats.devices[0].name}` : "endpoint answered",
+          detail: device?.name ? `device: ${device.name}` : "endpoint answered",
+          models: models ?? undefined,
         };
       } catch (error) {
         return {
@@ -293,6 +308,34 @@ export function createComfyProvider(
       return { ok: false, provider: "comfyui", code: "timeout", detail: `${deadlineMs}ms` };
     },
   };
+}
+
+/**
+ * The checkpoints installed on an instance, read from its own node description.
+ *
+ * `null` means the instance did not describe its loader, which is not the same as having no models:
+ * older builds and custom nodes vary, so the caller distinguishes "unknown" from "empty".
+ */
+async function listCheckpoints(
+  endpoint: string,
+  headers: Record<string, string>,
+  doFetch: typeof fetch
+): Promise<string[] | null> {
+  const guard = timeout(6000);
+  try {
+    const response = await doFetch(`${endpoint}/object_info/CheckpointLoaderSimple`, { headers, signal: guard.signal });
+    if (!response.ok) return null;
+    const body = (await response.json().catch(() => null)) as
+      | Record<string, { input?: { required?: { ckpt_name?: unknown[] } } }>
+      | null;
+    const names = body?.CheckpointLoaderSimple?.input?.required?.ckpt_name;
+    const list = Array.isArray(names) ? names[0] : null;
+    return Array.isArray(list) ? (list as string[]) : null;
+  } catch {
+    return null;
+  } finally {
+    guard.cancel();
+  }
 }
 
 /** Every provider the studio knows about, so settings and status are driven by one list. */
