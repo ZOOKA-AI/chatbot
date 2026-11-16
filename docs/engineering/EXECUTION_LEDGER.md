@@ -1054,3 +1054,36 @@ cannot host composition, exactly as it cannot host rendering.
 invented imagery. The action description says so in both languages.
 
 No production deployment, no production migration, no merge, no purchase, no external publishing.
+
+## Milestone 017 — RunComfy cloud generation, refused by default (DIRECTIVE #056/#057)
+
+PR #95 head `6ad10a5` (draft). The studio had no generator because every generator costs money; this
+milestone adds one and makes the money the visible part.
+
+Documentation read from `https://docs.runcomfy.com` (`/llms.txt` and the six Model API pages) on
+16 November 2026. No path or field was invented.
+
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 17.01 | Endpoints verified against docs | VERIFIED | `GET /v1/models`, `GET /v1/models/{id}`, `POST /v1/models/{id}`, `GET /v1/requests/{id}/status`, `GET /v1/requests/{id}/result?include_cost=true`, `POST /v1/requests/{id}/cancel` on `model-api.runcomfy.net`; `GET /v2/balance` on `api.runcomfy.net/prod` |
+| 17.02 | Error codes taken from docs | VERIFIED | 400001, 400002 → `insufficient_balance`, 400004/403001 → `unauthorized`, 404001 → `not_found`, 429 → retried, 5xx → `provider_unavailable` |
+| 17.03 | Async client | VERIFIED | `lib/studio/runcomfy.ts`: submit, poll, result with real cost, cancel, balance, discovery, timeout and backoff |
+| 17.04 | Submit never retried | VERIFIED | test asserts one fetch call after a 500, because a retried bill is two bills |
+| 17.05 | Token redaction | VERIFIED | a provider message echoing `Bearer <token>` comes back as `[redacted]`; live route carries no key material |
+| 17.06 | One switch | VERIFIED | `lib/studio/paid-switch.ts`; the engine ladder and the cost gate previously read two different flags, which is how a disabled provider gets selected anyway — now one function |
+| 17.07 | Five refusals before spending | VERIFIED | operator switch, per-job approval, estimate inside cap, running limit, wallet; plus credential, prompt, model, estimate-unknown and balance-unreadable checks |
+| 17.08 | Default blocks everything | VERIFIED | live: `paidGenerationEnabled=false`, panel shows `credential_missing`, action refuses with `spend_not_authorized` |
+| 17.09 | Worker integration | VERIFIED | `studio_ai_generate` registered, routed (AI phrasing beats edit/render), payload mapped, refusal before queue execution |
+| 17.10 | Action catalogue | VERIFIED | `approval: "required"`, `requiredIntegrations: ["runcomfy"]`, bilingual description that states it bills per request |
+| 17.11 | Lifecycle on documented fixtures | VERIFIED | 8 cases: in_queue → in_progress → completed with `succeeded` and cost; `failed`; deadline → `still_running` with request id; `cancelled`; success without URL → `no_output`; output 403 → `download_failed`; 400002 at submit |
+| 17.12 | Output persistence | VERIFIED | downloaded bytes stored through the tenant media layer with `organizationId` and the chosen `projectId`, 14 bytes asserted |
+| 17.13 | Non-billable account check | VERIFIED | `GET /api/studio/runcomfy/status`: authenticated 200, unauthenticated 307, no token in body, 6/6 live checks |
+| 17.14 | Gates | 861 passed / 6 skipped / 867 in 100 files, twice | identical numbers and environment; `tsc` clean; `next build` 0 |
+| 17.15 | Real paid inference | BLOCKED — `CREDENTIAL_REQUIRED` | `RUNCOMFY_API_TOKEN` absent. No generation is claimed |
+
+**The honest limit:** no RunComfy job has ever run from this code. The integration is complete and refused
+at the gate; the first real image needs the owner's token plus one approved cost, and `RUNCOMFY.md` lists
+the five exact requirements. Wallet at the time of writing: $0.50, automatic top-up off, no deployment,
+no GPU purchased, no paid call made.
+
+No production deployment, no production migration, no merge, no purchase, no external publishing.
