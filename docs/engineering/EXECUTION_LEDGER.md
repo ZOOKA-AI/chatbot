@@ -142,6 +142,32 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 34 — Milestone 24 closed: six failures explained, migrations rounded out (16 Nov 2026)
+
+PR #95 head `1ec780e`, PR #92 this entry. Both Draft, unmerged. No production schema change, no feature deployment, no production migration, no paid resource, no billing change, no credential disclosed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 34.1 | Uncommitted work preserved | VERIFIED | Inspected tree before touching it; nothing reset, cleaned or rebased |
+| 34.2 | Six failures named | VERIFIED | `agent-health.test.ts`: three reads failed with "permission denied for table AgentExecution", one returned `ok` where `warn` was expected; the set varied between runs |
+| 34.3 | Each file alone | VERIFIED | The health file passed 7/7 on its own, which ruled out the code under test |
+| 34.4 | Root cause | VERIFIED | One shared database, plus suites that delete `SchedulerRun`/`AgentExecution` rows and rewrite `TENANT_RLS_ENABLED` and `DATABASE_URL_TENANT` in `process.env` without restoring them |
+| 34.5 | Fix, not silenced | VERIFIED | Files serialised once DB suites are enabled; health suite given its own database and made to clear the flag it sets. No assertion relaxed |
+| 34.6 | Stability | VERIFIED | 446 passed twice consecutively across 63 files, plus two further green runs during diagnosis |
+| 34.7 | `Chat.deletedAt` | VERIFIED | `pending/0036`; type `timestamp`, nullable, so no table rewrite; up/down/up round-tripped |
+| 34.8 | `User.emailVerifiedAt` | VERIFIED | `pending/0037`; backfilled 1 of 2 rows on a production-shaped table, down preserved both rows and the source column, re-up idempotent |
+| 34.9 | Rollback procedures | DONE | `0036.down.sql` and `0037.down.sql`, each stating its consequence rather than just its SQL |
+| 34.10 | ORM compatibility | VERIFIED | `migration-schema-parity.test.ts` asserts every ORM table and column exists in a migration-built database; passes with zero gaps |
+| 34.11 | Recovery validation | VERIFIED | Fresh schema, live 854KB backup: 1,875 rows, 14 tables, counts identical to the previous run, 0 orphaned foreign keys, 277/277 bcrypt hashes |
+| 34.12 | Legacy exclusions | DOCUMENTED | `User` name/image/emailVerified, `Organization` slug/ownerId/plan/deletedAt, `Document` embedding — reported per table, never silently dropped |
+| 34.13 | Alerting verified, disabled | VERIFIED | 10 tests over cooldown, escalation, recovery, scheduler inactivity, leases, backlog and failure bursts; `deriveAlerts`/`planNotifications` have no caller outside tests, so nothing can send |
+| 34.14 | Health monitoring | VERIFIED | 22 tests including 401, 403, 503 mapping, a 50-task backlog, stalled scheduler and missing scheduler history |
+| 34.15 | Quality gates | VERIFIED | `tsc --noEmit` 0 errors, 446 passed / 4 skipped, `pnpm run build` exit 0 |
+
+**Release prerequisite, unchanged and deliberate:** `pending/0037` must be applied and verified on production *before* this branch's code is deployed, because the ORM selects `User.emailVerifiedAt` and production carries `emailVerified`. Deploying first would break the first read of that column. It is not applied here because production migrations need explicit owner approval, which has not been given.
+
+**Also still open:** no isolated Preview database (Supabase quota consumed, management token 401 on every endpoint, no alternative provider credential), so `TENANT_RLS_ENABLED` has never been exercised on a hosted database, and no browser session exists, so the health endpoint has never been called over HTTP by a signed-in user.
+
 ## Stage 33 — Restore proved, drift measured, and health that cannot be announced (16 Nov 2026)
 
 PR #95 head `2a225e0`, PR #92 this entry. Draft. No merge, no production feature deployment, no production migration, no billing change, no paid resource, no secret exposed.
