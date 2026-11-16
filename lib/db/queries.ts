@@ -1,5 +1,6 @@
 import "server-only";
 import { accountDatabaseError } from "./diagnostics";
+import { getTenantStore } from "./tenant-context";
 
 import { agentMessage } from "./schema";
 
@@ -74,7 +75,31 @@ const client = postgres(connectionString, {
   idle_timeout: 20,
   connect_timeout: 10,
 });
-export const db = drizzle(client);
+const baseDb = drizzle(client);
+
+/**
+ * Tenant-aware database proxy.
+ *
+ * A query issued through `db` runs on the connection that matches the active
+ * request scope: when `withRequestTenantHandler` has opened a tenant
+ * transaction, every statement is routed to that transaction, which carries
+ * `app.current_org_id` and is therefore subject to row level security. With no
+ * open scope the base connection is used, which is what bootstrap paths
+ * (sign-in, registration, webhooks) require.
+ */
+export const db = new Proxy(baseDb, {
+  get(target, prop, receiver) {
+    const scoped = getTenantStore()?.tx as
+      | Record<string | symbol, unknown>
+      | undefined;
+    const source = (scoped ?? target) as Record<string | symbol, unknown>;
+    const value = source[prop];
+    if (typeof value === "function") {
+      return (value as (...args: unknown[]) => unknown).bind(source);
+    }
+    return Reflect.get(source, prop, receiver);
+  },
+}) as typeof baseDb;
 
 async function retryBlobRequest<T>(
   operation: (signal: AbortSignal) => Promise<T>

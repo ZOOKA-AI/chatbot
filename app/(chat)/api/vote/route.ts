@@ -1,8 +1,9 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getChatById, getVotesByChatId, voteMessage } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
-export async function GET(request: Request) {
+async function GET_tenant(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
 
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
   return Response.json(votes, { status: 200 });
 }
 
-export async function PATCH(request: Request) {
+async function PATCH_tenant(request: Request) {
   const {
     chatId,
     messageId,
@@ -83,3 +84,7 @@ export async function PATCH(request: Request) {
 
   return new Response("Message voted", { status: 200 });
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);
+export const PATCH = withRequestTenantHandler(PATCH_tenant);

@@ -3,12 +3,13 @@ import { z } from "zod";
 import { requireWorkspaceRole } from "@/lib/auth/workspace";
 import { updateWorkspaceName } from "@/lib/db/queries";
 import { WORKSPACE_NAME_MAX, WORKSPACE_NAME_MIN } from "@/lib/workspace-name";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
 const renameSchema = z.object({
   name: z.string().trim().min(WORKSPACE_NAME_MIN).max(WORKSPACE_NAME_MAX),
 });
 
-export async function PATCH(request: Request) {
+async function PATCH_tenant(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context) {
     return NextResponse.json(
@@ -41,3 +42,6 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ name: parsed.data.name });
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const PATCH = withRequestTenantHandler(PATCH_tenant);

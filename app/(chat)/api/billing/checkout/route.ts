@@ -6,12 +6,13 @@ import { requireWorkspaceRole } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { getStripePriceId, paidWorkspacePlans } from "@/lib/saas/plans";
 import { getStripe } from "@/lib/saas/stripe";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
 const checkoutSchema = z.object({
   plan: z.enum(paidWorkspacePlans),
 });
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -150,3 +151,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const POST = withRequestTenantHandler(POST_tenant);

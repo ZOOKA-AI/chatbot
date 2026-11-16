@@ -4,6 +4,7 @@ import { requireWorkspaceRole } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { grantPaidInvoiceTokens } from "@/lib/saas/invoice-tokens";
 import { getStripe, getStripeId } from "@/lib/saas/stripe";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
 // Never mutate wallets through GET (including browser prefetches).
 export function GET() {
@@ -16,7 +17,7 @@ export function GET() {
   );
 }
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -76,3 +77,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const POST = withRequestTenantHandler(POST_tenant);

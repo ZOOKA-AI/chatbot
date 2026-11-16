@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { requireWorkspaceRole } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { getStripe } from "@/lib/saas/stripe";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -69,3 +70,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const POST = withRequestTenantHandler(POST_tenant);

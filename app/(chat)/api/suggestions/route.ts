@@ -1,8 +1,9 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getSuggestionsByDocumentId } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
-export async function GET(request: Request) {
+async function GET_tenant(request: Request) {
   const { searchParams } = new URL(request.url);
   const documentId = searchParams.get("documentId");
 
@@ -32,3 +33,6 @@ export async function GET(request: Request) {
 
   return Response.json(suggestions, { status: 200 });
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);

@@ -4,8 +4,9 @@ import { db } from "@/lib/db/queries";
 import { studioProject } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
-export async function GET() {
+async function GET_tenant() {
   const session = await auth();
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,7 +21,7 @@ export async function GET() {
   return NextResponse.json({ projects });
 }
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   const session = await auth();
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -69,3 +70,7 @@ export async function POST(request: Request) {
     .returning();
   return NextResponse.json({ project });
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);
+export const POST = withRequestTenantHandler(POST_tenant);

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { workspacePlans } from "@/lib/saas/plans";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
-export async function GET() {
+async function GET_tenant() {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json(
@@ -37,3 +38,6 @@ export async function GET() {
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);

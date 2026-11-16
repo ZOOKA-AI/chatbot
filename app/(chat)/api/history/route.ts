@@ -8,8 +8,9 @@ import {
   getChatsByOrganizationId,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
-export async function GET(request: NextRequest) {
+async function GET_tenant(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
   const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
   return Response.json(chats);
 }
 
-export async function DELETE() {
+async function DELETE_tenant() {
   const workspaceContext = await requireWorkspaceRole("admin");
 
   if (!workspaceContext) {
@@ -53,3 +54,7 @@ export async function DELETE() {
 
   return Response.json(result, { status: 200 });
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);
+export const DELETE = withRequestTenantHandler(DELETE_tenant);

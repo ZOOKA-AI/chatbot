@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { createProject, listProjects } from "@/lib/db/projects";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const RESERVED = new Set([
@@ -108,7 +109,7 @@ async function createWorkspaceProject(request: Request) {
   }
 }
 
-export async function GET() {
+async function GET_tenant() {
   try {
     return await listWorkspaceProjects();
   } catch {
@@ -116,10 +117,14 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   try {
     return await createWorkspaceProject(request);
   } catch {
     return NextResponse.json({ error: "تعذّر إنشاء المشروع" }, { status: 500 });
   }
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);
+export const POST = withRequestTenantHandler(POST_tenant);

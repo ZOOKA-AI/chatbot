@@ -6,8 +6,9 @@ import {
   saveDocument,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
-export async function GET(request: Request) {
+async function GET_tenant(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
   return Response.json(documents, { status: 200 });
 }
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
   return Response.json(document, { status: 200 });
 }
 
-export async function DELETE(request: Request) {
+async function DELETE_tenant(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   const timestamp = searchParams.get("timestamp");
@@ -118,3 +119,8 @@ export async function DELETE(request: Request) {
 
   return Response.json(documentsDeleted, { status: 200 });
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);
+export const POST = withRequestTenantHandler(POST_tenant);
+export const DELETE = withRequestTenantHandler(DELETE_tenant);

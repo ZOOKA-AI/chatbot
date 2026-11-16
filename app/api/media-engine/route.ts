@@ -12,6 +12,7 @@ import {
   generateStoredImage,
   ImageStageError,
 } from "@/lib/media/gateway-image";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
 export const maxDuration = 180;
 
@@ -228,7 +229,7 @@ async function readJob(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   try {
     return await createJob(request);
   } catch {
@@ -236,10 +237,14 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+async function GET_tenant(request: Request) {
   try {
     return await readJob(request);
   } catch {
     return NextResponse.json({ error: "تعذّر قراءة الطلب" }, { status: 500 });
   }
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const GET = withRequestTenantHandler(GET_tenant);
+export const POST = withRequestTenantHandler(POST_tenant);

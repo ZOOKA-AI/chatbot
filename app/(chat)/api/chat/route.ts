@@ -81,6 +81,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
 /** Hard ceiling for one assistant turn (Vercel Pro allows 300s). */
 const RESPONSE_TIMEOUT_MS = 240_000;
@@ -97,7 +98,7 @@ function getStreamContext() {
 
 export { getStreamContext };
 
-export async function POST(request: Request) {
+async function POST_tenant(request: Request) {
   let requestBody: PostRequestBody;
 
   try {
@@ -610,7 +611,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function DELETE_tenant(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
@@ -645,3 +646,7 @@ export async function DELETE(request: Request) {
 
   return Response.json(deletedChat, { status: 200 });
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const POST = withRequestTenantHandler(POST_tenant);
+export const DELETE = withRequestTenantHandler(DELETE_tenant);

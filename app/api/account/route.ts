@@ -7,12 +7,13 @@ import { deleteAccountData } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
+import { withRequestTenantHandler } from "@/lib/db/tenant";
 
 const confirmationSchema = z
   .object({ confirmation: z.literal("DELETE") })
   .strict();
 
-export async function DELETE(request: Request) {
+async function DELETE_tenant(request: Request) {
   const isArabic = (await getLang()) === "ar";
   try {
     await checkIpRateLimit(ipAddress(request));
@@ -81,3 +82,6 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+// Tenant-scoped exports: every request runs inside a resolved tenant scope.
+export const DELETE = withRequestTenantHandler(DELETE_tenant);
