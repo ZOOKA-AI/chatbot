@@ -387,10 +387,44 @@ export function runcomfyStatus(env: Record<string, string | undefined> = process
   };
 }
 
+/** fal, reported the same way: a status with the exact blocker, never a button that fails on click. */
+export function falStatus(env: Record<string, string | undefined> = process.env): ProviderStatus {
+  const capabilities: Capability[] = ["image", "video"];
+  const configured = Boolean(env.FAL_KEY?.trim() || env.FAL_API_KEY?.trim());
+  if (!configured) {
+    return {
+      ready: false,
+      provider: "fal-cloud",
+      kind: "external_api",
+      capabilities,
+      blocked: "credential_missing",
+      detail: "FAL_KEY is not set on the server.",
+    };
+  }
+  if (!paidGenerationEnabled(env)) {
+    return {
+      ready: false,
+      provider: "fal-cloud",
+      kind: "external_api",
+      capabilities,
+      blocked: "paid_generation_disabled",
+      detail: `A key is present but PAID_GENERATION_ENABLED is off. Cap ${spendCapUsd(env).toFixed(2)} USD per job.`,
+    };
+  }
+  return {
+    ready: true,
+    provider: "fal-cloud",
+    kind: "external_api",
+    capabilities,
+    detail: `Per-request billing with a ${spendCapUsd(env).toFixed(2)} USD cap and a per-job approval. fal offers no free catalogue call, so the key stays unverified until a billed call succeeds.`,
+  };
+}
+
 export async function providerStatuses(
   options: { env?: Record<string, string | undefined>; fetchImpl?: typeof fetch } = {}
 ): Promise<ProviderStatus[]> {
   const statuses = await Promise.all(providerRegistry(options).map((provider) => provider.status()));
   // Appended rather than registered, because registration implies a synchronous generate() it does not have.
-  return [...statuses, runcomfyStatus(options.env ?? process.env)];
+  const env = options.env ?? process.env;
+  return [...statuses, runcomfyStatus(env), falStatus(env)];
 }

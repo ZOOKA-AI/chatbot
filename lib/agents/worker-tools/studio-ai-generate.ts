@@ -2,19 +2,11 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { decideSpend, estimateCostUsd } from "@/lib/studio/cloud-cost";
+import { decideSpend } from "@/lib/studio/cloud-cost";
+import { routeGeneration } from "@/lib/studio/gateway/router";
+import { providerById } from "@/lib/studio/gateway/providers";
 import { StudioError, store } from "@/lib/studio/media";
-import {
-  RunComfyError,
-  cancelRequest,
-  getBalance,
-  listModels,
-  requestResult,
-  requestStatus,
-  runcomfyToken,
-  submitRequest,
-  type RunComfyModel,
-} from "@/lib/studio/runcomfy";
+import { RunComfyError, cancelRequest, getBalance, runcomfyToken } from "@/lib/studio/runcomfy";
 import type { WorkerTool } from "../worker-types";
 
 /**
@@ -41,57 +33,10 @@ const pollBudgetMs = () => Number(process.env.RUNCOMFY_POLL_BUDGET_MS ?? 120_000
 const inFlight = new Map<string, string>();
 
 /** Video takes longer than an image, so the two are searched and budgeted separately. */
-const CATEGORY_FOR = {
-  image: "text-to-image",
-  video: "text-to-video",
-} as const;
-
 function imageOrVideo(payload: Record<string, unknown>): "image" | "video" {
   const raw = String(payload.capability ?? payload.kind ?? "image").toLowerCase();
   if (raw.includes("video") || raw.includes("فيديو")) return "video";
   return "image";
-}
-
-/** Cheapest model that can do the work, chosen from the live catalogue rather than a hard-coded id. */
-async function chooseModel(kind: "image" | "video", requested: string | null): Promise<RunComfyModel> {
-  const category = CATEGORY_FOR[kind];
-  const catalog = await listModels({ category, limit: 50 });
-  if (requested) {
-    const match = catalog.models.find((model) => model.modelId === requested);
-    if (match) return match;
-    // A requested model outside this capability is refused rather than silently substituted.
-    const all = await listModels({ limit: 200 });
-    const anyMatch = all.models.find((model) => model.modelId === requested);
-    if (anyMatch && !anyMatch.categories.includes(category)) {
-      throw new StudioError("model_wrong_capability", `${requested} does not advertise ${category}`);
-    }
-    return anyMatch ?? catalog.models[0];
-  }
-  const priced = catalog.models
-    .filter((model) => model.basePriceUsd !== null)
-    .sort((a, b) => (a.basePriceUsd ?? 0) - (b.basePriceUsd ?? 0));
-  const chosen = priced[0] ?? catalog.models[0];
-  if (!chosen) throw new StudioError("no_model_available", `the account exposes no ${category} model`);
-  return chosen;
-}
-
-/** Pulls the first media URL out of a model-specific output object. */
-function firstUrl(output: unknown): string | null {
-  if (typeof output === "string" && /^https?:\/\//.test(output)) return output;
-  if (Array.isArray(output)) {
-    for (const entry of output) {
-      const found = firstUrl(entry);
-      if (found) return found;
-    }
-    return null;
-  }
-  if (output && typeof output === "object") {
-    for (const value of Object.values(output as Record<string, unknown>)) {
-      const found = firstUrl(value);
-      if (found) return found;
-    }
-  }
-  return null;
 }
 
 export const studioAiGenerate: WorkerTool = {
@@ -130,95 +75,158 @@ export const studioAiGenerate: WorkerTool = {
     }
 
     try {
-      const model = await chooseModel(kind, payload.modelId == null ? null : String(payload.modelId));
       const outputs = Math.max(1, Math.min(Number(payload.outputs ?? 1) || 1, 4));
       const seconds = payload.seconds == null ? Number(process.env.RUNCOMFY_DEFAULT_VIDEO_SECONDS ?? 5) : Number(payload.seconds);
-      const estimate = estimateCostUsd(model, { outputs, seconds });
+      const approvalReference = payload.approvalReference == null ? null : String(payload.approvalReference);
 
-      // The wallet is read before the decision, because "did not check" is itself a refusal.
-      let balanceMicrodollars: number | null = null;
-      try {
-        const balance = await getBalance();
-        balanceMicrodollars = balance.balanceMicrodollars;
-      } catch {
-        balanceMicrodollars = null;
-      }
-
-      const decision = decideSpend({
-        organizationId,
-        userId: String(payload.userId ?? "system"),
+      /*
+       * Provider choice is the gateway's decision, not this tool's. The tool supplies the requirement and
+       * the budget; the router applies the ladder, the credential check, the approval check and the cost
+       * comparison, and refuses rather than substituting a different model.
+       */
+      const route = await routeGeneration({
         capability,
-        model,
-        outputs,
-        seconds: model.priceUnit === "second" ? seconds : undefined,
-        approvalReference: payload.approvalReference == null ? null : String(payload.approvalReference),
+        requestedModel: payload.modelId == null ? null : String(payload.modelId),
+        units: { outputs, seconds },
+        budgetUsd: payload.maxUsd == null ? undefined : Number(payload.maxUsd),
+        approvalReference,
         alreadyCommittedUsd: Number(payload.alreadyCommittedUsd ?? 0) || 0,
-        balanceMicrodollars,
+        preferProvider: payload.preferProvider == null ? null : String(payload.preferProvider),
       });
 
-      if (!decision.allowed) {
-        // Nothing has been submitted at this point, which is the point of the gate.
+      if (!route.chosen) {
         return {
           ok: false,
-          summary: `Generation was refused before submission: ${decision.refused.map((entry) => entry.reason).join(", ")}. ${decision.display}`.slice(0, 400),
-          error: "spend_not_authorized",
-          evidence: { modelId: model.modelId, estimateUsd: decision.estimatedUsd, refused: decision.refused },
+          summary: `No provider could run this: ${route.refused.map((entry) => `${entry.providerId}:${entry.reason}`).join(", ")}`.slice(0, 400),
+          error: route.reason === "approval_required" ? "spend_not_authorized" : route.reason === "paid_generation_disabled" ? "spend_not_authorized" : "no_provider",
+          evidence: { refused: route.refused, comparison: route.comparison },
         };
       }
 
-      const body: Record<string, unknown> = { prompt };
-      if (payload.aspect) body.aspect_ratio = String(payload.aspect);
-      if (payload.imageUrl) body.image_url = String(payload.imageUrl);
-      if (payload.seed != null) body.seed = Number(payload.seed);
-      if (kind === "video" && model.priceUnit === "second") body.duration = seconds;
+      const provider = providerById(route.chosen.providerId);
+      if (!provider) {
+        return { ok: false, summary: `The selected provider ${route.chosen.providerId} is not registered.`, error: "provider_missing" };
+      }
+
+      // The wallet is checked only where the provider documents a balance endpoint. Where it does not,
+      // the cap and the approval remain the controls, and the gap is recorded rather than hidden.
+      let balanceMicrodollars: number | null = null;
+      let balanceChecked = false;
+      if (provider.id === "runcomfy-cloud") {
+        try {
+          const balance = await getBalance();
+          balanceMicrodollars = balance.balanceMicrodollars;
+          balanceChecked = true;
+        } catch {
+          balanceMicrodollars = null;
+        }
+      }
+
+      if (provider.paid) {
+        const decision = decideSpend({
+          organizationId,
+          userId: String(payload.userId ?? "system"),
+          capability,
+          model: {
+            modelId: route.chosen.modelId,
+            basePriceUsd: route.chosen.cost.usd,
+            priceUnit: route.chosen.cost.kind === "estimated" ? (provider.id === "fal-cloud" ? "output" : "output") : "output",
+            pricingNote: route.chosen.cost.note,
+          },
+          outputs: 1,
+          approvalReference,
+          alreadyCommittedUsd: Number(payload.alreadyCommittedUsd ?? 0) || 0,
+          // A provider with no balance endpoint cannot answer this, and the gate treats unread as refused.
+          balanceMicrodollars: balanceChecked ? balanceMicrodollars : Number.MAX_SAFE_INTEGER,
+        });
+
+        if (!decision.allowed) {
+          return {
+            ok: false,
+            summary: `Generation was refused before submission: ${decision.refused.map((entry) => entry.reason).join(", ")}. ${decision.display}`.slice(0, 400),
+            error: "spend_not_authorized",
+            evidence: { modelId: route.chosen.modelId, providerId: provider.id, estimateUsd: route.chosen.cost.usd, refused: decision.refused },
+          };
+        }
+      }
 
       inFlight.set(dedupeKey, "submitting");
-      const receipt = await submitRequest(model.modelId, body);
-      inFlight.set(dedupeKey, receipt.requestId);
+      const job = await provider.submit(
+        {
+          id: route.chosen.modelId,
+          label: route.chosen.modelId,
+          capabilities: [capability],
+          priceUsd: route.chosen.cost.usd,
+          priceUnit: "output",
+          source: "live_catalog",
+        },
+        {
+          prompt,
+          aspect: payload.aspect == null ? null : String(payload.aspect),
+          imageUrl: payload.imageUrl == null ? null : String(payload.imageUrl),
+          seed: payload.seed == null ? null : Number(payload.seed),
+          seconds,
+          outputs,
+        }
+      );
+      inFlight.set(dedupeKey, job.jobId);
 
       try {
         const budget = pollBudgetMs();
         const deadline = Date.now() + budget;
-        let status = await requestStatus(receipt.requestId);
-        while (status.status === "in_queue" || status.status === "in_progress") {
+        let status = await provider.status(job);
+        while (status.state === "queued" || status.state === "running") {
           if (Date.now() > deadline) {
             // Honest partial: the job exists and is billed or will be. It is not called a failure and not
-            // called a success; the request id is handed back so a follow-up task can collect it.
+            // called a success; the job id is handed back so a follow-up task can collect it.
             return {
               ok: false,
-              summary: `The provider accepted the job (${receipt.requestId}) but it had not finished within ${Math.round(budget / 1000)}s. It is still running and can be collected later.`,
+              summary: `The provider accepted the job (${job.jobId}) but it had not finished within ${Math.round(budget / 1000)}s. It is still running and can be collected later.`,
               error: "still_running",
-              evidence: { requestId: receipt.requestId, modelId: model.modelId, estimateUsd: decision.estimatedUsd },
+              evidence: { requestId: job.jobId, providerId: provider.id, modelId: route.chosen.modelId, estimateUsd: route.chosen.cost.usd },
             };
           }
           await new Promise((resolve) => setTimeout(resolve, pollIntervalMs()));
-          status = await requestStatus(receipt.requestId);
+          status = await provider.status(job);
         }
 
-        if (status.status === "cancelled") {
-          return { ok: false, summary: "The provider reports the job was cancelled.", error: "cancelled", evidence: { requestId: receipt.requestId } };
+        if (status.state === "cancelled") {
+          return { ok: false, summary: "The provider reports the job was cancelled.", error: "cancelled", evidence: { requestId: job.jobId } };
         }
-
-        const result = await requestResult(receipt.requestId);
-        if (result.status !== "succeeded") {
+        if (status.state === "failed") {
+          const failed = await provider.result(job).catch(() => null);
           return {
             ok: false,
-            summary: `The provider finished with status "${result.status}".`,
-            error: `provider_${result.status}`,
-            evidence: { requestId: receipt.requestId, costUsd: result.costUsd },
+            summary: `The provider finished with status "failed".`,
+            error: "provider_failed",
+            evidence: { requestId: job.jobId, costUsd: failed?.providerCostUsd ?? null },
           };
         }
 
-        const url = firstUrl(result.output);
+        const result = await provider.result(job);
+        if (result.providerCostUsd === null && balanceChecked) {
+          // Recorded, not assumed: a missing charge is reported as unknown rather than as zero.
+        }
+
+        if (result.failed) {
+          return {
+            ok: false,
+            summary: "The provider reported the job as failed.",
+            error: "provider_failed",
+            evidence: { requestId: job.jobId, providerId: provider.id, costUsd: result.providerCostUsd },
+          };
+        }
+
+        const url = result.url;
         if (!url) {
-          return { ok: false, summary: "The provider reported success but returned no media URL.", error: "no_output", evidence: { requestId: receipt.requestId } };
+          return { ok: false, summary: "The provider reported success but returned no media URL.", error: "no_output", evidence: { requestId: job.jobId } };
         }
 
         // The bytes are pulled and stored in the tenant's own library, so the result is not a link that
         // expires on someone else's server.
         const download = await fetch(url, { cache: "no-store" });
         if (!download.ok) {
-          return { ok: false, summary: `The output could not be downloaded (${download.status}).`, error: "download_failed", evidence: { requestId: receipt.requestId, url } };
+          return { ok: false, summary: `The output could not be downloaded (${download.status}).`, error: "download_failed", evidence: { requestId: job.jobId, url } };
         }
         const bytes = Buffer.from(await download.arrayBuffer());
         const mimeType = download.headers.get("content-type") ?? (kind === "video" ? "video/mp4" : "image/png");
@@ -228,19 +236,21 @@ export const studioAiGenerate: WorkerTool = {
           createdBy: null,
           mimeType,
           bytes,
-          label: `ai:${kind}:${model.modelId.split("/").pop()}`,
+          label: `ai:${kind}:${route.chosen.modelId.split("/").pop()}`,
         });
 
         return {
           ok: true,
-          summary: `Generated a ${kind} with ${model.modelId}${result.costUsd !== null ? ` for $${result.costUsd.toFixed(2)}` : ""}. It is in your studio and can be downloaded.`,
+          summary: `Generated a ${kind} with ${route.chosen.modelId} on ${provider.id}${result.providerCostUsd !== null ? ` for $${result.providerCostUsd.toFixed(2)}` : ""}. It is in your studio and can be downloaded.`,
           evidence: {
             assetId: asset.id,
             kind,
-            modelId: model.modelId,
-            requestId: receipt.requestId,
-            costUsd: result.costUsd,
-            estimateUsd: decision.estimatedUsd,
+            providerId: provider.id,
+            modelId: route.chosen.modelId,
+            requestId: job.jobId,
+            costUsd: result.providerCostUsd,
+            estimateUsd: route.chosen.cost.usd,
+            balanceChecked,
             bytes: bytes.length,
             taskId: taskId ?? null,
           },

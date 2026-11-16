@@ -199,3 +199,20 @@ refused by default. Verified endpoints and the exact paid-test checklist are in 
 
 Release blocker for this feature is a single owner action: supply the token through the secret form and
 approve one job's cost. Nothing else in the studio depends on it.
+
+## AI Gateway (Directive #058)
+
+One interface over local engines, the owner's ComfyUI, RunComfy and fal. Details in `AI_GATEWAY.md`.
+
+| Check | Result |
+|---|---|
+| Providers registered | 4: local (ready, free), comfyui (`endpoint_missing`), runcomfy-cloud and fal-cloud (`credential_missing`) |
+| Routing order | capability → model → credential → health → cost → budget → tier → preference |
+| Requested model | never substituted; `requested_model_not_offered` is the answer |
+| Unknown cost | refused, never treated as zero |
+| Billable calls made | zero. `PAID_GENERATION_ENABLED` is off and no credential exists |
+| Live acceptance | 11/11 on a real server, owner-only endpoints, no key material in any response |
+| Gates | 890 passed / 6 skipped / 896 in 102 files, twice; `tsc` clean; build 0 |
+
+Release blocker: one owner action per vendor (enter the key through the secret form), plus an explicit
+`PAID_GENERATION_ENABLED=true` and one approved job. The rest of the studio does not depend on it.

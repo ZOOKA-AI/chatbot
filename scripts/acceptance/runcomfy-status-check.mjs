@@ -45,6 +45,18 @@ check(
   String(anonymousStatus.status())
 );
 
+// The gateway's self-description: every provider with a readiness code, not a boolean story.
+const gateway = await owner.request.get(`${BASE}/api/studio/gateway`);
+const gatewayBody = await gateway.json().catch(() => ({}));
+const providersById = Object.fromEntries((gatewayBody.providers ?? []).map((p) => [p.id, p]));
+check("7. the gateway lists every provider it knows", ["local-engines", "comfyui", "runcomfy-cloud", "fal-cloud"].every((id) => providersById[id]), Object.keys(providersById).join(","));
+check("8. the local engines are ready and free", providersById["local-engines"]?.readiness?.ready === true && providersById["local-engines"]?.paid === false, JSON.stringify(providersById["local-engines"]?.readiness ?? {}));
+check("9. cloud providers report a readiness code, not a guess", ["runcomfy-cloud", "fal-cloud"].every((id) => providersById[id]?.readiness?.ready === false && typeof providersById[id]?.readiness?.code === "string"), ["runcomfy-cloud", "fal-cloud"].map((id) => `${id}:${providersById[id]?.readiness?.code}`).join(" "));
+check("10. paid generation is off with a cap stated", gatewayBody.paidGenerationEnabled === false && typeof gatewayBody.capUsd === "number", `cap=${gatewayBody.capUsd}`);
+
+const anonymousGateway = await anonymous.request.get(`${BASE}/api/studio/gateway`, { maxRedirects: 0 });
+check("11. the gateway endpoint is owner-only", [307, 401, 403].includes(anonymousGateway.status()), String(anonymousGateway.status()));
+
 await browser.close();
 const failed = results.filter((entry) => !entry.ok).length;
 console.log(`SUMMARY ${results.length - failed}/${results.length} passed`);
