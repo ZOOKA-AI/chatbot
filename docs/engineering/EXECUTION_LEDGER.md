@@ -796,3 +796,27 @@ real agent bearer key, real outbound HTTP.
 
 Gates: 710 passed / 6 skipped / 716 in 88 files twice serially, `tsc` 0 errors, production build
 compiled. No production deployment, no production migration, no merge, no purchase.
+
+---
+
+## Milestone 009 — first real customer result
+
+Date 16 November 2026. PR #95 head `9790eea`. Local production build over TLS, real form login,
+real agent key, real persisted result.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 24.01 | An executable action that needs no external credential | DONE | `workspace_readiness_inspect`: five org-scoped SELECTs over the caller's own agents, projects, tasks, schedules and executions; no write, no network call |
+| 24.02 | The catalog refuses a tool it does not know how to feed | WORKING AS DESIGNED | `actionPayload` threw `no payload mapping for tool workspace_readiness_inspect` until the mapping was added |
+| 24.03 | Input validation trap | FIXED | the validator compiles patterns without the `u` flag, so `\p{L}` degraded into literal characters and rejected valid input; explicit range used and the reason recorded |
+| 24.04 | Stale process misread as a code defect | NOTED | an old server still held port 3105 and answered with the previous build; `lsof` missed it, `fuser -k` cleared it |
+| 24.05 | Tool correctness on real Postgres | VERIFIED | 6 tests: own-workspace counts (A sees 2 agents, never B's 3), honest needs-attention text, empty workspace reports zero, bad label refused, cancelled run refused, no row mutated |
+| 24.06 | Full lifecycle through the customer surface | 14/14 | login → agent with one tool → project 201 → attach 200 → action 201 `pending` → worker claims with its own key → tool runs → task `completed` by the worker → page shows `Tasks (1)` and `Execution evidence (1)` → duplicate not requeued → zero cross-workspace executions |
+| 24.07 | What the customer actually saw | VERIFIED | `تقرير الجاهزية — 7 agent(s) (7 active) · 13 project(s) · 9 task(s) (2 pending) · 7 execution(s)`, screenshot `acceptance/execution-project.png` |
+| 24.08 | Proxy exception audit | VERIFIED | exact-path match on the worker and heartbeat endpoints only; both still answer 401 for an invalid, revoked or disabled agent key; all other `/api` paths still require a session |
+| 24.09 | GitHub connection | BLOCKED | no workspace GitHub connection; the only credential here is a git credential the REST API refuses with 401 |
+| 24.10 | "Create Project Document" action | NOT IMPLEMENTED | needs a tenant-scoped document store and a workspace viewer; the readiness report was the smaller honest first success |
+| 24.11 | Browser isolation, human control, command center | NOT STARTED | needs a runtime provider decision from the owner; no paid infrastructure activated |
+
+Gates: 716 passed / 6 skipped / 722 in 89 files twice serially, `tsc` 0 errors, production build
+compiled. No production deployment, no production migration, no merge, no purchase.
