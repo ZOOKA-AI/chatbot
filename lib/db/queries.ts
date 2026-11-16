@@ -1,6 +1,8 @@
 import "server-only";
 import { accountDatabaseError } from "./diagnostics";
 import { commanderActiveDb } from "./tenant-context";
+import { serviceConnectionAvailable, serviceDb } from "./service-client";
+import { tenantScopeEnabled } from "./tenant";
 
 import { agentMessage } from "./schema";
 
@@ -77,6 +79,28 @@ const client = postgres(connectionString, {
   connect_timeout: 10,
 });
 const sharedDb = drizzle(client);
+
+/**
+ * Handle for writes that legitimately happen before, or outside, a tenant scope:
+ * the first organisation and membership at onboarding, administrator membership
+ * changes, and subscription lifecycle from a signature-verified webhook.
+ *
+ * Falls back to the request handle while enforcement is off, so behaviour is
+ * unchanged until the flag flips.
+ */
+function adminDb() {
+  if (!tenantScopeEnabled()) {
+    return db;
+  }
+  if (!serviceConnectionAvailable()) {
+    // Fail loudly rather than letting an onboarding write die inside a policy
+    // error that reads like a bug in the policy.
+    throw new Error(
+      "DATABASE_URL_SERVICE is required when tenant RLS is enabled: administrative writes (onboarding, membership, subscription) have no tenant scope"
+    );
+  }
+  return serviceDb();
+}
 
 /**
  * The database handle the application uses.
@@ -352,12 +376,12 @@ export async function ensureUserWorkspace({
     return existingWorkspace;
   }
 
-  const [createdWorkspace] = await db
+  const [createdWorkspace] = await adminDb()
     .insert(organization)
     .values({ name: defaultWorkspaceNameForEmail(email) })
     .returning({ id: organization.id, name: organization.name });
 
-  await db
+  await adminDb()
     .insert(organizationMember)
     .values({
       organizationId: createdWorkspace.id,
@@ -365,7 +389,7 @@ export async function ensureUserWorkspace({
       role: "owner",
     })
     .onConflictDoNothing();
-  await db
+  await adminDb()
     .insert(subscription)
     .values({ organizationId: createdWorkspace.id })
     .onConflictDoNothing();
@@ -422,7 +446,7 @@ export function addWorkspaceMember({
   userId: string;
   role: "admin" | "member";
 }) {
-  return db
+  return adminDb()
     .insert(organizationMember)
     .values({ organizationId, userId, role })
     .onConflictDoNothing();
@@ -565,7 +589,7 @@ export function syncWorkspaceSubscription({
   externalSubscriptionId: string | null;
   periodEnd: Date | null;
 }) {
-  return db
+  return adminDb()
     .insert(subscription)
     .values({
       organizationId,
