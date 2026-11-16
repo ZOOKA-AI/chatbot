@@ -701,7 +701,11 @@ export function trackWorkspaceUsage({
 
 export async function getUser(email: string): Promise<User[]> {
   try {
-    return await db.select().from(user).where(eq(user.email, email));
+    // Identity lookup is pre-tenant: it runs during login, before any session
+    // exists, so there is no organisation to scope by. With tenant RLS on, the
+    // runtime role cannot read "User" without app.user_id, so this uses the
+    // bootstrap connection (flag off: that is still the shared handle).
+    return await adminDb().select().from(user).where(eq(user.email, email));
   } catch (error) {
     throw accountDatabaseError("lookup", error);
   }
@@ -711,7 +715,7 @@ export async function createUser(email: string, password: string) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await db.insert(user).values({ email, password: hashedPassword });
+    return await adminDb().insert(user).values({ email, password: hashedPassword });
   } catch (error) {
     throw accountDatabaseError("create", error);
   }
