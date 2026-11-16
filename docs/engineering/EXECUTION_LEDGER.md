@@ -142,6 +142,36 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 36 — Directive #026: execution UX truth, and a self-hosting package (16 Nov 2026)
+
+PR #95 head `02dfca4`, PR #92 this entry. Both Draft, unmerged. No production deployment, no production migration, no merge, no paid service, no credential disclosed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 36.1 | Uncommitted progress work preserved | VERIFIED | `lib/agents/execution-progress.ts` and `task-detail.ts` committed, nothing reset |
+| 36.2 | Progress covers all eight states | VERIFIED | queued, running, awaiting approval, completed, failed, cancelled, timed out, blocked, plus stalled; 15 tests assert the wording, not only the stage |
+| 36.3 | Never invents progress | VERIFIED | completed without evidence is labelled unverified; expired lease is `stalled`, not running or failed |
+| 36.4 | Real data on every surface | VERIFIED | `buildTaskDetail` is the single shape for chat, task page and history; route `GET /api/agents/tasks/[id]` |
+| 36.5 | Tenant isolation on the new route | VERIFIED | tenant scope wrapper; 404 for another workspace's task so existence is not leaked |
+| 36.6 | Docker images | WRITTEN, NOT BUILT | `deploy/docker/Dockerfile` targets web/worker/scheduler/migrate; Docker is not installed in this sandbox |
+| 36.7 | Compose and Coolify | WRITTEN, PARSED | both compose files parse; Coolify variant publishes no host ports |
+| 36.8 | Provider replaceability | VERIFIED | database, storage (local/S3/MinIO/blob), models (openai-compatible/ollama/gateway/anthropic/google), alerts; 24 tests |
+| 36.9 | Vendor dependencies reduced | PARTIAL | storage and model calls no longer require a vendor SDK; `docs/selfhosting/PROVIDERS.md` states the two that remain (Vercel Blob optional, AI SDK gateway for interactive chat) |
+| 36.10 | No arbitrary execution caps | VERIFIED | every ceiling is an env variable; config test proves `WORKER_CONCURRENCY=64` and `SCHEDULER_GLOBAL_LIMIT=500` are accepted |
+| 36.11 | Migration runner | VERIFIED | 38 migrations on empty database, `failed={}`, rerun skipped 38; production hosts refused unless explicitly allowed |
+| 36.12 | Worker executes | VERIFIED | claimed and ran a task, recorded an execution row, graceful SIGTERM with `shutdown_complete` |
+| 36.13 | Autoscaling safety | VERIFIED | 20 tasks, 4 concurrent workers, 20 executions, 20 distinct tasks, 0 duplicates, 0 wedged |
+| 36.14 | Two defects found by running it | FIXED | pre-claim defeated `claimTask` (queue stuck on running); invented an `updatedAt` column; race-losing workers were mislabelled blocked |
+| 36.15 | Monitoring | VERIFIED | `/api/health`, owner-scoped `/api/agents/health` with 503 on critical, `healthcheck.ts` (15ms), JSON logs per event |
+| 36.16 | Backups and recovery | WRITTEN, NOT RUN AGAINST A CONTAINER | `deploy/scripts/backup.sh` verifies its own dump; `restore.sh` refuses a non-empty target |
+| 36.17 | Documentation | DONE | `docs/selfhosting/{INSTALL,ARCHITECTURE,OPERATIONS,PROVIDERS}.md` + `deploy/coolify/README.md` |
+| 36.18 | Quality gates | VERIFIED | 489 passed / 4 skipped across 68 files, `tsc --noEmit` 0 errors, `pnpm run build` compiled |
+| 36.19 | Production unchanged | VERIFIED | no deploy, no production migration; `0037` still pending by policy |
+
+**Release prerequisite, unchanged:** `pending/0037` must be applied and verified on production before any code that selects `User.emailVerifiedAt` is deployed there.
+
+**Untested, stated plainly:** the images were never built (no Docker in this environment), so `docker compose up` itself is unproven; backups were not exercised against a running container stack; the end-to-end positive path (a tool that succeeds) needs repository credentials that were deliberately not created for a smoke test, so every execution in the isolation run ended `failed: bad_repo_name` - the claim, lease, execution, evidence and status path is proven, the successful tool result is not.
+
 ## Stage 34 — Milestone 24 closed: six failures explained, migrations rounded out (16 Nov 2026)
 
 PR #95 head `1ec780e`, PR #92 this entry. Both Draft, unmerged. No production schema change, no feature deployment, no production migration, no paid resource, no billing change, no credential disclosed.
