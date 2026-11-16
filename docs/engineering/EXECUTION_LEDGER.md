@@ -686,3 +686,26 @@ retry policy, UI) remain open.
 | 18.1 | End-to-end QA | NOT_STARTED |
 | 19.1 | Release preparation | NOT_STARTED |
 | 20.1 | Owner approval | WAITING_APPROVAL |
+
+## Stage 21 — Milestone 006: agent permissions (16 Nov 2026)
+
+An agent is now a principal with permissions rather than a key with a name.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 21.1 | Tool assignment storage | VERIFIED | migration `0040` (`allowedTools`, `instructions`), nullable so existing rows stay valid; applied to an isolated database |
+| 21.2 | Refuse unassigned tools before claiming | VERIFIED | `tests/unit/worker-authorization.test.ts` — 8 tests; the refusal precedes any queue read, so nothing is claimed |
+| 21.3 | Fail closed on malformed permissions | VERIFIED | string, object and empty-array values all refuse |
+| 21.4 | Disabled agent refused | VERIFIED | `authenticateAgent` filters `status = 'active'` |
+| 21.5 | Cross-tenant refusal | VERIFIED | update scoped by `organizationId`; a foreign id returns null, not a modification |
+| 21.6 | New agents start with no tools | VERIFIED | `registerAgent` writes `allowedTools: []`; NULL is reported as `legacy_unrestricted` |
+| 21.7 | Model configuration persists | VERIFIED | provider and model id written; previously accepted and silently dropped |
+| 21.8 | Model configuration operational | **NOT_MET** | no LLM-backed worker tool exists, so execution never consumes the selection; the UI labels it "stored, not used by execution yet" |
+| 21.9 | Browser acceptance of the three workspace pages | **BLOCKED** | server ran on an isolated database; the login form sets no session cookie, and a checked cookie minted with the deployment secret still yields `null` from `/api/auth/session`; no page was clicked |
+| 21.10 | Quality gates | VERIFIED | 643 passed / 6 skipped / 649, 80 files, twice serially; `tsc` 0 errors; build compiled; migration parity 2/2 |
+
+Notes. One intermittent failure appeared only under parallel file execution
+(`schedule.test.ts`, "two passes in the same second"), 1 in 3 parallel runs and 18/18
+five times isolated; the assertion was not weakened and the suites run serially here.
+Migrations 0036–0040 remain unapplied to Production. PR #95 head `c5a7e128`. No
+production deployment, no purchases, no third-party actions.
