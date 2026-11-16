@@ -7,6 +7,7 @@ import {
   trackWorkspaceUsage,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { isAgentRunLimitExempt } from "@/lib/billing/testing-access";
 
 /**
  * Server-side bridge to the private n8n agent (the "brain").
@@ -88,8 +89,10 @@ async function POSTImpl(request: Request) {
   const { subscription, usage } = await getWorkspaceBilling(context.organizationId);
   const plan = normalizePlan(subscription?.plan);
   const limit = limitFor(plan);
+  // Owner testing accounts: the customer-facing cap is waived, metering is not.
+  const testingUnlimited = isAgentRunLimitExempt(context.user.email);
 
-  if (usage.agentRuns >= limit) {
+  if (!testingUnlimited && usage.agentRuns >= limit) {
     return Response.json(
       {
         error: "plan_limit_reached",

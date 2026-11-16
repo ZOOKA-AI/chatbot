@@ -1,4 +1,8 @@
-import { getWorkspaceBilling } from "@/lib/db/queries";
+import { getWorkspaceBilling, getWorkspaceOwnerEmail } from "@/lib/db/queries";
+import {
+  hasUnlimitedTestingAccess,
+  isUnlimitedTestingEnabled,
+} from "@/lib/billing/testing-access";
 import { type WorkspacePlan, workspacePlans } from "@/lib/saas/plans";
 
 /**
@@ -15,6 +19,8 @@ export type WorkspaceEntitlements = {
   canUseAgentMode: boolean;
   agentRunsRemaining: number;
   messagesLimit: number;
+  /** Owner testing access: features unlocked, customer-facing cap waived, usage still metered. */
+  unlimitedTesting: boolean;
 };
 
 const freeEntitlements: WorkspaceEntitlements = {
@@ -24,6 +30,7 @@ const freeEntitlements: WorkspaceEntitlements = {
   canUseAgentMode: false,
   agentRunsRemaining: 0,
   messagesLimit: workspacePlans.free.monthlyMessages,
+  unlimitedTesting: false,
 };
 
 /**
@@ -36,6 +43,29 @@ export async function getWorkspaceEntitlements(
 ): Promise<WorkspaceEntitlements> {
   if (!organizationId) {
     return freeEntitlements;
+  }
+
+  // Owner testing access: only consulted when the deployment switch is on, so
+  // normal requests pay nothing for this feature. The Subscription row is never
+  // read for the decision and never modified.
+  if (isUnlimitedTestingEnabled()) {
+    const ownerEmail = await getWorkspaceOwnerEmail(organizationId).catch(() => null);
+    if (hasUnlimitedTestingAccess(ownerEmail)) {
+      const testingPlan = workspacePlans.business;
+      const testingBilling = await getWorkspaceBilling(organizationId);
+      return {
+        plan: "business",
+        isPaid: true,
+        canConnectIntegrations: true,
+        canUseAgentMode: true,
+        agentRunsRemaining: Math.max(
+          0,
+          testingPlan.monthlyAgentRuns - (testingBilling?.usage.agentRuns ?? 0)
+        ),
+        messagesLimit: testingPlan.monthlyMessages,
+        unlimitedTesting: true,
+      };
+    }
   }
 
   const billing = await getWorkspaceBilling(organizationId);
@@ -62,5 +92,6 @@ export async function getWorkspaceEntitlements(
     canUseAgentMode: agentRunsRemaining > 0,
     agentRunsRemaining,
     messagesLimit: plan.monthlyMessages,
+    unlimitedTesting: false,
   };
 }

@@ -1935,3 +1935,101 @@ export async function appendAgentMessage({
     content: content.slice(0, 8000),
   });
 }
+
+/**
+ * Owner-only testing access (see lib/billing/testing-access.ts).
+ *
+ * These reads are cross-tenant by design: the roster is a list of specific
+ * customer addresses, so it runs on the bootstrap connection and is only
+ * reachable from the owner-only admin page.
+ */
+export async function getWorkspaceOwnerEmail(organizationId: string) {
+  const [row] = await adminDb()
+    .select({ email: user.email })
+    .from(organizationMember)
+    .innerJoin(user, eq(organizationMember.userId, user.id))
+    .where(eq(organizationMember.organizationId, organizationId))
+    .limit(1);
+  return row?.email ?? null;
+}
+
+export type TestingAccessRow = {
+  email: string;
+  userId: string | null;
+  organizationId: string | null;
+  organizationName: string | null;
+  plan: string | null;
+  status: string | null;
+  usageEvents: number;
+  lastActivity: Date | null;
+};
+
+export async function getTestingAccessRoster(
+  emails: readonly string[]
+): Promise<TestingAccessRow[]> {
+  const db = adminDb();
+  const rows: TestingAccessRow[] = [];
+
+  for (const email of emails) {
+    const [account] = await db
+      .select({ id: user.id, email: user.email })
+      .from(user)
+      .where(sql`lower(${user.email}) = ${email.toLowerCase()}`)
+      .limit(1);
+
+    if (!account) {
+      rows.push({
+        email,
+        userId: null,
+        organizationId: null,
+        organizationName: null,
+        plan: null,
+        status: null,
+        usageEvents: 0,
+        lastActivity: null,
+      });
+      continue;
+    }
+
+    const [membership] = await db
+      .select({
+        organizationId: organization.id,
+        organizationName: organization.name,
+      })
+      .from(organizationMember)
+      .innerJoin(organization, eq(organizationMember.organizationId, organization.id))
+      .where(eq(organizationMember.userId, account.id))
+      .limit(1);
+
+    const [plan] = membership
+      ? await db
+          .select({ plan: subscription.plan, status: subscription.status })
+          .from(subscription)
+          .where(eq(subscription.organizationId, membership.organizationId))
+          .limit(1)
+      : [];
+
+    const [usage] = membership
+      ? await db
+          .select({
+            total: sql<number>`count(*)::int`,
+            last: sql<Date | null>`max(${usageEvent.createdAt})`,
+          })
+          .from(usageEvent)
+          .where(eq(usageEvent.organizationId, membership.organizationId))
+      : [];
+
+    rows.push({
+      email,
+      userId: account.id,
+      organizationId: membership?.organizationId ?? null,
+      organizationName: membership?.organizationName ?? null,
+      plan: plan?.plan ?? null,
+      status: plan?.status ?? null,
+      usageEvents: usage?.total ?? 0,
+      lastActivity: usage?.last ?? null,
+    });
+  }
+
+  return rows;
+}
