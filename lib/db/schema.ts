@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -601,11 +602,15 @@ export const agentDecision = pgTable(
       .default("unclaimed"),
     state: varchar("state", { length: 24 }).notNull().default("PROPOSED"),
     taskId: uuid("taskId").references(() => agentTask.id, { onDelete: "set null" }),
+    approvalId: uuid("approvalId"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => ({
     orgIdx: index("AgentDecision_organizationId_idx").on(table.organizationId),
     stateIdx: index("AgentDecision_state_idx").on(table.state),
+    // One decision record per approval, enforced by the database rather than by
+    // the code path that happens to write it.
+    approvalIdx: uniqueIndex("AgentDecision_approvalId_key").on(table.approvalId),
   })
 );
 

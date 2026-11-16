@@ -52,6 +52,7 @@ beforeAll(async () => {
   pg = new PGlite();
   await apply(sqlFile("0027_agent_command_center.sql"));
   await apply(sqlFile("pending/0028_agent_tenant_scope.sql"));
+  await apply(sqlFile("pending/0033_decision_audit_uniqueness.sql"));
   holder.db = drizzle(pg, { schema });
   center = (await import(CENTER)) as typeof import("@/lib/agents/command-center");
 });
@@ -95,6 +96,7 @@ test("the migration is idempotent and fails loudly if a table is left unscoped",
   );
   assert.equal(columns.rows.length, 5);
   await apply(sqlFile("pending/0028_agent_tenant_scope.sql"));
+  await apply(sqlFile("pending/0033_decision_audit_uniqueness.sql"));
 });
 
 test("a valid agent key is pinned to its own organisation", async () => {

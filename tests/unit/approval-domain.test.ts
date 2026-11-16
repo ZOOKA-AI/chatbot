@@ -64,6 +64,7 @@ describe.skipIf(!ready)("decideApproval, called directly", () => {
       "pending/0028_agent_tenant_scope.sql",
       "pending/0030_agent_rls_policies.sql",
       "pending/0031_tenant_runtime_role.sql",
+      "pending/0033_decision_audit_uniqueness.sql",
     ];
     for (const name of files) {
       const body = readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8");
@@ -215,5 +216,82 @@ describe.skipIf(!ready)("decideApproval, called directly", () => {
       })
     );
     assert.equal(missing, null);
+  });
+  test("a winning decision writes exactly one audit row, in the same transaction", async () => {
+    const approval = await newApproval();
+    await withCommanderScope(ORG_A, () =>
+      decideApproval({
+        organizationId: ORG_A,
+        approvalId: approval.id,
+        decision: "rejected",
+        decidedBy: "o",
+        reason: "unsafe migration",
+      })
+    );
+
+    const rows = await admin`select state, body, "approvalId" from "AgentDecision" where "approvalId" = ${approval.id}`;
+    assert.equal(rows.length, 1, "one decision, one record");
+    assert.equal(rows[0].state, "APPROVAL_REJECTED");
+    assert.equal(rows[0].body, "unsafe migration");
+  });
+
+  test("a losing or cross-tenant attempt leaves no audit row at all", async () => {
+    const approval = await newApproval();
+    await withCommanderScope(ORG_B, () =>
+      decideApproval({
+        organizationId: ORG_B,
+        approvalId: approval.id,
+        decision: "rejected",
+        decidedBy: "x",
+        reason: "not mine",
+      })
+    );
+    const afterCross = await admin`select id from "AgentDecision" where "approvalId" = ${approval.id}`;
+    assert.equal(afterCross.length, 0, "cross-tenant attempt wrote nothing");
+
+    await withCommanderScope(ORG_A, () =>
+      decideApproval({
+        organizationId: ORG_A,
+        approvalId: approval.id,
+        decision: "approved",
+        decidedBy: "o",
+      })
+    );
+    const second = await withCommanderScope(ORG_A, () =>
+      decideApproval({
+        organizationId: ORG_A,
+        approvalId: approval.id,
+        decision: "rejected",
+        decidedBy: "o",
+        reason: "changed my mind",
+      })
+    );
+    assert.equal(second, null, "the second decision lost");
+    const after = await admin`select state from "AgentDecision" where "approvalId" = ${approval.id}`;
+    assert.equal(after.length, 1, "still exactly one record");
+    assert.equal(after[0].state, "APPROVAL_APPROVED", "the winner's record, not the loser's");
+  });
+
+  test("if the audit write fails, the decision rolls back with it", async () => {
+    const approval = await newApproval();
+    // Occupy the unique slot with a record the guard did not write, so the
+    // domain's insert must violate the index.
+    await admin`insert into "AgentDecision" (id, "organizationId", title, body, state, "approvalId")
+                values (gen_random_uuid(), ${ORG_A}, 'pre-existing', 'x', 'APPROVAL_APPROVED', ${approval.id})`;
+
+    await assert.rejects(() =>
+      withCommanderScope(ORG_A, () =>
+        decideApproval({
+          organizationId: ORG_A,
+          approvalId: approval.id,
+          decision: "approved",
+          decidedBy: "o",
+        })
+      )
+    );
+
+    const [row] = await admin`select status, "decidedBy" from "AgentApproval" where id = ${approval.id}`;
+    assert.equal(row.status, "pending", "the state change rolled back, it did not half-commit");
+    assert.equal(row.decidedBy, null);
   });
 });

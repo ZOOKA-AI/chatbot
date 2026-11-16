@@ -31,6 +31,7 @@ const MIGRATIONS = [
   "pending/0028_agent_tenant_scope.sql",
   "pending/0030_agent_rls_policies.sql",
   "pending/0031_tenant_runtime_role.sql",
+      "pending/0033_decision_audit_uniqueness.sql",
 ];
 
 let admin: ReturnType<typeof postgres>;

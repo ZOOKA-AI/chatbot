@@ -35,6 +35,7 @@ import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
+import { createCommanderTools } from "@/lib/ai/tools/commander";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
@@ -374,6 +375,13 @@ export async function POST(request: Request) {
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
         const tools: ToolSet = {
+          // Real work, not narration: these can queue a task and read its true
+          // state, and they give the model no way to declare anything finished.
+          ...createCommanderTools({
+            organizationId: workspaceContext.organizationId,
+            userId: session.user.id,
+            canManage: ["owner", "admin"].includes(String(workspaceContext.role)),
+          }),
           getWeather,
           createDocument: createDocument({ session, dataStream }),
           updateDocument: updateDocument({ session, dataStream }),

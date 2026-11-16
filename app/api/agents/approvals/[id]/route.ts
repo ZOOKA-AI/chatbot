@@ -1,8 +1,4 @@
-import {
-  ApprovalDecisionError,
-  decideApproval,
-  recordDecision,
-} from "@/lib/agents/command-center";
+import { ApprovalDecisionError, decideApproval } from "@/lib/agents/command-center";
 import { z } from "zod";
 
 import {
@@ -105,15 +101,9 @@ async function POSTHandler(
     return json({ error: "not_found" }, 404);
   }
 
-  // Written only after the conditional UPDATE won, so history gained by a second
-  // decision racing this one cannot appear: the loser changed no row.
-  await recordDecision(null, {
-    organizationId: callerOrganizationId(caller),
-    title: `${parsed.data.decision === "approved" ? "Approved" : "Rejected"}: ${approval.reason}`.slice(0, 200),
-    body: rawReason.length > 0 ? rawReason : "(no reason recorded)",
-    state: parsed.data.decision === "approved" ? "APPROVAL_APPROVED" : "APPROVAL_REJECTED",
-    taskId: approval.taskId,
-  });
+  // The domain wrote the audit row inside the same transaction as the state
+  // change. Writing it here too would duplicate every decision, so this route
+  // now only reports the result.
 
   return json({ approval });
 }

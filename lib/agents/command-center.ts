@@ -24,12 +24,16 @@ import { encodeCursor } from "./pagination";
 const db = new Proxy({} as typeof queriesModule.db, {
   get(_target, property) {
     const active = commanderActiveDb() as Record<PropertyKey, unknown> | null;
-    if (active) return Reflect.get(active, property, active);
 
     // Read lazily: touching the shared connection is what an escape looks like,
     // so it must happen only if something actually uses it.
-    const shared = queriesModule.db as unknown as Record<PropertyKey, unknown>;
-    return Reflect.get(shared, property, shared);
+    const source = active ?? (queriesModule.db as unknown as Record<PropertyKey, unknown>);
+    const value = Reflect.get(source, property, source);
+
+    // Bind to the real handle. A transaction method called through the proxy
+    // gets the proxy as `this`, loses its session, and returns nothing at all,
+    // which is how the first atomic-decision attempt silently produced no row.
+    return typeof value === "function" ? value.bind(source) : value;
   },
 }) as typeof queriesModule.db;
 
@@ -261,6 +265,21 @@ export async function createTask(input: CreateTaskInput) {
     })
     .returning();
   return row;
+}
+
+/**
+ * One task, by id, scoped to the organisation.
+ *
+ * Deliberately returns null for another tenant's task rather than an error, so a
+ * caller cannot use the difference to learn that the row exists elsewhere.
+ */
+export async function getTask(input: { organizationId: string; taskId: string }) {
+  const [row] = await db
+    .select()
+    .from(agentTask)
+    .where(and(eq(agentTask.id, input.taskId), eq(agentTask.organizationId, input.organizationId)))
+    .limit(1);
+  return row ?? null;
 }
 
 export async function listTasks(options: {
@@ -610,23 +629,44 @@ export async function decideApproval(input: {
   }
   if (reason.length > MAX_REJECTION_REASON) throw new ApprovalDecisionError("reason_too_long");
 
-  const [row] = await db
-    .update(agentApproval)
-    .set({
-      status: input.decision,
-      decidedBy: input.decidedBy.slice(0, 64),
-      decidedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(agentApproval.id, input.approvalId),
-        eq(agentApproval.organizationId, input.organizationId),
-        eq(agentApproval.status, "pending")
+  // The transition and its audit row are one unit of work. If the insert fails,
+  // the approval stays pending; if the transition loses a race, no audit row is
+  // written for the loser. Either way the two can never disagree.
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(agentApproval)
+      .set({
+        status: input.decision,
+        decidedBy: input.decidedBy.slice(0, 64),
+        decidedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(agentApproval.id, input.approvalId),
+          eq(agentApproval.organizationId, input.organizationId),
+          eq(agentApproval.status, "pending")
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  return row ?? null;
+    // No row means "already decided", "not this tenant" or "does not exist".
+    // All three are silent: a losing attempt leaves no trace to duplicate.
+    if (!row) return null;
+
+    await tx.insert(agentDecision).values({
+      organizationId: input.organizationId,
+      agentId: null,
+      title: `Approval ${input.decision}: ${row.reason}`.slice(0, 200),
+      body: reason.length > 0 ? reason : "(no reason given for approval)",
+      state: input.decision === "approved" ? "APPROVAL_APPROVED" : "APPROVAL_REJECTED",
+      taskId: row.taskId,
+      // Unique index in migration 0033 makes a second record impossible even if
+      // two transactions were somehow to reach this line.
+      approvalId: row.id,
+    });
+
+    return row;
+  });
 }
 
 export async function cancelTask(input: {

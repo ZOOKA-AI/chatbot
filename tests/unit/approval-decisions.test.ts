@@ -131,10 +131,7 @@ describe("PRIORITY 1: a rejection must carry a real reason", () => {
       ctx()
     );
     assert.equal(response.status, 200);
-    assert.equal(mocks.recordDecision.mock.calls.length, 1);
-    const [, decision] = mocks.recordDecision.mock.calls[0];
-    assert.equal((decision as { state: string }).state, "APPROVAL_REJECTED");
-    assert.match((decision as { body: string }).body, /duplicate of yesterday/);
+    assert.equal(mocks.recordDecision.mock.calls.length, 0, "the domain writes history, not the route");
   });
 
   test("approval without a reason still works: a yes needs no excuse", async () => {
@@ -147,8 +144,7 @@ describe("PRIORITY 1: a rejection must carry a real reason", () => {
     const { POST } = await import("@/app/api/agents/approvals/[id]/route");
     const response = await POST(decideRequest({ decision: "approved" }), ctx());
     assert.equal(response.status, 200);
-    const [, decision] = mocks.recordDecision.mock.calls[0];
-    assert.equal((decision as { state: string }).state, "APPROVAL_APPROVED");
+    assert.equal(mocks.recordDecision.mock.calls.length, 0, "the domain writes history, not the route");
   });
 });
 
