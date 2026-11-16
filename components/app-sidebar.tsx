@@ -106,6 +106,16 @@ export function AppSidebar({
           label: isArabic ? "القائد" : "Commander",
         },
         {
+          href: "/workspace/schedules",
+          icon: <Bot />,
+          label: isArabic ? "المهام المجدولة" : "Scheduled tasks",
+        },
+        {
+          href: "/workspace/launch",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "إطلاق النشاط" : "Business launch",
+        },
+        {
           href: "/studio",
           icon: <BriefcaseBusiness />,
           label: isArabic ? "Zooka Studio · معاينة" : "Zooka Studio · Review",

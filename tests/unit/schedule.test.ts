@@ -155,3 +155,149 @@ describe("upcoming occurrences are computed in the caller's timezone", () => {
     }
   });
 });
+
+suite("the schedule lifecycle a customer drives", () => {
+  test("a valid schedule is created with a real next run", async () => {
+    await sql!`delete from "AgentSchedule" where "organizationId" = ${ORG_B}`;
+    const created = await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "weekly report",
+      instruction: "summarise the repository activity",
+      cronExpression: "0 9 * * mon",
+      timezone: "Asia/Dubai",
+    });
+    assert.ok(!("error" in created), JSON.stringify(created));
+    const schedule = created as { id: string; nextRunAt: Date; timezone: string };
+    assert.equal(schedule.timezone, "Asia/Dubai");
+    assert.ok(new Date(schedule.nextRunAt).getTime() > Date.now());
+
+    // The next run is a Monday 09:00 in Dubai, not 09:00 UTC.
+    const dubai = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dubai",
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(schedule.nextRunAt));
+    assert.match(dubai, /Mon.*09:00/);
+  });
+
+  test("an unparseable expression is refused, not stored", async () => {
+    const created = await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "broken",
+      instruction: "this should never be stored",
+      cronExpression: "every monday morning",
+    });
+    assert.ok("error" in created);
+    assert.equal((created as { error: string }).error, "invalid_cron");
+  });
+
+  test("a valid expression that can never fire is refused up front", async () => {
+    const created = await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "never",
+      instruction: "30 february does not exist",
+      cronExpression: "0 0 30 2 *",
+    });
+    assert.equal((created as { error: string }).error, "cron_never_fires");
+  });
+
+  test("an unknown timezone is refused", async () => {
+    const created = await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "mars time",
+      instruction: "timezone that does not exist",
+      cronExpression: "0 9 * * *",
+      timezone: "Mars/Olympus",
+    });
+    assert.equal((created as { error: string }).error, "invalid_timezone");
+  });
+
+  test("listing is scoped to the workspace that asked", async () => {
+    const forA = await mod!.listSchedules(ORG_A);
+    const forB = await mod!.listSchedules(ORG_B);
+    assert.ok(forA.every((schedule) => schedule.organizationId === ORG_A));
+    assert.ok(forB.every((schedule) => schedule.organizationId === ORG_B));
+  });
+
+  test("editing the cadence recomputes the next run from now", async () => {
+    const created = (await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "hourly then daily",
+      instruction: "cadence change should retime the next run",
+      cronExpression: "0 * * * *",
+    })) as { id: string; nextRunAt: Date };
+
+    const edited = await mod!.updateSchedule({
+      organizationId: ORG_B,
+      scheduleId: created.id,
+      patch: { cronExpression: "0 4 * * *" },
+    });
+    assert.ok(edited && !("error" in edited));
+    const retimed = edited as { nextRunAt: Date; cronExpression: string };
+    assert.equal(retimed.cronExpression, "0 4 * * *");
+    const hour = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dubai",
+      hour: "2-digit",
+      hour12: false,
+    }).format(new Date(retimed.nextRunAt));
+    assert.equal(hour, "04", "the next run kept the old cadence");
+  });
+
+  test("another workspace can neither edit nor see it", async () => {
+    const created = (await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "private",
+      instruction: "scoped to one workspace only",
+      cronExpression: "0 * * * *",
+    })) as { id: string };
+
+    assert.equal(await mod!.getSchedule({ organizationId: ORG_A, scheduleId: created.id }), null);
+    assert.equal(
+      await mod!.updateSchedule({ organizationId: ORG_A, scheduleId: created.id, patch: { title: "hijacked" } }),
+      null
+    );
+  });
+
+  test("deleting removes the schedule and keeps what it already ran", async () => {
+    const created = (await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "doomed",
+      instruction: "will be removed after running once",
+      cronExpression: "0 * * * *",
+    })) as { id: string };
+
+    // Give it a completed-looking task, as a real run would.
+    await sql!`insert into "AgentTask" (id, "organizationId", title, instruction, status, "scheduleId", "scheduledFor")
+      values (gen_random_uuid(), ${ORG_B}, 'ran once', 'work', 'completed', ${created.id}, now() - interval '1 hour')`;
+
+    const before = await mod!.scheduleHistory({ organizationId: ORG_B, scheduleId: created.id });
+    assert.equal(before.length, 1);
+
+    assert.equal(await mod!.deleteSchedule({ organizationId: ORG_B, scheduleId: created.id }), true);
+    assert.equal(await mod!.getSchedule({ organizationId: ORG_B, scheduleId: created.id }), null);
+
+    // History survives the schedule.
+    const after = await mod!.scheduleHistory({ organizationId: ORG_B, scheduleId: created.id });
+    assert.equal(after.length, 1);
+    assert.equal(after[0].status, "completed");
+  });
+
+  test("another workspace cannot delete it", async () => {
+    const created = (await mod!.createSchedule({
+      organizationId: ORG_B,
+      title: "protected",
+      instruction: "only its own workspace may delete this",
+      cronExpression: "0 * * * *",
+    })) as { id: string };
+
+    assert.equal(await mod!.deleteSchedule({ organizationId: ORG_A, scheduleId: created.id }), false);
+    assert.ok(await mod!.getSchedule({ organizationId: ORG_B, scheduleId: created.id }));
+  });
+
+  test("history is read from the caller's workspace only", async () => {
+    const foreign = await mod!.scheduleHistory({ organizationId: ORG_A, scheduleId: "00000000-0000-4000-8000-000000000000" });
+    assert.equal(foreign.length, 0);
+  });
+});
