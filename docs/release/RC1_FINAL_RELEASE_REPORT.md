@@ -163,3 +163,93 @@ not. A Protection Bypass would unblock the scripted HTTP harness
 (`scripts/acceptance/rc-brand-audit.mjs`), not the browser form path, so the six journeys need
 either that bypass stored as `VERCEL_AUTOMATION_BYPASS` or a manual pass. Protection was not
 disabled and nothing was bypassed.
+
+---
+
+# Final pre-production acceptance, 16 November 2026 21:05 Dubai
+
+Scope: Preview testing and preparation only. No Production migration, no merge, no deploy, no
+purchase, no billing change.
+
+## Hosted authentication: BLOCKED, with the exact reason measured
+
+| Probe | Result |
+| --- | --- |
+| `GET /login` from the sandbox, no browser session | **302** to Vercel SSO, page contains the Vercel Authentication shell |
+| `GET /api/auth/providers` the same way | **302** |
+| `GET /login` inside the owner's Chrome session | 200, full Arabic login page, no SSO wall |
+| Form submission inside that session | refused: `Refusing Enter — the focused form submits to a local/private URL` |
+
+So the protection is intact and enforced for every non-browser client, which is correct. The six
+journeys cannot be automated from here for two independent reasons, and neither is a defect in the
+application: the deployment requires an authenticated Vercel session, and the browser automation
+layer will not submit this form even when that session exists.
+
+Protection was not disabled and nothing was bypassed. Unblocking needs one of two owner actions:
+store `VERCEL_AUTOMATION_BYPASS` in agent secrets (the scripted harness logs in over HTTP, not
+through a form, so it would then run end to end), or perform the six journeys by hand in the
+signed-in browser: registration, login, session persistence, chat, agent execution, logout.
+
+## Backup restoration: PASSED on the 21:00 backup
+
+Fresh backup pulled from production at 21:00 (873,467 bytes, 14 tables) and restored into an
+isolated PostgreSQL 15 cluster that was built from a schema-only production dump.
+
+| Check | Result |
+| --- | --- |
+| Coverage | every table in the backup has a destination and matching rows, **including `Document` (22)** |
+| Foreign keys | **0 orphans** |
+| Users | 278 restored |
+| Credentials | 278 valid bcrypt hashes, 0 nulls, shapes valid |
+| Verdict | **passed: true** |
+
+Two defects in my own harness were found by doing this rather than asserting it. First, the
+reconstruction had been silently dropping `Document` because the dump needs the `vector` type; the
+table now loads (the ladder script already rewrote `vector` to `float8[]`, which is why its own
+seeded `Document` check passed while my psql restore did not). Second, the "emails" question:
+262 of the 278 production accounts are `guest-<digits>` placeholders, not masked data and not
+blanks. Measured: 278 users, **0 duplicate groups on `lower(email)`**, so `0029`'s unique index has
+no collision to merge.
+
+Rollback: the ladder run remains 27/27, with 22 rollbacks applied or refused on populated data and
+seeded rows surviving in all seven seeded tables (User, Organization, OrganizationMember, Chat,
+Message_v2, Document, integration_connection).
+
+## Migration compatibility: unchanged and still green
+
+Ladder from the production schema dump: **24/24 migrations, 27/27 checks**, 40 → 58 tables, 62
+foreign keys, 65 policies, `zooka_runtime` NOBYPASSRLS with 173 grants, runtime role `own=1
+foreign=0`. Production has not changed since the dump, and the backup's 14 tables match the
+expected shape. Order remains `0017` → `0027` → `0028..0049`.
+
+## Billing isolation: confirmed
+
+`release/rc-1` contains **none** of `lib/billing/{ledger,guard,payments,config}`,
+`tests/unit/billing-*`, or migration `0050`. Those ten paths exist only on `feat/uae-billing`,
+which is 3 commits ahead of the candidate. No billing file was changed in this pass.
+
+## Release state
+
+| Ref | Commit | Vercel – chatbot |
+| --- | --- | --- |
+| `release/rc-1` | `1be4fc3` (docs) on top of `7365e9c` | **success**, both commits |
+| `feat/uae-billing` | `7da85a9` | **success** |
+| Draft PR #98 | open, Draft | — |
+| Production `main` | `19473c0` | untouched |
+
+## Remaining blockers, exactly
+
+| # | Blocker | Owner action |
+| --- | --- | --- |
+| B1 | Hosted journeys unverified (302 + form guard) | store `VERCEL_AUTOMATION_BYPASS`, or run the six journeys manually |
+| B2 | Production migrations not applied | approve the window for `0017` → `0027` → `0028..0049` |
+| B3 | Vercel account `overdue` | settle the Vercel balance |
+| B4 | PR #98 is Draft | review and merge after B1 and B2 |
+| B5 | Billing price and provider unapproved | approve 49 AED / 20 AED credit and a provider before a paid launch |
+
+## GO / NO-GO
+
+**NO-GO for release**, and the reason is no longer engineering uncertainty: the candidate is green
+on Vercel, the suite passes twice, the backup restores cleanly with credentials intact, the ladder
+is correct on production's own schema, and billing is fully separated. It is blocked on five owner
+decisions, the first two of which are the only ones that gate a production release.
