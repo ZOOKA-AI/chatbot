@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
@@ -611,6 +612,36 @@ export const agentDecision = pgTable(
     // One decision record per approval, enforced by the database rather than by
     // the code path that happens to write it.
     approvalIdx: uniqueIndex("AgentDecision_approvalId_key").on(table.approvalId),
+  })
+);
+
+export const agentExecution = pgTable(
+  "AgentExecution",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    taskId: uuid("taskId")
+      .notNull()
+      .references(() => agentTask.id, { onDelete: "cascade" }),
+    organizationId: varchar("organizationId", { length: 64 }).notNull().default("unclaimed"),
+    agentId: uuid("agentId").references(() => agentIdentity.id, { onDelete: "set null" }),
+    tool: varchar("tool", { length: 64 }).notNull(),
+    attempt: integer("attempt").notNull().default(1),
+    status: varchar("status", { length: 24 }).notNull().default("running"),
+    startedAt: timestamp("startedAt").notNull().defaultNow(),
+    finishedAt: timestamp("finishedAt"),
+    durationMs: integer("durationMs"),
+    resultSummary: text("resultSummary"),
+    evidenceRef: varchar("evidenceRef", { length: 512 }),
+    error: text("error"),
+  },
+  (table) => ({
+    taskIdx: index("AgentExecution_taskId_idx").on(table.taskId),
+    orgIdx: index("AgentExecution_organizationId_idx").on(table.organizationId),
+    // One running execution per task, enforced by the database rather than by
+    // the worker remembering to check first.
+    oneRunningPerTask: uniqueIndex("AgentExecution_one_running_per_task")
+      .on(table.taskId)
+      .where(sql`status = 'running'`),
   })
 );
 

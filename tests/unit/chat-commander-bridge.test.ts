@@ -21,6 +21,17 @@ vi.mock("@/lib/agents/commander-scope", () => ({
   withCommanderScope: async (_organizationId: string, work: () => Promise<unknown>) => work(),
 }));
 
+vi.mock("@/lib/agents/worker", () => ({
+  executionReport: async (_organizationId: string, taskId: string) => ({
+    tool: "github_repo_inspect",
+    attempt: 1,
+    status: rows.some((r) => r.id === taskId) ? "succeeded" : "failed",
+    evidenceRef: `execution:test-${taskId}`,
+    resultSummary: "ok",
+    error: null,
+  }),
+}));
+
 vi.mock("@/lib/agents/command-center", () => ({
   createTask: async (input: Record<string, unknown>) => {
     created.push(input);

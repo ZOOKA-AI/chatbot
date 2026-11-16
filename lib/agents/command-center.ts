@@ -8,6 +8,7 @@ import {
   agentDeployment,
   agentIdentity,
   agentTask,
+  agentExecution,
 } from "@/lib/db/schema";
 import * as queriesModule from "@/lib/db/queries";
 import { commanderActiveDb } from "@/lib/db/tenant-context";
@@ -273,6 +274,130 @@ export async function createTask(input: CreateTaskInput) {
  * Deliberately returns null for another tenant's task rather than an error, so a
  * caller cannot use the difference to learn that the row exists elsewhere.
  */
+/* ------------------------------------------------------------------ */
+/* Execution attempts                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Opens an attempt before any tool runs.
+ *
+ * The partial unique index on (taskId) where status = 'running' is what makes
+ * duplicate execution impossible: a second worker's insert fails with 23505 and
+ * this returns `duplicate_execution` instead of pretending nothing happened.
+ */
+export async function startExecution(input: {
+  organizationId: string;
+  taskId: string;
+  agentId: string;
+  tool: string;
+  attempt: number;
+}) {
+  // Check first: once a statement fails inside the tenant transaction the whole
+  // transaction is aborted, so a failed insert cannot be recovered from quietly.
+  // The partial unique index stays as the backstop for a genuine race.
+  const [running] = await db
+    .select({ id: agentExecution.id })
+    .from(agentExecution)
+    .where(
+      and(
+        eq(agentExecution.organizationId, input.organizationId),
+        eq(agentExecution.taskId, input.taskId),
+        eq(agentExecution.status, "running")
+      )
+    )
+    .limit(1);
+  if (running) {
+    return { ok: false as const, error: "duplicate_execution" as const };
+  }
+
+  try {
+    const [row] = await db
+      .insert(agentExecution)
+      .values({
+        organizationId: input.organizationId,
+        taskId: input.taskId,
+        agentId: input.agentId,
+        tool: input.tool,
+        attempt: input.attempt,
+        status: "running",
+      })
+      .returning();
+    return { ok: true as const, execution: row };
+  } catch (error) {
+    // Drizzle wraps driver errors, so the SQLSTATE may sit on the cause.
+    const shaped = error as {
+      code?: string;
+      message?: string;
+      cause?: { code?: string; cause?: { code?: string } };
+    };
+    const code = shaped.code ?? shaped.cause?.code ?? shaped.cause?.cause?.code;
+    const message = shaped.message ?? "";
+    if (code === "23505" || /duplicate key value/i.test(message)) {
+      return { ok: false as const, error: "duplicate_execution" as const };
+    }
+    throw error;
+  }
+}
+
+/** Closes an attempt. Runs once per attempt; later calls change nothing. */
+export async function finishExecution(input: {
+  organizationId: string;
+  executionId: string;
+  status: "succeeded" | "failed" | "timed_out" | "cancelled" | "rejected";
+  durationMs: number;
+  resultSummary?: string | null;
+  evidenceRef?: string | null;
+  error?: string | null;
+}) {
+  const [row] = await db
+    .update(agentExecution)
+    .set({
+      status: input.status,
+      finishedAt: new Date(),
+      durationMs: input.durationMs,
+      resultSummary: input.resultSummary?.slice(0, 8000) ?? null,
+      evidenceRef: input.evidenceRef?.slice(0, 512) ?? null,
+      error: input.error?.slice(0, 2000) ?? null,
+    })
+    .where(
+      and(
+        eq(agentExecution.id, input.executionId),
+        eq(agentExecution.organizationId, input.organizationId),
+        eq(agentExecution.status, "running")
+      )
+    )
+    .returning();
+  return row ?? null;
+}
+
+export async function countExecutions(organizationId: string, taskId: string) {
+  const rows = await db
+    .select({ id: agentExecution.id })
+    .from(agentExecution)
+    .where(
+      and(
+        eq(agentExecution.organizationId, organizationId),
+        eq(agentExecution.taskId, taskId)
+      )
+    );
+  return rows.length;
+}
+
+export async function latestExecution(organizationId: string, taskId: string) {
+  const [row] = await db
+    .select()
+    .from(agentExecution)
+    .where(
+      and(
+        eq(agentExecution.organizationId, organizationId),
+        eq(agentExecution.taskId, taskId)
+      )
+    )
+    .orderBy(desc(agentExecution.startedAt))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function getTask(input: { organizationId: string; taskId: string }) {
   const [row] = await db
     .select()

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { createTask, getTask, listTasks } from "@/lib/agents/command-center";
+import { executionReport } from "@/lib/agents/worker";
 
 /**
  * The bridge between a conversation and real work.
@@ -101,20 +102,24 @@ export function createCommanderTools(input: {
               "No such task in this workspace. Say you cannot find it; do not guess a status.",
           };
         }
+        const run = await executionReport(input.organizationId, task.id);
         return {
           ok: true,
           taskId: task.id,
           title: task.title,
           status: task.status,
+          lastExecution: run,
           ownerAgentId: task.ownerAgentId,
           reportedAt: task.reportedAt,
           lastError: (task as { error?: string | null }).error ?? null,
           approvalRequired: task.approvalRequired,
           // The one honest sentence about completion available to the model.
           completion:
-            task.status === "completed"
-              ? "Recorded as completed by the agent that ran it."
-              : "Not completed. This is the database's own status.",
+            task.status === "completed" && run?.status === "succeeded"
+              ? "Recorded as completed, with a verified tool execution behind it."
+              : task.status === "completed"
+                ? "Marked completed, but no successful execution is recorded: treat this as unverified and say so."
+                : "Not completed. This is the database's own status.",
         };
       },
     }),
