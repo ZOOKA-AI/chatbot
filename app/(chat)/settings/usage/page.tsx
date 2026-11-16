@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { redirect } from "next/navigation";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
@@ -20,7 +21,7 @@ function fill(used: number, limit: number) {
   return Math.min(100, Math.round((used / limit) * 100));
 }
 
-export default async function UsageSettingsPage() {
+async function UsageSettingsPageImpl() {
   const context = await getWorkspaceContext();
   if (!context || context.user.type === "guest") {
     redirect("/login");
@@ -162,3 +163,6 @@ export default async function UsageSettingsPage() {
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(UsageSettingsPageImpl);

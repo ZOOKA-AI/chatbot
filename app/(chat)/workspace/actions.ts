@@ -1,5 +1,6 @@
 "use server";
 
+import { withRequestTenantAction } from "@/lib/db/request-tenant";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -25,7 +26,7 @@ const invitationSchema = z.object({
   role: z.enum(["admin", "member"]),
 });
 
-export async function renameWorkspace(formData: FormData) {
+async function renameWorkspaceImpl(formData: FormData) {
   const context = await requireWorkspaceRole("admin");
   const name = workspaceNameSchema.safeParse(formData.get("name"));
 
@@ -40,7 +41,7 @@ export async function renameWorkspace(formData: FormData) {
   revalidatePath("/workspace");
 }
 
-export async function inviteWorkspaceMember(formData: FormData) {
+async function inviteWorkspaceMemberImpl(formData: FormData) {
   const context = await requireWorkspaceRole("admin");
   const invitation = invitationSchema.safeParse({
     email: formData.get("email"),
@@ -70,7 +71,7 @@ export async function inviteWorkspaceMember(formData: FormData) {
   revalidatePath("/workspace");
 }
 
-export async function switchWorkspace(formData: FormData) {
+async function switchWorkspaceImpl(formData: FormData) {
   const context = await requireWorkspaceRole("member");
   const organizationId = formData.get("organizationId");
   if (!context || typeof organizationId !== "string") {
@@ -92,7 +93,7 @@ export async function switchWorkspace(formData: FormData) {
   redirect("/workspace");
 }
 
-export async function changeWorkspaceMemberRole(formData: FormData) {
+async function changeWorkspaceMemberRoleImpl(formData: FormData) {
   const context = await requireWorkspaceRole("admin");
   const userId = formData.get("userId");
   const role = formData.get("role");
@@ -112,3 +113,9 @@ export async function changeWorkspaceMemberRole(formData: FormData) {
   });
   revalidatePath("/workspace");
 }
+
+// Tenant-scoped actions: each mutation runs inside the caller's tenant transaction.
+export const renameWorkspace = withRequestTenantAction(renameWorkspaceImpl);
+export const inviteWorkspaceMember = withRequestTenantAction(inviteWorkspaceMemberImpl);
+export const switchWorkspace = withRequestTenantAction(switchWorkspaceImpl);
+export const changeWorkspaceMemberRole = withRequestTenantAction(changeWorkspaceMemberRoleImpl);

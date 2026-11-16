@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Chat } from "@/components/chat";
@@ -8,7 +9,7 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { convertToUIMessages } from "@/lib/utils";
 
-export default function Page(props: { params: Promise<{ id: string }> }) {
+async function PageImpl(props: { params: Promise<{ id: string }> }) {
   return (
     <Suspense fallback={<div className="flex h-dvh" />}>
       <ChatPage params={props.params} />
@@ -83,3 +84,6 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
     </>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(PageImpl);

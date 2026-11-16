@@ -5,6 +5,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL(".", import.meta.url)),
+      // Route and page modules carry the "server-only" guard. Tests import them
+      // directly, outside a Next server, so the guard would abort the import.
+      "server-only": fileURLToPath(new URL("./tests/support/server-only-stub.ts", import.meta.url)),
     },
   },
   test: {

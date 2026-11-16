@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { createProject, listProjects } from "@/lib/db/projects";
@@ -108,7 +109,7 @@ async function createWorkspaceProject(request: Request) {
   }
 }
 
-export async function GET() {
+async function GETImpl() {
   try {
     return await listWorkspaceProjects();
   } catch {
@@ -116,10 +117,14 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   try {
     return await createWorkspaceProject(request);
   } catch {
     return NextResponse.json({ error: "تعذّر إنشاء المشروع" }, { status: 500 });
   }
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);

@@ -1,4 +1,5 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import {
   appendAgentMessage,
   getAgentHistory,
@@ -48,7 +49,7 @@ function limitFor(plan: string) {
   return PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const context = await getWorkspaceContext();
   if (!context) {
     return new ChatbotError("unauthorized:chat").toResponse();
@@ -182,3 +183,6 @@ export async function POST(request: Request) {
     { headers: { "cache-control": "no-store" } }
   );
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const POST = withRequestTenantHandler(POSTImpl);

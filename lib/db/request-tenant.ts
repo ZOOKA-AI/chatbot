@@ -76,3 +76,63 @@ export function withRequestTenantHandler<H extends RouteHandler>(handler: H): H 
     );
   }) as unknown as H;
 }
+
+/**
+ * Wraps a server component so the data it reads during render runs inside the
+ * caller's tenant transaction.
+ *
+ * The component's own type is preserved, so Next.js page props (params, searchParams)
+ * are unchanged. When enforcement is off, or when there is no session yet, the
+ * component runs exactly as before: a page with no session redirects itself, which
+ * is today's behaviour.
+ */
+export function withTenantPage<C extends (props: any) => any>(Component: C): C {
+  const wrapped = async (props: any) => {
+    if (!tenantScopeEnabled()) {
+      return Component(props);
+    }
+
+    const workspace = await getWorkspaceContext();
+    if (!workspace?.user?.organizationId) {
+      return Component(props);
+    }
+
+    return runInTenantTransaction(
+      {
+        organizationId: workspace.user.organizationId,
+        userId: workspace.user.id ?? null,
+      },
+      () => Component(props)
+    );
+  };
+
+  return wrapped as unknown as C;
+}
+
+/**
+ * Wraps a server action so its database work runs inside the caller's tenant.
+ *
+ * Server actions are invoked from the client, so the tenant is taken from the
+ * session exactly like a route. Fails closed: an action with no authenticated
+ * workspace throws rather than running unscoped.
+ */
+export function withRequestTenantAction<F extends (...args: any[]) => Promise<any>>(fn: F): F {
+  const wrapped = async (...args: Parameters<F>) => {
+    if (!tenantScopeEnabled()) {
+      return fn(...args);
+    }
+
+    const workspace = await getWorkspaceContext();
+    const organizationId = workspace?.user?.organizationId;
+    if (!organizationId) {
+      throw new Error("unauthorized: no authenticated workspace");
+    }
+
+    return runInTenantTransaction(
+      { organizationId, userId: workspace.user.id ?? null },
+      () => fn(...args)
+    );
+  };
+
+  return wrapped as unknown as F;
+}

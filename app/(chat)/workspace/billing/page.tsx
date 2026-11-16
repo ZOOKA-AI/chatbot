@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { redirect } from "next/navigation";
 import { BillingEvent } from "@/components/billing-event";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
@@ -9,7 +10,7 @@ import { displayWorkspaceName } from "@/lib/workspace-name";
 
 import { ManageSubscriptionButton } from "./manage-subscription";
 
-export default async function WorkspaceBillingPage({
+async function WorkspaceBillingPageImpl({
   searchParams,
 }: {
   searchParams: Promise<{ success?: string }>;
@@ -157,3 +158,6 @@ export default async function WorkspaceBillingPage({
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(WorkspaceBillingPageImpl);

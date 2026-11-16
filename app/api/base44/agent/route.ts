@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   Base44AgentError,
@@ -29,7 +30,7 @@ function isAgentAccessAllowed(role: string) {
 }
 
 
-export async function GET() {
+async function GETImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -55,7 +56,7 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -150,3 +151,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "base44_error" }, { status: 502 });
   }
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);
