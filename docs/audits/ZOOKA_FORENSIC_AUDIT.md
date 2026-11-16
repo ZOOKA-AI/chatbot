@@ -76,7 +76,8 @@ one-off runs, not on the gate.
 
 | Feature | Classification | Evidence |
 |---|---|---|
-| Local deterministic studio (edit, cutout, narration, render, promo film) | **VERIFIED_WORKING** (local) | real artefacts: `promo-film.mp4` h264 1080×1920 + aac, 7.47 s, 280,179 B; `promo-poster.png` 107,722 B |
+| Local deterministic studio — media produced | **VERIFIED_WORKING** (local) | real artefacts: `promo-film.mp4` h264 1080×1920 + aac, 7.47 s, 280,179 B; `promo-poster.png` 107,722 B |
+| Local deterministic studio — result delivered to the right project | **VERIFIED_PARTIAL** | 7/13 customer-path checks; artefact stored under a different project (B9); download 500 |
 | Studio action catalogue + queue integration | **VERIFIED_WORKING** (local) | `studio_ai_generate` in `INTERNAL_WRITE_TOOLS`; single submit caller |
 | Router: capability → model → credential → health → cost → budget → tier → preference | **VERIFIED** | 14/14 `ai-gateway-router.test.ts` |
 | No silent model substitution | **VERIFIED** | `requested_model_not_offered`, empty order; dearer requested model chosen verbatim |
@@ -191,6 +192,64 @@ every environment used, which the code treats as off.
 | 016 | `2d852ad` | one Arabic sentence → finished promo film (deterministic) |
 | 017 | `6ad10a5` | RunComfy v2 adapter, spend gate, refusals by default |
 | 018 | `8cfb747` | gateway over four providers, fal adapter, router, panel |
+
+
+## 12. The real customer path, executed rather than reasoned about
+
+The only execution that needs no third party is the local studio. I ran it at this head against a real
+server, a real signed-in owner, a real project and a real agent key:
+
+```
+node scripts/acceptance/provision-studio-agent.mjs      # creates project + agent holding studio tools
+ACCEPT_PROJECT=<uuid> ACCEPT_AGENT_KEY=<zk_…> node scripts/acceptance/studio-agent-path.mjs
+```
+
+**Result: 7 of 13 checks passed.** The first run showed 4/13 because I had not supplied those two
+variables; that run is invalid and is not used as evidence. The valid run:
+
+| Check | Result |
+|---|---|
+| an Arabic request queues a real task | PASS, 201, task `1e2cd64d-5eba-46a0-8262-c71417cc1240` |
+| the agent executes the studio tool with its own key | PASS, 200, "Edited … The result is 1080×1920" |
+| an unassigned studio tool is refused | PASS, 409 `no_assigned_agent` |
+| local decisions (edit, cutout, render, audio) | PASS |
+| generation refused with named reasons | PASS, `not_configured`, `paid_provider_not_enabled` |
+| paid engines off with no approval cited | PASS |
+| the run reports the asset it produced | **FAIL** |
+| the produced asset is in the workspace library | **FAIL**, missing |
+| the size the customer asked for | **FAIL**, `undefined×undefined` |
+| the result names the original it came from | **FAIL**, none |
+| the agent's output downloads as real bytes | **FAIL**, HTTP 500 |
+| self-sufficient without a GPU | **FAIL**, `["narration"]` only |
+
+### 12.1 A project-binding defect, found by this run
+
+The task executed and produced a real 1080×1920 PNG at 08:06:54. Its row in `StudioAsset` says:
+
+```
+id=dde8a480-…  projectId=67728637-9421-4a31-9f08-17ed93f692da  width=1080 height=1920 label=edit:resize
+```
+
+The action was queued for project `65f9fa75-f334-4c7c-9024-cfc688813090`. **The artefact was stored under a
+different project of the same workspace.** That is why the library list and the size lookup and the download
+all fail in the acceptance: the work exists, under the wrong owner.
+
+This is exactly the class of defect that tenant-level isolation tests cannot catch, because both projects
+belong to the same tenant. It is recorded as **B9**, severity high: work can land in the wrong customer
+project within a workspace.
+
+### 12.2 What this changes in the verdict
+
+It does not change the verdict (still NO) but it sharpens it: the local studio is not merely "not deployed",
+it is **VERIFIED_PARTIAL** — it executes and produces correct media, and then attaches the result to the
+wrong project, which breaks retrieval. The deterministic claim in C-17 stands for the media itself (ffprobe
+evidence) and is corrected here for the delivery path.
+
+### 12.3 Narration
+
+`["narration"]` is the only capability the self-sufficiency check reports, meaning the local narration path
+was not offered in this environment (Piper binary absent). The code path exists; the runtime dependency did
+not. Marked environment-dependent, not a code defect, and not counted as passing.
 
 ## 11. Verdict
 

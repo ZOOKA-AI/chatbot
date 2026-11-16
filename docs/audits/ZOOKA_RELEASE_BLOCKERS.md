@@ -127,16 +127,49 @@ unknown.
 
 ---
 
+## B9 — Studio results are attached to the wrong project (high, functional)
+
+**Evidence.** Customer-path acceptance at `8cfb747`, 7/13. The task executed and produced a real PNG
+(`dde8a480-…`, 1080×1920, `edit:resize`, 08:06:54). Its `StudioAsset.projectId` is
+`67728637-9421-4a31-9f08-17ed93f692da` while the action was queued for
+`65f9fa75-f334-4c7c-9024-cfc688813090`. Library listing, size lookup and download therefore fail.
+
+**What it means.** Within one workspace, work can land in the wrong customer project. Cross-tenant tests
+cannot see this because both projects share a tenant. It is a delivery defect, not a leak across customers.
+
+**Minimum action (engineering).** Make the worker's tool payload carry the project the customer selected and
+nothing else, and add a runtime assertion that the stored asset's `projectId` equals the queued task's
+`projectId`. A test that fails when they differ closes it.
+
+**Closes when.** The customer-path acceptance reports the asset under the requested project and download
+returns bytes.
+
+---
+
+## B10 — The studio download endpoint returns 500 (high, functional)
+
+**Evidence.** `the agent's output downloads as real bytes — 500 23 bytes`. The row exists and the file exists
+on disk at `/tmp/zooka-studio/<org>/<id>.png`.
+
+**Minimum action.** Diagnose the download handler against an existing asset id; it is either a project check
+or a path/mime lookup. Add a test that a stored asset downloads with its recorded `mimeType` and byte length.
+
+**Closes when.** Download returns 200 with the recorded byte length.
+
+---
+
 ## Recommended order
 
 1. **B3** (engineering, no money, no deploy): make approval a real consumable record. It is the only blocker
    that gets worse the moment a credential exists.
 2. **B6** (engineering, no money): close the SSRF and cancel gaps before any self-hosted GPU exists.
-3. **B2** (owner, one secret entry): unblocks proof of the whole paid line at a cost of about $0.06.
-4. **B4** (reviewed migration batch on non-production first).
-5. **B5** (one recorded live run).
-6. **B1** (protected merge + deploy, the only step that reaches a customer).
-7. **B7**, **B8** (capability and visibility debt, neither blocks release).
+3. **B9 and B10** (engineering, no money): the artefact exists but the customer cannot retrieve it. Neither
+   needs a credential and both are smaller than they sound.
+4. **B2** (owner, one secret entry): unblocks proof of the whole paid line at a cost of about $0.06.
+5. **B4** (reviewed migration batch on non-production first).
+6. **B5** (one recorded live run).
+7. **B1** (protected merge + deploy, the only step that reaches a customer).
+8. **B7**, **B8** (capability and visibility debt, neither blocks release).
 
 B3 and B6 are safe development that this directive permits. B2, B4 and B1 each need the owner, and each is a
 single decision.
