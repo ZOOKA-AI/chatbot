@@ -53,3 +53,16 @@ The platform has a verified security fix waiting on access and approval, a
 verified data model waiting on a database, and an engine waiting on a UI. The
 dependency that unlocks the most work is the **development database**; the second
 is the **preview bypass key**.
+
+## Promo composition (Directive #054) — see the full table on PR #95
+
+`composePromo` turns one Arabic sentence into a finished film with no provider: narration first (its
+measured length sets the scene duration), one brand frame per scene with the logo, then the MP4. Frames
+are shaped in Python (`arabic_reshaper`, `python-bidi`), because ffmpeg `drawtext` writes code points in
+order and yields disconnected, reversed Arabic.
+
+Acceptance 29/29 on a real server: 1080×1920 h264 + aac, 7.47 s, 280,179 B, in the chosen project, row
+bytes equal to file bytes, second workspace 404 on read and absent from its list, cancelled task
+refused, ladder LOCAL → SELF_HOSTED → EXTERNAL_PAID with no paid engine chosen. Gates 810 passed /
+6 skipped twice, `tsc` clean, build 0. Scheduling flake closed at the cause and pinned by a planted
+stranger schedule.
