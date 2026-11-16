@@ -211,7 +211,7 @@ async function route(request: NextRequest, requestId: string) {
         { status: 401, headers: { "cache-control": "private, no-store" } }
       );
     }
-    }
+
     // Guest auto-provisioning disabled: require real sign-up
     return NextResponse.redirect(new URL("/login", request.url));
   }
