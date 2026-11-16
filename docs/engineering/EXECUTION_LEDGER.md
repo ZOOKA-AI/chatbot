@@ -709,3 +709,21 @@ Notes. One intermittent failure appeared only under parallel file execution
 five times isolated; the assertion was not weakened and the suites run serially here.
 Migrations 0036–0040 remain unapplied to Production. PR #95 head `c5a7e128`. No
 production deployment, no purchases, no third-party actions.
+
+### Stage 21 addendum — browser acceptance unblocked (16 Nov 2026)
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 21.9 | Browser acceptance of the three workspace pages | **VERIFIED** | 8/8 checks; real credentials through the app's own Auth.js endpoint; records created in the UI still listed after reload |
+| 21.11 | Agents page crash on a legacy tool list | FIXED | `allowedTools === null` guard fell through for an omitted field; now shape-tested |
+| 21.12 | Email/password sign-in on the server-action path | OPEN | action sets csrf + callback-url but not session-token; canonical callback route sets it; unproven in production |
+
+Why acceptance had been blocked: the app runs in production mode, so Auth.js issues
+`__Secure-authjs.session-token` with `Secure`, and a browser discards it from an `http://`
+origin. Instrumenting `authorize()` proved the lookup and the bcrypt comparison both succeeded,
+so the failure was cookie policy, never credentials. `scripts/acceptance/tls-proxy.mjs`
+terminates TLS locally; no auth code was modified and no session was minted.
+
+Screenshots: `acceptance/agents.png`, `acceptance/schedules.png`, `acceptance/launch.png`.
+Gates after the fixes: 643 passed / 6 skipped twice serially, `tsc` 0 errors, production build
+compiled. PR #95 head `a41cf72`. Production untouched; migrations 0036–0040 still unapplied.
