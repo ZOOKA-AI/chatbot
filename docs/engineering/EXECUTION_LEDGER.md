@@ -142,6 +142,28 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 40 — Directive #029 phase C, first slice: launch plan and domain truth (16 Nov 2026)
+
+PR #95 `d0ba954`, PR #92 this entry. Both Draft. No production change, no purchase, no credential used.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 40.1 | Deterministic launch plan from a brief | VERIFIED | `buildLaunchPlan`; 15 tests; same brief gives the same plan |
+| 40.2 | Purchase is never an agent step | VERIFIED | domain purchase, publish and ads are `owner: approval`, listed in `blockedOnApproval` |
+| 40.3 | Customer-only steps stated as such | VERIFIED | email (provider identity check), social creation (CAPTCHA/OTP), Search Console |
+| 40.4 | Connectivity changes the plan | VERIFIED | DNS is an agent step with a registrar connected, a customer step without one |
+| 40.5 | Existing accounts connected, not created | VERIFIED | `existingAccounts` yields `social-connect`, and `social-create` disappears |
+| 40.6 | No unsupported promise in copy | VERIFIED | search step states no ranking is promised; no fabricated prices |
+| 40.7 | Dependency ordering | VERIFIED | `startableOrder` places every step after its dependencies; search before purchase, site before publish |
+| 40.8 | Domain availability, three states | VERIFIED | RDAP first, DNS second, `unknown` when neither answers |
+| 40.9 | Live registry check | VERIFIED | `zooka-ai.com` reads taken against the real registry, read-only, zero cost |
+| 40.10 | Domain check reachable by a customer | NOT IMPLEMENTED | module only: no HTTP route, not in the chat tool list |
+| 40.11 | Website generation, email provisioning, social onboarding | NOT IMPLEMENTED | planned steps, not code |
+| 40.12 | Gates | VERIFIED | 565 passed / 6 skipped, 74 files, tsc 0 errors, build compiled |
+
+**Reader note:** this directive cited PR #95 head `762bf8a`; the branch had advanced past it
+through stages 38 and 39, so work continued from `be9f89d` rather than from the cited hash.
+
 ## Stage 39 — Directive #029 phases A and B: recurring schedules, agent model config (16 Nov 2026)
 
 PR #95 `be9f89d` (implementation), PR #92 this entry. Both Draft. No production deployment, no production migration, no merge, no paid service, no credential published.
