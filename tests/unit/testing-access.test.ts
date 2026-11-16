@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   OWNER_TESTING_EMAILS,
-  UNLIMITED_TESTING_FLAG,
+  unlimitedTestingModeFlag,
   hasUnlimitedTestingAccess,
   isAgentRunLimitExempt,
   isTestingAccessEmail,
@@ -9,8 +9,8 @@ import {
   testingAccessLabel,
 } from "@/lib/billing/testing-access";
 
-const ON = { [UNLIMITED_TESTING_FLAG]: "on" } as Record<string, string | undefined>;
-const OFF = { [UNLIMITED_TESTING_FLAG]: "off" } as Record<string, string | undefined>;
+const ON = { [unlimitedTestingModeFlag]: "on" } as Record<string, string | undefined>;
+const OFF = { [unlimitedTestingModeFlag]: "off" } as Record<string, string | undefined>;
 
 describe("owner testing access", () => {
   it("authorizes exactly the seven owner addresses", () => {
@@ -37,7 +37,7 @@ describe("owner testing access", () => {
     expect(hasUnlimitedTestingAccess("helmyharoon8@gmail.com", ON)).toBe(true);
     expect(hasUnlimitedTestingAccess("helmyharoon8@gmail.com", OFF)).toBe(false);
     expect(hasUnlimitedTestingAccess("helmyharoon8@gmail.com", {})).toBe(false);
-    expect(hasUnlimitedTestingAccess("helmyharoon8@gmail.com", { [UNLIMITED_TESTING_FLAG]: "yes" })).toBe(false);
+    expect(hasUnlimitedTestingAccess("helmyharoon8@gmail.com", { [unlimitedTestingModeFlag]: "yes" })).toBe(false);
   });
 
   it("defaults to off when the flag is missing or misspelled", () => {

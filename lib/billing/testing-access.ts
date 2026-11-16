@@ -26,7 +26,7 @@ export const OWNER_TESTING_EMAILS = [
   "info@royalcleanuae.com",
 ] as const;
 
-export const UNLIMITED_TESTING_FLAG = "UNLIMITED_TESTING_MODE";
+export const unlimitedTestingModeFlag = "UNLIMITED_TESTING_MODE";
 
 const allowlist = new Set<string>(OWNER_TESTING_EMAILS.map((value) => value.trim().toLowerCase()));
 
@@ -44,7 +44,7 @@ export function isTestingAccessEmail(email: string | null | undefined): boolean 
 export function isUnlimitedTestingEnabled(
   env: Record<string, string | undefined> = process.env
 ): boolean {
-  return normalizeEmail(env[UNLIMITED_TESTING_FLAG]) === "on";
+  return normalizeEmail(env[unlimitedTestingModeFlag]) === "on";
 }
 
 /** Both conditions must hold: allowlisted address and an enabled deployment switch. */

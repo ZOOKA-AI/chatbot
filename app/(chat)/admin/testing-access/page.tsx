@@ -3,7 +3,7 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getTestingAccessRoster } from "@/lib/db/queries";
 import {
   OWNER_TESTING_EMAILS,
-  UNLIMITED_TESTING_FLAG,
+  unlimitedTestingModeFlag,
   isTestingAccessEmail,
   isUnlimitedTestingEnabled,
 } from "@/lib/billing/testing-access";
@@ -48,7 +48,7 @@ export default async function TestingAccessPage() {
             {enabled ? "مُفعّل" : "مُعطّل"}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {UNLIMITED_TESTING_FLAG}={enabled ? "on" : "off"}
+            {unlimitedTestingModeFlag}={enabled ? "on" : "off"}
           </div>
         </div>
         <div className="rounded-lg border p-4">
