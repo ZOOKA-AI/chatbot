@@ -211,3 +211,77 @@ suite("a saved configuration is what the database holds", () => {
     assert.equal(row.displayName, "Scoped agent");
   });
 });
+
+suite("a new agent starts with no permissions", () => {
+  test("registration stores an empty tool list, so nothing runs by inheritance", async () => {
+    // Before this default existed, a new identity could reach every tool without anyone
+    // deciding it should. The stored value is the contract; the worker reads it on each run.
+    const [{ eq }, { agentIdentity }] = await Promise.all([
+      import("drizzle-orm"),
+      import("@/lib/db/schema"),
+    ]);
+    const { agent } = await center!.registerAgent({
+      organizationId: ORG_A,
+      slug: `agent-defaults-${Date.now()}`,
+      displayName: "Defaults agent",
+      role: "researcher",
+      environment: "production",
+    });
+    const [row] = await holder.db
+      .select({ allowedTools: agentIdentity.allowedTools, instructions: agentIdentity.instructions })
+      .from(agentIdentity)
+      .where(eq(agentIdentity.id, agent.id));
+    assert.deepEqual(row.allowedTools, []);
+    assert.equal(row.instructions, null);
+  });
+
+  test("an emptied selection still refuses work, and legacy NULL is named", async () => {
+    const [{ eq }, { agentIdentity }, tools] = await Promise.all([
+      import("drizzle-orm"),
+      import("@/lib/db/schema"),
+      import("@/lib/agents/agent-tools"),
+    ]);
+    const { agent } = await center!.registerAgent({
+      organizationId: ORG_A,
+      slug: `agent-legacy-${Date.now()}`,
+      displayName: "Legacy agent",
+      role: "researcher",
+      environment: "production",
+    });
+    // Simulate a row that predates tool assignment.
+    await holder.db.update(agentIdentity).set({ allowedTools: null }).where(eq(agentIdentity.id, agent.id));
+    const [row] = await holder.db
+      .select({ allowedTools: agentIdentity.allowedTools })
+      .from(agentIdentity)
+      .where(eq(agentIdentity.id, agent.id));
+    assert.equal(tools.describeToolAssignment(row).mode, "legacy_unrestricted");
+    assert.equal(tools.agentAllowsTool(row, "github_repo_inspect"), true, "legacy rows keep their historical reach");
+  });
+});
+
+suite("a disabled agent cannot execute", () => {
+  test("disabling an identity stops its key from authenticating", async () => {
+    // Disabling is a customer control on the agents page. It has to take effect at the key,
+    // not only in the list the customer is looking at.
+    const [{ eq }, { agentIdentity }] = await Promise.all([
+      import("drizzle-orm"),
+      import("@/lib/db/schema"),
+    ]);
+    const { agent, key } = await center!.registerAgent({
+      organizationId: ORG_A,
+      slug: `agent-disable-${Date.now()}`,
+      displayName: "Disable me",
+      role: "researcher",
+      environment: "production",
+    });
+    const auth = (raw: string) =>
+      new Request("http://localhost/api/agents/worker", { headers: { authorization: `Bearer ${raw}` } });
+    const active = await center!.authenticateAgent(auth(key));
+    assert.ok(active, "an active key authenticates");
+
+    await holder.db.update(agentIdentity).set({ status: "inactive" }).where(eq(agentIdentity.id, agent.id));
+
+    const disabled = await center!.authenticateAgent(auth(key));
+    assert.equal(disabled, null, "a disabled identity must not authenticate");
+  });
+});

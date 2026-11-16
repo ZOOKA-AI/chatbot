@@ -8,12 +8,12 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 643 passed, 6 skipped, 649 total, 80 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 646 passed, 6 skipped, 652 total, 80 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
 | Tenant isolation | passed | `tests/unit/commander-tenant-*.test.ts`, `tenant-*.test.ts` against real PostgreSQL 15.19 on 127.0.0.1:55432 |
-| Browser acceptance | 8/8 passed | `scripts/acceptance/workspace-ui.mjs` against a local production build over TLS, screenshots in `acceptance/` |
+| Browser acceptance | 9/9 passed | `scripts/acceptance/workspace-ui.mjs` against a local production build over TLS, screenshots in `acceptance/` |
 
 Parallel full-suite runs showed one intermittent failure in
 `tests/unit/schedule.test.ts > two passes in the same second do not create two tasks`
@@ -88,54 +88,65 @@ connector per workspace, writes refused by design.
 
 Production has none of these applied and no deployment has been made.
 
-## Browser acceptance — now passing
+## Browser acceptance — the login is real and the form is what runs
 
-The failure was never in the credentials check. Instrumenting `authorize()` showed the lookup
-returning the customer and `bcrypt` comparing **true**; `signIn` threw nothing. The session
-cookie was being issued but discarded: the app runs in production mode, so Auth.js emits
-`__Secure-authjs.session-token` with the `Secure` flag, and a browser will not keep that from a
-plain `http://` origin. Two dead ends came from that single fact: a cookie minted under the wrong
-name, and a login that looked like a rejection.
+Two separate faults made a correct login look broken, and both were in the harness, not the
+application. The first cost a turn of work; the second was diagnosed only after reading the
+server log instead of inferring from the browser.
 
-Fix: `scripts/acceptance/tls-proxy.mjs` terminates TLS in front of the app, so the local runtime
-matches production's cookie policy. No application code was changed to make auth work, no secret
-was minted, and the sign-in uses the customer's real password through the app's own Auth.js
-credentials endpoint.
+**Fault one: cookie policy.** The app runs in production mode, so Auth.js issues
+`__Secure-authjs.session-token` with the `Secure` flag, and a browser discards that from a plain
+`http://` origin. `scripts/acceptance/tls-proxy.mjs` terminates TLS locally so the runtime matches
+production.
 
-Result, on a production build against an isolated database:
+**Fault two: the proxy's Host header.** The proxy rewrote `Host` to the upstream port, so the
+browser's `Origin: https://localhost:3443` no longer matched and Next.js answered the sign-in
+server action with `Error: Invalid Server Actions request`. The action therefore never ran to
+completion and no session cookie was issued. The proxy now forwards the original host. Nothing in
+the authentication code was changed, no session was minted, and the sign-in is the form a
+customer uses.
+
+**Correction to the previous entry.** I recorded this as an open product anomaly, suggesting
+email/password sign-in might be broken in production. That was wrong. The evidence now shows the
+server action is rejected before it executes, and only under the rewritten host. Email/password
+sign-in through the form works when the request reaches the app intact.
+
+Result against a production build on an isolated database, signing in through the form:
 
 | Check | Result |
 | --- | --- |
-| Credentials accepted by the app's own auth | 302 |
+| The login form establishes a session cookie | `__Host-authjs.csrf-token`, `__Secure-authjs.callback-url`, `__Secure-authjs.session-token` |
+| The login form leaves the login page | `/` |
 | Session resolves to the signing customer | `owner@acceptance.local` |
 | `/workspace/agents` renders, no bounce | 200 |
-| Agent created in the UI is listed after reload | pass (`Agents (3)`) |
+| Agent created in the UI is listed after reload | pass (`Agents (4)`) |
 | `/workspace/schedules` renders, no bounce | 200 |
-| Schedule created in the UI is listed after reload | pass (`Schedules (2)`) |
+| Schedule created in the UI is listed after reload | pass (`Schedules (3)`) |
 | `/workspace/launch` renders, no bounce | 200 |
-| Launch plan created in the UI is listed after reload | pass (`Launch plans (2)`) |
+| Launch plan created in the UI is listed after reload | pass (`Launch plans (4)`) |
 
-Screenshots: `acceptance/agents.png`, `acceptance/schedules.png`, `acceptance/launch.png`
-(1440×1182, full page).
+Screenshots: `acceptance/agents.png`, `acceptance/schedules.png`, `acceptance/launch.png`.
+Trace: `acceptance/trace.zip`.
 
-### Defect found and fixed by the browser run
+## Security properties, each checked against the thing that enforces it
 
-`/workspace/agents` crashed on load with `TypeError: Cannot read properties of undefined
-(reading 'length')` and unmounted the page. The render tested `allowedTools === null`, but the
-API **omits** the field for identities that predate tool assignment, so the value was `undefined`
-and the guard fell through to `.length`. Fixed to test the shape (`Array.isArray`) and to label
-the state "all tools (legacy, not assigned)". The type now admits an absent field. This was
-invisible to the unit suite because it is a render path, not an authorization path.
-
-### Open anomaly, not fixed
-
-On the server-action login path, the response sets `__Secure-authjs.csrf-token` and
-`__Secure-authjs.callback-url` but **not** `__Secure-authjs.session-token`, while the canonical
-`POST /api/auth/callback/credentials` sets it correctly for the same credentials. Google sign-in
-is unaffected. Whether email/password sign-in therefore fails in production is unproven: it needs
-one login attempt with a real password account on zooka-ai.com. Recorded rather than guessed.
+| Property | Enforced by | Evidence |
+| --- | --- | --- |
+| New agents get `allowedTools: []` | `registerAgent` insert default | regression test reads the stored row; all four browser-created agents in the acceptance database have `[]` |
+| Legacy unrestricted identities are named, not silently trusted | `describeToolAssignment` | `legacy_unrestricted` mode test, plus a test that sets a stored `NULL` and reads it back |
+| Permissions are checked at execution time | worker route before claiming | 8 route tests, including "nothing is claimed"; a stored list edited after queueing governs that run |
+| A disabled agent cannot execute | `authenticateAgent` filters `status = 'active'` | test registers a key, authenticates, disables the identity, and asserts `null` |
+| Cross-tenant access is refused | `organizationId` scoping in every query | `commander-tenant-*` suites on real PostgreSQL as `zooka_runtime` |
+| Model configuration persists | `updateAgentConfig` | 18 tests, one of which fails if the writer drops a field again |
 
 ## Blocked
 
 Nothing in Phase 0 remains blocked. Production work still awaits the owner's approval of the
 release commit, migration plan, deployment plan and rollback procedure.
+
+## Known disclosure
+
+Commit `c5a7e128` committed a scratch probe (`probe.comparison.mts`) containing the throwaway
+local acceptance password. It is a test credential for an isolated local database, not a
+production secret, but it is in history: that file has been deleted here, and the password should
+be treated as burnt and never reused anywhere else.

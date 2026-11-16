@@ -10,8 +10,14 @@ import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
 const BASE = process.env.ACCEPT_BASE_URL || "https://localhost:3443";
-const EMAIL = process.env.ACCEPT_EMAIL || "owner@acceptance.local";
-const PASSWORD = process.env.ACCEPT_PASSWORD || "AcceptanceTest2026!";
+// No credentials live in this file. Point these at a throwaway account you seeded into the
+// isolated acceptance database; the run refuses to start without them rather than guessing.
+const EMAIL = process.env.ACCEPT_EMAIL;
+const PASSWORD = process.env.ACCEPT_PASSWORD;
+if (!EMAIL || !PASSWORD) {
+  console.error("ACCEPT_EMAIL and ACCEPT_PASSWORD must be set for the acceptance run.");
+  process.exit(2);
+}
 const OUT = "acceptance";
 const stamp = Date.now().toString().slice(-6);
 
@@ -25,6 +31,8 @@ mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch();
 const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } });
 const page = await context.newPage();
+// A trace makes a failure reproducible instead of merely described.
+await context.tracing.start({ screenshots: true, snapshots: true });
 const pageErrors = [];
 page.on("pageerror", (error) => pageErrors.push(String(error).slice(0, 160)));
 
@@ -34,12 +42,19 @@ const submitted = async (label) => {
 };
 
 try {
-  const csrf = await (await context.request.get(`${BASE}/api/auth/csrf`)).json();
-  const signIn = await context.request.post(`${BASE}/api/auth/callback/credentials`, {
-    form: { csrfToken: csrf.csrfToken, email: EMAIL, password: PASSWORD, callbackUrl: `${BASE}/workspace/agents` },
-    maxRedirects: 0,
-  });
-  check("credentials accepted by the app's own auth", signIn.status() === 302, `status ${signIn.status()}`);
+  // ---- the real sign-in a customer performs: fill the form and submit it
+  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
+  await page.fill("#email", EMAIL);
+  await page.fill("#password", PASSWORD);
+  await page.click('button[type="submit"]');
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 }).catch(() => {});
+  const cookiesAfterLogin = (await context.cookies()).map((c) => c.name);
+  check(
+    "the login form establishes a session cookie",
+    cookiesAfterLogin.some((name) => name.includes("session-token")),
+    cookiesAfterLogin.join(", ") || "(no cookies)"
+  );
+  check("the login form leaves the login page", !new URL(page.url()).pathname.startsWith("/login"), new URL(page.url()).pathname);
   const session = await (await context.request.get(`${BASE}/api/auth/session`)).json();
   check("session resolves to the signing customer", session?.user?.email === EMAIL, String(session?.user?.email ?? null));
 
@@ -94,6 +109,7 @@ try {
 } catch (error) {
   check("acceptance run completed without throwing", false, String(error).slice(0, 200));
 } finally {
+  await context.tracing.stop({ path: `${OUT}/trace.zip` }).catch(() => {});
   await browser.close();
 }
 

@@ -23,7 +23,15 @@ const server = createServer(
         port: TARGET,
         path: incoming.url,
         method: incoming.method,
-        headers: { ...incoming.headers, host: `localhost:${TARGET}`, "x-forwarded-proto": "https" },
+        // The Host header must stay the one the browser used. Rewriting it to the upstream port
+        // makes Next.js compare a mismatched Origin and reject the request with
+        // "Invalid Server Actions request", which looks exactly like a broken login.
+        headers: {
+          ...incoming.headers,
+          host: incoming.headers.host,
+          "x-forwarded-host": incoming.headers.host,
+          "x-forwarded-proto": "https",
+        },
       },
       (upstream) => {
         response.writeHead(upstream.statusCode || 502, upstream.headers);
