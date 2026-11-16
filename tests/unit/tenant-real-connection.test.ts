@@ -208,12 +208,17 @@ describe.skipIf(!ready)("real PostgreSQL: tenant isolation over independent conn
     }
   });
 
-  test("a superuser connection would bypass RLS, which is why the role check exists", async () => {
+  test("a privileged connection bypasses RLS, which is why the role check exists", async () => {
     // Same database, same policies, privileged connection: everything is visible.
     const all = await admin`select title from "AgentTask" order by title`;
     expect(all.length).toBe(2);
 
-    const [superuser] = await admin`select rolsuper from pg_roles where rolname = current_user`;
-    assert.equal(superuser.rolsuper, true, "the admin connection is a superuser and ignores policies");
+    // Managed Postgres gives the owner BYPASSRLS without superuser, so the
+    // property this test needs is "ignores policies", not "is superuser".
+    const [privileged] = await admin`select rolsuper, rolbypassrls from pg_roles where rolname = current_user`;
+    assert.ok(
+      privileged.rolsuper || privileged.rolbypassrls,
+      "the admin connection must ignore policies; that is why the runtime role check exists"
+    );
   });
 });
