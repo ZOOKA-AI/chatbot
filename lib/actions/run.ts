@@ -82,7 +82,9 @@ export function planActionExecution(input: ActionPlanInput): ActionPlan {
     };
   }
 
-  const allowance = (PLANS[input.plan] as { agentRuns?: number }).agentRuns;
+  // A plan value the entitlement table does not know must refuse, not crash: the
+  // old direct index threw a TypeError and surfaced as a 500 to the customer.
+  const allowance = (PLANS[input.plan] as { agentRuns?: number } | undefined)?.agentRuns;
   if (allowance === undefined) {
     return {
       ok: false,

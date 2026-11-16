@@ -105,6 +105,10 @@ async function PATCHHandler(request: Request) {
         status: z.string().optional(),
         environment: z.string().optional(),
         scopes: z.array(z.string()).optional(),
+        // The agent console sends this alongside the other fields it edits. Without
+        // it here the strict schema refused the whole save, so no agent could ever
+        // be given a tool and no task could ever be planned against one.
+        allowedTools: z.array(z.string().trim().min(1).max(64)).max(64).nullable().optional(),
       })
       .strict()
   );
