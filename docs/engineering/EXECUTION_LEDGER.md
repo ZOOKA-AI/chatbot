@@ -880,3 +880,37 @@ build over TLS.
 | 26.19 | Browser isolation and control, command center | NOT STARTED | deliberately not simulated |
 
 No production deployment, no production migration, no merge, no purchase. Both PRs remain Draft.
+
+---
+
+## Milestone 012 — the real browser (DIRECTIVE #047)
+
+Date 16 November 2026. PR #95 head `d0d570e`. Local production build over TLS, real form login, real
+Chromium 134, controlled test site on 127.0.0.1:4517, and a real public site through the worker.
+
+| ID | Requirement | Status | Evidence |
+|---|---|---|---|
+| 27.01 | Launch and close a browser | VERIFIED | `ready` after start, `stopped` after stop, frame endpoint 409 afterwards |
+| 27.02 | Navigate | VERIFIED | `currentUrl` is the site loaded, title read from the live DOM |
+| 27.03 | Click / type / select / scroll / read | IMPLEMENTED | runtime operations and step kinds; read verified live (917 chars) |
+| 27.04 | Screenshots | VERIFIED | 11,853-byte PNG from the running browser; evidence served only to its own workspace |
+| 27.05 | Timeouts, error reporting | VERIFIED | navigation and action timeouts, step budget, sanitised error text |
+| 27.06 | Multi-step agent task | VERIFIED | navigate → read → screenshot through queue and worker |
+| 27.07 | Arabic-first panel | VERIFIED | `/workspace/browser`, screenshot `acceptance/browser-panel.png` |
+| 27.08 | Watch / Pause / Resume / Take over / Return / Stop | VERIFIED | 19/19 acceptance, every transition server-authorized |
+| 27.09 | Approve / Reject controls | NOT BUILT | no mid-run approval; consequential steps refused before launch |
+| 27.10 | Tenant-scoped sessions, ownership, RLS | VERIFIED | 0043 + composite key; foreign workspace 404 on read and control; non-owner 403 |
+| 27.11 | Isolated cookies and profiles | VERIFIED BY CONSTRUCTION | one Playwright context per session, destroyed on close |
+| 27.12 | SSRF and internal-service restrictions | VERIFIED | private/link-local/CGNAT/loopback refused on the **resolved** address; metadata refused behind a public name |
+| 27.13 | Resource limits, expiry, cleanup | VERIFIED | 20-step budget, 5–180 min TTL, expiry sweep, expired session not drivable |
+| 27.14 | Arabic instruction end to end | VERIFIED | 14/14: action → task → worker claim → browser in worker → evidence → completed |
+| 27.15 | Human approval before consequential actions | FAIL-CLOSED | refused before a browser opens; approval wiring is the next piece |
+| 27.16 | CAPTCHA / MFA | BY DESIGN | no bypass code exists; such a page fails the step |
+| 27.17 | Crash recovery | NOT BUILT | a crashed context fails the step and ends the session |
+| 27.18 | Live video | NOT BUILT | the "live" frame is a real screenshot polled every 2s |
+| 27.19 | Interactive human clicking | NOT BUILT | the frame is an image; take-over changes authorization, not input |
+| 27.20 | Gates twice | 1 clean + 1 with known flake | 747/6/753 in 92 files; `schedule.test.ts` intermittent |
+| 27.21 | Infrastructure costs | ESTIMATED, NOTHING PURCHASED | self-hosted $12–24/mo; per-session containers $5–15/mo light use |
+
+Not started, per the directive: Command Center, marketing integrations. No production deployment, no
+production migration, no merge, no purchase, no paid provider.
