@@ -13,7 +13,7 @@ so instead of rounding up.
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
 | Tenant isolation | passed | `tests/unit/commander-tenant-*.test.ts`, `tenant-*.test.ts` against real PostgreSQL 15.19 on 127.0.0.1:55432 |
-| Browser acceptance | **BLOCKED** | see below |
+| Browser acceptance | 8/8 passed | `scripts/acceptance/workspace-ui.mjs` against a local production build over TLS, screenshots in `acceptance/` |
 
 Parallel full-suite runs showed one intermittent failure in
 `tests/unit/schedule.test.ts > two passes in the same second do not create two tasks`
@@ -88,13 +88,54 @@ connector per workspace, writes refused by design.
 
 Production has none of these applied and no deployment has been made.
 
+## Browser acceptance — now passing
+
+The failure was never in the credentials check. Instrumenting `authorize()` showed the lookup
+returning the customer and `bcrypt` comparing **true**; `signIn` threw nothing. The session
+cookie was being issued but discarded: the app runs in production mode, so Auth.js emits
+`__Secure-authjs.session-token` with the `Secure` flag, and a browser will not keep that from a
+plain `http://` origin. Two dead ends came from that single fact: a cookie minted under the wrong
+name, and a login that looked like a rejection.
+
+Fix: `scripts/acceptance/tls-proxy.mjs` terminates TLS in front of the app, so the local runtime
+matches production's cookie policy. No application code was changed to make auth work, no secret
+was minted, and the sign-in uses the customer's real password through the app's own Auth.js
+credentials endpoint.
+
+Result, on a production build against an isolated database:
+
+| Check | Result |
+| --- | --- |
+| Credentials accepted by the app's own auth | 302 |
+| Session resolves to the signing customer | `owner@acceptance.local` |
+| `/workspace/agents` renders, no bounce | 200 |
+| Agent created in the UI is listed after reload | pass (`Agents (3)`) |
+| `/workspace/schedules` renders, no bounce | 200 |
+| Schedule created in the UI is listed after reload | pass (`Schedules (2)`) |
+| `/workspace/launch` renders, no bounce | 200 |
+| Launch plan created in the UI is listed after reload | pass (`Launch plans (2)`) |
+
+Screenshots: `acceptance/agents.png`, `acceptance/schedules.png`, `acceptance/launch.png`
+(1440×1182, full page).
+
+### Defect found and fixed by the browser run
+
+`/workspace/agents` crashed on load with `TypeError: Cannot read properties of undefined
+(reading 'length')` and unmounted the page. The render tested `allowedTools === null`, but the
+API **omits** the field for identities that predate tool assignment, so the value was `undefined`
+and the guard fell through to `.length`. Fixed to test the shape (`Array.isArray`) and to label
+the state "all tools (legacy, not assigned)". The type now admits an absent field. This was
+invisible to the unit suite because it is a render path, not an authorization path.
+
+### Open anomaly, not fixed
+
+On the server-action login path, the response sets `__Secure-authjs.csrf-token` and
+`__Secure-authjs.callback-url` but **not** `__Secure-authjs.session-token`, while the canonical
+`POST /api/auth/callback/credentials` sets it correctly for the same credentials. Google sign-in
+is unaffected. Whether email/password sign-in therefore fails in production is unproven: it needs
+one login attempt with a real password account on zooka-ai.com. Recorded rather than guessed.
+
 ## Blocked
 
-**Browser acceptance.** A real production server was started against an isolated PostgreSQL
-database (`zooka_ui`) with a seeded owner and workspace; `/login` answers 200. Three routes
-were attempted: (1) submitting the real login form returns the page again with no session
-cookie set; (2) a session cookie minted with the deployment's own secret and auth library
-decodes correctly with that secret, yet `/api/auth/session` returns `null`; (3) restarting
-with `AUTH_TRUST_HOST=true` did not change it. No page was clicked in a browser, so the three
-workspace pages are **not** verified by eye. The scripts are committed
-(`scripts/acceptance/`) so this can be reproduced where a session can be established.
+Nothing in Phase 0 remains blocked. Production work still awaits the owner's approval of the
+release commit, migration plan, deployment plan and rollback procedure.

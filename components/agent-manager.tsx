@@ -12,7 +12,7 @@ type Agent = {
   scopes: string[];
   modelProvider: string | null;
   modelId: string | null;
-  allowedTools: string[] | null;
+  allowedTools?: string[] | null;
   instructions: string | null;
 };
 
@@ -173,9 +173,13 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
                   </p>
                   <p className="text-xs opacity-70">
                     {agent.role} · {agent.slug} ·{" "}
-                    {agent.allowedTools === null
-                      ? "all tools"
-                      : `${agent.allowedTools.length} tool${agent.allowedTools.length === 1 ? "" : "s"}`}{" "}
+                    {/* A stored null and an omitted field mean the same thing: this identity
+                        predates tool assignment and still reaches every tool. The list is read
+                        defensively because the API omits the field rather than sending null, and
+                        an unguarded .length took the whole page down. */}
+                    {Array.isArray(agent.allowedTools)
+                      ? `${agent.allowedTools.length} tool${agent.allowedTools.length === 1 ? "" : "s"}`
+                      : "all tools (legacy, not assigned)"}{" "}
                     ·{" "}
                     {agent.modelProvider
                       ? `${agent.modelProvider}/${agent.modelId ?? "-"} (stored, not used by execution yet)`
@@ -259,7 +263,8 @@ function AgentEditor({
   const [instructions, setInstructions] = useState(agent.instructions ?? "");
   const [provider, setProvider] = useState(agent.modelProvider ?? "");
   const [modelId, setModelId] = useState(agent.modelId ?? "");
-  const [restricted, setRestricted] = useState(agent.allowedTools !== null);
+  // An omitted or null list is the legacy state: not restricted, still reaching every tool.
+  const [restricted, setRestricted] = useState(Array.isArray(agent.allowedTools));
   const [selected, setSelected] = useState<string[]>(agent.allowedTools ?? []);
 
   const credential = providers.find((entry) => entry.id === provider)?.credentials;
