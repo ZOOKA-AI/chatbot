@@ -142,6 +142,35 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 39 — Directive #029 phases A and B: recurring schedules, agent model config (16 Nov 2026)
+
+PR #95 `be9f89d` (implementation), PR #92 this entry. Both Draft. No production deployment, no production migration, no merge, no paid service, no credential published.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 39.1 | Cron engine, five fields, vixie semantics | VERIFIED | 18 unit tests; day-of-month OR day-of-week when both restricted |
+| 39.2 | Timezone maths via Intl, no new dependency | VERIFIED | 09:00 Asia/Dubai resolves to 05:00Z; monthly and weekday cases checked |
+| 39.3 | DST spring gap | VERIFIED | 01:30 on 2026-03-29 London does not exist and is skipped to 30 Mar |
+| 39.4 | DST fall-back | FIXED THEN VERIFIED | first pass picked the second 01:30; now resolves to the first (00:30Z) |
+| 39.5 | Exactly one task per slot | VERIFIED | two schedulers racing, two workspaces: one task each, `created` total 2 |
+| 39.6 | nextRunAt advances | FIXED THEN VERIFIED | equality guard never matched (microseconds); hourly → 03:00Z, 30-min → 02:30Z |
+| 39.7 | No duplicate on repeat polling | VERIFIED | created 0, row counts unchanged |
+| 39.8 | Worker executes a scheduled task | VERIFIED | completed in 394 ms, live GitHub evidence persisted |
+| 39.9 | Pause / resume | VERIFIED | paused creates nothing; resume recomputes from now, never replays missed slots |
+| 39.10 | Malformed cron refused | VERIFIED | 12 malformed expressions rejected; API refuses before storage |
+| 39.11 | Never-matching expression | FIXED THEN VERIFIED | disables itself instead of appearing live with no next run |
+| 39.12 | Cross-workspace schedule access | VERIFIED | `setScheduleEnabled` for another workspace returns null |
+| 39.13 | Migration 0038 applied / reversed / re-applied on isolated PG | VERIFIED | idempotent; every column on an existing table nullable; `.down.sql` present |
+| 39.14 | Agent model selection validation | VERIFIED | 20 tests: pair required, provider allow-list, model-id charset, credential report |
+| 39.15 | Interactive chat provider unchanged | MAINTAINED | chat gateway path untouched; divergence documented, not silently unified |
+| 39.16 | Schedule and model UI controls | NOT IMPLEMENTED | parameters 4 not delivered; engine and API only |
+| 39.17 | Docker / container acceptance | BLOCKED | Docker still absent |
+| 39.18 | Full gates | VERIFIED | 543 passed / 4 skipped, 72 files, tsc 0 errors, build compiled |
+
+**Not claimed:** a schedule has never been created through the UI, because there is no UI for it yet. No production schedule exists.
+
+**Still open:** `pending/0037` remains the production deployment prerequisite; migration 0037 and 0038 are both unapplied in Production.
+
 ## Stage 38 — Milestone 027: first successful tool execution, agent configuration (16 Nov 2026)
 
 PR #95 implementation, PR #92 this entry. Both Draft. No production deployment, no production migration, no merge, no paid service, no credential published.
