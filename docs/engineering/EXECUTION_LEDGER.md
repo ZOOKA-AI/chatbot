@@ -946,3 +946,41 @@ Date 16 November 2026. PR #95 head `9107295`. Real Chromium 134, controlled site
 | 28.21 | Creative Studio (Directive #048) | NOT STARTED | deliberately after this milestone |
 
 No production deployment, no production migration, no merge, no purchase, no paid provider.
+
+---
+
+## Milestone 014 — Creative Studio without a paid provider (DIRECTIVE #050/#051)
+
+Date 16 November 2026. PR #95 head `2e30a11`. Local production build, real form login, real ffmpeg.
+
+| ID | Requirement | Status | Evidence |
+|---|---|---|---|
+| 29.01 | Audit existing studio before building | DONE | existing `/workspace/studio` needs `MEDIA_ENGINE_WEBHOOK_URL` (503 without it); reused nothing that was broken, left it in place and built the credential-free path beside it |
+| 29.02 | Image upload | VERIFIED | 1200×900 PNG accepted, dimensions read by ffprobe server-side |
+| 29.03 | Resize | VERIFIED | 1080×1920 derivative, parent recorded |
+| 29.04 | Crop | VERIFIED | 600×600 |
+| 29.05 | Text overlay | IMPLEMENTED, GATED | `drawtext` with a real font; refused with `font_not_configured` when `STUDIO_FONT_FILE` is unset, so no broken glyphs are shipped |
+| 29.06 | Logo overlay | IMPLEMENTED | second input scaled and composited in a chosen corner |
+| 29.07 | Image export/download | VERIFIED | 103,989-byte PNG with `content-type: image/png` |
+| 29.08 | Video project + scenes | VERIFIED | 1–12 scenes, mixed stills and clips |
+| 29.09 | Aspect ratios | VERIFIED | 9:16 1080×1920 and 1:1 1080×1080 measured from the rendered file |
+| 29.10 | Titles and transitions | VERIFIED | per-scene title (font-gated) and `fade` in/out, 0.35 s |
+| 29.11 | MP4 rendering | VERIFIED | 45,894-byte MP4, H.264, 4.00 s, audio muxed |
+| 29.12 | Preview and download | VERIFIED | `<video>` in the panel; download route 200 |
+| 29.13 | Audio trim/gain/mix | VERIFIED | AAC 2.02 s after `gain -6dB`; voiceover mix 201 |
+| 29.14 | AI voice / TTS | NOT BUILT | needs a provider with rights-cleared voices; not claimed |
+| 29.15 | AI generation (provider-neutral) | ADAPTER COMPLETE, GENERATION BLOCKED | 12 tests incl. a full submit→poll→fetch cycle; `COMFYUI_ENDPOINT` absent so `/api/studio/generate` returns 409 `no_provider_ready` |
+| 29.16 | Never fabricate output | VERIFIED | local provider refuses `not_generative`; generator selection requires an explicit `generative` flag |
+| 29.17 | Tenant isolation, quota, safe downloads | VERIFIED | cross-tenant 404 on file, list and edit; path from row not request; 20 MB/220 MB/40 MB per kind; 2 GB workspace quota |
+| 29.18 | Persistence | VERIFIED | six assets survived logout and login |
+| 29.19 | Gates twice | VERIFIED | 767 passed / 6 skipped / 773 in 93 files, twice, `tsc` 0, build compiled |
+| 29.20 | Real acceptance | 30/30 | artifacts in `acceptance/`: studio-edited.png, studio-render.mp4, studio-square.mp4, studio-audio.m4a, studio-panel.png |
+| 29.21 | Agent/task-queue integration | NOT DONE | media operations are not yet exposed as worker tools or catalog actions |
+
+Two real defects were found by running it: `-shortest` truncated a four-second film to the length of the
+music, and the generator selected the local editor as a generator. Both were fixed, the second by making
+`generative` an explicit property rather than inferring it from `ready`.
+
+Not done, and not claimed: ComfyUI has never executed a real model; no MP4 has been produced by an AI
+provider; text-to-speech, background removal, additional transition types, and the timeline UI beyond
+ordered scenes. No production deployment, no production migration, no merge, no purchase, no paid call.
