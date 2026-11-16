@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 725 passed, 6 skipped, 731 total, 90 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 731 passed, 6 skipped, 737 total, 91 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -363,3 +363,31 @@ is gone → up again. No production database was touched.
 browser control interface, the command center integration and the natural-language router
 (#045 priorities 2 to 5). Priority 6 found no new credential: the GitHub action still ends in an
 honest 401, so it is documented rather than faked.
+
+### Milestone 011 — acceptance closed, and a hole in the schema — COMPLETE
+
+**Acceptance is complete at 31 of 31,** adding the two proofs that were missing: a document readable
+again after signing out and back in, and a second workspace refused on read, list and download.
+`docs/engineering/RELEASE_READINESS.md` carries the migration inventory, deployment and rollback
+plans, and the security report.
+
+**One failure along the way was mine, not the application.** The first "after signing out" check
+reported 200 and looked like an unauthenticated read. It was Playwright following the 307 to
+`/login`, where the login page answers 200. Requests in that check now run with `maxRedirects: 0`
+and assert on the refusal itself. The lesson is recorded because a security test that follows a
+redirect reports success for failure.
+
+**A real gap, found by probing rather than assuming.** A document row could name workspace A while
+pointing at workspace B's project and still pass every `organizationId` filter: scoped, and wrong.
+A composite foreign key on `(projectId, organizationId)` now makes that insert fail at the
+database, verified by an insert the database refused. RLS was measured separately with a non-owner
+role: org-a sees 1, org-b sees 1, org-c sees 0.
+
+**The write allowlist was challenged directly.** It grants the ability to write and nothing else:
+an agent without the tool is refused, one grant never implies another, an approval-gated write task
+cannot be claimed before the decision, becomes claimable after approval, and stays unclaimable after
+rejection. Six tests, plus a registry invariant that every non-read-only tool is on the list and the
+list contains no phantom.
+
+**Migration 0042 verified in every state that matters:** applied and self-verified, rolled back
+(table and the unique key it added both gone), reapplied empty, and re-insertable afterwards.
