@@ -727,3 +727,22 @@ terminates TLS locally; no auth code was modified and no session was minted.
 Screenshots: `acceptance/agents.png`, `acceptance/schedules.png`, `acceptance/launch.png`.
 Gates after the fixes: 643 passed / 6 skipped twice serially, `tsc` 0 errors, production build
 compiled. PR #95 head `a41cf72`. Production untouched; migrations 0036–0040 still unapplied.
+
+### Stage 21 addendum 2 — the login is proven through the form (16 Nov 2026)
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 21.12 | Email/password sign-in on the server-action path | **CLOSED — not a product defect** | Next.js replied `Invalid Server Actions request` because the acceptance proxy rewrote the `Host` header, so `Origin` no longer matched. With the host preserved the form sets `__Secure-authjs.session-token` and lands on `/` |
+| 21.13 | Sign-in proven through the real form | VERIFIED | 9/9 acceptance; the previous run used the callback endpoint, this one fills and submits the form |
+| 21.14 | Trace capture | VERIFIED | `acceptance/trace.zip` |
+| 21.15 | Credentials hardcoded in the acceptance script | FIXED | script now requires `ACCEPT_EMAIL` / `ACCEPT_PASSWORD` and exits 2 without them |
+| 21.16 | Scratch probe carrying the local test password | REMOVED, DISCLOSED | committed accidentally in `c5a7e128`; test-only credential for a throwaway local database; treat that password as burnt |
+| 21.17 | New agents default to no tools | VERIFIED | regression test reads the stored row; four browser-created agents all hold `[]` |
+| 21.18 | Disabled agent cannot execute | VERIFIED | key authenticates, identity disabled, same key then returns null, against real PostgreSQL |
+
+Correction of record: addendum 1 listed 21.12 as an open product anomaly on the strength of a
+browser-only observation. That inference was wrong. The action is rejected before it executes, and
+only under the rewritten host. No authentication code was changed in this milestone.
+
+Gates: 646 passed / 6 skipped / 652 twice serially, `tsc` 0 errors, production build compiled.
+PR #95 head `7857e57`. Production untouched; migrations 0036–0040 still unapplied.
