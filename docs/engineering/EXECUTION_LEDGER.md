@@ -142,6 +142,32 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 31 — The credential incident, and a Preview that cannot be provisioned yet (16 Nov 2026)
+
+PR #95 head `c279d7f`, draft. No merge, no production deployment, no production migration, no billing change, no paid service, no credential exposed in this stage, no authentication bypassed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 31.1 | Incident opened, not minimised | DONE | `docs/engineering/SECURITY_INCIDENT_DB_CREDENTIAL.md` |
+| 31.2 | Blast radius measured | VERIFIED | Byte-wise walk of the tree plus `git log --all -S`: present only in `vault.json` and `vault.json.bak-20261115-1707`; zero commits, zero repository files, zero chat replies |
+| 31.3 | Cause identified in my own tooling | DONE | A 40-character truncation rule applied to a 32-character password; length-based redaction is not redaction |
+| 31.4 | Behaviour changed | DONE | Values sourced from the credential store now become a fixed marker that discloses nothing, not even length |
+| 31.5 | Rotation plan prepared | DONE, NOT EXECUTED | Four ordered steps with the owner performing the reset so the new value never enters a transcript, plus a named rollback |
+| 31.6 | Dependent services mapped | DONE | `DATABASE_URL`/`POSTGRES_URL` on production, `/api/admin/migrate`, `/api/admin/backup`, Drizzle migrations; Preview holds no database credential at all |
+| 31.7 | Post-rotation verification defined | DONE | migrate 200 with `failed={}`, backup 200 with non-zero users, route status checks, one real sign-in and one saved message |
+| 31.8 | Approval requested, not assumed | DONE | Rotation is a production credential change plus a redeploy, so it waits for one explicit sentence |
+| 31.9 | Preview database provisioning | BLOCKED | `SUPABASE_ACCESS_TOKEN` now answers 401 `JWT could not be decoded` on `/v1/projects` after answering 200 earlier the same day; one attempt, no retries, no auth workaround |
+| 31.10 | Manual provisioning steps | DONE | Seven steps in `docs/engineering/PREVIEW_ENV.md`, free `zooka-preview` in `ap-southeast-1`, Preview-only scope for every variable |
+| 31.11 | Least-privilege roles | DONE | `postgres` for migrations and selection only; `zooka_runtime` LOGIN/NOSUPERUSER/NOBYPASSRLS, member of nothing, owner of nothing |
+| 31.12 | Migration ordering | VERIFIED | `0031` revokes every grant, so `0034`/`0035` must follow and `0035`'s grants are re-applied at the end |
+| 31.13 | OAuth callback identified | DONE | `https://<preview-host>/api/auth/callback/google`, from NextAuth mounted at `app/(auth)/api/auth/[...nextauth]` |
+| 31.14 | Preview OAuth truth | FOUND | `GOOGLE_LOGIN_CLIENT_ID`/`GOOGLE_LOGIN_CLIENT_SECRET` are not in the Preview scope, so Preview has no Google client at all: sign-in is impossible there today even with SSO out of the way |
+| 31.15 | Production OAuth untouched | VERIFIED | No redirect URI and no production variable was modified in this stage |
+| 31.16 | Browser acceptance | BLOCKED | Needs the database, the Preview Google client, and a decision on Vercel SSO or an alternate acceptance host |
+| 31.17 | Suite, types, build | DONE | 421 passed across 59 files, `tsc --noEmit` clean, `pnpm run build` exit 0 with 126 pages |
+
+Two things are now precise rather than vague: the disclosure reached one internal transcript and nothing else, and Preview sign-in fails for two independent reasons, the missing Google client being the one nobody had noticed.
+
 ## Stage 30 — An isolated Preview database: diagnosis, recipe, and the decision (16 Nov 2026)
 
 PR #95 head `176108f`, draft. No merge, no production deployment, no production migration, no billing change, no paid resource, no secret exposed, no authentication bypassed.
