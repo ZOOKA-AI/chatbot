@@ -1,5 +1,10 @@
 -- Row-level security for the Commander tables.
 --
+-- Re-appliable: each policy is dropped-if-exists before it is created, so a second run changes
+-- nothing. The first rehearsal of this migration on a disposable cluster failed on exactly that:
+-- a plain CREATE POLICY is not idempotent, and a migration that cannot be re-run cannot be trusted
+-- in a release window where a half-applied state has to be corrected.
+--
 -- NOT APPLIED. Read the two limits at the end before applying: this file alone
 -- does NOT make the current deployment tenant-safe.
 --
@@ -46,26 +51,31 @@ ALTER TABLE "AgentApproval" FORCE ROW LEVEL SECURITY;
 --> statement-breakpoint
 ALTER TABLE "AgentDeployment" FORCE ROW LEVEL SECURITY;
 --> statement-breakpoint
+DROP POLICY IF EXISTS "AgentIdentity_tenant_isolation" ON "AgentIdentity";
 CREATE POLICY "AgentIdentity_tenant_isolation" ON "AgentIdentity"
   FOR ALL
   USING ("organizationId" = current_setting('app.organization_id', true))
   WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "AgentTask_tenant_isolation" ON "AgentTask";
 CREATE POLICY "AgentTask_tenant_isolation" ON "AgentTask"
   FOR ALL
   USING ("organizationId" = current_setting('app.organization_id', true))
   WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "AgentDecision_tenant_isolation" ON "AgentDecision";
 CREATE POLICY "AgentDecision_tenant_isolation" ON "AgentDecision"
   FOR ALL
   USING ("organizationId" = current_setting('app.organization_id', true))
   WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "AgentApproval_tenant_isolation" ON "AgentApproval";
 CREATE POLICY "AgentApproval_tenant_isolation" ON "AgentApproval"
   FOR ALL
   USING ("organizationId" = current_setting('app.organization_id', true))
   WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
 --> statement-breakpoint
+DROP POLICY IF EXISTS "AgentDeployment_tenant_isolation" ON "AgentDeployment";
 CREATE POLICY "AgentDeployment_tenant_isolation" ON "AgentDeployment"
   FOR ALL
   USING ("organizationId" = current_setting('app.organization_id', true))

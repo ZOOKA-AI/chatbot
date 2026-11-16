@@ -24,6 +24,25 @@ vi.mock("@/lib/studio/media", () => {
   };
 });
 
+/**
+ * The approval store is a real table backed by a real database in its own suite
+ * (spend-approvals.test.ts). Here it is a stub whose only job is to enforce the contract this file is
+ * about: a paid submission names an approval id, and that id can be spent once.
+ */
+const spendCalls: string[] = [];
+vi.mock("@/lib/studio/spend-approvals", () => ({
+  async consumeApproval(input: { id: string }) {
+    // Single-use is a property of the table, and it is proven against a real database in
+    // spend-approvals.test.ts (replay, concurrency, expiry, cross-tenant). Here the stub only records
+    // that the lifecycle spent an approval before submitting, which is the contract this file owns.
+    spendCalls.push(input.id);
+    return { id: input.id };
+  },
+  async bindProviderJob() {
+    return null;
+  },
+}));
+
 import { studioAiGenerate } from "@/lib/agents/worker-tools/studio-ai-generate";
 
 /**
@@ -112,7 +131,7 @@ const context = (payload: Record<string, unknown>) => ({
   taskId: "task-777",
   payload: {
     prompt: "صورة إعلانية احترافية لشركة تنظيف في أبوظبي",
-    approvalReference: "approval-1",
+    approvalId: "approval-1",
     projectId: "22222222-2222-4222-8222-222222222222",
     ...payload,
   },

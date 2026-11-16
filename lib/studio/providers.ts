@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 import { paidGenerationEnabled, spendCapUsd } from "./paid-switch";
+import { guardedFetch } from "./outbound-guard";
 
 /**
  * Providers, in one neutral shape.
@@ -129,7 +130,14 @@ export function createComfyProvider(
   options: { env?: Record<string, string | undefined>; fetchImpl?: typeof fetch } = {}
 ): MediaProvider {
   const env = options.env ?? process.env;
-  const doFetch = options.fetchImpl ?? fetch;
+  /*
+   * Every request this adapter makes goes through the guard, not only the first one.
+   * A redirected /prompt or a /view URL that points at the metadata service is the same SSRF as a bad
+   * endpoint, and the audit found only the endpoint was ever considered.
+   */
+  const rawFetch = options.fetchImpl ?? fetch;
+  const doFetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+    guardedFetch(String(input), init, { fetchImpl: rawFetch, env })) as typeof fetch;
   const endpoint = comfyEndpoint(env);
   const workflowPath = env.COMFYUI_WORKFLOW_FILE?.trim() || null;
   const token = env.COMFYUI_API_TOKEN?.trim() || null;

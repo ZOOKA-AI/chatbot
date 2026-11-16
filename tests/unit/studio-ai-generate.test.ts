@@ -4,6 +4,19 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db/tenant-context", () => ({ commanderActiveDb: () => null }));
 
 import { actionPayload, findAction, matchActionsForRequest } from "@/lib/actions/catalog";
+/*
+ * Approval consumption lives in the database and is proven against a real one in spend-approvals.test.ts.
+ * Here the stub records the spend so this file can assert the order of operations: authorise, then submit.
+ */
+vi.mock("@/lib/studio/spend-approvals", () => ({
+  async consumeApproval(input: { id: string }) {
+    return { id: input.id };
+  },
+  async bindProviderJob() {
+    return null;
+  },
+}));
+
 import { studioAiGenerate } from "@/lib/agents/worker-tools/studio-ai-generate";
 
 /**
@@ -88,7 +101,7 @@ describe("nothing is submitted without every condition", () => {
     stubFetch();
 
     const result = await studioAiGenerate.run(
-      context({ prompt: "صورة إعلانية احترافية لشركة تنظيف", approvalReference: "approval-1" }) as never
+      context({ prompt: "صورة إعلانية احترافية لشركة تنظيف", approvalId: "approval-1" }) as never
     );
     assert.equal(result.ok, false);
     assert.match(String(result.summary), /paid_generation_disabled/);
@@ -109,7 +122,7 @@ describe("nothing is submitted without every condition", () => {
     stubFetch(10_000); // $0.01 against a $0.06 model
 
     const result = await studioAiGenerate.run(
-      context({ prompt: "صورة إعلانية احترافية لشركة تنظيف", approvalReference: "approval-1" }) as never
+      context({ prompt: "صورة إعلانية احترافية لشركة تنظيف", approvalId: "approval-1" }) as never
     );
     assert.equal(result.ok, false);
     assert.match(String(result.summary), /insufficient_balance/);
@@ -147,7 +160,7 @@ describe("the sentence reaches the billable action, and only the billable one", 
       aspect: "9:16",
     });
     assert.equal(tool, "studio_ai_generate");
-    assert.equal(payload.approvalReference, "approval-9");
+    assert.equal(payload.approvalId, "approval-9");
     assert.equal(payload.capability, "video");
     assert.equal(payload.aspect, "9:16");
   });

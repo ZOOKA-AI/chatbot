@@ -490,6 +490,57 @@ export const mediaJob = pgTable(
  * The row is the index; the bytes live on disk under a tenant-prefixed path that is never taken from
  * a request. `parentAssetId` keeps the lineage, so an edit never claims to be the original.
  */
+/**
+ * A paid run's permission to spend, as a row rather than a string.
+ *
+ * At 8cfb747 the gate accepted any non-empty approval reference, which meant a note in an environment
+ * variable authorised unlimited billable jobs. A row can be owned, priced, dated, revoked and spent exactly
+ * once, and those are the properties that make an approval real.
+ */
+export const studioSpendApproval = pgTable(
+  "StudioSpendApproval",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    /** Who asked, so the record survives the session that created it. */
+    requestedBy: varchar("requestedBy", { length: 64 }).notNull(),
+    /** Who authorised it. Null until a human with the right does, and it is never the requester by default. */
+    approvedBy: varchar("approvedBy", { length: 64 }),
+    projectId: uuid("projectId"),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    modelId: varchar("modelId", { length: 120 }).notNull(),
+    capability: varchar("capability", { length: 32 }).notNull(),
+    operation: varchar("operation", { length: 64 }).notNull(),
+    /** The ceiling this approval permits, in USD. A cost above it is a refusal, never a rounding. */
+    maxCostUsd: numeric("maxCostUsd", { precision: 10, scale: 4 }).notNull(),
+    /** What it was quoted at, kept so a later price change is visible rather than silent. */
+    quotedCostUsd: numeric("quotedCostUsd", { precision: 10, scale: 4 }).notNull(),
+    /** pending | approved | consumed | revoked | uncertain */
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    /** A caller's own key for this request, unique per workspace, so a retried request cannot double-book. */
+    idempotencyKey: varchar("idempotencyKey", { length: 120 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    approvedAt: timestamp("approvedAt"),
+    consumedAt: timestamp("consumedAt"),
+    /** The job this approval paid for. One job per approval, enforced by the consumption itself. */
+    consumedByJobId: varchar("consumedByJobId", { length: 120 }),
+    note: text("note"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    orgStatusIdx: index("StudioSpendApproval_org_status_idx").on(
+      table.organizationId,
+      table.status,
+      table.createdAt
+    ),
+    idempotencyUnique: uniqueIndex("StudioSpendApproval_org_idempotency_key").on(
+      table.organizationId,
+      table.idempotencyKey
+    ),
+  })
+);
+
 export const studioAsset = pgTable(
   "StudioAsset",
   {

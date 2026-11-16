@@ -753,7 +753,10 @@ export function actionPayload(
       payload: {
         prompt: inputs.prompt ?? "",
         capability: inputs.capability || "image",
-        approvalReference: inputs.approval_reference || null,
+        // The id of an approval row, not a sentence claiming one exists. A string that is not an
+        // approval in this workspace is refused when the row is looked up, so nothing here grants
+        // permission: only a matching, unexpired, unspent row does.
+        approvalId: inputs.approval_id || inputs.approval_reference || null,
         aspect: inputs.aspect || null,
       },
     };

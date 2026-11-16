@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, test } from "vitest";
+import { describe, test, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
 
 import { comfyEndpoint, createComfyProvider, localProvider, providerRegistry } from "@/lib/studio/providers";
 
@@ -80,7 +82,7 @@ describe("what the adapter says when nothing is configured", () => {
 
   test("an endpoint without a workflow is its own blocker", async () => {
     const provider = createComfyProvider({
-      env: { COMFYUI_ENDPOINT: "http://gpu.local:8188" },
+      env: { COMFYUI_ENDPOINT: "http://127.0.0.1:8188", COMFYUI_ALLOW_PRIVATE_NETWORK: "1" },
       fetchImpl: fakeFetch(() => new Response("{}", { status: 200 })).impl,
     });
     const status = await provider.status();
@@ -91,7 +93,7 @@ describe("what the adapter says when nothing is configured", () => {
   test("an unreachable endpoint is reported, and the endpoint is never invented", async () => {
     const workflow = await workflowFixture();
     const provider = createComfyProvider({
-      env: { COMFYUI_ENDPOINT: "http://gpu.local:8188", COMFYUI_WORKFLOW_FILE: workflow },
+      env: { COMFYUI_ENDPOINT: "http://127.0.0.1:8188", COMFYUI_ALLOW_PRIVATE_NETWORK: "1", COMFYUI_WORKFLOW_FILE: workflow },
       fetchImpl: fakeFetch(() => {
         throw new TypeError("fetch failed");
       }).impl,
@@ -136,7 +138,7 @@ describe("a real job against an answering endpoint", () => {
     });
 
     const provider = createComfyProvider({
-      env: { COMFYUI_ENDPOINT: "http://gpu.local:8188", COMFYUI_WORKFLOW_FILE: workflow, COMFYUI_POLL_MS: "1" },
+      env: { COMFYUI_ENDPOINT: "http://127.0.0.1:8188", COMFYUI_ALLOW_PRIVATE_NETWORK: "1", COMFYUI_WORKFLOW_FILE: workflow, COMFYUI_POLL_MS: "1" },
       fetchImpl: impl,
     });
 
@@ -159,7 +161,7 @@ describe("a real job against an answering endpoint", () => {
     const workflow = await workflowFixture();
     const { impl, calls } = fakeFetch(() => new Response("{}", { status: 200 }));
     const provider = createComfyProvider({
-      env: { COMFYUI_ENDPOINT: "http://gpu.local:8188", COMFYUI_WORKFLOW_FILE: workflow },
+      env: { COMFYUI_ENDPOINT: "http://127.0.0.1:8188", COMFYUI_ALLOW_PRIVATE_NETWORK: "1", COMFYUI_WORKFLOW_FILE: workflow },
       fetchImpl: impl,
     });
     const result = await provider.generate({ organizationId: "", prompt: "x", capability: "image" });
@@ -176,7 +178,7 @@ describe("a real job against an answering endpoint", () => {
       return new Response(JSON.stringify({ "job-2": { status: { status_str: "error" } } }), { status: 200 });
     });
     const provider = createComfyProvider({
-      env: { COMFYUI_ENDPOINT: "http://gpu.local:8188", COMFYUI_WORKFLOW_FILE: workflow, COMFYUI_POLL_MS: "1" },
+      env: { COMFYUI_ENDPOINT: "http://127.0.0.1:8188", COMFYUI_ALLOW_PRIVATE_NETWORK: "1", COMFYUI_WORKFLOW_FILE: workflow, COMFYUI_POLL_MS: "1" },
       fetchImpl: impl,
     });
     const result = await provider.generate({ organizationId: "org", prompt: "x", capability: "image" });
@@ -193,7 +195,7 @@ describe("a real job against an answering endpoint", () => {
     });
     const provider = createComfyProvider({
       env: {
-        COMFYUI_ENDPOINT: "http://gpu.local:8188",
+        COMFYUI_ENDPOINT: "http://127.0.0.1:8188", COMFYUI_ALLOW_PRIVATE_NETWORK: "1",
         COMFYUI_WORKFLOW_FILE: workflow,
         COMFYUI_POLL_MS: "1",
         COMFYUI_TIMEOUT_MS: "60",

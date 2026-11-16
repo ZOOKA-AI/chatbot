@@ -8,6 +8,8 @@ import { providerById } from "@/lib/studio/gateway/providers";
 import { StudioError, store } from "@/lib/studio/media";
 import { RunComfyError, cancelRequest, getBalance, runcomfyToken } from "@/lib/studio/runcomfy";
 import type { WorkerTool } from "../worker-types";
+import { bindProviderJob, consumeApproval } from "@/lib/studio/spend-approvals";
+import { randomUUID } from "node:crypto";
 
 /**
  * AI generation, as a real billable path with a gate in front of it.
@@ -74,10 +76,18 @@ export const studioAiGenerate: WorkerTool = {
       };
     }
 
+    let consumed: { id: string } | null = null;
     try {
       const outputs = Math.max(1, Math.min(Number(payload.outputs ?? 1) || 1, 4));
       const seconds = payload.seconds == null ? Number(process.env.RUNCOMFY_DEFAULT_VIDEO_SECONDS ?? 5) : Number(payload.seconds);
-      const approvalReference = payload.approvalReference == null ? null : String(payload.approvalReference);
+      /*
+       * An approval is a row in this workspace, not a string in an environment variable.
+       * The audit found the old gate accepted any non-empty text, so one variable authorised unlimited
+       * billable jobs. Now the payload must name an approval id, and the id is spent atomically before
+       * anything is submitted.
+       */
+      const approvalId = payload.approvalId == null ? null : String(payload.approvalId).trim() || null;
+      const approvalReference = approvalId ? `approval:${approvalId}` : null;
 
       /*
        * Provider choice is the gateway's decision, not this tool's. The tool supplies the requirement and
@@ -148,6 +158,36 @@ export const studioAiGenerate: WorkerTool = {
             evidence: { modelId: route.chosen.modelId, providerId: provider.id, estimateUsd: route.chosen.cost.usd, refused: decision.refused },
           };
         }
+
+        /*
+         * The decision above is advice; this is the control. Consumption is one conditional UPDATE, so two
+         * concurrent attempts cannot both succeed and a replayed request cannot spend the same approval
+         * twice. If this throws, nothing is submitted.
+         */
+        if (!approvalId) {
+          return {
+            ok: false,
+            summary: "A paid run needs an approval id. Create one for this exact provider, model and ceiling, approve it, then submit with approvalId.",
+            error: "approval_required",
+          };
+        }
+        const correlation = `spend:${randomUUID()}`;
+        try {
+          consumed = await consumeApproval({
+            organizationId,
+            id: approvalId,
+            jobId: correlation,
+            costUsd: route.chosen.cost.usd ?? 0,
+          });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : "approval_refused";
+          return {
+            ok: false,
+            summary: `The approval could not be spent: ${reason}. Nothing was submitted and nothing was billed.`,
+            error: reason.startsWith("approval_") ? reason : "approval_refused",
+            evidence: { approvalId, providerId: provider.id, modelId: route.chosen.modelId, reason },
+          };
+        }
       }
 
       inFlight.set(dedupeKey, "submitting");
@@ -170,6 +210,10 @@ export const studioAiGenerate: WorkerTool = {
         }
       );
       inFlight.set(dedupeKey, job.jobId);
+      if (consumed) {
+        // The correlation id gives way to the provider's own id, so the record names the real job.
+        await bindProviderJob({ organizationId, id: consumed.id, jobId: job.jobId }).catch(() => null);
+      }
 
       try {
         const budget = pollBudgetMs();
@@ -181,7 +225,7 @@ export const studioAiGenerate: WorkerTool = {
             // called a success; the job id is handed back so a follow-up task can collect it.
             return {
               ok: false,
-              summary: `The provider accepted the job (${job.jobId}) but it had not finished within ${Math.round(budget / 1000)}s. It is still running and can be collected later.`,
+              summary: `The provider accepted the job (${job.jobId}) but it had not finished within ${Math.round(budget / 1000)}s. It is still running and can be collected later. The approval stays spent while the outcome is unknown.`,
               error: "still_running",
               evidence: { requestId: job.jobId, providerId: provider.id, modelId: route.chosen.modelId, estimateUsd: route.chosen.cost.usd },
             };
