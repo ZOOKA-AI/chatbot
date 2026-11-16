@@ -21,8 +21,13 @@ import { workspaceExecutionHealth } from "@/lib/agents/health";
  * worked because of a fixture would fail here.
  */
 
-const ADMIN = process.env.ZOOKA_TEST_PG_ADMIN;
-const RUNTIME = process.env.ZOOKA_TEST_PG_RUNTIME;
+// This suite asserts on aggregate state across global tables (queue depth, the last
+// scheduler pass, failures in the last hour). Any other suite that deletes scheduler
+// rows or rewrites the tenant env in the same worker changes those answers underneath
+// it, which is how six tests failed intermittently while passing on their own. So it
+// prefers a database of its own when one is offered, and says so when it is not.
+const ADMIN = process.env.ZOOKA_TEST_PG_HEALTH_ADMIN ?? process.env.ZOOKA_TEST_PG_ADMIN;
+const RUNTIME = process.env.ZOOKA_TEST_PG_HEALTH_RUNTIME ?? process.env.ZOOKA_TEST_PG_RUNTIME;
 const ready = Boolean(ADMIN && RUNTIME);
 
 const ORG_A = "33333333-3333-4333-8333-333333333333";
@@ -65,6 +70,9 @@ afterAll(async () => {
     await clear(ORG_A);
     await clear(ORG_B);
     await admin.end({ timeout: 5 });
+    // The flag was turned on for this file's benefit; leaving it on changes what the
+    // next suite in this worker is actually testing.
+    delete process.env.TENANT_RLS_ENABLED;
   }
 });
 
@@ -139,6 +147,20 @@ describe.skipIf(!ready)("execution health is derived from rows", () => {
       assert.equal(signal(result, "scheduler")?.status, "warn");
       assert.match(signal(result, "scheduler")!.detail, /no scheduler pass/);
     }
+  });
+
+  test("a large backlog is counted exactly and stays critical", async () => {
+    await clear(ORG_A);
+    await admin`insert into "SchedulerRun" ("status", "startedAt", "finishedAt") values ('succeeded', now(), now())`;
+    await admin`
+      insert into "AgentTask" ("id","organizationId","title","instruction","status","createdBy","createdAt")
+      select gen_random_uuid(), ${ORG_A}, 'bulk ' || g, 'load', 'pending', 'owner', now() - interval '4 hours'
+      from generate_series(1,50) g`;
+
+    const result = await health();
+    assert.equal(result.counts.pending, 50);
+    assert.equal(signal(result, "queue")?.status, "critical");
+    assert.match(signal(result, "queue")!.detail, /^50 waiting, oldest 4h/);
   });
 
   test("one workspace's failures never change another's verdict", async () => {
