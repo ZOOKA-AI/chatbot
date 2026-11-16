@@ -914,3 +914,35 @@ Chromium 134, controlled test site on 127.0.0.1:4517, and a real public site thr
 
 Not started, per the directive: Command Center, marketing integrations. No production deployment, no
 production migration, no merge, no purchase, no paid provider.
+
+---
+
+## Milestone 013 — human control, crash recovery, approval checkpoint (DIRECTIVE #047, continued)
+
+Date 16 November 2026. PR #95 head `9107295`. Real Chromium 134, controlled site, real form login.
+
+| ID | Requirement | Status | Evidence |
+|---|---|---|---|
+| 28.01 | Click directly inside the browser view | VERIFIED | coordinate click dispatched at scaled page point; the page navigated to `/second` |
+| 28.02 | Type into the active session | VERIFIED | keyboard input reached the page; timeline `human_type` records the character count, never the text |
+| 28.03 | Scroll and navigate | VERIFIED | `human_scroll` and `human_navigate` recorded, URL confirmed from the live page |
+| 28.04 | Transfer control both ways | VERIFIED | take-over and hand-back asserted; timeline `session_taken_over`, `control_returned` |
+| 28.05 | A person cannot drive while the agent holds control | VERIFIED | 409 `agent_has_control` |
+| 28.06 | The agent cannot act while a person holds control | VERIFIED | `agentMayAct` → `human_has_control`, unit tested |
+| 28.07 | Real-time frames | VERIFIED (polled) | live PNG per request; 409 once the browser is gone |
+| 28.08 | Accurate connection status | VERIFIED | `runtime.live`, `broken`, `crashedReason`, engine version |
+| 28.09 | Execution timeline | VERIFIED | 14 ordered events across one session, persisted |
+| 28.10 | Approve / Reject in the panel | VERIFIED | decision posted to the existing approvals route; list shows pending requests |
+| 28.11 | Protected action pauses for authorization | FAIL-CLOSED | a `submit` step opens no browser without approval; files the request otherwise; rejection is a hard refusal |
+| 28.12 | Approval that pauses a running page | NOT BUILT | approval is decided before launch, not mid-form |
+| 28.13 | Crash detection | VERIFIED | Chromium `crash`/`close` events feed health; active-with-no-browser reports `broken` |
+| 28.14 | Recover or fail explicitly | VERIFIED | recovery relaunches on the same record; a failed launch leaves `failed` + `launch_failed` |
+| 28.15 | Prevent duplicate execution | VERIFIED BY CONSTRUCTION | recovery claims a conditional transition on the expected status before launching |
+| 28.16 | Tenant isolation, ownership, expiry | VERIFIED | foreign workspace 404, non-owner 403, expired not drivable, sweep to `expired` |
+| 28.17 | Network restrictions | VERIFIED | resolved-address policy; loopback needs two explicit settings and is refused under a production marker |
+| 28.18 | Tool permissions and approval enforcement | VERIFIED | tool allowlist, `agentAllowsTool`, approval-gated submit |
+| 28.19 | Gates twice | VERIFIED | 751 passed / 6 skipped / 757 in 92 files, twice, `tsc` 0, production build compiled |
+| 28.20 | Browser acceptance | 28/28 | real Chromium, controlled site, real crash recovery |
+| 28.21 | Creative Studio (Directive #048) | NOT STARTED | deliberately after this milestone |
+
+No production deployment, no production migration, no merge, no purchase, no paid provider.
