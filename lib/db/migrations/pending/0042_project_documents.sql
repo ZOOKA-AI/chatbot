@@ -17,6 +17,22 @@ CREATE TABLE IF NOT EXISTS "ProjectDocument" (
   "createdAt" timestamp with time zone NOT NULL DEFAULT now()
 );
 
+-- Tenant coupling at the database level, not only in the code that writes.
+--
+-- Without this, a row could name workspace A while pointing at workspace B's project, and every
+-- query filtering by organizationId would still return it: the document would leak across the
+-- boundary while looking correctly scoped. The pair (id, organizationId) on AgentProject is what
+-- makes a composite foreign key possible.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'AgentProject_id_organizationId_key'
+  ) THEN
+    ALTER TABLE "AgentProject"
+      ADD CONSTRAINT "AgentProject_id_organizationId_key" UNIQUE ("id", "organizationId");
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS "ProjectDocument_org_project_created_idx"
   ON "ProjectDocument" ("organizationId", "projectId", "createdAt" DESC);
 
@@ -24,6 +40,19 @@ CREATE INDEX IF NOT EXISTS "ProjectDocument_org_project_created_idx"
 CREATE UNIQUE INDEX IF NOT EXISTS "ProjectDocument_taskId_key"
   ON "ProjectDocument" ("taskId")
   WHERE "taskId" IS NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ProjectDocument_project_tenant_fkey'
+  ) THEN
+    ALTER TABLE "ProjectDocument"
+      ADD CONSTRAINT "ProjectDocument_project_tenant_fkey"
+      FOREIGN KEY ("projectId", "organizationId")
+      REFERENCES "AgentProject" ("id", "organizationId")
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 ALTER TABLE "ProjectDocument" ENABLE ROW LEVEL SECURITY;
 
@@ -69,5 +98,11 @@ BEGIN
     WHERE conname = 'ProjectDocument_projectId_fkey'
   ) THEN
     RAISE EXCEPTION 'ProjectDocument is not related to AgentProject';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'ProjectDocument_project_tenant_fkey'
+  ) THEN
+    RAISE EXCEPTION 'ProjectDocument is not tenant-coupled to its project';
   END IF;
 END $$;

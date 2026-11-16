@@ -157,6 +157,65 @@ try {
     const missing = await context.request.get(`${BASE}/api/workspace/documents/00000000-0000-4000-8000-000000000000`);
     check("an unknown document id is refused, not leaked", missing.status() === 404, `status ${missing.status()}`);
   }
+  // ---- 12. the document survives logout and login, and no other workspace can reach it
+  if (process.env.ACCEPT_DOCUMENT === "1") {
+    const list = await context.request.get(`${BASE}/api/workspace/projects/${projectId}/documents`);
+    const docId = ((await list.json().catch(() => ({}))).documents ?? [])[0]?.id;
+    check("a document id is available for the session checks", Boolean(docId), String(docId));
+
+    // Signing out in this harness is done by dropping the session cookie, which is what a real
+    // sign-out leaves behind. The Auth.js signout endpoint was tried first and did not revoke the
+    // session from a scripted call, so that attempt is recorded as a note rather than a pass:
+    // the property under test is "without a session the document is not readable".
+    const csrf = await (await context.request.get(`${BASE}/api/auth/csrf`)).json().catch(() => ({}));
+    await context.request.post(`${BASE}/api/auth/signout`, { form: { csrfToken: csrf.csrfToken, callbackUrl: BASE } });
+    const sessionAfter = await (await context.request.get(`${BASE}/api/auth/session`)).json().catch(() => ({}));
+    console.log(`NOTE scripted /api/auth/signout left session=${sessionAfter?.user ? "present" : "cleared"}`);
+
+    await context.clearCookies();
+    // maxRedirects: 0 on purpose. Following the redirect lands on the login page, which answers
+    // 200, and a followed redirect would make a refusal look like access.
+    const afterLogout = await context.request.get(`${BASE}/api/workspace/documents/${docId}`, { maxRedirects: 0 });
+    check("without a session the document is not readable",
+      afterLogout.status() === 401 || afterLogout.status() === 307, `status ${afterLogout.status()}`);
+    const afterLogoutPage = await context.request.get(`${BASE}/workspace/documents/${docId}`, { maxRedirects: 0 });
+    check("the viewer refuses to render without a session",
+      afterLogoutPage.status() === 307 || afterLogoutPage.status() === 401, `status ${afterLogoutPage.status()}`);
+    check("a refusal is a redirect, not a rendered document",
+      !(await afterLogout.text()).includes("معايير القبول"), "no document body in the refusal");
+
+    await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+    await page.fill("#email", EMAIL);
+    await page.fill("#password", PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForURL((url) => !String(url).includes("/login"), { timeout: 30000 }).catch(() => {});
+    const reopened = await page.goto(`${BASE}/workspace/documents/${docId}`, { waitUntil: "networkidle" });
+    const reopenedText = await page.locator("body").innerText();
+    check("after signing in again the same document still opens",
+      reopened?.status() === 200 && reopenedText.includes("معايير القبول"), `status ${reopened?.status()}`);
+
+    // A second, independent workspace with its own owner.
+    const otherContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    const otherPage = await otherContext.newPage();
+    await otherPage.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+    await otherPage.fill("#email", "other@acceptance.local");
+    await otherPage.fill("#password", "AcceptanceOther-2026-z9");
+    await otherPage.click('button[type="submit"]');
+    await otherPage.waitForURL((url) => !String(url).includes("/login"), { timeout: 30000 }).catch(() => {});
+
+    const foreignDoc = await otherContext.request.get(`${BASE}/api/workspace/documents/${docId}`);
+    check("another workspace cannot read the document", foreignDoc.status() === 404, `status ${foreignDoc.status()}`);
+    const foreignList = await otherContext.request.get(`${BASE}/api/workspace/projects/${projectId}/documents`);
+    check("another workspace cannot list the project's documents", foreignList.status() === 404, `status ${foreignList.status()}`);
+    const foreignDownload = await otherContext.request.get(`${BASE}/api/workspace/documents/${docId}?download=1`);
+    check("another workspace cannot download the file", foreignDownload.status() === 404, `status ${foreignDownload.status()}`);
+    await otherPage.goto(`${BASE}/workspace/documents/${docId}`, { waitUntil: "networkidle" }).catch(() => null);
+    const foreignText = await otherPage.locator("body").innerText().catch(() => "");
+    check("the viewer does not render another workspace's document",
+      !foreignText.includes("معايير القبول"), `${foreignText.length} chars rendered`);
+    await otherPage.screenshot({ path: "acceptance/execution-document-foreign.png", fullPage: true });
+    await otherContext.close();
+  }
 } catch (error) {
   check("execution run completed without throwing", false, String(error).slice(0, 200));
 } finally {
