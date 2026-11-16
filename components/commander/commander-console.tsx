@@ -1,5 +1,7 @@
 "use client";
 
+import { TaskExecutionPanel } from "@/components/commander/task-execution-panel";
+
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -543,6 +545,8 @@ export function CommanderConsole({
             </div>
           </div>
 
+          <TaskExecutionPanel taskId={openTask.id} lang={lang} canManage={canManage} onChanged={refresh} />
+
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <div>
               <dt className="font-medium">{copy.columns.agent}</dt>
@@ -561,15 +565,6 @@ export function CommanderConsole({
               <dd className="text-muted-foreground">{formatStamp(openTask.reportedAt, lang)}</dd>
             </div>
           </dl>
-
-          {openTask.evidence ? (
-            <div>
-              <p className="text-sm font-medium">
-                {openTask.status === "failed" ? copy.detail.error : copy.columns.evidence}
-              </p>
-              <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-sm">{openTask.evidence}</p>
-            </div>
-          ) : null}
 
           <div>
             <p className="text-sm font-medium">{copy.detail.history}</p>

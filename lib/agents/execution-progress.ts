@@ -16,16 +16,10 @@ import "server-only";
  * `blocked`, `awaiting_approval`). Nothing is inferred from timing alone.
  */
 
-export type ExecutionStage =
-  | "queued"
-  | "running"
-  | "awaiting_approval"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "timed_out"
-  | "blocked"
-  | "stalled";
+import { isTerminalStage, pollDelayMs, type ExecutionStage } from "./execution-stage";
+
+export { isTerminalStage, pollDelayMs } from "./execution-stage";
+export type { ExecutionStage } from "./execution-stage";
 
 export type ExecutionRecord = {
   status: string;

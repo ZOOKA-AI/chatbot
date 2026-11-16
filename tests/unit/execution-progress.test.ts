@@ -3,7 +3,7 @@ import { describe, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { describeExecution, executionLine, summariseEvidence } from "@/lib/agents/execution-progress";
+import { describeExecution, executionLine, isTerminalStage, pollDelayMs, summariseEvidence } from "@/lib/agents/execution-progress";
 
 /**
  * The contract a progress screen depends on. Assertions cover the wording, not just the
@@ -111,5 +111,25 @@ describe("evidence summaries", () => {
   test("arrays and objects report their size", () => {
     assert.equal(summariseEvidence({ status: "failed", startedAt: past, evidence: [1, 2, 3] }).size, 3);
     assert.equal(summariseEvidence({ status: "failed", startedAt: past, evidence: { a: 1, b: 2 } }).size, 2);
+  });
+});
+
+describe("polling follows the stage, and stops when nothing can change", () => {
+  test("terminal stages stop the poll loop", () => {
+    for (const stage of ["completed", "failed", "cancelled", "blocked"] as const) {
+      assert.equal(isTerminalStage(stage), true, stage);
+      assert.equal(pollDelayMs(stage), null, stage);
+    }
+  });
+
+  test("a stalled task keeps polling, slower, because the scheduler may reclaim it", () => {
+    assert.equal(isTerminalStage("stalled"), false);
+    assert.equal(pollDelayMs("stalled"), 8000);
+  });
+
+  test("a running task polls faster than one waiting on a person", () => {
+    assert.equal(pollDelayMs("running"), 4000);
+    assert.equal(pollDelayMs("queued"), 4000);
+    assert.equal(pollDelayMs("awaiting_approval"), 15000);
   });
 });
