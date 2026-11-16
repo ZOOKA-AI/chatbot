@@ -773,3 +773,26 @@ Date 16 November 2026. Branch `feat/commander-tenant-scope`, PR #95 head `f2bcf9
 Gates: 707 passed / 6 skipped / 713 in 87 files, run twice serially with identical counts, `tsc`
 0 errors, production build compiled, migration 0041 verified 18/18, browser acceptance 17/17.
 Production untouched: no deployment, no production migration, no merge, both PRs still draft.
+
+---
+
+## Milestone 008 — real action execution lifecycle
+
+Date 16 November 2026. PR #95 head `9d310f0`. Local production build over TLS, real form login,
+real agent bearer key, real outbound HTTP.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 23.01 | Worker reachable over HTTP with an agent key | FIXED — was a real defect | proxy.ts redirected every unauthenticated /api call to /login, so /api/agents/worker answered 307 and no queued task could be claimed; the proxy now admits agent-credential requests to the worker and heartbeat only, and both still refuse with 401 without a valid key |
+| 23.02 | Task's own payload reaches the tool | FIXED — was a real defect | the route passed only the body, so a catalog-queued task ran with `{}` and the tool answered `Malformed repository name.`; the worker now defaults to the claimed task's payload, explicit body wins |
+| 23.03 | Proof the inputs flow, not just that a row exists | VERIFIED | same action before/after: `Malformed repository name.` → `GitHub refused the metadata request (401).`, i.e. a real request carried the chosen repo |
+| 23.04 | Full lifecycle through the customer interface | 11/14 checks | login → agent with one tool → project (201) → attach (200) → action queued (201, pending) → worker claims with its own key → execution row written → task left pending → page shows `Tasks (1)` and `Execution evidence (1)` → duplicate deduplicated → no cross-workspace execution |
+| 23.05 | Persisted success | BLOCKED | api.github.com returned 401: the only GitHub credential here is a git credential the REST API rejects, and no workspace GitHub connection exists. No mock was substituted |
+| 23.06 | Plan guard on a workspace with no subscription row | VERIFIED | runner refused `plan_does_not_include_agent_runs` before creating a task; a plan row was then added to the test database |
+| 23.07 | Contract tests for the payload split | VERIFIED | `tests/unit/worker-payload-default.test.ts`, 3 tests: route never invents a payload, explicit body passes through, empty queue runs nothing |
+| 23.08 | Directive #041 operations dashboard | NOT STARTED | capacity in this session, not a technical block |
+| 23.09 | Directive #042 P2 browser isolation contract | NOT STARTED | same |
+| 23.10 | Directive #042 P3 customer browser panel, P4 provider comparison | NOT STARTED | no infrastructure purchased, no provider activated |
+
+Gates: 710 passed / 6 skipped / 716 in 88 files twice serially, `tsc` 0 errors, production build
+compiled. No production deployment, no production migration, no merge, no purchase.
