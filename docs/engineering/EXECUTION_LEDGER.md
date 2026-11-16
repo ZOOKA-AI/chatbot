@@ -142,6 +142,31 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 30 — An isolated Preview database: diagnosis, recipe, and the decision (16 Nov 2026)
+
+PR #95 head `176108f`, draft. No merge, no production deployment, no production migration, no billing change, no paid resource, no secret exposed, no authentication bypassed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 30.1 | Is there an approved free database? | NO, and why | One database credential exists in the vault and it is the production pooler; no Neon/Railway/Turso credential anywhere |
+| 30.2 | Can one be created from here? | BLOCKED | `GET /v1/projects` works (one project), `GET /v1/organizations` returns 401 `JWT could not be decoded`, so no org id for a create call |
+| 30.3 | Provisioning runbook | DONE | `scripts/preview-db-provision.sh`, committed, idempotent, refuses production hosts, prints no secret |
+| 30.4 | Migrations on a fresh database | VERIFIED | Seven files applied to a brand new database in the correct order, including the 0031-revokes-grants ordering trap |
+| 30.5 | Restricted runtime role | VERIFIED | `PASS role is restricted` (no superuser, no bypassrls) |
+| 30.6 | Tenant RLS enabled | VERIFIED | `PASS rls_on=5 rls_off=0` on the five Commander tables |
+| 30.7 | Synthetic seed | DONE | Two workspaces, two agent identities, one task each; no production row, no real person |
+| 30.8 | Cross-tenant read | VERIFIED | As `zooka_runtime`: A sees 1 task, B's task invisible to A, B sees its own |
+| 30.9 | Cross-tenant write | VERIFIED | A's UPDATE against B's row returned `UPDATE 0`; B's task still `pending` |
+| 30.10 | Suite against the new database | VERIFIED | 421 passed across 59 files, identical to the development cluster |
+| 30.11 | Preview env variables | NOT SET, correctly | Nothing can be set before a connection string exists; preview still has none, so the scheduler stays 401/503 |
+| 30.12 | Chat tools audit | DONE | Four Commander calls all tenant-scoped; workspace and canManage come from the session, not the body; document tools scope on (id, organizationId) |
+| 30.13 | Browser acceptance | BLOCKED | Vercel SSO (302) plus a separate preview `AUTH_SECRET` and a Google redirect URI registered for `zoka-ai.com` only |
+| 30.14 | Build and types | DONE | tsc clean, `pnpm run build` exit 0, 126 pages |
+
+**Two owner decisions are needed, and they are independent.** First, one free database: create a Supabase project `zooka-preview` in `ap-southeast-1` and set its pooler string as `DATABASE_URL_TENANT` on Preview only, or a free Neon database, or a management token that can read organisations. Second, for the browser half: either register the preview domain as a Google OAuth redirect URI, or accept read-only browser acceptance against production instead.
+
+The recipe is finished and proven, so the first decision costs ten minutes rather than a milestone.
+
 ## Stage 29 — Authenticated acceptance, and the read that was not scoped (16 Nov 2026)
 
 PR #95 head `32046f7`, draft. No merge, no production deployment, no production migration, no billing change, no paid service, no secret exposed, no authentication bypassed.
