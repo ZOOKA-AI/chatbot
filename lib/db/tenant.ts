@@ -139,7 +139,14 @@ export async function assertUnprivilegedRole(tx: TenantTx) {
   }
 }
 
-export function tenantScopeEnabled() {
+export function tenantScopeEnabled(): boolean {
+  // A build has no requests: prerendering must behave exactly as it does with
+  // enforcement off, otherwise cacheComponents rejects the build for accessing
+  // cookies/connection() outside Suspense. Enforcement still applies to every
+  // real request, which is the only place a tenant context can exist.
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return false;
+  }
   return process.env.TENANT_RLS_ENABLED === "on";
 }
 
