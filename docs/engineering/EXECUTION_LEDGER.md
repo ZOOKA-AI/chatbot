@@ -820,3 +820,32 @@ real agent key, real persisted result.
 
 Gates: 716 passed / 6 skipped / 722 in 89 files twice serially, `tsc` 0 errors, production build
 compiled. No production deployment, no production migration, no merge, no purchase.
+
+---
+
+## Milestone 010 — customer artifacts
+
+Date 16 November 2026. PR #95 head `ecdbc4e`. Local production build over TLS, real form login,
+real agent key, real stored document.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 25.01 | Tenant-scoped document storage | DONE | `ProjectDocument` (0042): `organizationId`, cascade to `AgentProject`, task link, RLS tenant policy, partial unique index on `taskId` |
+| 25.02 | Real document generation | DONE | deterministic sections from the customer's clauses; no model call, no invented content, stated in the footer |
+| 25.03 | Persistent database records | VERIFIED | one row per run, 1,017 characters, `bytes` equal to stored length |
+| 25.04 | Customer document viewer | DONE | server page `/workspace/documents/[id]`, reloads from the database |
+| 25.05 | Download capability | VERIFIED | `?download=1` → `text/markdown`, `attachment`, filename sanitised, body length equal to stored |
+| 25.06 | Project association | VERIFIED | listed on the project console and under `/api/workspace/projects/[id]/documents` |
+| 25.07 | Agent execution evidence | VERIFIED | document names the task and agent that produced it; `taskId` matches the executed task |
+| 25.08 | Access-control enforcement | VERIFIED | reads resolve through the caller's organization; unknown or foreign id → 404; a project from another workspace → `unknown_project` with no row written |
+| 25.09 | Worker write gate | HARDENED | `internalWrite` AND `INTERNAL_WRITE_TOOLS` membership required; default stays refuse |
+| 25.10 | Browser acceptance | 22/22 | queue → claim → execute → store → list → open → download → reload → 404 |
+| 25.11 | Migration up/down | VERIFIED | scratch DB: up, verify table/index/policy/FK, down, up again; parity suite green |
+| 25.12 | Browser isolation contract (#045 P2) | NOT STARTED | needs a runtime provider decision from the owner |
+| 25.13 | Customer browser control (#045 P3) | NOT STARTED | deliberately not simulated without a runtime |
+| 25.14 | Command center integration (#045 P4) | NOT STARTED | depends on P2/P3 |
+| 25.15 | Natural-language router (#045 P5) | NOT STARTED | next candidate: it is the difference between a form and a conversation |
+| 25.16 | Integration audit (#045 P6) | NO CHANGE | GitHub action still ends in an honest 401; no new credential exists |
+
+Gates: 725 passed / 6 skipped / 731 in 90 files twice serially, `tsc` 0 errors, production build
+compiled. No production deployment, no production migration, no merge, no purchase.
