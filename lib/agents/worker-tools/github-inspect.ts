@@ -1,5 +1,6 @@
 import type { WorkerTool } from "../worker-types";
 import { redact } from "../worker-types";
+import { resolvePlatformCredential, resolveWorkspaceCredential } from "../worker-credentials";
 
 /**
  * Read-only inspection of one authorised repository.
@@ -36,7 +37,7 @@ export const githubRepoInspect: WorkerTool = {
   maxAttempts: 3,
   description:
     "Reads a repository's metadata and the first lines of selected files. Never writes anything.",
-  async run({ payload, signal, fetchImpl }) {
+  async run({ organizationId, payload, signal, fetchImpl }) {
     const repo = String(payload.repo ?? "").toLowerCase();
     if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(repo)) {
       return { ok: false, summary: "Malformed repository name.", error: "bad_repo_name" };
@@ -51,14 +52,22 @@ export const githubRepoInspect: WorkerTool = {
       };
     }
 
-    const token = process.env.WORKER_GITHUB_TOKEN ?? process.env.GITHUB_ACCESS_TOKEN;
-    if (!token) {
-      return {
-        ok: false,
-        summary: "No GitHub credential is configured for the worker.",
-        error: "github_not_configured",
-      };
+    // The workspace's own connection comes first. A shared platform token is only
+    // reachable when the deployment declares itself single-tenant, and a workspace
+    // whose stored credential is malformed is refused rather than quietly served
+    // by the platform's token.
+    const workspace = await resolveWorkspaceCredential(organizationId, "github");
+    let resolved = workspace;
+    if (!workspace.ok && workspace.error === "not_connected") {
+      resolved = resolvePlatformCredential(
+        "github",
+        process.env.WORKER_GITHUB_TOKEN ? "WORKER_GITHUB_TOKEN" : "GITHUB_ACCESS_TOKEN"
+      );
     }
+    if (!resolved.ok) {
+      return { ok: false, summary: resolved.detail, error: resolved.error };
+    }
+    const token = resolved.token;
 
     const headers = {
       Authorization: `Bearer ${token}`,
@@ -80,6 +89,40 @@ export const githubRepoInspect: WorkerTool = {
     }
     const meta = (await metaResponse.json()) as GitHubRepo;
     const branch = meta.default_branch ?? "main";
+
+    // What this credential is allowed to reach depends on what kind of credential
+    // it is, and the two cases must not be conflated:
+    //
+    // - an installation token (`ghs_`) belongs to an installation, so the
+    //   repository must appear in that installation's list. A repository it can
+    //   read by other means is still refused.
+    // - a user token (`ghp_`, `gho_`) is a person's, and a person may legitimately
+    //   read a public repository they are not a member of. Access is already proven
+    //   by the metadata read, and scope is bounded by the allowlist, so membership
+    //   is recorded as not applicable rather than faked as verified.
+    const isInstallationToken = token.startsWith("ghs_");
+    let installationVerified: boolean | "unavailable" | "not_applicable" = "not_applicable";
+    if (!isInstallationToken) {
+      // Nothing further to prove for a user token; keep the value honest.
+    } else {
+    const listUrl = `${base}/installation/repositories?per_page=100`;
+    const listResponse = await fetchImpl(listUrl, { headers, signal });
+    if (listResponse.ok) {
+      const listing = (await listResponse.json()) as {
+        repositories?: Array<{ full_name?: string }>;
+        total_count?: number;
+      };
+      const names = (listing.repositories ?? []).map((entry) => (entry.full_name ?? "").toLowerCase());
+      if (!names.includes(repo)) {
+        return {
+          ok: false,
+          summary: `${repo} is not part of the installation this credential belongs to.`,
+          error: "repo_not_in_installation",
+        };
+      }
+      installationVerified = true;
+    }
+    }
 
     const requested = Array.isArray(payload.paths) ? payload.paths.slice(0, 5) : [];
     const files: Array<{ path: string; bytes: number; preview: string }> = [];
@@ -113,6 +156,8 @@ export const githubRepoInspect: WorkerTool = {
       ),
       evidence: {
         repo,
+        credentialSource: resolved.source,
+        installationVerified,
         branch,
         private: Boolean(meta.private),
         pushedAt: meta.pushed_at ?? null,

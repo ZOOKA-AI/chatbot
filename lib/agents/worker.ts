@@ -8,6 +8,8 @@ import {
   startExecution,
 } from "@/lib/agents/command-center";
 import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
+import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
+import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
 import type { WorkerTool } from "@/lib/agents/worker-types";
 
 /**
@@ -33,6 +35,7 @@ type WorkerAgent = { id: string; organizationId: string };
 
 export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
+  [vercelDeploymentInspect.name]: vercelDeploymentInspect,
 };
 
 export class WorkerRefusal extends Error {
@@ -126,6 +129,8 @@ export async function runTask(
     agentId: agent.id,
     tool: tool.name,
     attempt: attempts + 1,
+    leaseExpiresAt: leaseDeadline(),
+    idempotencyKey: idempotencyKey(input.taskId, tool.name, attempts + 1),
   });
   if (!started.ok) {
     // Another worker holds this task. The task stays claimed by that worker and
@@ -144,6 +149,11 @@ export async function runTask(
   const beganAt = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), tool.timeoutMs);
+  // Proof of life while the tool works, so a six-second read does not look like
+  // a dead worker, and a frozen one stops looking alive within the lease.
+  const beat = setInterval(() => {
+    void heartbeat(executionId, agent.organizationId).catch(() => {});
+  }, HEARTBEAT_MS);
 
   let aborted = false;
   try {
@@ -206,6 +216,29 @@ export async function runTask(
     }
 
     // Success is only ever declared here, with the tool's own answer in hand.
+    // Prove we still own this attempt before claiming anything. If recovery has
+    // already closed it, this returns null and the worker says so instead of
+    // completing work that has been declared abandoned.
+    const stillOurs = await heartbeat(executionId, agent.organizationId);
+    if (!stillOurs) {
+      await finishExecution({
+        organizationId: agent.organizationId,
+        executionId,
+        status: "cancelled",
+        durationMs,
+        error: "lease_lost",
+      }).catch(() => {});
+      return {
+        ok: false,
+        taskId: input.taskId,
+        executionId,
+        status: "failed",
+        tool: tool.name,
+        error: "lease_lost",
+        summary: "The attempt's lease expired before it could report; recovery owns it now.",
+      };
+    }
+
     const evidence = JSON.stringify({ tool: tool.name, summary: result.summary, result: result.evidence }).slice(
       0,
       8000
@@ -281,6 +314,7 @@ export async function runTask(
     };
   } finally {
     clearTimeout(timer);
+    clearInterval(beat);
   }
 }
 

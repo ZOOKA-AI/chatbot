@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import {
   agentApproval,
   agentDecision,
@@ -274,6 +274,44 @@ export async function createTask(input: CreateTaskInput) {
  * Deliberately returns null for another tenant's task rather than an error, so a
  * caller cannot use the difference to learn that the row exists elsewhere.
  */
+/**
+ * The agent identity that a workspace's tasks are executed by, read through the
+ * tenant handle. The scheduler runs cross-tenant selection but must not read a
+ * workspace's rows on the shared connection.
+ */
+export async function firstAgentIdentity(organizationId: string) {
+  const [row] = await db
+    .select({ id: agentIdentity.id, organizationId: agentIdentity.organizationId })
+    .from(agentIdentity)
+    .where(eq(agentIdentity.organizationId, organizationId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * The workspace's stored connection, read through the tenant handle.
+ *
+ * The integrations catalogue reads through the shared connection, which stops
+ * working the moment row-level security is enforced. This reads the same row on
+ * the tenant's own transaction, so the worker can resolve a credential without
+ * leaving its workspace.
+ */
+export async function getWorkspaceConnection(
+  organizationId: string,
+  providerId: string
+): Promise<{ encryptedTokens: string } | null> {
+  const rows = (await db.execute(sql`
+    select encrypted_tokens from integration_connection
+    where workspace_id = ${organizationId}
+      and provider = ${providerId}
+      and revoked_at is null
+    limit 1
+  `)) as unknown as Array<{ encrypted_tokens?: string }>;
+  const row = rows[0];
+  if (!row?.encrypted_tokens) return null;
+  return { encryptedTokens: row.encrypted_tokens };
+}
+
 /* ------------------------------------------------------------------ */
 /* Execution attempts                                                   */
 /* ------------------------------------------------------------------ */
@@ -291,6 +329,8 @@ export async function startExecution(input: {
   agentId: string;
   tool: string;
   attempt: number;
+  leaseExpiresAt?: Date | null;
+  idempotencyKey?: string | null;
 }) {
   // Check first: once a statement fails inside the tenant transaction the whole
   // transaction is aborted, so a failed insert cannot be recovered from quietly.
@@ -320,6 +360,9 @@ export async function startExecution(input: {
         tool: input.tool,
         attempt: input.attempt,
         status: "running",
+        leaseExpiresAt: input.leaseExpiresAt ?? null,
+        heartbeatAt: new Date(),
+        idempotencyKey: input.idempotencyKey ?? null,
       })
       .returning();
     return { ok: true as const, execution: row };
@@ -358,12 +401,18 @@ export async function finishExecution(input: {
       resultSummary: input.resultSummary?.slice(0, 8000) ?? null,
       evidenceRef: input.evidenceRef?.slice(0, 512) ?? null,
       error: input.error?.slice(0, 2000) ?? null,
+      // A closed attempt holds no lease: nothing may think it is still alive.
+      leaseExpiresAt: null,
     })
     .where(
       and(
         eq(agentExecution.id, input.executionId),
         eq(agentExecution.organizationId, input.organizationId),
-        eq(agentExecution.status, "running")
+        eq(agentExecution.status, "running"),
+        // The closer must still own the attempt. A worker whose lease expired has
+        // been declared dead by recovery, and its late answer must not overwrite the
+        // outcome that recovery already recorded.
+        or(isNull(agentExecution.leaseExpiresAt), gt(agentExecution.leaseExpiresAt, new Date()))
       )
     )
     .returning();
@@ -993,3 +1042,6 @@ export async function listTaskPage(options: {
     nextCursor: encodeCursor(exact?.stamp ?? last.createdAt, last.id),
   };
 }
+
+/** The tenant-scoped handle, for Commander modules outside this file. */
+export const commanderDb = db;

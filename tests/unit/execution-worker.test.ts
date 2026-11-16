@@ -22,7 +22,8 @@ vi.mock("@/lib/db/queries", () => ({
 }));
 
 import { withCommanderScope } from "@/lib/agents/commander-scope";
-import { cancelTask, createTask, getTask, requestApproval } from "@/lib/agents/command-center";
+import { cancelTask, createTask, finishExecution, getTask, requestApproval } from "@/lib/agents/command-center";
+import { encryptTokens } from "@/lib/integrations/catalog";
 import { WORKER_TOOLS, executionReport, runTask } from "@/lib/agents/worker";
 
 const ADMIN = process.env.ZOOKA_TEST_PG_ADMIN;
@@ -48,7 +49,9 @@ const REPO_OK = {
   description: "ZOOKA-AI platform",
 };
 
-function fetchStub(overrides: { repo?: unknown; repoStatus?: number; fileBody?: string } = {}) {
+function fetchStub(
+  overrides: { repo?: unknown; repoStatus?: number; fileBody?: string; membership?: Array<{ full_name: string }> } = {}
+) {
   return (async (url: string) => {
     if (String(url).includes("/repos/zooka-ai/chatbot/contents/")) {
       const body = overrides.fileBody ?? "export const answer = 42;\n";
@@ -60,6 +63,13 @@ function fetchStub(overrides: { repo?: unknown; repoStatus?: number; fileBody?: 
         }),
         { status: 200 }
       );
+    }
+    if (String(url).includes("/user/repos") || String(url).includes("/installation/repositories")) {
+      const listed =
+        overrides.membership ?? [{ full_name: "zooka-ai/chatbot" }];
+      return new Response(JSON.stringify({ repositories: listed, total_count: listed.length }), {
+        status: 200,
+      });
     }
     if (String(url).includes("/repos/zooka-ai/chatbot")) {
       return new Response(JSON.stringify(overrides.repo ?? REPO_OK), {
@@ -87,7 +97,13 @@ describe.skipIf(!ready)("execution worker", () => {
     process.env.TENANT_RLS_ENABLED = "on";
     process.env.DATABASE_URL_TENANT = RUNTIME as string;
     process.env.WORKER_GITHUB_ALLOWED_REPOS = "zooka-ai/chatbot";
+    // Local test key only: no production value is read, echoed or stored.
+    process.env.TOKEN_ENCRYPTION_KEY =
+      process.env.TOKEN_ENCRYPTION_KEY ?? Buffer.alloc(32, 7).toString("base64");
     // Offline tests get a fake credential; a live run keeps the real one.
+    // Offline runs are single-tenant by declaration: there is no workspace
+    // connection in this database, so the platform credential is the only route.
+    process.env.WORKER_ALLOW_SHARED_CREDENTIAL = process.env.WORKER_GITHUB_TOKEN ? "0" : "1";
     if (!process.env.WORKER_GITHUB_TOKEN) {
       process.env.GITHUB_ACCESS_TOKEN = process.env.GITHUB_ACCESS_TOKEN ?? "ghp_" + "a".repeat(36);
     }
@@ -101,6 +117,9 @@ describe.skipIf(!ready)("execution worker", () => {
       "pending/0031_tenant_runtime_role.sql",
       "pending/0033_decision_audit_uniqueness.sql",
       "pending/0034_agent_execution.sql",
+      // Must come after 0031: that migration revokes every table grant, so any
+      // grant added earlier would be erased by a re-run.
+      "pending/0035_worker_lease_and_scheduler.sql",
     ];
     for (const name of files) {
       const body = readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8");
@@ -364,6 +383,119 @@ describe.skipIf(!ready)("execution worker", () => {
     } finally {
       await runtime.end();
     }
+  });
+
+  test("a workspace executes with its own credential, not the platform's", async () => {
+    const workspaceToken = "ghp_" + "w".repeat(36);
+    await admin`delete from integration_connection where workspace_id = ${ORG_A}`;
+    await admin`insert into integration_connection (workspace_id, provider, encrypted_tokens)
+                values (${ORG_A}, 'github', ${encryptTokens({ accessToken: workspaceToken })})`;
+
+    let sent: string | null = null;
+    const spyFetch = (async (url: string, init?: { headers?: Record<string, string> }) => {
+      if (String(url).includes("/repos/zooka-ai/chatbot") && !String(url).includes("contents")) {
+        sent = init?.headers?.Authorization ?? null;
+      }
+      if (String(url).includes("/user/repos") || String(url).includes("/installation/repositories")) {
+        return new Response(JSON.stringify({ repositories: [{ full_name: "zooka-ai/chatbot" }] }), { status: 200 });
+      }
+      return new Response(JSON.stringify(REPO_OK), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const task = await newTask();
+    const outcome = await withCommanderScope(ORG_A, () =>
+      runTask(agentA, { taskId: task.id, tool: "github_repo_inspect", payload: { repo: "zooka-ai/chatbot" }, fetchImpl: spyFetch })
+    );
+    assert.equal(outcome.ok, true);
+    assert.equal(sent, `Bearer ${workspaceToken}`, "the workspace token was used");
+
+    const [execution] = await admin`select tool from "AgentExecution" where "taskId" = ${task.id}`;
+    const [taskRow] = await admin`select evidence from "AgentTask" where id = ${task.id}`;
+    assert.equal(execution.tool, "github_repo_inspect");
+    assert.doesNotMatch(taskRow.evidence, new RegExp(workspaceToken.slice(0, 12)));
+    await admin`delete from integration_connection where workspace_id = ${ORG_A}`;
+  });
+
+  test("a workspace with no connection does not inherit another workspace's token", async () => {
+    process.env.WORKER_ALLOW_SHARED_CREDENTIAL = "0";
+    const previous = process.env.WORKER_GITHUB_TOKEN;
+    process.env.WORKER_GITHUB_TOKEN = "ghp_" + "p".repeat(36);
+    try {
+      const task = await newTask(ORG_B);
+      const outcome = await withCommanderScope(ORG_B, () =>
+        runTask(agentB, { taskId: task.id, tool: "github_repo_inspect", payload: { repo: "zooka-ai/chatbot" }, fetchImpl: fetchStub() })
+      );
+      assert.equal(outcome.ok, false);
+      // No workspace connection and shared credentials disabled: the honest answer
+      // is that this deployment will not execute with somebody else's token.
+      assert.equal(outcome.error, "platform_credential_not_enabled");
+    } finally {
+      if (previous) process.env.WORKER_GITHUB_TOKEN = previous; else delete process.env.WORKER_GITHUB_TOKEN;
+      process.env.WORKER_ALLOW_SHARED_CREDENTIAL = "1";
+    }
+  });
+
+  test("a malformed stored credential is refused, not silently repaired", async () => {
+    const malformed = "$'gho_" + "q".repeat(36) + "'";
+    await admin`delete from integration_connection where workspace_id = ${ORG_A}`;
+    await admin`insert into integration_connection (workspace_id, provider, encrypted_tokens)
+                values (${ORG_A}, 'github', ${encryptTokens({ accessToken: malformed })})`;
+
+    const task = await newTask();
+    const outcome = await withCommanderScope(ORG_A, () =>
+      runTask(agentA, { taskId: task.id, tool: "github_repo_inspect", payload: { repo: "zooka-ai/chatbot" }, fetchImpl: fetchStub() })
+    );
+    assert.equal(outcome.ok, false);
+    assert.equal(outcome.error, "credential_malformed");
+
+    // The stored value is still exactly what the owner stored: no silent rewrite.
+    const [row] = await admin`select encrypted_tokens from integration_connection where workspace_id = ${ORG_A}`;
+    const stored = (JSON.parse(JSON.stringify(row)).encrypted_tokens ?? row.encrypted_tokens) as string;
+    assert.ok(stored.length > 0);
+    await admin`delete from integration_connection where workspace_id = ${ORG_A}`;
+  });
+
+  test("a repository outside the credential's installation is refused", async () => {
+    // Installation tokens are scoped to an installation; membership is enforced.
+    process.env.WORKER_GITHUB_TOKEN = "ghs_" + "i".repeat(36);
+    const task = await newTask();
+    const outcome = await withCommanderScope(ORG_A, () =>
+      runTask(agentA, {
+        taskId: task.id,
+        tool: "github_repo_inspect",
+        payload: { repo: "zooka-ai/chatbot" },
+        fetchImpl: fetchStub({ membership: [{ full_name: "somebody-else/other-repo" }] }),
+      })
+    );
+    assert.equal(outcome.ok, false);
+    assert.equal(outcome.error, "repo_not_in_installation");
+    delete process.env.WORKER_GITHUB_TOKEN;
+  });
+
+  test("a worker whose lease expired cannot settle the attempt", async () => {
+    const task = await newTask();
+    const [abandoned] = await admin`
+      insert into "AgentExecution" ("taskId","organizationId","agentId",tool,attempt,status,"leaseExpiresAt","startedAt")
+      values (${task.id}, ${ORG_A}, ${AGENT_A}, 'github_repo_inspect', 1, 'running', now() - interval '5 minutes', now() - interval '6 minutes')
+      returning id`;
+    await admin`update "AgentTask" set status='in_progress', "ownerAgentId"=${AGENT_A} where id=${task.id}`;
+
+    // The stale worker comes back late and tries to claim success.
+    const closed = await withCommanderScope(ORG_A, () =>
+      finishExecution({
+        organizationId: ORG_A,
+        executionId: abandoned.id,
+        status: "succeeded",
+        durationMs: 9000,
+        resultSummary: "late answer from a dead worker",
+      })
+    );
+    assert.equal(closed, null, "an expired lease may not close the attempt");
+
+    const [row] = await admin`select status, "finishedAt", "resultSummary" from "AgentExecution" where id = ${abandoned.id}`;
+    assert.equal(row.status, "running", "recovery still owns this attempt");
+    assert.equal(row.finishedAt, null);
+    assert.equal(row.resultSummary, null);
   });
 
   test.skipIf(process.env.WORKER_LIVE !== "1")(

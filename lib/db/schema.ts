@@ -633,6 +633,10 @@ export const agentExecution = pgTable(
     resultSummary: text("resultSummary"),
     evidenceRef: varchar("evidenceRef", { length: 512 }),
     error: text("error"),
+    leaseExpiresAt: timestamp("leaseExpiresAt"),
+    heartbeatAt: timestamp("heartbeatAt"),
+    idempotencyKey: varchar("idempotencyKey", { length: 128 }),
+    recoveredFrom: uuid("recoveredFrom"),
   },
   (table) => ({
     taskIdx: index("AgentExecution_taskId_idx").on(table.taskId),
@@ -642,6 +646,30 @@ export const agentExecution = pgTable(
     oneRunningPerTask: uniqueIndex("AgentExecution_one_running_per_task")
       .on(table.taskId)
       .where(sql`status = 'running'`),
+    idempotency: uniqueIndex("AgentExecution_idempotencyKey_key")
+      .on(table.idempotencyKey)
+      .where(sql`"idempotencyKey" IS NOT NULL`),
+    orgStatus: index("AgentExecution_org_status_idx").on(table.organizationId, table.status),
+  })
+);
+
+export const schedulerRun = pgTable(
+  "SchedulerRun",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    startedAt: timestamp("startedAt").notNull().defaultNow(),
+    finishedAt: timestamp("finishedAt"),
+    status: varchar("status", { length: 24 }).notNull().default("running"),
+    claimedCount: integer("claimedCount").notNull().default(0),
+    succeededCount: integer("succeededCount").notNull().default(0),
+    failedCount: integer("failedCount").notNull().default(0),
+    skippedCount: integer("skippedCount").notNull().default(0),
+    reclaimedCount: integer("reclaimedCount").notNull().default(0),
+    detail: json("detail"),
+    error: text("error"),
+  },
+  (table) => ({
+    startedIdx: index("SchedulerRun_startedAt_idx").on(table.startedAt),
   })
 );
 
