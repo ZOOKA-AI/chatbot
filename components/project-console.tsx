@@ -28,12 +28,14 @@ type ExecutionRow = {
   error: string | null;
 };
 type ScheduleRow = { id: string; title: string; cronExpression: string; enabled: boolean };
+type DocumentRow = { id: string; title: string; bytes: number; createdAt: string };
 type Detail = {
   project: Project;
   agents: Agent[];
   tasks: TaskRow[];
   executions: ExecutionRow[];
   schedules: ScheduleRow[];
+  documents: DocumentRow[];
 };
 
 async function call<T>(url: string, init?: RequestInit) {
@@ -292,6 +294,30 @@ export function ProjectConsole({ canManage }: { canManage: boolean }) {
               {detail.executions.length === 0 ? (
                 <li className="opacity-60">لا تنفيذ مسجّل بعد / Nothing has executed yet.</li>
               ) : null}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="mb-1 text-xs font-semibold opacity-70">
+              المستندات / Documents ({detail.documents?.length ?? 0})
+            </h3>
+            <ul className="flex flex-col gap-1 text-xs">
+              {(detail.documents ?? []).map((document) => (
+                <li key={document.id} className="flex flex-wrap items-center gap-2">
+                  <a href={`/workspace/documents/${document.id}`} className="font-medium underline">
+                    {document.title}
+                  </a>
+                  <span className="opacity-60">
+                    {new Date(document.createdAt).toLocaleDateString("ar-AE")} · {document.bytes} حرف
+                  </span>
+                  <a href={`/api/workspace/documents/${document.id}?download=1`} className="rounded border border-white/20 px-2 py-0.5">
+                    تنزيل / Download
+                  </a>
+                </li>
+              ))}
+              {detail.documents?.length ? null : (
+                <li className="opacity-60">لا مستندات بعد / No documents yet.</li>
+              )}
             </ul>
           </div>
 

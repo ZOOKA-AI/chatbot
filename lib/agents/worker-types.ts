@@ -10,6 +10,8 @@ export type WorkerToolResult =
 export type WorkerToolContext = {
   organizationId: string;
   agentId: string;
+  /** The task being executed, so an artifact can be traced back to the run that produced it. */
+  taskId?: string | null;
   payload: Record<string, unknown>;
   signal: AbortSignal;
   fetchImpl: typeof fetch;
@@ -19,6 +21,11 @@ export type WorkerTool = {
   name: string;
   /** A tool that is not read-only cannot be run by this worker at all. */
   readOnly: boolean;
+  /**
+   * Writes only to this platform's own tables, inside the caller's workspace, and nowhere else.
+   * Such a tool still needs to be named in INTERNAL_WRITE_TOOLS: the flag alone grants nothing.
+   */
+  internalWrite?: boolean;
   timeoutMs: number;
   maxAttempts: number;
   description: string;
@@ -41,3 +48,12 @@ export function redact(value: string): string {
   }
   return output;
 }
+
+/**
+ * The only non-read-only tools the worker may run.
+ *
+ * A write tool is a much larger promise than a read tool, so this is an explicit list rather than
+ * a flag a tool can set for itself: a tool that sets `internalWrite` but is missing here is still
+ * refused, and the worker's default stays "refuse anything that writes".
+ */
+export const INTERNAL_WRITE_TOOLS = new Set<string>(["project_document_create"]);

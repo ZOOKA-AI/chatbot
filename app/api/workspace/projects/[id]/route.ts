@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { canManage, callerOrganizationId, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
+import { listProjectDocuments } from "@/lib/projects/documents";
 import {
   deleteProject,
   getProject,
@@ -49,14 +50,15 @@ async function GETHandler(request: Request, context: Params) {
   const project = await getProject({ organizationId, projectId: id });
   if (!project) return json({ error: "not_found" }, 404);
 
-  const [agents, tasks, executions, schedules] = await Promise.all([
+  const [agents, tasks, executions, schedules, documents] = await Promise.all([
     listProjectAgents(organizationId, id),
     listProjectTasks({ organizationId, projectId: id, limit: query.data.limit ?? 20 }),
     listProjectExecutions({ organizationId, projectId: id, limit: query.data.limit ?? 20 }),
     listProjectSchedules(organizationId, id),
+    listProjectDocuments(organizationId, id, 20),
   ]);
 
-  return json({ project, agents, tasks, executions, schedules });
+  return json({ project, agents, tasks, executions, schedules, documents });
 }
 
 async function PATCHHandler(request: Request, context: Params) {

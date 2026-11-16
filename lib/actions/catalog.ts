@@ -121,6 +121,58 @@ const DRAFTS: TemplateDraft[] = [
     ],
   },
   {
+    id: "project_document",
+    version: 1,
+    category: "operations",
+    title: {
+      ar: "إنشاء مستند للمشروع",
+      en: "Create project document",
+    },
+    description: {
+      ar: "يحوّل موجزك المكتوب إلى مستند مشروع منظم — الهدف والنطاق وخطة التنفيذ والمخاطر ومعايير القبول — ويحفظه داخل المشروع ليكون جاهزًا للفتح والتنزيل في أي وقت. لا يحتاج أي حساب خارجي، ولا يضيف معلومة لم تكتبها.",
+      en: "Turns your written brief into a structured project document — objective, scope, plan, risks and acceptance criteria — and files it inside the project so you can open or download it later. It needs no external account and adds no information you did not write.",
+    },
+    inputs: [
+      {
+        key: "title",
+        type: "text",
+        required: true,
+        label: { ar: "عنوان المستند", en: "Document title" },
+        help: {
+          ar: "اسم قصير وواضح للمستند، من ٣ إلى ١٢٠ حرفًا.",
+          en: "A short, clear name for the document, 3 to 120 characters.",
+        },
+        placeholder: "خطة إطلاق المتجر",
+        pattern: "^[A-Za-z0-9\u0600-\u06FF _-]{3,120}$",
+      },
+      {
+        key: "brief",
+        type: "text",
+        required: true,
+        label: { ar: "الموجز", en: "Brief" },
+        help: {
+          ar: "اكتب الهدف وما يجب إنجازه والموعد والميزانية إن وُجدت، من ٢٠ إلى ٢٠٠٠ حرف. كل جملة تكتبها تصبح بندًا في المستند.",
+          en: "Write the objective, what must be delivered, any deadline or budget, 20 to 2000 characters. Each sentence you write becomes an item in the document.",
+        },
+        placeholder: "نريد متجرًا إلكترونيًا لبيع منتجات التنظيف. الإطلاق قبل نهاية الربع. الميزانية محددة. الشحن داخل الإمارات فقط.",
+        pattern: "^[\\s\\S]{20,2000}$",
+      },
+    ],
+    responsibleRole: "researcher",
+    requiredTools: ["project_document_create"],
+    requiredIntegrations: [],
+    approval: "none",
+    workflow: [
+      { ar: "التحقق من العنوان والموجز", en: "Validate the title and brief" },
+      { ar: "التأكد أن المشروع يخص مساحتك", en: "Confirm the project belongs to your workspace" },
+      { ar: "بناء المستند من جملك بالترتيب وحفظه في المشروع", en: "Assemble the document from your sentences, in order, and file it in the project" },
+    ],
+    outputs: [
+      { ar: "مستند منظم يمكن فتحه وتنزيله", en: "A structured document you can open and download" },
+      { ar: "سجل يربط المستند بالمهمة التي أنشأته", en: "A record tying the document to the task that created it" },
+    ],
+  },
+  {
     id: "workspace_readiness_report",
     version: 1,
     category: "operations",
@@ -290,6 +342,10 @@ export function actionPayload(
   }
   if (tool === "workspace_readiness_inspect") {
     return { tool, payload: { label: inputs.label ?? "" } };
+  }
+  if (tool === "project_document_create") {
+    // projectId is added by the runner from the project the customer chose, never from the form.
+    return { tool, payload: { title: inputs.title ?? "", brief: inputs.brief ?? "" } };
   }
   // Unreachable while `executable` is derived from isKnownTool, and refused rather than guessed
   // if a new tool is added to the registry without a mapping here.

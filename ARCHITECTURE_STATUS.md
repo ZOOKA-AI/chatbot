@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 716 passed, 6 skipped, 722 total, 89 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 725 passed, 6 skipped, 731 total, 90 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -328,3 +328,38 @@ connection exists and none of the credentials reachable here is accepted by the 
 `repo_health_report` still ends in an honest 401. Items 05, 06, 07 (browser isolation, human
 control, command center) are not started; the browser runtime needs a provider decision from the
 owner and no paid infrastructure was activated.
+
+### Milestone 010 — a document the customer keeps — COMPLETE
+
+The first customer artifact. An action now produces something a person would actually open again,
+stores it, and hands it back as a file.
+
+**What it produces.** `project_document_create` takes a title and a brief and assembles a structured
+Markdown document: objective, scope, plan, risks and controls, acceptance criteria. Every section is
+a deterministic arrangement of the words the customer wrote. No model is called, so a document
+cannot contain a claim the customer did not make, and the document says so in its own footer.
+
+**Storage.** `ProjectDocument` (migration 0042) is scoped by `organizationId`, references its
+`AgentProject` with `ON DELETE CASCADE`, and references the `AgentTask` that produced it with
+`ON DELETE SET NULL`. RLS is enabled with a tenant policy in the same shape as 0041, and
+`taskId` carries a partial unique index, so one run cannot silently overwrite another's artifact.
+
+**The worker gate had to change, carefully.** The worker refused every non-read-only tool, which is
+the right default. Rather than loosening it, a tool may now run only when it declares
+`internalWrite` *and* appears in `INTERNAL_WRITE_TOOLS`. A tool that sets the flag without being on
+the list is still refused, and the absence of the flag still means read-only.
+
+**Acceptance, 22 of 22, on a local production build over TLS with a real form login:** action
+queued `pending` → worker claims with its own key → `project_document_create` runs → a 1,017
+character document is stored → task `completed` by the worker → the project page lists it → the
+viewer page renders it after a fresh load → `?download=1` returns `text/markdown` as an attachment
+with a body of exactly the stored length → an unknown document id answers 404 rather than leaking.
+
+**Migration verification.** 0042 applied to the repo-schema database (parity suite green) and to a
+scratch database through up → verify table, index, policy and foreign key → down → verify the table
+is gone → up again. No production database was touched.
+
+**Not done in this milestone, and not claimed:** the browser isolation contract, the customer
+browser control interface, the command center integration and the natural-language router
+(#045 priorities 2 to 5). Priority 6 found no new credential: the GitHub action still ends in an
+honest 401, so it is documented rather than faked.

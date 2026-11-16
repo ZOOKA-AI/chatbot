@@ -9,8 +9,10 @@ import {
 } from "@/lib/agents/command-center";
 import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
+import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
 import { workspaceReadinessInspect } from "@/lib/agents/worker-tools/workspace-readiness";
 import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
+import { INTERNAL_WRITE_TOOLS } from "@/lib/agents/worker-types";
 import type { WorkerTool } from "@/lib/agents/worker-types";
 
 /**
@@ -38,6 +40,7 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
+  [projectDocumentCreate.name]: projectDocumentCreate,
 };
 
 export class WorkerRefusal extends Error {
@@ -70,7 +73,10 @@ export async function runTask(
   }
 ): Promise<WorkerOutcome> {
   const tool = WORKER_TOOLS[input.tool];
-  if (!tool || !tool.readOnly) {
+  // Read-only is the default. A writing tool may run only when it is on the explicit internal
+  // list and says of itself that it writes nothing but this platform's own tenant-scoped rows.
+  const mayRun = Boolean(tool) && (tool.readOnly || (tool.internalWrite === true && INTERNAL_WRITE_TOOLS.has(tool.name)));
+  if (!tool || !mayRun) {
     // Refused before any claim: an unknown or writing tool must not take a task.
     return {
       ok: false,
@@ -162,6 +168,7 @@ export async function runTask(
     const result = await tool.run({
       organizationId: agent.organizationId,
       agentId: agent.id,
+      taskId: input.taskId,
       // The task is the record of what was asked for. A caller that claims by task id, or one
       // that lets the worker take the next queued task, gets that task's own inputs; an explicit
       // payload from the caller wins only when it is actually provided, so a scheduler can still

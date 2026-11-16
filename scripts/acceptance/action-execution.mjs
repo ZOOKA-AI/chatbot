@@ -122,6 +122,41 @@ try {
   const [foreign] = await sql`select count(*)::int as n from "AgentExecution" e
     join "AgentTask" t on t.id = e."taskId" where t."projectId" = ${projectId} and e."organizationId" <> ${orgId}`;
   check("no execution on this project belongs to another workspace", foreign.n === 0, String(foreign.n));
+
+  // ---- 11. the artifact: the customer opens and downloads a real document
+  if (process.env.ACCEPT_DOCUMENT === "1") {
+    const listResponse = await context.request.get(`${BASE}/api/workspace/projects/${projectId}/documents`);
+    const listBody = await listResponse.json().catch(() => ({}));
+    const documents = Array.isArray(listBody.documents) ? listBody.documents : [];
+    check("the document is filed under the project", documents.length === 1, `${documents.length} document(s)`);
+    const doc = documents[0] ?? {};
+    check("the document has a title and a real size", Boolean(doc.title) && Number(doc.bytes) > 200,
+      `${doc.title ?? "none"} · ${doc.bytes ?? 0} chars`);
+    check("the document is tied to the task that produced it", doc.taskId === runBody.taskId, String(doc.taskId));
+
+    const viewer = await context.request.get(`${BASE}/workspace/documents/${doc.id}`);
+    const viewerHtml = await viewer.text();
+    check("the customer can open the document", viewer.status() === 200 && viewerHtml.includes(String(doc.title)),
+      `status ${viewer.status()}`);
+
+    const download = await context.request.get(`${BASE}/api/workspace/documents/${doc.id}?download=1`);
+    const downloadBody = await download.text();
+    check("the download is a real markdown file", download.status() === 200 &&
+      (download.headers()["content-type"] || "").includes("text/markdown") &&
+      /attachment/.test(download.headers()["content-disposition"] || ""),
+      String(download.headers()["content-type"]));
+    check("the downloaded file carries the document body", downloadBody.includes("## معايير القبول") &&
+      downloadBody.length === Number(doc.bytes), `${downloadBody.length} chars vs ${doc.bytes} stored`);
+
+    await page.goto(`${BASE}/workspace/documents/${doc.id}`, { waitUntil: "networkidle" });
+    await page.screenshot({ path: "acceptance/execution-document.png", fullPage: true });
+    const docText = await page.locator("body").innerText();
+    check("the document survives a fresh page load", docText.includes(String(doc.title)) && docText.includes("معايير القبول"),
+      `${docText.length} chars rendered`);
+
+    const missing = await context.request.get(`${BASE}/api/workspace/documents/00000000-0000-4000-8000-000000000000`);
+    check("an unknown document id is refused, not leaked", missing.status() === 404, `status ${missing.status()}`);
+  }
 } catch (error) {
   check("execution run completed without throwing", false, String(error).slice(0, 200));
 } finally {

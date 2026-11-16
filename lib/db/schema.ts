@@ -538,6 +538,41 @@ export const agentProject = pgTable(
 
 export type AgentProject = InferSelectModel<typeof agentProject>;
 
+/**
+ * A document an agent produced for one project, kept with the task that made it.
+ *
+ * Bodies are stored inline: these are small structured texts, and a customer must be able to
+ * open one years later without depending on an object store. `taskId` is unique so one run
+ * cannot silently overwrite another's artifact.
+ */
+export const projectDocument = pgTable(
+  "ProjectDocument",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    projectId: uuid("projectId")
+      .notNull()
+      .references(() => agentProject.id, { onDelete: "cascade" }),
+    taskId: uuid("taskId").references(() => agentTask.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 200 }).notNull(),
+    format: varchar("format", { length: 16 }).notNull().default("markdown"),
+    body: text("body").notNull(),
+    bytes: integer("bytes").notNull().default(0),
+    createdBy: varchar("createdBy", { length: 64 }).notNull().default("owner"),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    orgProjectIdx: index("ProjectDocument_org_project_created_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.createdAt
+    ),
+    taskIdx: uniqueIndex("ProjectDocument_taskId_key").on(table.taskId),
+  })
+);
+
+export type ProjectDocument = InferSelectModel<typeof projectDocument>;
+
 export const agentMessage = pgTable(
   "AgentMessage",
   {
