@@ -4,6 +4,7 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getRewardsSummary, referralLink } from "@/lib/growth/referrals";
 import { getLang } from "@/lib/i18n";
 
+import { InviteForm } from "./invite-form";
 import { ShareButtons } from "./share-buttons";
 
 export default async function RewardsPage() {
@@ -87,6 +88,10 @@ export default async function RewardsPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="rounded-xl border border-border p-5">
+        <InviteForm lang={lang} />
       </section>
 
       <p className="text-xs text-muted-foreground">{labels.nonCash}</p>
