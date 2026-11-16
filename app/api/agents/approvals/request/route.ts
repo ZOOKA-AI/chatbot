@@ -26,12 +26,27 @@ async function POSTHandler(request: Request) {
 
   const parsed = await validateJson(
     request,
-    z.object({ taskId: fields.uuid.nullish(), reason: fields.reason }).strict()
+    z
+      .object({
+        // Opaque task reference, not necessarily a uuid: the domain looks it up
+        // inside the caller's tenant, so a wrong id matches nothing.
+        taskId: z.string().trim().max(64).nullish(),
+        reason: fields.reason.optional(),
+      })
+      .strict()
   );
   if (!parsed.ok) {
     return badRequest(parsed.reason);
   }
   const { reason } = parsed.data;
+
+  // The reason rule belongs to the domain, so a missing reason answers the
+  // specific code instead of a generic body rejection. Approval stays
+  // optional-reason deliberately: refusing always needs a written reason,
+  // granting does not.
+  if (!reason) {
+    return badRequest("reason_required");
+  }
 
   const approval = await requestApproval(caller.agent, {
     organizationId: callerOrganizationId(caller),
