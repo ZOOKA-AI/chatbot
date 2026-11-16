@@ -118,8 +118,12 @@ describe("a paid engine needs a flag and an approval, not one of them", () => {
     assert.equal(decision.chosen, "cloud-gpu");
     assert.equal(decision.tier, "paid_api");
     // The owner's own instance was examined first and had nothing configured, so it is reported:
-    // choosing the paid engine does not erase the fact that a free one was unavailable.
-    assert.deepEqual(decision.refused, [{ engine: "comfyui", reason: "not_configured" }]);
+    // choosing the paid engine does not erase the fact that a free one was unavailable. RunComfy is
+    // reported too, because it was considered and refused for want of a token rather than skipped.
+    assert.deepEqual(decision.refused, [
+      { engine: "comfyui", reason: "not_configured" },
+      { engine: "runcomfy-cloud", reason: "paid_provider_not_configured" },
+    ]);
   });
 
   test("the flag comes from the environment, and the default is off", () => {
@@ -130,12 +134,14 @@ describe("a paid engine needs a flag and an approval, not one of them", () => {
 });
 
 describe("what the matrix says when nothing can answer", () => {
-  test("generation with no endpoint and no paid access names both refusals", () => {
+  test("generation with no endpoint and no paid access names every refusal", () => {
     const decision = selectEngine({ capability: "image_generate", env: EMPTY });
     assert.equal(decision.chosen, null);
+    // Self-hosted refused for configuration, then both paid engines refused for the switch. The order
+    // is the ladder's own: cheaper and more local is examined first.
     assert.deepEqual(
-      decision.refused.map((entry) => entry.reason),
-      ["not_configured", "paid_provider_not_enabled"]
+      decision.refused.map((entry) => `${entry.engine}:${entry.reason}`),
+      ["comfyui:not_configured", "runcomfy-cloud:paid_provider_not_enabled", "cloud-gpu:paid_provider_not_enabled"]
     );
   });
 

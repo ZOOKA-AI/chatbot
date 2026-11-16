@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 
+import { paidGenerationEnabled, spendCapUsd } from "./paid-switch";
+
 /**
  * Providers, in one neutral shape.
  *
@@ -345,8 +347,50 @@ export function providerRegistry(
   return [localProvider, createComfyProvider(options)];
 }
 
+/**
+ * RunComfy reported as a status only.
+ *
+ * It deliberately has no `generate` here: its work is asynchronous (submit, poll, retrieve) and it bills
+ * per request, so it runs through the agent worker tool where the spend gate and the approval live. This
+ * entry exists so the panel tells the truth about it instead of omitting it, and it reports the exact
+ * blocker rather than a button that would fail on click.
+ */
+export function runcomfyStatus(env: Record<string, string | undefined> = process.env): ProviderStatus {
+  const capabilities: Capability[] = ["image", "video"];
+  const configured = Boolean(env.RUNCOMFY_API_TOKEN?.trim());
+  if (!configured) {
+    return {
+      ready: false,
+      provider: "runcomfy-cloud",
+      kind: "external_api",
+      capabilities,
+      blocked: "credential_missing",
+      detail: "RUNCOMFY_API_TOKEN is not set on the server. Generation runs through the agent worker, and it bills per request.",
+    };
+  }
+  if (!paidGenerationEnabled(env)) {
+    return {
+      ready: false,
+      provider: "runcomfy-cloud",
+      kind: "external_api",
+      capabilities,
+      blocked: "paid_generation_disabled",
+      detail: `A credential is present but PAID_GENERATION_ENABLED is off, so nothing will be submitted. Cap ${spendCapUsd(env).toFixed(2)} USD per job.`,
+    };
+  }
+  return {
+    ready: true,
+    provider: "runcomfy-cloud",
+    kind: "external_api",
+    capabilities,
+    detail: `Per-request billing with a ${spendCapUsd(env).toFixed(2)} USD cap per job; every job still needs its own approval.`,
+  };
+}
+
 export async function providerStatuses(
   options: { env?: Record<string, string | undefined>; fetchImpl?: typeof fetch } = {}
 ): Promise<ProviderStatus[]> {
-  return Promise.all(providerRegistry(options).map((provider) => provider.status()));
+  const statuses = await Promise.all(providerRegistry(options).map((provider) => provider.status()));
+  // Appended rather than registered, because registration implies a synchronous generate() it does not have.
+  return [...statuses, runcomfyStatus(options.env ?? process.env)];
 }

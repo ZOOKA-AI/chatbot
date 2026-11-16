@@ -443,6 +443,74 @@ const DRAFTS: TemplateDraft[] = [
     ],
   },
   {
+    id: "studio_ai_generate",
+    version: 1,
+    category: "creative",
+    title: { ar: "توليد صورة أو فيديو بالذكاء الاصطناعي", en: "AI image or video generation" },
+    description: {
+      ar: "يولّد صورة أو فيديو بموديل سحابي عبر RunComfy Model API v2. هذا الإجراء مدفوع لكل طلب، فلا يعمل إلا بعد: تشغيل المزوّد من المشغّل، وموافقة صريحة على هذه المهمة، وعرض التقدير، وبقاء الطلب داخل سقف الإنفاق، ووجود رصيد. أي شرط ناقص يعني رفضًا قبل الإرسال، ولا يُرسل شيء أبدًا بدون موافقة.",
+      en: "Generates an image or video with a cloud model through the RunComfy Model API v2. This action is billed per request, so it runs only when: the operator has enabled the provider, an explicit approval for this job exists, the estimate has been displayed, the job stays inside the spend cap, and the wallet covers it. A missing condition is a refusal before submission, and nothing is ever sent without approval.",
+    },
+    inputs: [
+      {
+        key: "prompt",
+        type: "text",
+        required: true,
+        label: { ar: "وصف الصورة أو الفيديو", en: "Image or video description" },
+        help: {
+          ar: "وصف تفصيلي لما تريد توليده، من 3 إلى 800 حرف. يُرسل كما كتبته إلى الموديل.",
+          en: "A detailed description of what to generate, 3 to 800 characters. Sent verbatim to the model.",
+        },
+        placeholder: "صورة إعلانية احترافية لشركة تنظيف في أبوظبي، إضاءة طبيعية، جودة عالية",
+        pattern: "^[\\s\\S]{3,800}$",
+      },
+      {
+        key: "capability",
+        type: "text",
+        required: false,
+        label: { ar: "النوع", en: "Kind" },
+        help: { ar: "image أو video. الافتراضي image.", en: "image or video. Default image." },
+        placeholder: "image",
+        pattern: "^(image|video)$",
+      },
+      {
+        key: "approval_reference",
+        type: "text",
+        required: false,
+        label: { ar: "مرجع الموافقة", en: "Approval reference" },
+        help: {
+          ar: "معرّف الموافقة على هذه المهمة تحديدًا. بدونه يُرفض الطلب قبل الإرسال.",
+          en: "The approval id for this exact job. Without it the request is refused before submission.",
+        },
+        placeholder: "approval-id",
+        pattern: "^[A-Za-z0-9\\-_.:]{0,120}$",
+      },
+      {
+        key: "aspect",
+        type: "text",
+        required: false,
+        label: { ar: "المقاس", en: "Aspect" },
+        help: { ar: "المقاس المطلوب إن كان الموديل يدعمه.", en: "Requested aspect, when the model supports it." },
+        placeholder: "9:16",
+        pattern: "^(9:16|1:1|16:9)?$",
+      },
+    ],
+    responsibleRole: "designer",
+    requiredTools: ["studio_ai_generate"],
+    requiredIntegrations: ["runcomfy"],
+    // Billable: the catalog itself marks this action as needing a decision, and the tool re-checks it.
+    approval: "required",
+    workflow: [
+      { ar: "التحقق من وجود رمز المزوّد ثم اختيار موديل من الكتالوج الحقيقي", en: "Check the credential, then choose a model from the live catalogue" },
+      { ar: "تقدير التكلفة وقراءة الرصيد ثم تطبيق بوابة الإنفاق", en: "Estimate the cost, read the wallet and apply the spend gate" },
+      { ar: "الإرسال بعد الموافقة فقط، ثم المتابعة وتنزيل الناتج وتخزينه في مكتبة المساحة", en: "Submit only after approval, then poll, download the output and store it in the workspace library" },
+    ],
+    outputs: [
+      { ar: "ملف صورة أو فيديو حقيقي مخزّن في مكتبتك", en: "A real image or video stored in your library" },
+      { ar: "التكلفة الفعلية كما أفاد بها المزوّد", en: "The actual charge as reported by the provider" },
+    ],
+  },
+  {
     id: "studio_promo_video",
     version: 1,
     category: "creative",
@@ -679,6 +747,17 @@ export function actionPayload(
       },
     };
   }
+  if (tool === "studio_ai_generate") {
+    return {
+      tool,
+      payload: {
+        prompt: inputs.prompt ?? "",
+        capability: inputs.capability || "image",
+        approvalReference: inputs.approval_reference || null,
+        aspect: inputs.aspect || null,
+      },
+    };
+  }
   if (tool === "studio_promo_video") {
     // The scene list is the customer's own titles; a "title: subtitle" pair is split here so the
     // form stays one field instead of six.
@@ -722,6 +801,9 @@ const REQUEST_KEYWORDS: Array<{ action: string; match: RegExp }> = [
   { action: "studio_background_remove", match: /خلفي|خلفية|اقتطع|افصل|background/i },
   // A film that also names a voice or a logo is the promo composition, not a bare render: it is the
   // action that actually produces the voice and the logo the customer asked for.
+  // A request that names AI generation is the billable path, so it is matched before the deterministic
+  // edit and render routes that would otherwise claim the same sentence.
+  { action: "studio_ai_generate", match: /بالذكاء الاصطناعي|ذكاء اصطناعي|ai (image|video|photo)|generate (an? )?(image|video)|text[- ]to[- ](image|video)/i },
   { action: "studio_promo_video", match: /(فيديو|مقطع|ريلز|video|reel).*(تعليق صوتي|صوت| narration|voice|لوجو|logo)|(تعليق صوتي|لوجو|logo).*(فيديو|video)/i },
   { action: "studio_video_render", match: /فيديو|مقطع|ريلز|موشن|video|reel|mp4/i },
   { action: "studio_narration", match: /تعليق صوتي|نطق|تسجيل صوتي|voiceover|narration|tts/i },

@@ -93,6 +93,7 @@ describe("an Arabic request maps to a real action", () => {
     // Pinned by id rather than by count: a count catches an addition but not a silent swap, and this
     // list is the promise that every creative action has a real tool behind it.
     assert.deepEqual(creative.map((action) => action.id).sort(), [
+      "studio_ai_generate",
       "studio_background_remove",
       "studio_image_edit",
       "studio_narration",

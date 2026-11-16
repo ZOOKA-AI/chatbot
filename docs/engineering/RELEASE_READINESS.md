@@ -180,3 +180,22 @@ both full gates (810 passed / 6 skipped, twice).
 `tsc --noEmit` clean, `next build` exit 0, both runs identical and with the same environment
 (`ZOOKA_TEST_PG_*` pointing at the local PostgreSQL cluster only). No production deployment, no
 production migration, no merge, no purchase, no publishing.
+
+## RunComfy cloud generation (Directive #056/#057)
+
+The integration is implemented, wired to the agent, the action catalogue and the provider panel, and
+refused by default. Verified endpoints and the exact paid-test checklist are in `RUNCOMFY.md`.
+
+| Check | Result |
+|---|---|
+| Credential | `CREDENTIAL_REQUIRED`: `RUNCOMFY_API_TOKEN` is not set |
+| Default state | `PAID_GENERATION_ENABLED` off; `GET /api/studio/runcomfy/status` reports it |
+| Owner-only route | authenticated 200, unauthenticated 307 to `/login` |
+| Token in response | none (asserted live and in unit tests) |
+| Billable inference | never submitted: refused at the gate in every test |
+| Async lifecycle | proven with documented fixtures: submit, poll, success, failure, timeout, cancellation, persistence |
+| Tenant and project | stored asset carries the caller's organization and the chosen project |
+| Gates | 861 passed / 6 skipped / 867 in 100 files, twice, `tsc` clean, build 0 |
+
+Release blocker for this feature is a single owner action: supply the token through the secret form and
+approve one job's cost. Nothing else in the studio depends on it.

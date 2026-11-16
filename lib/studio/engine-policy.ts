@@ -14,6 +14,8 @@
  * editing, cutouts, rendering or narration down with it.
  */
 
+import { paidGenerationEnabled } from "./paid-switch";
+
 /** A process environment, narrowed so a test can pass a literal without inventing NODE_ENV. */
 export type Env = Record<string, string | undefined>;
 
@@ -23,7 +25,8 @@ export type StudioCapability =
   | "audio_edit"
   | "video_render"
   | "narration"
-  | "image_generate";
+  | "image_generate"
+  | "video_generate";
 
 export type EngineTier = "local" | "self_hosted" | "paid_api";
 
@@ -35,6 +38,8 @@ export type EngineDescriptor = {
   paid: boolean;
   /** The check that must pass before it may be used, or null when it needs no configuration. */
   configured: () => boolean;
+  /** Order inside a tier. Lower runs first; used to keep a chosen paid provider ahead of a fallback. */
+  priority?: number;
   note: string;
 };
 
@@ -52,9 +57,9 @@ const TIER_ORDER: Record<EngineTier, number> = { local: 0, self_hosted: 1, paid_
 /**
  * The engines this deployment knows about.
  *
- * The paid entry is deliberately a declaration without an implementation: there is no key, no endpoint
- * and no client code, so "configured" is false in every environment today. It exists so the refusal is
- * a real decision with a real reason rather than a feature that quietly is not there.
+ * `runcomfy-cloud` is a real implemented client (lib/studio/runcomfy.ts) that stays refused until an
+ * operator sets RUNCOMFY_API_TOKEN, enables paid generation, and cites an approval for the specific job.
+ * `cloud-gpu` remains a declaration: no client exists for it, so it can only ever refuse.
  */
 export function engineRegistry(env: Env = process.env): EngineDescriptor[] {
   return [
@@ -84,6 +89,16 @@ export function engineRegistry(env: Env = process.env): EngineDescriptor[] {
       note: "Piper neural TTS, MIT engine, voice licensed separately",
     },
     {
+      id: "runcomfy-cloud",
+      tier: "paid_api",
+      capabilities: ["image_generate", "video_generate"],
+      paid: true,
+      priority: 10,
+      // A token is necessary and not sufficient: the spend gate still refuses without an approval.
+      configured: () => Boolean(env.RUNCOMFY_API_TOKEN?.trim()),
+      note: "RunComfy Model API v2, per-request billing; needs a token, the operator switch and a per-job approval",
+    },
+    {
       id: "comfyui",
       tier: "self_hosted",
       capabilities: ["image_generate"],
@@ -96,6 +111,7 @@ export function engineRegistry(env: Env = process.env): EngineDescriptor[] {
       tier: "paid_api",
       capabilities: ["image_generate"],
       paid: true,
+      priority: 90,
       configured: () => Boolean(env.STUDIO_CLOUD_GPU_ENDPOINT?.trim()),
       note: "rented GPU capacity (RunPod, Vast.ai and similar); not implemented, declaration only",
     },
@@ -111,8 +127,11 @@ export type PaidPolicy = {
 
 export function paidPolicy(env: Env = process.env, approvalReference?: string | null): PaidPolicy {
   return {
-    enabled: env.STUDIO_ALLOW_PAID_PROVIDERS === "1",
-    approvalReference: (approvalReference ?? env.STUDIO_PAID_APPROVAL_REF ?? "").trim() || null,
+    // One switch for the whole platform: the spend gate and the engine ladder must not disagree, because
+    // a mismatch between two flags is exactly how a "disabled" provider gets selected anyway.
+    enabled: paidGenerationEnabled(env),
+    approvalReference:
+      (approvalReference ?? env.STUDIO_PAID_APPROVAL_REF ?? env.RUNCOMFY_APPROVAL_REF ?? "").trim() || null,
   };
 }
 
@@ -134,7 +153,12 @@ export function selectEngine(input: {
 
   const candidates = engineRegistry(env)
     .filter((engine) => engine.capabilities.includes(input.capability))
-    .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
+    .sort(
+      (a, b) =>
+        TIER_ORDER[a.tier] - TIER_ORDER[b.tier] ||
+        (a.priority ?? 50) - (b.priority ?? 50) ||
+        a.id.localeCompare(b.id)
+    );
 
   for (const engine of candidates) {
     if (engine.paid) {

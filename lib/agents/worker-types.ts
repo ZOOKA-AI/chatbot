@@ -64,6 +64,7 @@ export const INTERNAL_WRITE_TOOLS = new Set<string>([
   "studio_background_remove",
   "studio_video_render",
   "studio_promo_video",
+  "studio_ai_generate",
   "studio_narration",
   "studio_audio_edit",
 ]);
