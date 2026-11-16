@@ -24,5 +24,12 @@ export default defineConfig({
     // wall-clock time and buys a suite whose failures mean something. Without a
     // database the tests are pure and stay parallel.
     fileParallelism: !process.env.ZOOKA_TEST_PG_ADMIN,
+    // The database suites build a whole schema inside PGlite: migration pairs run
+    // up/down/up, and a filing cabinet of approval tests writes and re-reads real rows.
+    // On a loaded machine those exceed vitest's 5s default and fail as "Test timed out"
+    // while passing in isolation — a time budget, not a broken assertion. 20s leaves the
+    // assertion semantics untouched and stops the suite going red for the machine's mood.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
 });

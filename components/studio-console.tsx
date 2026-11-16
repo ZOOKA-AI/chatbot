@@ -209,6 +209,7 @@ export function StudioConsole() {
 
       <section className="flex flex-wrap items-center gap-2 rounded border border-white/10 p-3">
         <input
+          aria-label="Upload a file to the studio"
           ref={fileInput}
           type="file"
           accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,audio/mpeg,audio/wav,audio/mp4"

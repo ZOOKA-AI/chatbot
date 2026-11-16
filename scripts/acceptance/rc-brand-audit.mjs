@@ -25,7 +25,7 @@ const PAGES = [
   ["about", "/about", "ltr"],
   ["contact", "/contact", "ltr"],
   ["blog", "/blog", "ltr"],
-  ["compare", "/compare", "ltr"],
+  ["cookies", "/cookies", "ltr"],
   ["explore", "/explore", "ltr"],
   ["privacy", "/privacy", "ltr"],
   ["developer", "/developer", "ltr"],
@@ -53,7 +53,10 @@ await ctx.request.post(`${BASE}/api/auth/callback/credentials`, {
 const session = await (await ctx.request.get(`${BASE}/api/auth/session`)).json();
 
 const results = [];
-for (const [name, path, expectedDir] of PAGES) {
+for (const [name, path, dir] of PAGES) {
+ for (const lang of ["ar", "en"]) {
+  const expectedDir = lang === "ar" ? "rtl" : "ltr";
+  await ctx.addCookies([{ name: "zooka_lang", value: lang, url: BASE, httpOnly: false, secure: true, sameSite: "Lax" }]);
   const page = await ctx.newPage();
   const consoleErrors = [];
   page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 160)); });
@@ -101,11 +104,18 @@ for (const [name, path, expectedDir] of PAGES) {
       errorState: /something went wrong|application error|could not load|حدث خطأ/i.test(probe.text),
       hasContent: probe.text.trim().length > 120,
     };
-    await page.screenshot({ path: `${OUT}/${name}-${mode}.png`, fullPage: false });
+    // Screenshots: both viewports in Arabic, desktop in English, plus mobile on the
+    // pages where RTL/LTR mirrors an actual layout (landing, chat, commander, projects).
+    const wantsShot =
+      lang === "ar" ||
+      mode === "desktop" ||
+      ["landing", "workspace", "workspace-commander", "workspace-projects"].includes(name);
+    if (wantsShot) await page.screenshot({ path: `${OUT}/${name}-${lang}-${mode}.png`, fullPage: false });
   }
 
   const d = row.desktop;
   const m = row.mobile;
+  row.lang = lang;
   row.pass =
     d.status === 200 && m.status === 200 &&
     d.dir === expectedDir &&
@@ -130,8 +140,9 @@ for (const [name, path, expectedDir] of PAGES) {
     d.consoleErrors.length ? `console: ${d.consoleErrors[0]}` : null,
   ].filter(Boolean).join("; ");
   results.push(row);
-  console.log(`${row.pass ? "PASS" : "FAIL"}  ${name.padEnd(20)} ${path.padEnd(26)} ${row.notes}`);
+  console.log(`${row.pass ? "PASS" : "FAIL"}  ${lang}  ${name.padEnd(20)} ${path.padEnd(24)} ${row.notes}`);
   await page.close();
+ }
 }
 
 const passed = results.filter((r) => r.pass).length;

@@ -36,6 +36,35 @@ export async function listProjectDocuments(
     .limit(Math.min(Math.max(limit, 1), 100));
 }
 
+/**
+ * Every document this workspace owns, newest first.
+ *
+ * The index page needs a workspace-wide view, but the rule stays the same as everywhere else in
+ * this file: the organization is a bound parameter, so a document from another workspace is
+ * simply not in the result rather than being filtered out afterwards.
+ */
+export async function listWorkspaceDocuments(
+  organizationId: string,
+  limit = 100
+): Promise<Omit<DocumentRow, "body">[]> {
+  return db
+    .select({
+      id: projectDocument.id,
+      organizationId: projectDocument.organizationId,
+      projectId: projectDocument.projectId,
+      taskId: projectDocument.taskId,
+      title: projectDocument.title,
+      format: projectDocument.format,
+      bytes: projectDocument.bytes,
+      createdBy: projectDocument.createdBy,
+      createdAt: projectDocument.createdAt,
+    })
+    .from(projectDocument)
+    .where(eq(projectDocument.organizationId, organizationId))
+    .orderBy(desc(projectDocument.createdAt))
+    .limit(Math.min(Math.max(limit, 1), 200));
+}
+
 export async function getDocument(input: {
   organizationId: string;
   documentId: string;

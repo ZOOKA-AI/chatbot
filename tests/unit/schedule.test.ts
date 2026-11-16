@@ -170,7 +170,11 @@ suite("a due schedule becomes exactly one task", () => {
 });
 
 describe("upcoming occurrences are computed in the caller's timezone", () => {
-  test("weekday mornings in Dubai stay on weekday mornings", async () => {
+  // The 5s budget was the dynamic import of lib/agents/schedule (it pulls the db client in),
+  // not the assertion: under the full parallel suite that import costs several seconds on a
+  // loaded machine and the test failed with "Test timed out" while passing alone. The
+  // assertions are unchanged; only the import's time budget is.
+  test("weekday mornings in Dubai stay on weekday mornings", { timeout: 20_000 }, async () => {
     const { upcomingOccurrences } = (await import("@/lib/agents/schedule")) as typeof import("@/lib/agents/schedule");
     const upcoming = upcomingOccurrences(
       { cronExpression: "0 9 * * mon-fri", timezone: "Asia/Dubai" },
