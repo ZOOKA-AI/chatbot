@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { requireWorkspaceRole, getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   getAdminOverview,
@@ -66,6 +67,7 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
+  await connection();
   const context = await getWorkspaceContext();
   if (!context) {
     redirect("/login");
