@@ -984,3 +984,36 @@ music, and the generator selected the local editor as a generator. Both were fix
 Not done, and not claimed: ComfyUI has never executed a real model; no MP4 has been produced by an AI
 provider; text-to-speech, background removal, additional transition types, and the timeline UI beyond
 ordered scenes. No production deployment, no production migration, no merge, no purchase, no paid call.
+
+---
+
+## Milestone 015 — studio wired to the agent, cutouts, Arabic narration (DIRECTIVE #052)
+
+Date 16 November 2026. PR #95 head `1ed8f8a`. Local build, real form login, real ffmpeg, real rembg, real Piper.
+
+| ID | Requirement | Status | Evidence |
+|---|---|---|---|
+| 30.01 | Media ops in the agent worker | VERIFIED | six tools registered; writing ones named in INTERNAL_WRITE_TOOLS |
+| 30.02 | Media ops in the Action Catalog | VERIFIED | four `creative` actions, all `executable` derived from the registry |
+| 30.03 | Natural Arabic request → action | VERIFIED | `matchActionsForRequest` returns one action in priority order; 8 router tests |
+| 30.04 | Background removal, open source | VERIFIED | rembg 2.0.87 (MIT) + U2Net (Apache-2.0); downloaded cutout corner alpha 0, centre opaque |
+| 30.05 | Commercial licence verified | VERIFIED | U2Net Apache-2.0 default; BRIA CC-BY-NC-4.0 refused with 403; licence stored on the asset |
+| 30.06 | Arabic TTS, no paid API | VERIFIED | Piper (MIT) + `ar_JO-kareem-medium`; 6.84 s AAC narration downloaded and probed |
+| 30.07 | TTS licence disclosed | VERIFIED | status endpoint states engine MIT and that the voice model card must be checked |
+| 30.08 | ComfyUI endpoint, health, models, workflow, retrieval, errors | VERIFIED AGAINST FIXTURES | 14 tests incl. submit→poll→fetch, workflow error, deadline, no-tenant refusal, `no_models_installed` |
+| 30.09 | ComfyUI never exposed to customers | VERIFIED BY DESIGN | one owner-configured endpoint; no customer-supplied URL is ever fetched; tenant carried in `client_id` |
+| 30.10 | No ComfyUI dependency for deterministic work | VERIFIED | edit, cutout, render, narrate all run without it |
+| 30.11 | Setup guide | DONE | `docs/engineering/COMFYUI_SETUP.md` |
+| 30.12 | Real acceptance | 40/40 | `acceptance/studio-cutout.png`, `studio-narration.m4a`, `studio-render.mp4`, `studio-square.mp4` |
+| 30.13 | Gates | 784 passed / 6 skipped / 790 in 94 files | one intermittent failure in `schedule.test.ts`, see below |
+| 30.14 | Voice cloning | NOT BUILT | no cloning, no paid voice matching; not claimed |
+
+**Intermittent failure, reported not hidden:** the first full run failed `schedule.test.ts > two passes in
+the same second do not create two tasks` (783 passed, 1 failed, 6 skipped). The suite passed 18/18 three
+times in isolation and the whole suite then passed 784/6 with no failure. The test was not changed or
+weakened. Cause is not yet proven and it is recorded as intermittent.
+
+**Blocked:** AI image generation. No `COMFYUI_ENDPOINT` exists; `/api/studio/generate` returns 409 with
+`local-ffmpeg:ready, comfyui:endpoint_not_configured`. No GPU was purchased and no paid call was made.
+
+No production deployment, no production migration, no merge, no purchase, no external publishing.
