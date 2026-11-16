@@ -83,6 +83,13 @@ export type AgentIdentity = {
   environment: string;
   status: string;
   lastSeenAt: Date | null;
+  /**
+   * The tool assignment, exactly as stored.
+   *
+   * `null` is a real value (legacy identity, unrestricted). It must be selected: omitting it made every
+   * authenticated agent look policy-free, and the policy check read that absence as "allow everything".
+   */
+  allowedTools: string[] | null;
 };
 
 /** Resolves a bearer key to an active identity, or null. */
@@ -106,6 +113,7 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       lastSeenAt: agentIdentity.lastSeenAt,
+      allowedTools: agentIdentity.allowedTools,
     })
     .from(agentIdentity)
     .where(and(eq(agentIdentity.keyHash, hashKey(key)), eq(agentIdentity.status, "active")))
@@ -364,7 +372,12 @@ export async function createTask(input: CreateTaskInput) {
  */
 export async function firstAgentIdentity(organizationId: string) {
   const [row] = await db
-    .select({ id: agentIdentity.id, organizationId: agentIdentity.organizationId })
+    .select({
+      id: agentIdentity.id,
+      organizationId: agentIdentity.organizationId,
+      // The scheduler runs tools without an HTTP request, so it needs the policy here or it has none.
+      allowedTools: agentIdentity.allowedTools,
+    })
     .from(agentIdentity)
     .where(eq(agentIdentity.organizationId, organizationId))
     .limit(1);

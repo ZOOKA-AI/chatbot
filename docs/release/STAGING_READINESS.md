@@ -30,12 +30,21 @@ expected to fail, and none of them was converted into a passing test.
 
 ## Migrations
 
-18 pending pairs, `0028` through `0045`. Tested on a disposable clone of the pre-migration repository schema
-(39 tables before, 46 after).
+18 pending pairs, `0028` through `0045`. Measured on a disposable clone built only from the repository's own
+pre-pending migrations: 33 tables before, 46 after, so the set adds 13.
 
-- Up: 18/18 applied
-- Down: 18/18 rolled back, 46 → 34 tables, seeded `Organization` row preserved
-- Reapply: 18/18, back to 46 tables, row still present
+- Up: 18/18 applied, 33 → 46 tables
+- Down: 18/18 rolled back, 46 → 34 tables
+- Reapply: 18/18, back to 46 tables
+
+**Correction to an earlier report in this document.** A previous revision said the rollback dropped five tables
+"that existed in the drifted baseline" and gave the baseline as 39 tables. Both statements were wrong and are
+retracted here. Each of the five tables is created by its own migration (`0029`, `0034`, `0035`, `0038`, `0039`)
+and does not exist in the 33-table baseline, so dropping it on rollback is the correct inverse of creating it.
+Measured: applying only `0000`–`0027` yields 33 tables and none of the five.
+
+What is real, and now enforced, is the risk that a rollback drops rows written since the deploy. Every down file
+that drops a table therefore carries a forward-only guard that refuses when rows exist.
 - Row-level security enabled on 14 tables; 52 foreign keys present after the up pass
 - Constraint proof: inserting an approval with `status = 'consumed'` and no approving actor is rejected by
   `StudioSpendApproval_approved_names_actor`
@@ -49,10 +58,12 @@ Three defects were found by rehearsing rather than by reading:
 3. `0031`'s rollback cannot drop a cluster-wide role when other databases reference it. It now names the
    databases and scopes its assertion to what this database can guarantee.
 
-**Data-loss risk to accept deliberately:** the down files of `0029`, `0034`, `0035`, `0038` and `0039` drop
-`EmailVerificationToken`, `AgentExecution`, `SchedulerRun`, `AgentSchedule` and `AgentLaunchPlan`. Rolling back
-after real use discards those rows. That is a schema rollback working as written, and it is why the rollback
-plan is a release-window action, not a routine one.
+**Destructive rollbacks are now guarded, not merely documented.** Ten down files drop a table:
+`EmailVerificationToken`, `AgentExecution`, `SchedulerRun`, `AgentSchedule`, `AgentLaunchPlan`, `AgentProject`,
+`ProjectDocument`, `BrowserSession`/`BrowserEvidence`/`BrowserEvent`, `StudioAsset`, `StudioSpendApproval`.
+Each raises `forward_only` when its table holds rows, and leaves the table and rows untouched. Verified by
+execution: with one row present the rollback aborted and the row survived; with the table empty the drop
+proceeded. `tests/unit/rollback-guards.test.ts` fails if any new down file drops a table without the guard.
 
 ## Providers
 
@@ -81,6 +92,16 @@ No billable request was made to any image or video provider. No purchase, no top
   without a request, and a missing credential names itself. 16 tests.
 - Tenant isolation on the Commander tables is enforced by RLS plus route-level scoping, verified on a real
   PostgreSQL cluster with a non-owner runtime role.
+- **Agent tool policy (fixed 2026-11-16).** An agent's `allowedTools` was never loaded by the authentication
+  query, so every authenticated agent arrived without a policy and the rule read that absence as "unrestricted":
+  an allowlisted agent could run any tool, at the HTTP route and in the scheduler. Three collapses were closed:
+  the missing column in `authenticateAgent`, `agentAllowsTool(null)` returning `true`, and the action runner
+  coercing a missing policy to `null`. A stored `NULL` still means legacy-unrestricted and is reported as such;
+  an absent, malformed or unreadable policy now permits nothing. Enforced twice: the HTTP route answers 403
+  before any claim, and `runTask` re-checks the same policy itself so a task row inserted straight into the
+  queue cannot bypass it. Verified over real HTTP against the built server (403 disallowed, 403 malformed
+  policy, 200 allowed, 401 invalid key, `queue_empty` for another tenant while its owner saw and ran the same
+  task) and by 7 regression tests including the queue-insertion path.
 
 ## Costs
 

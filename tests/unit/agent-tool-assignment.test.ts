@@ -22,7 +22,18 @@ describe("describeToolAssignment", () => {
 
   test("null is reported as legacy_unrestricted, not as a normal configuration", () => {
     assert.equal(describeToolAssignment({ allowedTools: null }).mode, "legacy_unrestricted");
-    assert.equal(describeToolAssignment({}).mode, "legacy_unrestricted");
+  });
+
+  // An absent field is a read that did not carry the policy, which is not the same as a stored NULL.
+  // This assertion used to demand `legacy_unrestricted` for `{}`, which is the fail-open it now forbids.
+  test("an unloaded policy is unreadable and denies", () => {
+    assert.equal(describeToolAssignment({}).mode, "unreadable");
+    assert.equal(agentAllowsTool({}, "github_repo_inspect"), false);
+    assert.equal(agentAllowsTool({ allowedTools: undefined }, "github_repo_inspect"), false);
+  });
+
+  test("no identity at all denies", () => {
+    assert.equal(agentAllowsTool(null, "github_repo_inspect"), false);
   });
 
   test("a malformed value is restricted, not legacy", () => {

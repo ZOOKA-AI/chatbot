@@ -7,6 +7,7 @@ import {
   reportTask,
   startExecution,
 } from "@/lib/agents/command-center";
+import { agentAllowsTool } from "@/lib/agents/agent-tools";
 import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
 import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
@@ -36,7 +37,18 @@ import type { WorkerTool } from "@/lib/agents/worker-types";
  * - attempts are counted, so a broken task cannot be retried for ever.
  */
 
-type WorkerAgent = { id: string; organizationId: string };
+type WorkerAgent = {
+  id: string;
+  organizationId: string;
+  /**
+   * The agent's stored tool assignment.
+   *
+   * Required, not optional-by-accident: `runTask` enforces it before claiming, so a caller that forgets to
+   * pass it denies instead of running. The HTTP route checks the same policy first for a clean 403; this is
+   * the second gate, and it is the one that holds when the queue was filled by something other than the route.
+   */
+  allowedTools?: unknown;
+};
 
 import { browserTaskRun } from "./worker-tools/browser-task";
 import {
@@ -96,6 +108,21 @@ export async function runTask(
   }
 ): Promise<WorkerOutcome> {
   const tool = WORKER_TOOLS[input.tool];
+
+  // Second gate. The route already refused a disallowed tool, but the route is not the only way work
+  // arrives: a task row inserted straight into the queue reaches this function with no HTTP decision behind
+  // it. Enforcing here means the executor, not the caller, owns the answer.
+  if (!agentAllowsTool({ allowedTools: agent.allowedTools }, input.tool)) {
+    return {
+      ok: false,
+      taskId: input.taskId,
+      executionId: null,
+      status: "rejected",
+      tool: input.tool,
+      error: "tool_not_assigned",
+    };
+  }
+
   // Read-only is the default. A writing tool may run only when it is on the explicit internal
   // list and says of itself that it writes nothing but this platform's own tenant-scoped rows.
   const mayRun = Boolean(tool) && (tool.readOnly || (tool.internalWrite === true && INTERNAL_WRITE_TOOLS.has(tool.name)));

@@ -109,9 +109,13 @@ describe("the patch parser accepts the real configuration fields", () => {
 });
 
 describe("enforcement uses the stored assignment", () => {
-  test("an unrestricted agent may run any supported tool", () => {
+  test("only a stored NULL is unrestricted; an absent policy is not", () => {
+    // NULL is a legacy row written before the column existed: it really was unrestricted.
     assert.equal(agentAllowsTool({ allowedTools: null }, "github_repo_inspect"), true);
-    assert.equal(agentAllowsTool({ allowedTools: undefined }, "vercel_deployment_inspect"), true);
+    // An absent value means the policy never arrived (the authentication query omitted it), so it
+    // must not be read as permission. This is the shape of the fail-open that was fixed.
+    assert.equal(agentAllowsTool({ allowedTools: undefined }, "vercel_deployment_inspect"), false);
+    assert.equal(agentAllowsTool({}, "github_repo_inspect"), false);
   });
 
   test("a restricted agent may run only what it was assigned", () => {
@@ -188,6 +192,12 @@ suite("a saved configuration is what the database holds", () => {
       agentId: created.agent.id,
       patch: { allowedTools: null },
     });
+    if (!cleared) {
+      // Seen once in a full-suite run and not reproduced in isolation. If it returns, this prints the
+      // row's actual state so the cause is evidence rather than a guess.
+      const probe = await sql!`select id, "organizationId", status, "allowedTools" from "AgentIdentity" where id = ${created.agent.id}`;
+      assert.fail(`updateAgentConfig returned null; row reads ${JSON.stringify(probe[0] ?? null)}`);
+    }
     assert.equal((cleared as { allowedTools: unknown }).allowedTools, null);
   });
 

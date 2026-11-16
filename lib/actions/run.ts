@@ -168,7 +168,7 @@ export async function runAction(input: RunActionInput): Promise<RunActionResult>
 
   const plan_ = planActionExecution({
     template,
-    assignedTools: agent.allowedTools ?? null,
+    assignedTools: agent.allowedTools,
     agentStatus: agent.status,
     plan,
     agentRunsUsed: billing.usage.agentRuns,

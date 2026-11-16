@@ -35,8 +35,22 @@ const ORG_B = "22222222-2222-4222-8222-222222222222";
 const AGENT_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const AGENT_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
-const agentA = { id: AGENT_A, organizationId: ORG_A, role: "worker", scopes: ["task:claim", "task:report"] };
-const agentB = { id: AGENT_B, organizationId: ORG_B, role: "worker", scopes: ["task:claim", "task:report"] };
+// These fixtures test execution mechanics, so they declare the legacy unrestricted policy explicitly.
+// `allowedTools: null` is the only value that means "every tool"; omitting the field now denies.
+const agentA = {
+  id: AGENT_A,
+  organizationId: ORG_A,
+  role: "worker",
+  scopes: ["task:claim", "task:report"],
+  allowedTools: null as string[] | null,
+};
+const agentB = {
+  id: AGENT_B,
+  organizationId: ORG_B,
+  role: "worker",
+  scopes: ["task:claim", "task:report"],
+  allowedTools: null as string[] | null,
+};
 
 let admin: ReturnType<typeof postgres>;
 

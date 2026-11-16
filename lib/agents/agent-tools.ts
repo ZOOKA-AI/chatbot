@@ -81,24 +81,36 @@ export function validateToolSelection(input: unknown): ToolSelectionResult {
 /**
  * How a stored tool assignment should be read.
  *
- * `NULL` predates tool assignment: those identities were created when every tool was available,
- * so they keep that behaviour but are reported as `legacy_unrestricted` rather than passing as a
- * normal configuration. A emptied or malformed selection is `restricted` and permits nothing.
+ * There are four distinct states and they must not collapse into each other:
+ *
+ *   `NULL`        predates tool assignment. Those identities were created when every tool was available,
+ *                 so they keep that behaviour, reported as `legacy_unrestricted`, never as a normal config.
+ *   an array      a real selection. An empty one permits nothing.
+ *   anything else a malformed stored value. Permits nothing.
+ *   `undefined`   the field was never loaded. This is not a policy, it is a missing read, and it must not be
+ *                 mistaken for `NULL`. An earlier version of this file called both "unrestricted", which is
+ *                 how an agent with an explicit allowlist came to run tools it was never assigned.
  */
 export function describeToolAssignment(agent: { allowedTools?: unknown }): {
-  mode: "restricted" | "legacy_unrestricted";
+  mode: "restricted" | "legacy_unrestricted" | "unreadable";
   tools: string[];
 } {
+  if (!agent || typeof agent !== "object") return { mode: "unreadable", tools: [] };
   const raw = agent.allowedTools;
-  if (raw === null || raw === undefined) return { mode: "legacy_unrestricted", tools: [] };
+  // Absent means the load did not carry the policy. Deny rather than inherit a permissive default.
+  if (raw === undefined) return { mode: "unreadable", tools: [] };
+  // An explicit NULL is the only path to unrestrained behaviour, and it is reported as legacy.
+  if (raw === null) return { mode: "legacy_unrestricted", tools: [] };
   if (!Array.isArray(raw)) return { mode: "restricted", tools: [] };
   return { mode: "restricted", tools: raw.filter((tool): tool is string => typeof tool === "string") };
 }
 
 export function agentAllowsTool(agent: { allowedTools?: unknown } | null, tool: string): boolean {
-  if (!agent) return true;
-  const allowed = agent.allowedTools;
-  if (allowed === null || allowed === undefined) return true;
-  if (!Array.isArray(allowed)) return false;
-  return allowed.includes(tool);
+  // No identity is no permission. This used to return true, which made every caller that lost its
+  // agent object silently unrestricted.
+  if (!agent) return false;
+  const policy = describeToolAssignment(agent);
+  if (policy.mode === "legacy_unrestricted") return true;
+  if (policy.mode === "unreadable") return false;
+  return policy.tools.includes(tool);
 }
