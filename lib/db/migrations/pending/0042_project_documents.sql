@@ -58,8 +58,8 @@ ALTER TABLE "ProjectDocument" ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "ProjectDocument_tenant_isolation" ON "ProjectDocument";
 CREATE POLICY "ProjectDocument_tenant_isolation" ON "ProjectDocument"
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 
 -- Same grant posture as 0041: privileges reach the table, RLS decides the rows. Skipped when the
 -- runtime role does not exist in this database (a schema built from a partial chain).

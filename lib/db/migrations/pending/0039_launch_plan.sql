@@ -26,5 +26,5 @@ ALTER TABLE "AgentLaunchPlan" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "AgentLaunchPlan_tenant_isolation" ON "AgentLaunchPlan";
 CREATE POLICY "AgentLaunchPlan_tenant_isolation" ON "AgentLaunchPlan"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));

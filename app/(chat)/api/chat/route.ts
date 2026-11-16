@@ -122,6 +122,7 @@ async function POSTImpl(request: Request) {
     const missingProviderMessage = getMissingModelProviderMessage(lang, {
       aiGatewayApiKey: process.env.AI_GATEWAY_API_KEY,
       geminiApiKey: process.env.GEMINI_API_KEY,
+      groqApiKey: process.env.GROQ_API_KEY,
       vercel: process.env.VERCEL,
       isTest: isTestEnvironment,
     });

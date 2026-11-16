@@ -23,7 +23,7 @@ ALTER TABLE integration_connection ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON integration_connection;
 CREATE POLICY tenant_isolation ON integration_connection FOR SELECT
   USING (
-    workspace_id = current_setting('app.organization_id', true)
+    (workspace_id)::text = current_setting('app.organization_id', true)
   );
 
 COMMIT;

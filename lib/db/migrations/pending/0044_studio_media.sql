@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS "StudioAsset_project_idx" ON "StudioAsset" ("projectI
 ALTER TABLE "StudioAsset" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "StudioAsset_tenant_read" ON "StudioAsset";
 CREATE POLICY "StudioAsset_tenant_read" ON "StudioAsset" USING (
-  "organizationId" = current_setting('app.organization_id', true)
+  ("organizationId")::text = current_setting('app.organization_id', true)
 );
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zooka_runtime') THEN

@@ -37,8 +37,8 @@ ALTER TABLE "AgentExecution" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "AgentExecution_tenant_isolation" ON "AgentExecution";
 CREATE POLICY "AgentExecution_tenant_isolation" ON "AgentExecution"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 
 -- The runtime role may open and close an attempt, and may never delete one:
 -- an execution record that can be erased is not an audit trail.

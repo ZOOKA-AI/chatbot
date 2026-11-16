@@ -54,32 +54,32 @@ ALTER TABLE "AgentDeployment" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "AgentIdentity_tenant_isolation" ON "AgentIdentity";
 CREATE POLICY "AgentIdentity_tenant_isolation" ON "AgentIdentity"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 --> statement-breakpoint
 DROP POLICY IF EXISTS "AgentTask_tenant_isolation" ON "AgentTask";
 CREATE POLICY "AgentTask_tenant_isolation" ON "AgentTask"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 --> statement-breakpoint
 DROP POLICY IF EXISTS "AgentDecision_tenant_isolation" ON "AgentDecision";
 CREATE POLICY "AgentDecision_tenant_isolation" ON "AgentDecision"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 --> statement-breakpoint
 DROP POLICY IF EXISTS "AgentApproval_tenant_isolation" ON "AgentApproval";
 CREATE POLICY "AgentApproval_tenant_isolation" ON "AgentApproval"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 --> statement-breakpoint
 DROP POLICY IF EXISTS "AgentDeployment_tenant_isolation" ON "AgentDeployment";
 CREATE POLICY "AgentDeployment_tenant_isolation" ON "AgentDeployment"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 --> statement-breakpoint
 -- The request role. Every attribute that would void RLS is set explicitly, and
 -- the block refuses to continue if the role already exists with them wrong.

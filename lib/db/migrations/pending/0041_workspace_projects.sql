@@ -65,8 +65,8 @@ ALTER TABLE "AgentProject" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "AgentProject_tenant_isolation" ON "AgentProject";
 CREATE POLICY "AgentProject_tenant_isolation" ON "AgentProject"
   FOR ALL
-  USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 
 -- The runtime role needs privileges on the new table for the same reason it has them on the
 -- Commander tables: RLS filters rows, but privileges are what allow the role to reach the table

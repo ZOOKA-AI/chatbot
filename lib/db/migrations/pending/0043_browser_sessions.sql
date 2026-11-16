@@ -93,18 +93,18 @@ ALTER TABLE "BrowserEvidence" ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "BrowserSession_tenant_isolation" ON "BrowserSession";
 CREATE POLICY "BrowserSession_tenant_isolation" ON "BrowserSession"
-  FOR ALL USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  FOR ALL USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 
 DROP POLICY IF EXISTS "BrowserEvent_tenant_isolation" ON "BrowserEvent";
 CREATE POLICY "BrowserEvent_tenant_isolation" ON "BrowserEvent"
-  FOR ALL USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  FOR ALL USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 
 DROP POLICY IF EXISTS "BrowserEvidence_tenant_isolation" ON "BrowserEvidence";
 CREATE POLICY "BrowserEvidence_tenant_isolation" ON "BrowserEvidence"
-  FOR ALL USING ("organizationId" = current_setting('app.organization_id', true))
-  WITH CHECK ("organizationId" = current_setting('app.organization_id', true));
+  FOR ALL USING (("organizationId")::text = current_setting('app.organization_id', true))
+  WITH CHECK (("organizationId")::text = current_setting('app.organization_id', true));
 
 DO $$
 BEGIN
