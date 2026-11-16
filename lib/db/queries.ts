@@ -323,7 +323,10 @@ export async function getWorkspaceForUser(
   userId: string,
   organizationId?: string
 ) {
-  const [workspace] = await db
+  // Discovering which workspace a user belongs to happens before any tenant is
+  // known, so it cannot run on the runtime role under RLS: it uses the bootstrap
+  // connection (which is the shared handle while enforcement is off).
+  const [workspace] = await adminDb()
     .select({
       id: organization.id,
       name: organization.name,
