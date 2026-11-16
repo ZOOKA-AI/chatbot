@@ -849,3 +849,34 @@ real agent key, real stored document.
 
 Gates: 725 passed / 6 skipped / 731 in 90 files twice serially, `tsc` 0 errors, production build
 compiled. No production deployment, no production migration, no merge, no purchase.
+
+---
+
+## Milestone 011 — acceptance closed, and the schema now means what it says
+
+Date 16 November 2026. PR #95 head `65bc4e1`. Two workspaces, real form login, local production
+build over TLS.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 26.01 | Document created by the real worker | VERIFIED | `pending` → claimed with the agent's own key → execution `succeeded` → task `completed` by the worker |
+| 26.02 | Persists in PostgreSQL | VERIFIED | 1,017 characters, `bytes` equal to stored length |
+| 26.03 | Linked to the correct tenant and project | VERIFIED | `organizationId` + `projectId` + `taskId`, now enforced by a composite foreign key |
+| 26.04 | Opens through the authenticated viewer | VERIFIED | `/workspace/documents/[id]` renders the stored body |
+| 26.05 | Downloads successfully | VERIFIED | `text/markdown`, `attachment`, body length equal to stored |
+| 26.06 | Accessible after logout and login | VERIFIED | after re-authentication the same document opens |
+| 26.07 | Inaccessible to another tenant | VERIFIED | second workspace: 404 on read, list and download; viewer renders nothing |
+| 26.08 | No session means no document | VERIFIED | 307 to `/login`, after correcting a test that followed the redirect and read the login page as 200 |
+| 26.09 | Allowlist cannot bypass tool permission | VERIFIED | `agentAllowsTool` refuses; one grant never implies another |
+| 26.10 | Allowlist cannot bypass approval | VERIFIED | refused before the decision, claimable after approval, unclaimable after rejection |
+| 26.11 | Tenant coupling in the database | FIXED THIS CYCLE | a cross-tenant project reference was accepted before; the composite key now refuses it |
+| 26.12 | Migration 0042 apply / rollback / reapply | VERIFIED | table, index, policy and both constraints checked at each step |
+| 26.13 | RLS isolation measured | VERIFIED | non-owner role: org-a 1, org-b 1, org-c 0 |
+| 26.14 | Quality gates twice | VERIFIED | 731 passed / 6 skipped / 737 in 91 files, twice, `tsc` 0 |
+| 26.15 | Release readiness record | DONE | `docs/engineering/RELEASE_READINESS.md`: inventory, deployment, rollback, security, limits |
+| 26.16 | AI model execution adapter (#046 P9) | NOT STARTED | no provider credential exists; model settings are stored and labelled as not executed |
+| 26.17 | Natural-language action routing | NOT STARTED | next candidate |
+| 26.18 | Customer onboarding acceptance | NOT STARTED | project and agent creation still go through the API and console |
+| 26.19 | Browser isolation and control, command center | NOT STARTED | deliberately not simulated |
+
+No production deployment, no production migration, no merge, no purchase. Both PRs remain Draft.
