@@ -142,6 +142,33 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 42 — Directive #033: schedule lifecycle and launch dashboard (16 Nov 2026)
+
+PR #95 `9ca89a1`, PR #92 this entry. Both Draft. No production change, no migration applied, no purchase.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 42.1 | Schedule create / list / get / edit / delete | VERIFIED | added to existing `lib/agents/schedule.ts`; 10 PostgreSQL tests |
+| 42.2 | Unparseable cron refused before storage | VERIFIED | `invalid_cron`, asserted at store and endpoint level |
+| 42.3 | Never-firing expression refused before storage | VERIFIED | `cron_never_fires` via `nextRunAfter`, same function the pass uses |
+| 42.4 | Unknown timezone refused | VERIFIED | `invalid_timezone` |
+| 42.5 | Cadence or timezone edit retimes the next run | VERIFIED | hourly → daily lands at 04:00 Dubai, asserted |
+| 42.6 | Title-only edit leaves the next run alone | VERIFIED | retimed only when cadence or zone sent |
+| 42.7 | Delete removes the schedule, keeps history | VERIFIED | completed task survives deletion, asserted |
+| 42.8 | Next-run preview from the scheduler's engine | VERIFIED | `/api/agents/schedules/preview`; no second parser in the browser |
+| 42.9 | Real controls on /workspace/schedules | VERIFIED (build) | compiled route; pause/resume, edit, delete-with-confirmation, per-schedule history |
+| 42.10 | Asia/Dubai default timezone | VERIFIED | default in store, API and UI select |
+| 42.11 | Authorization: member cannot write | VERIFIED | 403 at POST and at DELETE |
+| 42.12 | Cross-tenant: 404 not 403 | VERIFIED | another workspace's schedule id returns 404 |
+| 42.13 | Launch dashboard shows persisted states | VERIFIED (build) | `/workspace/launch`, reads GET /api/agents/launch, shows gates and dependencies |
+| 42.14 | No control marks a launch step complete | MAINTAINED | no customer-facing route can advance a step |
+| 42.15 | Agent management UI (milestone 006) | NOT IMPLEMENTED | no page built |
+| 42.16 | Browser acceptance of any new page | UNTESTED | build-verified only; no deployed session exercised |
+| 42.17 | Full gates, twice | VERIFIED | 610 passed / 6 skipped, 77 files, identical both runs; tsc 0; build compiled |
+
+**Blocker carried forward:** Docker still absent, so milestone 027 acceptance remains unprovable
+here. Registrar actions remain unexercised (sandbox egress blocked by Namecheap).
+
 ## Stage 41 — Directive #031 phase 1: the launch plan becomes reachable (16 Nov 2026)
 
 PR #95 `119e72a`, PR #92 this entry. Both Draft. No production change, no migration applied, no purchase.
