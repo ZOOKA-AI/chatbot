@@ -12,6 +12,9 @@ import { createHash, randomBytes } from "node:crypto";
 
 const BASE = process.env.ACCEPT_BASE_URL || "https://localhost:3543";
 const DB = process.env.ACCEPT_DB;
+const ACTION = process.env.ACCEPT_ACTION || "workspace_readiness_report";
+const TOOL = process.env.ACCEPT_TOOL || "workspace_readiness_inspect";
+const INPUTS = JSON.parse(process.env.ACCEPT_INPUTS || '{"label":"Execution proof"}');
 const EMAIL = process.env.ACCEPT_EMAIL;
 const PASSWORD = process.env.ACCEPT_PASSWORD;
 if (!DB || !EMAIL || !PASSWORD) {
@@ -50,10 +53,10 @@ try {
   const [identity] = await sql`
     insert into "AgentIdentity" ("organizationId","slug","displayName","role","keyHash","allowedTools","status")
     values (${orgId}, ${`exec-proof-${Date.now().toString().slice(-6)}`}, 'Execution proof', 'researcher',
-            ${keyHash}, ${JSON.stringify(["github_repo_inspect"])}::jsonb, 'active')
+            ${keyHash}, ${JSON.stringify([TOOL])}::jsonb, 'active')
     returning id`;
   agentId = identity.id;
-  check("agent created and assigned only the GitHub tool", Boolean(agentId), agentId);
+  check("agent created holding only the required tool", Boolean(agentId), agentId);
 
   // ---- 3. a project, through the customer API
   const projectName = `Execution proof ${Date.now().toString().slice(-6)}`;
@@ -71,8 +74,8 @@ try {
   check("agent attached to the project", assigned.ok(), String(assigned.status()));
 
   // ---- 5. the action, submitted as the customer submits it
-  const run = await context.request.post(`${BASE}/api/actions/repo_health_report/run`, {
-    data: { projectId, inputs: { repo: "ZOOKA-AI/chatbot" } },
+  const run = await context.request.post(`${BASE}/api/actions/${ACTION}/run`, {
+    data: { projectId, inputs: INPUTS },
   });
   const runBody = await run.json().catch(() => ({}));
   check("action accepted and a task queued", run.status() === 201 && Boolean(runBody.taskId), `${run.status()} task=${runBody.taskId ?? "-"}`);
@@ -82,7 +85,7 @@ try {
   const worker = await fetch(`${BASE}/api/agents/worker`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${agentKey}` },
-    body: JSON.stringify({ tool: "github_repo_inspect", taskId: runBody.taskId }),
+    body: JSON.stringify({ tool: TOOL, taskId: runBody.taskId }),
   });
   const workerBody = await worker.json().catch(() => ({}));
   check("worker accepted the task for its own agent", worker.ok, `${worker.status} ${workerBody.status ?? ""}`);
@@ -109,8 +112,8 @@ try {
   check("project detail shows the execution evidence", /Execution evidence \(1\)/.test(detail), (detail.match(/Execution evidence \(\d+\)/) || [""])[0]);
 
   // ---- 9. the same request twice is the same task
-  const again = await context.request.post(`${BASE}/api/actions/repo_health_report/run`, {
-    data: { projectId, inputs: { repo: "ZOOKA-AI/chatbot" } },
+  const again = await context.request.post(`${BASE}/api/actions/${ACTION}/run`, {
+    data: { projectId, inputs: INPUTS },
   });
   const againBody = await again.json().catch(() => ({}));
   check("a duplicate submission does not queue new work", againBody.deduplicated !== true, `deduplicated=${String(againBody.deduplicated)}`);

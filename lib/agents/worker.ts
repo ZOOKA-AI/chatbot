@@ -9,6 +9,7 @@ import {
 } from "@/lib/agents/command-center";
 import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
+import { workspaceReadinessInspect } from "@/lib/agents/worker-tools/workspace-readiness";
 import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
 import type { WorkerTool } from "@/lib/agents/worker-types";
 
@@ -36,6 +37,7 @@ type WorkerAgent = { id: string; organizationId: string };
 export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
+  [workspaceReadinessInspect.name]: workspaceReadinessInspect,
 };
 
 export class WorkerRefusal extends Error {

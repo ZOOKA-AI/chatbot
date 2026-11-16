@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 710 passed, 6 skipped, 716 total, 88 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 716 passed, 6 skipped, 722 total, 89 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -274,3 +274,57 @@ integration (#041), the browser isolation contract and lifecycle (#042 P2), the 
 panel (#042 P3), and the provider comparison (#042 P4). The reason is capacity in this working
 session, not a technical block. No infrastructure was purchased, no provider was activated, no
 production deployment or migration was performed, and both pull requests remain draft.
+
+### Milestone 009 — first real customer result — COMPLETE
+
+The gap left by milestone 008 was that every executable action needed a credential the platform did
+not have. The fix was not a mock: it was an action that needs no external account at all.
+
+**`workspace_readiness_inspect`, an internal read-only tool.** It reads the caller's own agents,
+projects, tasks, schedules and executions and writes a short report of what needs attention. Five
+SELECTs, all scoped by `organizationId`, no write of any kind, no network call. It resolves its
+connection through the same lazy handle as the rest of the Commander, so inside a tenant
+transaction it is subject to that tenant's policies.
+
+**A trap found while wiring it.** The catalog's input validator compiles template patterns with
+`new RegExp(pattern)` and no `u` flag, so a `\p{L}` class silently degrades into literal
+characters and rejects valid input. The action now uses an explicit range, and the reason is
+recorded next to it. A second guard, the explicit per-tool payload mapping, refused the new tool
+until a mapping was added: the catalog will not guess what a tool receives.
+
+**A stale process cost one bad reading.** The first acceptance attempt after adding the mapping
+still returned 500 `no payload mapping for tool`, because an older server instance still held the
+port and answered instead of the new build. `lsof` did not show it; `fuser -k` cleared it. The
+lesson is recorded because the failure looked like a code defect when it was a process defect.
+
+**Acceptance, 14 of 14, on a local production build over TLS with a real form login:**
+
+| Stage | Evidence |
+|---|---|
+| Sign in through the form | session for `owner@acceptance.local` |
+| Agent with exactly one tool | created through the API |
+| Project | 201 |
+| Agent assignment | 200 |
+| Action accepted | 201, task `ceec4c6a`, status `pending` |
+| Not claimed by the UI | still `pending` before the worker runs |
+| Worker claim | 200, authenticated with the agent's own key |
+| Tool execution | a real report: `تقرير الجاهزية — 7 agent(s) (7 active) · 13 project(s) · 9 task(s) (2 pending) · 7 execution(s)` |
+| Task left `pending` by the worker, not the UI | `completed` |
+| Result shown to the customer | `Tasks (1)` and `Execution evidence (1)` |
+| Duplicate submission | no second task |
+| Tenant isolation | zero executions on this project from another workspace |
+
+Reload persistence is covered by the detail page being fetched fresh from the database after
+execution, and by `acceptance/execution-project.png`, captured from the authenticated page.
+
+**Directive #044, item by item.**
+Item 01: the proxy exception is limited to exact path matches for `/api/agents/worker` and
+`/api/agents/heartbeat`, and both still call `authenticateAgent`, which returns null for an invalid,
+revoked or disabled agent key and answers 401. Every other `/api` path still requires a session.
+Item 02: implemented as the readiness report rather than "Create Project Document". It is the
+smaller honest step: the document action needs a tenant-scoped document store and a viewer in the
+workspace, which is Phase 2 work and was not attempted. Item 03: 14/14 above. Item 04: no GitHub
+connection exists and none of the credentials reachable here is accepted by the REST API, so
+`repo_health_report` still ends in an honest 401. Items 05, 06, 07 (browser isolation, human
+control, command center) are not started; the browser runtime needs a provider decision from the
+owner and no paid infrastructure was activated.

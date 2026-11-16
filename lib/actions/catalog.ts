@@ -121,6 +121,48 @@ const DRAFTS: TemplateDraft[] = [
     ],
   },
   {
+    id: "workspace_readiness_report",
+    version: 1,
+    category: "operations",
+    title: {
+      ar: "تقرير جاهزية مساحة العمل",
+      en: "Workspace readiness report",
+    },
+    description: {
+      ar: "يقرأ سجلات مساحتك أنت — الوكلاء والمشاريع والمهام والجداول والتنفيذات — ويخبرك بما يحتاج انتباهك. لا يحتاج أي حساب خارجي ولا مفتاح، ولا يقرأ بيانات مساحة أخرى، ولا يغيّر شيئًا.",
+      en: "Reads your own workspace records — agents, projects, tasks, schedules and executions — and tells you what needs attention. No external account or key is needed, it never reads another workspace, and it changes nothing.",
+    },
+    inputs: [
+      {
+        key: "label",
+        type: "text",
+        required: true,
+        label: { ar: "اسم التقرير", en: "Report label" },
+        help: {
+          ar: "اسم قصير يميّز هذا التقرير، من ٣ إلى ٦٠ حرفًا.",
+          en: "A short name for this report, 3 to 60 characters.",
+        },
+        placeholder: "تقرير الاثنين",
+        // An explicit range rather than \p{L}: the validator compiles patterns without the
+        // unicode flag, so a \p class silently degrades into literal characters there.
+        pattern: "^[A-Za-z0-9\u0600-\u06FF _-]{3,60}$",
+      },
+    ],
+    responsibleRole: "researcher",
+    requiredTools: ["workspace_readiness_inspect"],
+    requiredIntegrations: [],
+    approval: "none",
+    workflow: [
+      { ar: "التحقق من اسم التقرير", en: "Validate the report label" },
+      { ar: "قراءة سجلات مساحتك من قاعدة البيانات", en: "Read your workspace records from the database" },
+      { ar: "حفظ القراءة كدليل تنفيذ يمكن مراجعته", en: "Store the reading as evidence you can re-read" },
+    ],
+    outputs: [
+      { ar: "ملخص مكتوب لما يحتاج انتباهك", en: "A written summary of what needs attention" },
+      { ar: "أرقام مقروءة من سجلاتك الفعلية مع وقت القياس", en: "Counts read from your real records, with the time measured" },
+    ],
+  },
+  {
     id: "deployment_status_report",
     version: 1,
     category: "engineering",
@@ -245,6 +287,9 @@ export function actionPayload(
   }
   if (tool === "vercel_deployment_inspect") {
     return { tool, payload: { project: inputs.project ?? "" } };
+  }
+  if (tool === "workspace_readiness_inspect") {
+    return { tool, payload: { label: inputs.label ?? "" } };
   }
   // Unreachable while `executable` is derived from isKnownTool, and refused rather than guessed
   // if a new tool is added to the registry without a mapping here.
