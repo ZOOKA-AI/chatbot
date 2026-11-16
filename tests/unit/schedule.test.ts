@@ -55,9 +55,18 @@ suite("a due schedule becomes exactly one task", () => {
 
   test("two passes in the same second do not create two tasks", async () => {
     const now = new Date();
+    // Counted from this database, before and after, for these two schedules only.
+    //
+    // The number the function returns is the total it created across every due schedule in
+    // the database, including any left due by another suite sharing this server. Trusting that
+    // total made this test fail intermittently while the scheduler behaved correctly: the
+    // counter was right and the assertion was measuring somebody else's rows.
+    const before = await sql!`select count(*)::int as n from "AgentTask"
+      where "scheduleId" in (${SCHEDULE_A}, ${SCHEDULE_B})`;
+
     // Concurrent materialisation is the real question: the insert relies on the unique
     // ("scheduleId", "scheduledFor") index, so the loser writes nothing rather than failing.
-    const [first, second] = await Promise.all([
+    await Promise.all([
       mod!.materialiseDueSchedules({ now, limit: 10 }),
       mod!.materialiseDueSchedules({ now, limit: 10 }),
     ]);
@@ -66,7 +75,34 @@ suite("a due schedule becomes exactly one task", () => {
       where "scheduleId" in (${SCHEDULE_A}, ${SCHEDULE_B}) group by "scheduleId"`;
     assert.equal(rows.length, 2, "one task per schedule, one per workspace");
     for (const row of rows) assert.equal(row.n, 1, `schedule ${row.scheduleId} created ${row.n} tasks`);
-    assert.equal(first.created + second.created, 2, "only two tasks were created in total");
+
+    const after = await sql!`select count(*)::int as n from "AgentTask"
+      where "scheduleId" in (${SCHEDULE_A}, ${SCHEDULE_B})`;
+    assert.equal(after[0].n - before[0].n, 2, "exactly two tasks were created for these two schedules");
+  });
+
+  test("another workspace's due schedule does not change what this pass created for ours", async () => {
+    // The regression that caused the intermittent failure: the returned `created` counts every due
+    // schedule in the database, so a schedule left due by another suite inflated it. The counts must
+    // therefore be read per schedule, and this test states that explicitly by planting a stranger.
+    const STRANGER = "9f1e0000-0000-4000-8000-00000000dead";
+    await sql!`delete from "AgentTask" where "scheduleId" = ${STRANGER}`;
+    await sql!`delete from "AgentSchedule" where id = ${STRANGER}`;
+    await sql!`insert into "AgentSchedule"
+      (id, "organizationId", title, instruction, tool, "cronExpression", timezone, enabled, "missedRunPolicy", "nextRunAt")
+      values (${STRANGER}, 'org-stranger', 'stranger', 'inspect', 'github_repo_inspect', '0 * * * *', 'Asia/Dubai', true, 'skip', ${new Date(Date.now() - 90_000)})`;
+    // Give ours a fresh due slot too, so both are materialised in the same pass.
+    await sql!`update "AgentSchedule" set "nextRunAt" = ${new Date(Date.now() - 60_000)} where id in (${SCHEDULE_A}, ${SCHEDULE_B})`;
+    await sql!`delete from "AgentTask" where "scheduleId" in (${SCHEDULE_A}, ${SCHEDULE_B})`;
+
+    const result = await mod!.materialiseDueSchedules({ now: new Date(), limit: 50 });
+    assert.ok(result.created >= 3, `the pass saw the stranger too, created=${result.created}`);
+
+    const mine = await sql!`select count(*)::int as n from "AgentTask" where "scheduleId" in (${SCHEDULE_A}, ${SCHEDULE_B})`;
+    assert.equal(mine[0].n, 2, "exactly one task per own schedule, whatever else was due");
+
+    await sql!`delete from "AgentTask" where "scheduleId" = ${STRANGER}`;
+    await sql!`delete from "AgentSchedule" where id = ${STRANGER}`;
   });
 
   test("nextRunAt advances and the task keeps its slot", async () => {

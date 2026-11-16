@@ -51,10 +51,11 @@ export async function resolveAssetRef(organizationId: string, reference: string,
       .limit(1);
     return row ?? null;
   }
-  // Wildcards are stripped from a typed name, and a name that was nothing but wildcards is refused:
-  // an empty pattern would otherwise match every asset in the workspace.
-  const needle = ref.replace(/[%_\\]/g, "").trim();
-  if (needle.length < 1) return null;
+  // A typed name is escaped, not stripped. Deleting the wildcards broke every label containing an
+  // underscore ("edit:background_remove" became "edit:backgroundremove" and matched nothing), which is
+  // how the end-to-end run found this: the SQL was right and the needle had been quietly rewritten.
+  const needle = ref.replace(/[\\%_]/g, (character) => `\\${character}`);
+  if (needle.replace(/\\/g, "").trim().length < 1) return null;
   const [row] = await db
     .select()
     .from(studioAsset)

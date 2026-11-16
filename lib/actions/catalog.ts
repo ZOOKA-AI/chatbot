@@ -443,6 +443,76 @@ const DRAFTS: TemplateDraft[] = [
     ],
   },
   {
+    id: "studio_promo_video",
+    version: 1,
+    category: "creative",
+    title: { ar: "فيديو ترويجي بتعليق عربي ولوجو", en: "Promo film with Arabic narration and logo" },
+    description: {
+      ar: "ينتج فيديو ترويجيًا قصيرًا من نص عربي تكتبه: مشاهد بهوية شركتك، ولوجو الشركة على كل مشهد، وتعليق صوتي عربي حقيقي، ثم ملف MP4 قابل للتشغيل. الإنتاج حتمي على خادمك بـffmpeg وPiper، بلا أي توليد صور بالذكاء الاصطناعي وبلا مزوّد مدفوع.",
+      en: "Produces a short promo film from your Arabic script: brand scene cards, your company logo on every scene, a real Arabic narration, and a playable MP4. Deterministic production on your own server with ffmpeg and Piper, with no AI image generation and no paid provider.",
+    },
+    inputs: [
+      {
+        key: "script",
+        type: "text",
+        required: true,
+        label: { ar: "نص التعليق الصوتي", en: "Narration script" },
+        help: {
+          ar: "جملة أو جملتان بالعربية تُروى في الفيديو، من 8 إلى 400 حرف.",
+          en: "One or two Arabic sentences spoken in the film, 8 to 400 characters.",
+        },
+        placeholder: "شركة تنظيف في الإمارات، جودة تستحق الثقة، واحجز اليوم.",
+        pattern: "^[\\s\\S]{8,400}$",
+      },
+      {
+        key: "scenes",
+        type: "text",
+        required: true,
+        label: { ar: "عناوين المشاهد", en: "Scene titles" },
+        help: {
+          ar: "عنوان لكل مشهد، مفصولة بفاصلة. يمكن إضافة عنوان فرعي بعد النقطتين: عنوان: عنوان فرعي.",
+          en: "One title per scene, separated by commas. A subtitle may follow a colon: title: subtitle.",
+        },
+        placeholder: "خدمات تنظيف احترافية، فريق موثوق، احجز الآن",
+        pattern: "^[\\s\\S]{2,400}$",
+      },
+      {
+        key: "logo",
+        type: "text",
+        required: false,
+        label: { ar: "لوجو الشركة", en: "Company logo" },
+        help: {
+          ar: "اسم صورة اللوجو في مكتبتك. يُوضع على كل مشهد.",
+          en: "The name of the logo image in your library. It is placed on every scene.",
+        },
+        placeholder: "لوجو",
+        pattern: "^[A-Za-z0-9\\u0600-\\u06FF _:.\\-]{0,80}$",
+      },
+      {
+        key: "aspect",
+        type: "text",
+        required: false,
+        label: { ar: "المقاس", en: "Aspect" },
+        help: { ar: "9:16 للستوري، 1:1 للمربع، 16:9 للأفقي. الافتراضي 9:16.", en: "9:16 for stories, 1:1 for square, 16:9 for landscape. Default 9:16." },
+        placeholder: "9:16",
+        pattern: "^(9:16|1:1|16:9)$",
+      },
+    ],
+    responsibleRole: "designer",
+    requiredTools: ["studio_promo_video"],
+    requiredIntegrations: [],
+    approval: "none",
+    workflow: [
+      { ar: "توليد التعليق الصوتي العربي أولًا وقياس مدته", en: "Synthesise the Arabic narration first and measure its length" },
+      { ar: "رسم مشهد لكل عنوان بهوية الشركة ولوجوها", en: "Draw one frame per title in the brand style with the logo" },
+      { ar: "تقسيم مدة الصوت على المشاهد وتركيب MP4 ثم قياس الناتج", en: "Divide the voice across the scenes, render the MP4 and measure it" },
+    ],
+    outputs: [
+      { ar: "ملف MP4 قابل للتشغيل والتنزيل", en: "A playable, downloadable MP4" },
+      { ar: "ملف الصوت العربي منفصلًا إن أردت إعادة الاستخدام", en: "The Arabic audio on its own, reusable" },
+    ],
+  },
+  {
     id: "studio_narration",
     version: 1,
     category: "creative",
@@ -609,6 +679,27 @@ export function actionPayload(
       },
     };
   }
+  if (tool === "studio_promo_video") {
+    // The scene list is the customer's own titles; a "title: subtitle" pair is split here so the
+    // form stays one field instead of six.
+    const scenes = String(inputs.scenes ?? "")
+      .split(/[,،\n|]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const [title, subtitle] = part.split(/[:：]/);
+        return { title: (title ?? "").trim(), subtitle: (subtitle ?? "").trim() || null };
+      });
+    return {
+      tool,
+      payload: {
+        script: inputs.script ?? "",
+        scenes,
+        logo: inputs.logo ?? "",
+        aspect: inputs.aspect || "9:16",
+      },
+    };
+  }
   if (tool === "studio_narration") {
     return { tool, payload: { text: inputs.script ?? "" } };
   }
@@ -629,6 +720,9 @@ const REQUEST_KEYWORDS: Array<{ action: string; match: RegExp }> = [
   // Ordered by what the request is *about*. A film made of photos is about the film, and a caption
   // inside it is a step, so the video wins over the image; a cutout is about the background.
   { action: "studio_background_remove", match: /خلفي|خلفية|اقتطع|افصل|background/i },
+  // A film that also names a voice or a logo is the promo composition, not a bare render: it is the
+  // action that actually produces the voice and the logo the customer asked for.
+  { action: "studio_promo_video", match: /(فيديو|مقطع|ريلز|video|reel).*(تعليق صوتي|صوت| narration|voice|لوجو|logo)|(تعليق صوتي|لوجو|logo).*(فيديو|video)/i },
   { action: "studio_video_render", match: /فيديو|مقطع|ريلز|موشن|video|reel|mp4/i },
   { action: "studio_narration", match: /تعليق صوتي|نطق|تسجيل صوتي|voiceover|narration|tts/i },
   { action: "studio_image_edit", match: /صورة|صور|قص|تكبير|تصغير|مقاس|طباعة|نص على|image|photo|resize|crop/i },

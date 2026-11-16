@@ -130,3 +130,53 @@ both rendering and cutouts.
 
 Generation remains blocked: no `COMFYUI_ENDPOINT`. Setup is documented in `COMFYUI_SETUP.md`; nothing in
 the deterministic path depends on it.
+
+## Promo composition (Directives #053 and #054)
+
+One Arabic sentence now produces a finished film without any provider:
+
+> «اعمل فيديو ترويجي قصير بتعليق عربي ولوجو شركتي»
+
+The sentence routes to `studio_promo_video` (a film that also names a voice or a logo is the promo
+composition, not a bare render). The tool synthesises the Arabic narration first, because its measured
+length is what sets the film's length, then draws one brand frame per scene with the logo on every
+frame, then renders the MP4. Frames are drawn in Python with `arabic_reshaper` and `python-bidi`, not with
+ffmpeg's `drawtext`: drawtext writes code points in order and produces disconnected, reversed Arabic.
+
+Measured acceptance, `scripts/acceptance/studio-promo-acceptance.mjs`, 29/29:
+
+| # | Assertion | Evidence |
+|---|---|---|
+| 1–5 | sign-in, workspace, logo upload, action validated, task pending | 201, `pending` |
+| 6–7 | worker executed, real media became a film | 200, asset id |
+| 8–11 | authenticated download, playable MP4 1080×1920, AAC narration, duration | 280,179 B, h264+aac, 7.47 s |
+| 12–13 | persisted in the library, task completed with evidence | `video … ready` |
+| 14a–14c | belongs to the chosen project, row bytes equal file bytes, studio page opens | project id, 280,179 = 280,179 |
+| 14–16 | duplicate deduplicated, unassigned tool refused, non-media upload refused | same task id, 409, 400 |
+| 17 | another tenant cannot read it | file 404, absent from list |
+| 18 | cancelled task is not executed | 409 |
+| 19–23 | ffmpeg ready, cutout transparent, Arabic voice real, ComfyUI blocked, no generation claimed | corner alpha 0, 2.915 s voice |
+| 24–25 | ladder is LOCAL → SELF_HOSTED → EXTERNAL_PAID, no paid engine chosen | 6 decisions, tiers local/none |
+
+Hosting limits that still apply: no paid provider is enabled and no generation is claimed. The film is
+deterministic production from the customer's words and logo, never invented imagery, and the UI says so.
+
+### Scheduling flake — root cause and fix
+
+`schedule.test.ts` failed intermittently because `materialiseDueSchedules` returns `created` counting
+**every** due schedule in the database, while the assertion expected only its own two. Any schedule left
+due by another suite on the shared database inflated the number. The fix counts rows per schedule id, and
+`tests/unit/schedule.test.ts` now plants a stranger's due schedule and asserts it changes nothing:
+exactly one task per own schedule, whatever else was due. Verified 19/19 five consecutive times and in
+both full gates (810 passed / 6 skipped, twice).
+
+### Quality gates
+
+| Gate | Files | Tests | Skipped |
+|---|---|---|---|
+| Run 1 | 94 passed, 2 skipped | 810 passed | 6 |
+| Run 2 | 94 passed, 2 skipped | 810 passed | 6 |
+
+`tsc --noEmit` clean, `next build` exit 0, both runs identical and with the same environment
+(`ZOOKA_TEST_PG_*` pointing at the local PostgreSQL cluster only). No production deployment, no
+production migration, no merge, no purchase, no publishing.

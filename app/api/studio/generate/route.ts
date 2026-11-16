@@ -3,6 +3,7 @@ import { z } from "zod";
 import { callerOrganizationId, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { providerStatuses, providerRegistry } from "@/lib/studio/providers";
+import { selectEngine } from "@/lib/studio/engine-policy";
 import { assertQuota, store, StudioError } from "@/lib/studio/media";
 
 /**
@@ -27,6 +28,16 @@ async function POSTHandler(request: Request) {
 
   const parsed = Body.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return json({ error: "invalid_request" }, 400);
+
+  // The policy decides before any provider is contacted: a paid engine cannot be selected without
+  // an enabled switch and a cited approval, and the local editor is never offered as a generator.
+  const decision = selectEngine({
+    capability: "image_generate",
+    approvalReference: typeof request.headers.get("x-studio-approval") === "string" ? request.headers.get("x-studio-approval") : null,
+  });
+  if (!decision.chosen) {
+    return json({ error: "no_engine_for_generation", reason: decision.reason, refused: decision.refused }, 409);
+  }
 
   const statuses = await providerStatuses();
   // "Ready" is not enough: the local provider is ready and cannot generate. Only a generative

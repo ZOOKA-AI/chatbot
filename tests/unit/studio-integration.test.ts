@@ -90,7 +90,15 @@ describe("an Arabic request maps to a real action", () => {
 
   test("every catalog action that claims creative work is backed by a studio tool", () => {
     const creative = listActions().filter((action) => action.category === "creative");
-    assert.equal(creative.length, 4);
+    // Pinned by id rather than by count: a count catches an addition but not a silent swap, and this
+    // list is the promise that every creative action has a real tool behind it.
+    assert.deepEqual(creative.map((action) => action.id).sort(), [
+      "studio_background_remove",
+      "studio_image_edit",
+      "studio_narration",
+      "studio_promo_video",
+      "studio_video_render",
+    ]);
     for (const action of creative) {
       assert.equal(action.executable, true);
       assert.ok(action.requiredTools.every((tool) => tool.startsWith("studio_")));
@@ -148,6 +156,17 @@ describe("an asset reference resolves only inside its own workspace", () => {
     await seed(ORG_A, "مقطع", "audio");
     assert.equal(await resolveAssetRef(ORG_A, "مقطع", "image"), null);
     assert.ok(await resolveAssetRef(ORG_A, "مقطع", "audio"));
+  });
+
+  test("a label with an underscore resolves: escaping must not rewrite the name", async () => {
+    // The end-to-end run found this: the needle used to have its underscores deleted, so a label like
+    // "edit:background_remove" was searched as "edit:backgroundremove" and never matched.
+    await seed(ORG_A, "edit:background_remove");
+    const found = await resolveAssetRef(ORG_A, "edit:background_remove");
+    assert.ok(found, "an underscore in a label is part of the name");
+    assert.equal(found?.label, "edit:background_remove");
+    const partial = await resolveAssetRef(ORG_A, "background_remove");
+    assert.ok(partial, "and a fragment of it still matches");
   });
 
   test("a wildcard in the label cannot widen the search", async () => {

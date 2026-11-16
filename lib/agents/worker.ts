@@ -10,6 +10,7 @@ import {
 import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
 import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
+import { studioPromoVideo } from "@/lib/agents/worker-tools/studio-promo";
 import { workspaceReadinessInspect } from "@/lib/agents/worker-tools/workspace-readiness";
 import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
 import { INTERNAL_WRITE_TOOLS } from "@/lib/agents/worker-types";
@@ -56,6 +57,7 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   studio_image_edit: studioImageEdit,
   studio_background_remove: studioBackgroundRemove,
   studio_video_render: studioVideoRender,
+  studio_promo_video: studioPromoVideo,
   studio_narration: studioNarration,
   studio_audio_edit: studioAudioEdit,
 };
