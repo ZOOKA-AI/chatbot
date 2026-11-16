@@ -79,6 +79,15 @@ async function step(name, fn) {
   }
 }
 
+let previewSql = null;
+async function previewDb() {
+  if (previewSql) return previewSql;
+  if (!process.env.PREVIEW_DB_URL) return null;
+  const { neon } = await import("@neondatabase/serverless");
+  previewSql = neon(process.env.PREVIEW_DB_URL);
+  return previewSql;
+}
+
 const cookies = jar();
 
 // Journey 1 — registration. The app registers through a server action, not a REST endpoint,
@@ -156,20 +165,39 @@ await step("chat", async () => {
   }
 });
 
-// Journey 5 — agent execution: one real turn, then a reload-equivalent read of the same page.
+// Journey 5 — agent execution: one real turn, then proof that both messages
+// were written to Postgres (the memory lane the agent reads back).
 await step("agent execution", async () => {
+  const sql = await previewDb();
+  const probe = `acceptance probe ${Date.now()}: reply with the single word ok`;
+  const before = sql ? Number((await sql`select count(*)::int as n from "AgentMessage"`)[0].n) : null;
+
   const res = await fetch(`${BASE}/api/agent`, {
     method: "POST",
     headers: headers({ "content-type": "application/json", cookie: cookies.header() }),
-    body: JSON.stringify({ message: "acceptance probe: reply with the single word ok" }),
+    body: JSON.stringify({ message: probe }),
   });
   const text = await res.text();
-  if (res.status === 200) {
-    record("agent execution", "PASS", `POST /api/agent 200, ${text.length} bytes back`);
-  } else if (res.status === 429) {
-    record("agent execution", "FAIL", "plan limit reached (429) — quota, not a defect");
+
+  if (res.status !== 200) {
+    const reason = res.status === 429 ? "plan limit reached (429) — quota, not a defect" : `POST /api/agent ${res.status}, first 120 chars: ${text.slice(0, 120)}`;
+    record("agent execution", "FAIL", reason);
+    return;
+  }
+
+  if (!sql) {
+    record("agent execution", "PASS", `POST /api/agent 200, ${text.length} bytes back (persistence unmeasured: PREVIEW_DB_URL unset)`);
+    return;
+  }
+
+  const after = await sql`select count(*)::int as n from "AgentMessage"`;
+  const stored = await sql`select role, content from "AgentMessage" where content = ${probe} order by role`;
+  const roles = stored.map((r) => r.role).join("+") || "none";
+  const grew = Number(after[0].n) - before;
+  if (grew >= 2 && stored.length === 1) {
+    record("agent execution", "PASS", `POST /api/agent 200; AgentMessage ${before}->${after[0].n} (written roles: ${roles}); assistant row confirmed`);
   } else {
-    record("agent execution", "FAIL", `POST /api/agent ${res.status}, first 120 chars: ${text.slice(0, 120)}`);
+    record("agent execution", "FAIL", `POST /api/agent 200 but persistence unproven: rows ${before}->${after[0].n}, probe rows ${stored.length}`);
   }
 });
 
