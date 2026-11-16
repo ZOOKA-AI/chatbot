@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
+import { isNavigation, requestIdFrom } from "./lib/http/request-id";
 
 /**
  * Routes that require an authenticated session. Anything not listed here is
@@ -26,6 +27,13 @@ const PROTECTED_PREFIXES = [
 ];
 
 export async function proxy(request: NextRequest) {
+  const requestId = requestIdFrom(request.headers);
+  const response = await route(request, requestId);
+  response.headers.set("x-request-id", requestId);
+  return response;
+}
+
+async function route(request: NextRequest, requestId: string) {
   const { pathname } = request.nextUrl;
 
   if (
@@ -140,6 +148,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Agent command center: an agent presents a bearer key, not a browser
+  // session, and every route under /api/agents authenticates it through
+  // resolveCaller(). Without this the machine half of the API was unreachable:
+  // the request was bounced to /login before the key was ever read.
+  if (
+    pathname.startsWith("/api/agents/") &&
+    /^Bearer\s+\S+/i.test(request.headers.get("authorization") ?? "")
+  ) {
+    return NextResponse.next();
+  }
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
@@ -164,10 +183,9 @@ export async function proxy(request: NextRequest) {
   );
 
   if (!token && isProtectedRoute) {
-    // An agent presents its own bearer key instead of a browser session. These two endpoints
-    // authenticate that key themselves and answer 401 when it is absent or invalid, so letting
-    // the request reach them is not an authentication bypass: without a valid key nothing runs.
-    // Every other /api route still requires a session here.
+    // An agent presents its own bearer key instead of a browser session. These
+    // endpoints authenticate that key themselves and answer 401 when it is
+    // absent or invalid, so letting the request reach them is not a bypass.
     const presentsAgentKey =
       (request.headers.get("authorization") ?? "").toLowerCase().startsWith("bearer ") ||
       Boolean(request.headers.get("x-agent-key"));
@@ -176,6 +194,23 @@ export async function proxy(request: NextRequest) {
     );
     if (presentsAgentKey && isAgentEndpoint) {
       return NextResponse.next();
+    }
+
+    const isApi = pathname === "/api" || pathname.startsWith("/api/");
+    // Code calling an endpoint gets an answer it can act on: a redirect made
+    // fetch() follow it and hand the caller 200 + HTML, which reads as success.
+    // Browser navigations still go to the login screen.
+    if (isApi && !isNavigation(request.headers)) {
+      return NextResponse.json(
+        {
+          code: "unauthorized:auth",
+          message: "You need to sign in before continuing.",
+          error: "unauthorized",
+          requestId,
+        },
+        { status: 401, headers: { "cache-control": "private, no-store" } }
+      );
+    }
     }
     // Guest auto-provisioning disabled: require real sign-up
     return NextResponse.redirect(new URL("/login", request.url));
