@@ -142,6 +142,32 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 41 — Directive #031 phase 1: the launch plan becomes reachable (16 Nov 2026)
+
+PR #95 `119e72a`, PR #92 this entry. Both Draft. No production change, no migration applied, no purchase.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 41.1 | Authenticated launch endpoint | VERIFIED | POST/GET `/api/agents/launch`; 8 route tests |
+| 41.2 | Plan persisted per tenant | VERIFIED | `AgentLaunchPlan`, tenant policy in the 0030 shape, down file |
+| 41.3 | Nothing born completed | VERIFIED | fresh plan holds zero COMPLETED steps, asserted directly |
+| 41.4 | Completion blocked by unfinished dependency | VERIFIED | `setStepState` returns `dependency_not_complete:...` |
+| 41.5 | Plan status derived, not stored | VERIFIED | summary cannot disagree with steps; completed only when every step is |
+| 41.6 | Approval steps flagged before they are due | VERIFIED | `AWAITING_APPROVAL` set at creation |
+| 41.7 | Customer steps carry their reason | VERIFIED | `BLOCKED` with the provider-identity gate text |
+| 41.8 | Cross-tenant read and write refused | VERIFIED | other workspace gets `null`, 404 on the route, and cannot advance a step |
+| 41.9 | Chat tool registry | VERIFIED | `createBusinessLaunchPlan`, `readBusinessLaunchPlan` wired into the chat tool set |
+| 41.10 | No completion tool exists | MAINTAINED | no route or tool advances a step; a model cannot invent done |
+| 41.11 | Store resolves inside the tenant transaction | VERIFIED | same lazy proxy as the Commander; shared connection only when nothing published |
+| 41.12 | Schedule deletion / cancellation | NOT IMPLEMENTED | pause and resume exist; delete does not |
+| 41.13 | Schedule and agent management UI | NOT IMPLEMENTED | no controls built |
+| 41.14 | Full gates, twice | VERIFIED | 584 passed / 6 skipped, 76 files, identical both runs; tsc 0; build compiled |
+
+**Reader note:** the commander-concurrency failures cited in this directive were root-caused
+in stage 39: twelve test files pinned an explicit migration list that predated 0038, so the
+schema they built lacked the columns the ORM declares. Fixed in the fixtures, not the
+assertions.
+
 ## Stage 40 — Directive #029 phase C, first slice: launch plan and domain truth (16 Nov 2026)
 
 PR #95 `d0ba954`, PR #92 this entry. Both Draft. No production change, no purchase, no credential used.
