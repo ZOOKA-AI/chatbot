@@ -1145,3 +1145,26 @@ Gates at `ebc40c0`: 890 passed / 6 skipped / 896 in 102 files, twice, identical;
 Verdict: **NO**. A new customer cannot complete a real AI task today. Production is `19473c0d30` without the
 gateway, no provider credential exists, and 17 migrations are pending. The blockers and their remediation order
 are in `docs/audits/ZOOKA_RELEASE_BLOCKERS.md`.
+
+## 2026-11-16 — Release remediation pass (Directive #063/#064/#065/#067)
+
+Implementation commit `e6fbacbe8d2a` on `feat/commander-tenant-scope` (Draft PR #95).
+
+- Financial gate rebuilt as a database row: ownership, provider, exact model, ceiling, expiry, single-use
+  consumption, uniqueness, and an `uncertain` state for a provider outcome that was never read back. 19 tests.
+  The paid path now spends the approval before it submits, so a replay cannot bill twice.
+- ComfyUI outbound calls guarded per redirect hop; cloud metadata refused unconditionally; a private-network
+  worker requires an explicit acknowledgement and is refused in production. 11 tests.
+- The worker can call a model: `lib/agents/model-invocation.ts` authorises workspace, agent status, model and
+  credential before the network. 16 tests. One real completion executed on a free tier returned `ZOOKA`
+  (161 tokens). No paid inference.
+- Migration rehearsal on a disposable PostgreSQL found three real defects, all fixed: `0030` could not be
+  re-run, `0031`'s rollback left the runtime role with grants on six tables, and `0031`'s role drop failed on a
+  cluster where other databases referenced it. Final rehearsal: 18/18 up, 18/18 down, 18/18 reapply, seeded row
+  preserved across every pass.
+- Gates: 935 passed, 6 skipped, 941 total (105 files) twice, identical; `tsc --noEmit` clean twice; production
+  build successful twice (151/151 pages).
+
+Not done, and not claimed: no cloud provider credential exists, so RunComfy and fal.ai are unconfigured; no
+migration was applied to Preview or Production; no staging database exists; all three Gemini keys are rejected
+by the provider; there is no v0 workspace access.
