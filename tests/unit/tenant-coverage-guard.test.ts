@@ -41,6 +41,10 @@ const EXEMPT: Record<string, string> = {
     "registration and sign-in run before any session or organisation exists",
   "app/(auth)/auth.ts": "Auth.js configuration; reads users by email pre-session",
   "app/(chat)/admin/page.tsx": "owner-gated administration, intentionally cross-tenant",
+  "app/(chat)/workspace/admin/growth/page.tsx":
+    "owner-only growth console; reads the rewards ledger across tenants and never writes",
+  "app/(chat)/workspace/admin/growth/actions.ts":
+    "owner-only growth writes behind requireWorkspaceRole(owner); every change is audited",
   "app/admin/referrals/page.tsx": "owner-gated administration, intentionally cross-tenant",
   "app/api/admin/migrate/route.ts": "token-gated schema migration, no tenant scope",
   "app/api/admin/overview/route.ts": "owner-gated platform overview across all tenants",

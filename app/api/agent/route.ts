@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 import { hasLaunchSlot, isLaunchProgramOpen } from "@/lib/billing/launch-program";
+import { awardFirstTask } from "@/lib/growth/referrals";
 
 /**
  * Server-side bridge to the private n8n agent (the "brain").
@@ -175,6 +176,11 @@ async function POSTImpl(request: Request) {
   } catch {
     // Memory writes must never lose an answer that was already produced.
   }
+
+  await awardFirstTask({
+    userId: context.user.id,
+    organizationId: context.organizationId,
+  }).catch(() => undefined);
 
   try {
     await trackWorkspaceUsage({
