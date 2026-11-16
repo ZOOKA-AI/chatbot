@@ -272,3 +272,46 @@ Reproducible reasons, in order of force:
 What a customer *can* do today without a developer: register, log in, read pages, use the chat model, and
 create deterministic studio artefacts in a self-hosted deployment. What they cannot do is generate an image
 with an AI model from a cloud provider, because the product has no credential and no deployment to do it in.
+
+---
+
+## 13. Addendum, 16 November 2026 12:5x Dubai — B9 and B10 closed
+
+The findings in §§12.1 and 12.2 are kept as written, because an audit that edits its own findings afterwards
+is worth nothing. This addendum records what changed, with the commit that changed it.
+
+Implementation commit: **`ebc40c0`** on `feat/commander-tenant-scope` (Draft PR #95). The audit branch stayed
+documentation only, as Directive #061 §14 requires.
+
+| Defect | Root cause | Fix | Evidence |
+|---|---|---|---|
+| B9, artefact under the wrong project | every studio tool stored through `projectId: source.projectId`, so the result inherited the source asset's project | the task payload's project is passed by every tool and preferred by the media layer | the new asset row carries `a5ed6682…`, the project that was asked for; the library lists it; the success run asserts it |
+| B10, download 500 | `POST /api/agents/worker` returned the summary but not the tool's `evidence`, so the caller had no asset id and requested `/assets/null/file` | the worker returns `evidence` with its answer | download 200, 91,591 bytes, recorded mime type |
+
+**The customer path, re-run at `ebc40c0` after the fix: 13/13.**
+
+```
+PASS an Arabic request queues a real task — 201 20fe5f1f-…
+PASS the agent executes the studio tool — 200 Edited "edit:resize" … 1080×1920
+PASS the run reports the asset it produced
+PASS the produced asset is in the workspace library — image 1080×1920
+PASS the agent's edit used the size the customer asked for — 1080×1920
+PASS the result names the original it came from — 50a32f01-…
+PASS the agent's output downloads as real bytes — 200 91591 bytes
+PASS an unassigned studio tool is refused, not silently run — 409 no_assigned_agent
+PASS editing, cutouts, rendering and audio are decided locally
+PASS generation is refused with named reasons, not faked
+PASS the platform reports itself self-sufficient without a GPU — []
+PASS paid engines are off with no approval cited
+```
+
+The last check was failing at `8cfb747` for an environment reason, not a code reason: `STUDIO_PIPER_VOICE`
+was not set, so the narration engine reported a gap. With the voice configured the engine set is complete and
+no GPU is needed. That distinction is recorded rather than blurred: the code was already right, the deployment
+was not configured.
+
+Gates at `ebc40c0`: 890 passed / 6 skipped / 896 in 102 files, twice, identical; `tsc` clean; `next build` 0.
+
+**What this does not change.** The verdict stays NO. The customer path now works completely *in this
+workspace*, against a local server. It still does not exist in production (`main` has none of it), still has
+no provider credential, and still needs 17 pending migrations. B1, B2, B4, B5, B6, B7 and B8 are untouched.
