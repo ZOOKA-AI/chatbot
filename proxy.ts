@@ -7,6 +7,13 @@ import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
  * either public or a genuine 404, so unknown URLs reach Next.js and render the
  * not-found page instead of bouncing visitors to the login screen.
  */
+/**
+ * Endpoints an autonomous agent calls with its own key rather than a browser session.
+ * Kept to the narrowest list: the worker and its heartbeat, both of which authenticate the
+ * key themselves and refuse with 401 when it is missing or invalid.
+ */
+const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
+
 const PROTECTED_PREFIXES = [
   "/chat",
   "/settings",
@@ -157,6 +164,19 @@ export async function proxy(request: NextRequest) {
   );
 
   if (!token && isProtectedRoute) {
+    // An agent presents its own bearer key instead of a browser session. These two endpoints
+    // authenticate that key themselves and answer 401 when it is absent or invalid, so letting
+    // the request reach them is not an authentication bypass: without a valid key nothing runs.
+    // Every other /api route still requires a session here.
+    const presentsAgentKey =
+      (request.headers.get("authorization") ?? "").toLowerCase().startsWith("bearer ") ||
+      Boolean(request.headers.get("x-agent-key"));
+    const isAgentEndpoint = AGENT_KEY_ENDPOINTS.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    );
+    if (presentsAgentKey && isAgentEndpoint) {
+      return NextResponse.next();
+    }
     // Guest auto-provisioning disabled: require real sign-up
     return NextResponse.redirect(new URL("/login", request.url));
   }

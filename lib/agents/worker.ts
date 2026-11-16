@@ -160,7 +160,11 @@ export async function runTask(
     const result = await tool.run({
       organizationId: agent.organizationId,
       agentId: agent.id,
-      payload: input.payload ?? {},
+      // The task is the record of what was asked for. A caller that claims by task id, or one
+      // that lets the worker take the next queued task, gets that task's own inputs; an explicit
+      // payload from the caller wins only when it is actually provided, so a scheduler can still
+      // re-run a task with different inputs.
+      payload: input.payload ?? ((task?.payload as Record<string, unknown> | null) ?? {}),
       signal: controller.signal,
       fetchImpl: input.fetchImpl ?? fetch,
     });

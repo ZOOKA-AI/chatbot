@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 707 passed, 6 skipped, 713 total, 87 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 710 passed, 6 skipped, 716 total, 88 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -224,3 +224,53 @@ of failing silently. No assertion was weakened.
 - Project membership beyond owner/admin. There is no per-project member list; access follows the
   workspace role, and the UI hides write controls from members. A finer model is not built.
 - Mobile layout beyond a responsive check at one viewport; no device matrix was run.
+
+### Milestone 008 — real execution lifecycle — PARTIAL, one external blocker
+
+Two defects were found by running the lifecycle instead of reasoning about it, and both were real.
+
+**The worker was unreachable over HTTP.** `proxy.ts` treated every `/api/*` path as session-only,
+so an agent presenting its bearer key to `/api/agents/worker` was redirected to `/login` with a
+307. No task could ever be claimed in a real deployment, even though the route itself authenticates
+the key and answers 401 without a valid one. The proxy now lets a request carrying an agent
+credential reach `/api/agents/worker` and `/api/agents/heartbeat` only, and both still refuse
+without a valid key, so nothing is bypassed. Every other `/api` path still requires a session.
+
+**The task's own payload was discarded.** The worker route passed only the request body, so a
+worker claiming a task the Action Catalog had queued ran the tool with `{}`. The tool then answered
+"malformed repository name" instead of reading the repository the customer chose. The worker now
+defaults to the payload of the task it actually claimed, and an explicit caller payload still wins
+when one is sent. Four contract tests pin the split: the route never invents a payload, the queue
+claim resolves a real task, an explicit body passes through, and an empty queue runs nothing.
+
+**Evidence the inputs now flow.** Same action, same tool, before and after the fix: before,
+`Malformed repository name.`; after, `GitHub refused the metadata request (401).` The second is a
+real outbound request made with the repository the task carried, which is what the fix was for.
+
+**Where the lifecycle stands.** `scripts/acceptance/action-execution.mjs`, run against a local
+production build over TLS with a real form login, 11 of 14 checks passed:
+signed in through the form; an agent created holding only `github_repo_inspect`; project created
+through the customer API (201); agent attached (200); action accepted and a task queued (201,
+status `pending`); the worker authenticated with its own key and claimed it; an execution row was
+written; the task moved out of `pending` because the worker moved it, not the UI; the project page
+shows `Tasks (1)` and `Execution evidence (1)`; a duplicate submission is deduplicated; and no
+execution on that project belongs to another workspace.
+
+**The blocker, stated exactly.** The tool reached `api.github.com` and was refused with 401: the
+only GitHub credential available in this sandbox is a git credential that the REST API does not
+accept, and the workspace has no GitHub connection. So the run ends in a persisted, honest failure
+rather than a persisted success. No mock was substituted to manufacture a pass, and no fake
+provider was introduced.
+
+**Verified supporting behaviour.** The workspace had no `Subscription` row at all, and the runner
+correctly refused with `plan_does_not_include_agent_runs` before creating any task; a plan row was
+then added to the test database and the action was accepted. A refusal that only appears because
+the data is missing is a working guard, not a bug.
+
+### Directive #041 and #042, priorities 2–6 — NOT STARTED
+
+Not attempted in this milestone, and nothing is claimed for them: the operations dashboard
+integration (#041), the browser isolation contract and lifecycle (#042 P2), the customer browser
+panel (#042 P3), and the provider comparison (#042 P4). The reason is capacity in this working
+session, not a technical block. No infrastructure was purchased, no provider was activated, no
+production deployment or migration was performed, and both pull requests remain draft.
