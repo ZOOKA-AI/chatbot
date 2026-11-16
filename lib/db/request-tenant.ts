@@ -1,6 +1,5 @@
 import "server-only";
 
-import { connection } from "next/server";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { tenantScopeEnabled } from "@/lib/db/tenant";
 import { runInTenantTransaction } from "@/lib/db/tenant-client";
@@ -89,10 +88,6 @@ export function withRequestTenantHandler<H extends RouteHandler>(handler: H): H 
  */
 export function withTenantPage<C extends (props: any) => any>(Component: C): C {
   const wrapped = async (props: any) => {
-    // cacheComponents forbids `export const dynamic`, so connection() is how a
-    // segment declares that it needs a request. Every tenant page does.
-    await connection();
-
     if (!tenantScopeEnabled()) {
       return Component(props);
     }
