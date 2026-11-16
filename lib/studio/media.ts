@@ -447,6 +447,8 @@ export async function renderVideo(input: {
 export async function editAudio(input: {
   organizationId: string;
   assetId: string;
+  /** The project the work belongs to. Takes precedence over the source asset's project. */
+  projectId?: string | null;
   op?: "trim" | "gain" | "mix";
   start?: number;
   seconds?: number;
@@ -495,7 +497,7 @@ export async function editAudio(input: {
     .values({
       id: outId,
       organizationId: input.organizationId,
-      projectId: source.projectId,
+      projectId: input.projectId ?? source.projectId,
       kind: "audio",
       source: "derived",
       storagePath: outPath,

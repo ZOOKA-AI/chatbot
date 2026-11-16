@@ -82,6 +82,8 @@ export type WorkerOutcome = {
   tool: string;
   error?: string;
   summary?: string;
+  /** What the tool produced, so a caller can name the artefact instead of guessing it. */
+  evidence?: Record<string, unknown> | null;
 };
 
 export async function runTask(
@@ -318,6 +320,12 @@ export async function runTask(
       executionId,
       status: "completed",
       tool: tool.name,
+      /*
+       * The tool's own evidence travels back with the answer, not only into the execution row.
+       * A caller that receives "it worked" without the artefact id has to guess which asset was made,
+       * and guessing is how a result gets attached to the wrong thing.
+       */
+      evidence: (result.evidence as Record<string, unknown> | undefined) ?? null,
       summary: result.summary,
     };
   } catch (error) {

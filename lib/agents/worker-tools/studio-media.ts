@@ -136,6 +136,18 @@ export function readImageInstruction(instruction: string): ImageOperation | null
   return null;
 }
 
+/**
+ * The project the customer queued the work for.
+ *
+ * Every studio tool stores what it makes under this project, not under the project of whichever source
+ * asset happened to be picked. The distinction matters: an edit of a logo that lives in one project, asked
+ * for inside another, belongs to the project that asked.
+ */
+function projectOf(payload: Record<string, unknown>): string | null {
+  const raw = payload.projectId;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
 export const studioImageEdit: WorkerTool = {
   name: "studio_image_edit",
   readOnly: false,
@@ -161,7 +173,7 @@ export const studioImageEdit: WorkerTool = {
       };
     }
     try {
-      const produced = await editImage({ organizationId, assetId: asset.id, operation: resolved });
+      const produced = await editImage({ organizationId, assetId: asset.id, operation: resolved, projectId: projectOf(payload) });
       return {
         ok: true,
         summary: `Edited "${asset.label ?? asset.id.slice(0, 8)}" with ${resolved.op}. The result is ${produced.width}×${produced.height} and downloads from the studio.`,
@@ -190,6 +202,7 @@ export const studioBackgroundRemove: WorkerTool = {
       const produced = await removeBackground({
         organizationId,
         assetId: asset.id,
+        projectId: projectOf(payload),
         model: payload.model ? String(payload.model) : null,
       });
       const operation = (produced.operation ?? {}) as { model?: string; license?: string };
@@ -239,6 +252,7 @@ export const studioVideoRender: WorkerTool = {
     try {
       const produced = await renderVideo({
         organizationId,
+        projectId: projectOf(payload),
         aspect,
         scenes,
         audioAssetId: audio?.id ?? null,
@@ -269,7 +283,7 @@ export const studioNarration: WorkerTool = {
     const text = String(payload.text ?? "").trim();
     if (text.length < 2) return { ok: false, summary: "The narration text is empty.", error: "empty_script" };
     try {
-      const produced = await synthesizeArabic({ organizationId, text, label: "tts:narration" });
+      const produced = await synthesizeArabic({ organizationId, text, projectId: projectOf(payload), label: "tts:narration" });
       return {
         ok: true,
         summary: `Narrated ${text.length} characters of Arabic into ${Number(produced.durationSeconds ?? 0).toFixed(1)} seconds of audio.`,
@@ -299,6 +313,7 @@ export const studioAudioEdit: WorkerTool = {
       const produced = await editAudio({
         organizationId,
         assetId: asset.id,
+        projectId: projectOf(payload),
         op,
         start: payload.start === undefined ? undefined : Number(payload.start),
         seconds: payload.seconds === undefined ? undefined : Number(payload.seconds),
