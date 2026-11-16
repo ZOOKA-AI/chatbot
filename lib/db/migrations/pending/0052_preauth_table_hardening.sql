@@ -24,16 +24,24 @@ BEGIN
 END $$;
 
 -- 1. Affiliate: global reference data, readable but never writable at runtime.
-ALTER TABLE "Affiliate" ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS affiliate_reference_read ON "Affiliate";
-CREATE POLICY affiliate_reference_read ON "Affiliate"
-  FOR SELECT TO zooka_runtime USING (true);
-
+-- The policy names the runtime role, so it must only be created where that role
+-- exists: a fresh or self-hosted database has no zooka_runtime and would otherwise
+-- fail here (verified by rehearsal on an isolated PostgreSQL 17 instance).
 DO $$
 BEGIN
+  IF to_regclass('public."Affiliate"') IS NULL THEN
+    RAISE NOTICE '0052: Affiliate absent, skipped';
+    RETURN;
+  END IF;
+  EXECUTE 'ALTER TABLE "Affiliate" ENABLE ROW LEVEL SECURITY';
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zooka_runtime') THEN
+    DROP POLICY IF EXISTS affiliate_reference_read ON "Affiliate";
+    CREATE POLICY affiliate_reference_read ON "Affiliate"
+      FOR SELECT TO zooka_runtime USING (true);
     GRANT SELECT ON "Affiliate" TO zooka_runtime;
     REVOKE INSERT, UPDATE, DELETE ON "Affiliate" FROM zooka_runtime;
+  ELSE
+    RAISE NOTICE '0052: zooka_runtime absent, Affiliate policy skipped (no runtime role in this database)';
   END IF;
 END $$;
 
@@ -51,6 +59,12 @@ BEGIN
     '_selfhost_migrations'
   ]
   LOOP
+    -- _selfhost_migrations is created by the migration runner itself, so it is
+    -- absent on a database built from the SQL files alone. Skip rather than fail.
+    IF to_regclass(format('public.%I', t)) IS NULL THEN
+      RAISE NOTICE '0052: % absent, skipped', t;
+      CONTINUE;
+    END IF;
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_runtime_deny', t);
     EXECUTE format('REVOKE ALL ON %I FROM PUBLIC', t);
