@@ -1168,3 +1168,56 @@ Implementation commit `e6fbacbe8d2a` on `feat/commander-tenant-scope` (Draft PR 
 Not done, and not claimed: no cloud provider credential exists, so RunComfy and fal.ai are unconfigured; no
 migration was applied to Preview or Production; no staging database exists; all three Gemini keys are rejected
 by the provider; there is no v0 workspace access.
+
+## 2026-11-16 — The agent allowlist could not deny (Directive #070/#071/#073)
+
+PR #95 head `1413fbb`. Feature freeze held: no feature, no architecture change, only the security defect and
+the release documents.
+
+**What was wrong.** `authenticateAgent` never selected `allowedTools`. Every authenticated agent therefore
+arrived with no policy, `agentAllowsTool` read "no value" as "unrestricted", and `lib/actions/run.ts` coerced a
+missing policy to `null` — which also meant unrestricted. An agent assigned exactly one tool could run every
+tool: at the HTTP route, and in the scheduler.
+
+**What was changed.** The query loads the column; `agentAllowsTool` permits only a stored `NULL` (a genuine
+legacy row) and denies absent, malformed or unreadable values; the runner passes the policy through. `runTask`
+re-checks the same policy itself so a queue row cannot bypass the route.
+
+**Evidence, on a real PostgreSQL 15.19 cluster and the built server (not stubs):**
+
+| Probe | Result |
+| --- | --- |
+| Tool the agent does not hold | `403 tool_not_assigned` |
+| Malformed stored policy (`"not-an-array"`) | `403` |
+| Tool the agent does hold | `200 {"ok":true,"ran":false,"reason":"queue_empty"}` |
+| Unknown API key | `401` |
+| Tenant B calling the worker | `200 queue_empty` |
+| Tenant A calling the worker, same instant | claimed and executed the task |
+| Task inserted directly into the queue | refused at `runTask` (regression test) |
+
+`tests/unit/agent-authorization.test.ts`: 7 tests. The obsolete assertion that absence means unrestricted now
+asserts the opposite; no assertion was weakened.
+
+**Gates on the final tree, twice:** 984 passed / 0 failed / 6 skipped / 990 total, 105 files passed, 2 skipped
+files; `tsc --noEmit` exit 0 twice; production build exit 0 twice. The six skips are the live-gateway gates
+(WORKER_LIVE, ZOOKA_TEST_DOMAIN_LIVE, E2E_LIVE) and remain skips, not passes.
+
+**Two environmental defects found by running the gates, not by reading them.** The first full run reported 43
+failures because the local cluster had died when an earlier shell was reaped; the second reported 6 failures in
+`agent-health.test.ts` because that suite needs `ZOOKA_TEST_PG_HEALTH_ADMIN` and my gate script never set it, so
+it was reading the shared database and counting other files' rows. Neither was a code defect, and neither was
+counted as a pass: the run was repeated with the health suite on its own database.
+
+**Migration invariant (0035).** `0035` opens with `CREATE TABLE IF NOT EXISTS integration_connection`, for
+databases where the integrations module has not created it. The migration therefore cannot know whether it
+created the table, and a rollback that drops it would destroy another module's credentials. The asymmetry is
+deliberate: rollback restores the pre-migration set, and the rehearsal's 33 → 46 → 34 is correct because that
+database lacked the table before.
+
+**Credential hygiene.** The local `origin` held a GitHub token in its URL. It was moved to the agent secret
+store without being printed, the remote was rewritten to the plain HTTPS URL, and `git grep` finds no token
+pattern in tracked files. Rotation is an owner action and is written up in
+`docs/release/CREDENTIAL_ROTATION.md`.
+
+**Not done, not claimed:** no Production change, no migration applied anywhere, no Preview deployment in this
+pass, no paid inference, PR #95 still Draft and unmerged.
