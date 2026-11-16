@@ -5,6 +5,9 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling, getWorkspaceUsageDetail } from "@/lib/db/queries";
 import { getLang } from "@/lib/i18n";
 
+// Session-scoped page: never prerender it, the build must not touch the database.
+export const dynamic = "force-dynamic";
+
 const EVENT_LABELS: Record<string, { ar: string; en: string }> = {
   chat_message: { ar: "رسائل المحادثة", en: "Chat messages" },
   agent_run: { ar: "تشغيلات الوكيل", en: "Agent runs" },

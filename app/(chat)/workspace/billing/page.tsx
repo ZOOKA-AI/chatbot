@@ -10,6 +10,9 @@ import { displayWorkspaceName } from "@/lib/workspace-name";
 
 import { ManageSubscriptionButton } from "./manage-subscription";
 
+// Session-scoped page: never prerender it, the build must not touch the database.
+export const dynamic = "force-dynamic";
+
 async function WorkspaceBillingPageImpl({
   searchParams,
 }: {

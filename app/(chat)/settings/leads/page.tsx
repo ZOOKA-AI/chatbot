@@ -5,6 +5,9 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { countLeadsByStatus, listLeads } from "@/lib/db/leads";
 import { getLang } from "@/lib/i18n";
 
+// Session-scoped page: never prerender it, the build must not touch the database.
+export const dynamic = "force-dynamic";
+
 const STATUS_LABELS = {
   new: { ar: "جديد", en: "New" },
   qualified: { ar: "مؤهل", en: "Qualified" },

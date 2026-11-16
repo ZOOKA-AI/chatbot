@@ -7,6 +7,9 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { listMcpKeys } from "@/lib/db/mcp-keys";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
+// Session-scoped page: never prerender it, the build must not touch the database.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "MCP",
 };

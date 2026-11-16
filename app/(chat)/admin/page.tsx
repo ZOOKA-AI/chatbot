@@ -8,6 +8,9 @@ import {
 import { getLang, type Lang } from "@/lib/i18n";
 import { displayWorkspaceName } from "@/lib/workspace-name";
 
+// Session-scoped page: never prerender it, the build must not touch the database.
+export const dynamic = "force-dynamic";
+
 const PAGE_SIZE = 25;
 
 const t = {

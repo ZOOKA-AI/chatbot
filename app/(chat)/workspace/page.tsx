@@ -16,6 +16,9 @@ import {
   getWorkspacesForUser,
 } from "@/lib/db/queries";
 
+// Session-scoped page: never prerender it, the build must not touch the database.
+export const dynamic = "force-dynamic";
+
 async function WorkspacePageImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
