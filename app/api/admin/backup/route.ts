@@ -92,10 +92,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized", requestId }, { status: 401, headers });
   }
 
-  const connectionString = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+  // A dump needs a privileged connection: the tenant runtime role sees nothing
+  // without a tenant context, and an empty "successful" backup is worse than an
+  // error. Prefer the service connection, and refuse when enforcement is on and
+  // no service connection is configured, instead of silently exporting zero rows.
+  const connectionString =
+    process.env.DATABASE_URL_SERVICE ?? process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
   if (!connectionString) {
     logRefusal(requestId, 500, "db_not_configured");
     return NextResponse.json({ error: "db_not_configured", requestId }, { status: 500, headers });
+  }
+  if (process.env.TENANT_RLS_ENABLED === "on" && !process.env.DATABASE_URL_SERVICE) {
+    logRefusal(requestId, 500, "service_connection_required");
+    return NextResponse.json(
+      { error: "service_connection_required", requestId },
+      { status: 500, headers }
+    );
   }
 
   const client = postgres(connectionString, { max: 1, prepare: false });
