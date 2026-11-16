@@ -20,12 +20,15 @@ import { hashToken, isTokenShape, newToken, TOKEN_TTL } from "@/lib/auth/registr
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDb = any;
 
-function defaultDb(): AnyDb {
-  // Required lazily so importing this module never opens a connection.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  // Bootstrap-only tables (0052): tokens are issued and consumed before a session
-  // exists, so this must never use the tenant runtime role.
-  return require("@/lib/db/queries").adminDb() as AnyDb;
+/**
+ * Resolves the bootstrap handle lazily so importing this module never opens a
+ * connection. The token tables (0052) are bootstrap-only: they are read before a
+ * session exists, so this must never be the tenant runtime role. Async because a
+ * static `require` of a path alias does not resolve under the test runner.
+ */
+async function defaultDb(): Promise<AnyDb> {
+  const queries = await import("@/lib/db/queries");
+  return queries.adminDb() as AnyDb;
 }
 
 export type IssueResult = { token: string; hash: string; expiresAt: Date };
@@ -34,7 +37,7 @@ export async function issueVerificationToken(
   userId: string,
   options: { db?: AnyDb; now?: number } = {}
 ): Promise<IssueResult> {
-  const db = options.db ?? defaultDb();
+  const db = options.db ?? (await defaultDb());
   const { token, hash } = newToken();
   const expiresAt = new Date((options.now ?? Date.now()) + TOKEN_TTL.verificationMs);
 
@@ -53,7 +56,7 @@ export async function consumeVerificationToken(
   if (!isTokenShape(rawToken)) {
     return { ok: false, reason: "bad_shape" };
   }
-  const db = options.db ?? defaultDb();
+  const db = options.db ?? (await defaultDb());
   const at = new Date(options.now ?? Date.now());
 
   const rows = await db
@@ -76,7 +79,7 @@ export async function markEmailVerified(
   userId: string,
   options: { db?: AnyDb; now?: number } = {}
 ) {
-  const db = options.db ?? defaultDb();
+  const db = options.db ?? (await defaultDb());
   await db
     .update(user)
     .set({ emailVerifiedAt: new Date(options.now ?? Date.now()) })
@@ -93,7 +96,7 @@ export async function claimPasswordResetToken(
   tokenHash: string,
   options: { db?: AnyDb; now?: number } = {}
 ): Promise<string | null> {
-  const db = options.db ?? defaultDb();
+  const db = options.db ?? (await defaultDb());
   const at = new Date(options.now ?? Date.now());
 
   const rows = await db
