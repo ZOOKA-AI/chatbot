@@ -142,6 +142,29 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 33 — Restore proved, drift measured, and health that cannot be announced (16 Nov 2026)
+
+PR #95 head `2a225e0`, PR #92 this entry. Draft. No merge, no production feature deployment, no production migration, no billing change, no paid resource, no secret exposed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 33.1 | Rotation still holds | VERIFIED | New credential accepted on 5432 and 6543; the retired one rejected |
+| 33.2 | Production data intact | VERIFIED | 277 users, 299 messages, 60 chats, 277 organisations read directly |
+| 33.3 | Auth endpoints | VERIFIED | `/api/auth/providers` 200, `/login` 200, `/api/auth/session` 200 |
+| 33.4 | Backup available | VERIFIED | `GET /api/admin/backup` 200, 854,794 bytes |
+| 33.5 | Non-destructive restore | VERIFIED | Schema exported from production into an isolated local database, then 1,853 rows loaded from the live backup artifact: User 277, Organization 277, OrganizationMember 277, Subscription 277, UsageEvent 361, Chat 60, Message_v2 299, Suggestion 25, every count equal to the dump |
+| 33.6 | Restore integrity detail | VERIFIED | A bcrypt hash restored byte-for-byte (60 chars) and its email unchanged, so credentials survive a restore rather than merely the row count |
+| 33.7 | Production untouched by the test | VERIFIED | Every write went to `zooka_restore_test` on 127.0.0.1; the production connection was used read-only for the schema export |
+| 33.8 | **Schema drift, measured** | **FOUND** | Loading the backup into a schema built from the repository's own migrations failed on four columns production has and the migrations do not: `User.name`, `Organization.slug`, `Chat.deletedAt`, `Document.embedding`. So the migrations alone cannot rebuild production, and a real restore must come from production's own schema |
+| 33.9 | Client-version trap | DOCUMENTED | `pg_dump 15` refuses a 17.6 server; the 17 client had to be installed from the PGDG repository before any export was possible. Anyone repeating this needs the matching client first |
+| 33.10 | Execution health | DONE | `lib/agents/health.ts` + `GET /api/agents/health`, owner/admin only, inside the tenant scope, 503 on a critical verdict |
+| 33.11 | Five signals, all derived from rows | DONE | Queue depth and oldest age, expired leases, failures in the last hour, last scheduler pass freshness and status, parked approvals |
+| 33.12 | Honest unknowns | DONE | No scheduler pass ever reports that nothing can be dispatched; an expired lease is critical because the task is neither finished nor available |
+| 33.13 | Health tests on real PostgreSQL | VERIFIED | 6 cases: fresh pass and empty queue, three-hour backlog quoting its age, lease expired five minutes ago, one failure warns versus six escalate, never-scheduled reported honestly, and one workspace's backlog never moving another's verdict |
+| 33.14 | Suite, types, build | VERIFIED | 428 passed across 60 files, `tsc --noEmit` clean, `pnpm run build` exit 0 |
+
+Two things remain blocked and unchanged: there is still no isolated Preview database (Supabase free quota consumed, management token 401 on every endpoint, no alternative provider credential) and Preview still has no Google client, so a browser acceptance session remains impossible without owner action.
+
 ## Stage 32 — Production credential rotated, and a domain correction (16 Nov 2026)
 
 PR #95 (rotation hygiene, `19340f6`) and PR #92 (this entry). No merge. The only production change is the one the owner authorised and Phase 9 permits: a credential rotation plus the narrowly scoped configuration update and restart needed to keep the database reachable.
