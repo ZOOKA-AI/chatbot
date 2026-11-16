@@ -134,10 +134,13 @@ test("an approval request needs a reason and lands pending the owner", async () 
   assert.equal((await noReason.json()).reason, "reason_required");
 
   h.requestApproval.mockResolvedValue({ id: "approval-1", status: "pending" });
-  const ok = await approvalPOST(req({ reason: "spend AED 50", taskId: "t9" }));
+  const ok = await approvalPOST(req({ reason: "spend AED 50", taskId: "3f1c2b4a-5d6e-4f70-8a91-0b2c3d4e5f60" }));
   assert.equal(ok.status, 201);
   const body = await ok.json();
   assert.equal(body.status, "pending_owner_decision");
   assert.equal(body.approval.id, "approval-1");
-  assert.equal(h.requestApproval.mock.calls[0][1].taskId, "t9");
+  assert.equal(
+    h.requestApproval.mock.calls[0][1].taskId,
+    "3f1c2b4a-5d6e-4f70-8a91-0b2c3d4e5f60"
+  );
 });

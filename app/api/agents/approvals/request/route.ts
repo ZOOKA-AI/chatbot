@@ -28,9 +28,9 @@ async function POSTHandler(request: Request) {
     request,
     z
       .object({
-        // Opaque task reference, not necessarily a uuid: the domain looks it up
-        // inside the caller's tenant, so a wrong id matches nothing.
-        taskId: z.string().trim().max(64).nullish(),
+        // AgentTask.id is a uuid with a foreign key, so anything else is a body
+        // error, not a lookup miss.
+        taskId: fields.uuid.nullish(),
         reason: fields.reason.optional(),
       })
       .strict()
