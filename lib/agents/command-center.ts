@@ -652,6 +652,10 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
  * is approved, and cannot be completed after it was rejected. Both checks read
  * the same organisation, so another tenant's approval can never unlock a task.
  */
+export async function latestApprovalStatus(taskId: string, organizationId: string) {
+  return approvalState(taskId, organizationId);
+}
+
 async function approvalState(taskId: string, organizationId: string) {
   const rows = await db
     .select({ status: agentApproval.status })

@@ -341,6 +341,195 @@ export async function controlSession(input: {
   return { session: updated ?? session, events };
 }
 
+export type InputCommand =
+  | { kind: "click"; x: number; y: number }
+  | { kind: "type"; text: string; submit?: boolean }
+  | { kind: "key"; key: string }
+  | { kind: "scroll"; deltaY: number }
+  | { kind: "navigate"; url: string };
+
+/**
+ * A person driving the live page.
+ *
+ * Take-over is only real if it lets someone touch the page, so this path exists, and it is guarded by
+ * the control holder: if the agent holds control, a human input is refused rather than interleaved
+ * with the agent's own steps. Every command is recorded on the timeline with who did it.
+ */
+export async function applyInput(input: {
+  caller: Caller;
+  sessionId: string;
+  command: InputCommand;
+}): Promise<{ session: typeof schema.browserSession.$inferSelect; executed: string }> {
+  const session = await getSession(input.caller.organizationId, input.sessionId);
+  if (!session) throw new BrowserControlError("session_not_found");
+  if (!canControl(session, input.caller)) throw new BrowserControlError("not_session_owner");
+  if (isTerminal(session.status)) throw new BrowserControlError("session_ended");
+  if (new Date(session.expiresAt).getTime() < Date.now()) throw new BrowserControlError("session_expired");
+  if (session.controlHolder !== "human") throw new BrowserControlError("agent_has_control");
+  const health = browserRuntime().health(input.sessionId, input.caller.organizationId);
+  if (!health.live) throw new BrowserControlError(health.crashed ?? "session_not_running");
+
+  const runtime = browserRuntime();
+  let url = session.currentUrl ?? "";
+  let title = session.currentTitle ?? "";
+
+  if (input.command.kind === "click") {
+    const result = await runtime.clickPoint(input.sessionId, input.caller.organizationId, input.command);
+    if (result.ok === false) throw new BrowserControlError(result.code);
+    url = result.url;
+  } else if (input.command.kind === "type") {
+    const result = await runtime.typeKeys(input.sessionId, input.caller.organizationId, input.command.text, {
+      submit: input.command.submit,
+    });
+    if (result.ok === false) throw new BrowserControlError(result.code);
+    url = result.url;
+  } else if (input.command.kind === "scroll") {
+    const result = await runtime.scroll(input.sessionId, input.caller.organizationId, input.command.deltaY);
+    if (result.ok === false) throw new BrowserControlError(result.code);
+  } else if (input.command.kind === "key") {
+    const page = runtime as unknown as { pressKey?: unknown };
+    void page;
+    throw new BrowserControlError("unsupported_key");
+  } else {
+    const result = await runtime.navigate(input.sessionId, input.caller.organizationId, input.command.url);
+    if (result.ok === false) throw new BrowserControlError(result.code);
+    url = result.url;
+    title = result.title;
+  }
+
+  const updated = await update(input.caller.organizationId, input.sessionId, {
+    currentUrl: url,
+    currentTitle: title,
+    status: session.status === "ready" ? "running" : session.status,
+  });
+  await appendEvent({
+    organizationId: input.caller.organizationId,
+    sessionId: input.sessionId,
+    kind: `human_${input.command.kind}`,
+    actor: "human",
+    // Never the typed text: a person may be typing a password.
+    detail:
+      input.command.kind === "type"
+        ? { characters: input.command.text.length, submit: Boolean(input.command.submit) }
+        : input.command.kind === "click"
+          ? { x: input.command.x, y: input.command.y }
+          : input.command.kind === "navigate"
+            ? { url }
+            : {},
+  });
+  return { session: updated ?? session, executed: input.command.kind };
+}
+
+/** Sessions that claim to be alive but have no live browser, and crashes Chromium already reported. */
+export async function findBroken(
+  organizationId: string
+): Promise<Array<{ id: string; status: string; reason: string }>> {
+  const active = await db
+    .select()
+    .from(schema.browserSession)
+    .where(
+      and(
+        eq(schema.browserSession.organizationId, organizationId),
+        sql`${schema.browserSession.status} IN ('ready','running','paused','taken_over','starting')`
+      )
+    )
+    .limit(20);
+  const broken: Array<{ id: string; status: string; reason: string }> = [];
+  for (const row of active) {
+    const health = browserRuntime().health(row.id, organizationId);
+    if (!health.live) broken.push({ id: row.id, status: row.status, reason: health.crashed ?? "browser_missing" });
+  }
+  return broken;
+}
+
+/**
+ * Recover a session whose browser died.
+ *
+ * Recovery is a new browser attached to the same row, navigated back to the last known URL, so the
+ * record stays one session. It is guarded by a conditional update on the expected status, so two
+ * simultaneous retries cannot both launch a browser and run the customer's steps twice.
+ */
+export async function recoverSession(input: {
+  caller: Caller;
+  sessionId: string;
+}): Promise<{ session: typeof schema.browserSession.$inferSelect; navigatedTo: string | null }> {
+  const session = await getSession(input.caller.organizationId, input.sessionId);
+  if (!session) throw new BrowserControlError("session_not_found");
+  if (!canControl(session, input.caller)) throw new BrowserControlError("not_session_owner");
+  if (isTerminal(session.status)) throw new BrowserControlError("session_ended");
+  if (new Date(session.expiresAt).getTime() < Date.now()) throw new BrowserControlError("session_expired");
+
+  const expected = session.status;
+  if (!["ready", "running", "paused", "taken_over", "starting", "failed"].includes(expected)) {
+    throw new BrowserControlError(`cannot_recover_from_${expected}`);
+  }
+
+  // Claim the transition first: whoever sets 'starting' from the expected status owns the recovery.
+  const [claimed] = await db
+    .update(schema.browserSession)
+    .set({ status: "starting", lastSeenAt: new Date() })
+    .where(
+      and(
+        eq(schema.browserSession.id, input.sessionId),
+        eq(schema.browserSession.organizationId, input.caller.organizationId),
+        eq(schema.browserSession.status, expected)
+      )
+    )
+    .returning();
+  if (!claimed) throw new BrowserControlError("recovery_in_progress");
+
+  await browserRuntime().close(input.sessionId);
+  const opened = await browserRuntime().open(input.sessionId, input.caller.organizationId);
+  if (opened.ok === false) {
+    await update(input.caller.organizationId, input.sessionId, { status: "failed", lastError: opened.code });
+    await appendEvent({
+      organizationId: input.caller.organizationId,
+      sessionId: input.sessionId,
+      kind: "recovery_failed",
+      actor: "system",
+      detail: { reason: opened.code },
+    });
+    throw new BrowserControlError("recovery_failed");
+  }
+
+  let navigatedTo: string | null = null;
+  if (session.currentUrl) {
+    const navigated = await browserRuntime().navigate(input.sessionId, input.caller.organizationId, session.currentUrl);
+    if (navigated.ok === false) {
+      await update(input.caller.organizationId, input.sessionId, { status: "failed", lastError: navigated.code });
+      throw new BrowserControlError("recovery_navigation_failed");
+    }
+    navigatedTo = navigated.url;
+  }
+
+  const recovered = await update(input.caller.organizationId, input.sessionId, {
+    status: session.controlHolder === "human" ? "taken_over" : "ready",
+    lastError: null,
+    lastSeenAt: new Date(),
+  });
+  await appendEvent({
+    organizationId: input.caller.organizationId,
+    sessionId: input.sessionId,
+    kind: "session_recovered",
+    actor: "human",
+    detail: { from: expected, navigatedTo },
+  });
+  return { session: recovered ?? claimed, navigatedTo };
+}
+
+/** Mark a session failed when its browser is gone, so the row never claims to be alive. */
+export async function markBroken(organizationId: string, sessionId: string, reason: string) {
+  const updated = await update(organizationId, sessionId, { status: "failed", lastError: reason });
+  await appendEvent({
+    organizationId,
+    sessionId,
+    kind: "browser_terminated",
+    actor: "system",
+    detail: { reason },
+  });
+  return updated;
+}
+
 export async function expireSession(organizationId: string, sessionId: string) {
   await browserRuntime().close(sessionId);
   const expired = await update(organizationId, sessionId, { status: "expired", endedAt: new Date() });

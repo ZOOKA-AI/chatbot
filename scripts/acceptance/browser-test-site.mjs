@@ -7,8 +7,9 @@ const page = (body, title) => `<!doctype html><html lang="ar" dir="rtl"><head><m
 
 const routes = {
   "/": page(
-    `<form id="form" onsubmit="event.preventDefault();document.getElementById('result').textContent='submitted:'+document.getElementById('name').value">
-       <input id="name" name="name" aria-label="الاسم" />
+    `<a id="next-zone" href="/second" style="position:absolute;left:0;top:0;width:220px;height:64px;z-index:10;display:block;background:#eef">الصفحة الثانية</a>
+     <form id="form" onsubmit="event.preventDefault();document.getElementById('result').textContent='submitted:'+document.getElementById('name').value">
+       <input id="name" name="name" aria-label="الاسم" autofocus />
        <select id="city" aria-label="المدينة"><option value="dxb">دبي</option><option value="auh">أبوظبي</option></select>
        <button id="go" type="submit">إرسال</button>
      </form>

@@ -65,15 +65,30 @@ The local runtime used for this milestone costs nothing and is what the tests ra
 reporting, multi-step runs, pause, take-over, hand-back, stop, expiry and cleanup, timeline, evidence,
 tenant isolation, agent execution through the queue and worker.
 
+**Real since Directive #047 continuation:**
+- **A person driving the page.** With control taken, a click in the frame is dispatched to the live
+  page at the scaled page coordinate, keystrokes go through `keyboard.type`, scrolling and navigation
+  go to the same session. Verified by a click that actually navigated the page and by a timeline that
+  records `human_click`, `human_type`, `human_scroll`, `human_navigate`.
+- **Two actors never share the wheel.** Input is refused with `agent_has_control` while the agent
+  holds control, and the agent is refused by `agentMayAct` while a person holds it.
+- **Crash detection.** Chromium's own `crash` and `close` events set the session's health, a session
+  that claims to be active with no browser is reported as `broken` with the reason, and the panel
+  offers recovery instead of showing a still frame.
+- **Recovery without duplicate execution.** Recovery claims the transition with a conditional update
+  on the expected status before launching, so two retries cannot both open a browser and run the
+  customer's steps twice. A failed launch leaves the row `failed` with its reason.
+- **Approval checkpoint on a real capability.** A `submit` step (a form submission, the one
+  consequential action this runtime can genuinely perform) opens no browser unless an approved
+  decision exists for that task; without one it files an approval request and returns
+  `approval_required`, and a rejection is a hard refusal. Approve and Reject are in the panel.
+
 **Not built, and not claimed:**
-- **Live video.** "Live view" is a real screenshot taken at request time (polled), not a video
-  stream. A WebSocket screencast would make it continuous.
-- **Human driving the page.** Take-over changes who is authorized to act; a person cannot yet click
-  inside the panel because the frame is an image, not an interactive canvas. Interactive control
-  needs a forwarded input channel (CDP `Input.dispatchMouseEvent`).
-- **Approval mid-run.** A consequential step (purchase, publish, message, delete, security change) is
-  refused before the browser opens rather than paused for approval. The approval engine exists; wiring
-  a browser step into it is the next piece.
-- **Crash recovery.** A crashed context is reported as a failed step and the session ends; automatic
-  re-launch and resume from the last completed step is not implemented.
+- **Live video.** "Live view" is a real screenshot taken at request time and polled every two seconds,
+  not a video stream. A WebSocket screencast would make it continuous.
+- **Approval that pauses a running page.** Approval is decided before the browser opens, not while a
+  page sits mid-form. A paused-then-resumed live run needs a scheduler-side hold on the step loop.
+- **Money, publishing, messaging, deletion.** Still refused outright, because a generic click cannot
+  be proven to be any of those; only form submission has an approval path.
+- **Key presses other than typing and Enter.** `key` commands are refused as unsupported.
 - **CAPTCHA and MFA.** Never bypassed. A page that demands either will simply fail the step.

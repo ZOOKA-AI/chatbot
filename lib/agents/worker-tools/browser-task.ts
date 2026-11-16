@@ -1,6 +1,7 @@
 import type { WorkerTool } from "../worker-types";
 import { redact } from "../worker-types";
 import { browserRuntime } from "@/lib/browser/runtime";
+import { latestApprovalStatus, requestApproval } from "@/lib/agents/command-center";
 import {
   agentMayAct,
   appendEvent,
@@ -39,7 +40,17 @@ type Step = {
 
 function parseSteps(raw: unknown): Step[] | null {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 20) return null;
-  const allowed = new Set(["navigate", "click", "type", "select", "scroll", "read", "screenshot", "consequential"]);
+  const allowed = new Set([
+    "navigate",
+    "click",
+    "type",
+    "select",
+    "scroll",
+    "read",
+    "screenshot",
+    "submit",
+    "consequential",
+  ]);
   const steps: Step[] = [];
   for (const candidate of raw) {
     if (!candidate || typeof candidate !== "object") return null;
@@ -90,6 +101,42 @@ export const browserTaskRun: WorkerTool = {
         error: "consequential_step_requires_approval",
         summary: `refused: step "${consequential[0].action}" needs human approval, which this run cannot obtain`,
       };
+    }
+
+    // A form submission is the one consequential operation this runtime can genuinely perform, and it
+    // is the one that may spend, publish or send. It runs only on an approved decision tied to this
+    // task: no approval, no browser. Money, publishing, messaging and deletion stay refused outright,
+    // because a generic click cannot be proven to be any of those.
+    const submits = steps.filter((step) => step.action === "submit");
+    if (submits.length > 0) {
+      if (!context.taskId) {
+        return {
+          ok: false,
+          error: "submit_requires_task",
+          summary: "refused: a form submission must belong to a task, so a person can approve it",
+        };
+      }
+      const decision = await latestApprovalStatus(context.taskId, context.organizationId);
+      if (decision === "rejected") {
+        return { ok: false, error: "approval_rejected", summary: "refused: the submission was rejected by the owner" };
+      }
+      if (decision !== "approved") {
+        if (decision === null) {
+          await requestApproval(
+            { id: context.agentId } as never,
+            {
+              organizationId: context.organizationId,
+              taskId: context.taskId,
+              reason: `The agent wants to submit a form: ${submits.map((step) => step.label ?? step.selector ?? "form").join(", ")}`,
+            }
+          );
+        }
+        return {
+          ok: false,
+          error: "approval_required",
+          summary: "waiting: a form submission needs your approval before the browser opens",
+        };
+      }
     }
 
     const caller: Caller = {
@@ -223,6 +270,23 @@ export const browserTaskRun: WorkerTool = {
             });
           } else {
             failed = "code" in result ? result.code : "read_failed";
+            break;
+          }
+          continue;
+        }
+        if (step.action === "submit") {
+          const result = await browserRuntime().click(session.id, context.organizationId, step.selector ?? "form");
+          if ("ok" in result && result.ok) {
+            await appendEvent({
+              organizationId: context.organizationId,
+              sessionId: session.id,
+              kind: "submit_approved",
+              detail: { selector: step.selector, label: step.label ?? null },
+            });
+            lines.push(`${position}. submitted ${step.label ?? step.selector} on an approved decision`);
+          } else {
+            failed = "code" in result ? result.code : "submit_failed";
+            lines.push(`${position}. submit failed: ${failed}`);
             break;
           }
           continue;

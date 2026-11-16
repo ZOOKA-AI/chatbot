@@ -29,26 +29,48 @@ vi.mock("@/lib/db/queries", () => ({
 
 // The runtime is replaced so these tests exercise the state machine, not Chromium. A real launch is
 // covered by the acceptance run.
+const fakeRuntime = vi.hoisted(() => ({
+  live: true,
+  crashed: null as string | null,
+  openFails: false,
+  clicks: 0,
+  types: 0,
+}));
+
 vi.mock("@/lib/browser/runtime", () => ({
   browserRuntime: () => ({
-    open: async () => ({ ok: true }),
+    open: async () => (fakeRuntime.openFails ? { ok: false, code: "launch_failed", message: "test" } : { ok: true }),
     close: async () => undefined,
-    has: () => false,
+    has: () => fakeRuntime.live,
+    health: () => ({ live: fakeRuntime.live, crashed: fakeRuntime.crashed }),
     version: () => "test",
-    navigate: async () => ({ ok: true, url: "https://example.com/", title: "Example", status: 200 }),
+    navigate: async (url: string) => ({ ok: true, url, title: "Example", status: 200 }),
+    clickPoint: async () => {
+      fakeRuntime.clicks += 1;
+      return { ok: true, url: "https://example.com/second" };
+    },
+    typeKeys: async () => {
+      fakeRuntime.types += 1;
+      return { ok: true, url: "https://example.com/" };
+    },
+    scroll: async () => ({ ok: true, scrollY: 400 }),
     screenshot: async () => ({ ok: false, code: "not_running", message: "test" }),
   }),
 }));
 
 import {
   agentMayAct,
+  applyInput,
   BrowserControlError,
+  findBroken,
+  recoverSession,
   canControl,
   controlSession,
   createSession,
   expireDueSessions,
   getSession,
   listSessions,
+  listEvents,
   nextStatus,
   type Caller,
 } from "@/lib/browser/sessions";
@@ -279,6 +301,85 @@ describe("who may control a session", () => {
     const swept = await expireDueSessions(ORG_A);
     assert.equal(swept, 1);
     assert.equal((await getSession(ORG_A, idle.id))?.status, "expired");
+  });
+
+  test("a person can only touch the page while holding control", async () => {
+    const session = await createSession({ organizationId: ORG_A, ownerId: OWNER, projectId: PROJECT_A });
+    await controlSession({ caller: ownerA, sessionId: session.id, action: "start" });
+    assert.equal((await getSession(ORG_A, session.id))?.controlHolder, "agent");
+
+    // The agent holds control: a human click is refused rather than interleaved with its steps.
+    await assert.rejects(
+      () => applyInput({ caller: ownerA, sessionId: session.id, command: { kind: "click", x: 10, y: 10 } }),
+      (error: unknown) => error instanceof BrowserControlError && error.code === "agent_has_control"
+    );
+
+    // A member who does not own the session cannot drive it even after take-over.
+    await controlSession({ caller: ownerA, sessionId: session.id, action: "take_over" });
+    await assert.rejects(
+      () => applyInput({ caller: strangerA, sessionId: session.id, command: { kind: "click", x: 10, y: 10 } }),
+      (error: unknown) => error instanceof BrowserControlError && error.code === "not_session_owner"
+    );
+
+    // With control, the click is dispatched and recorded as the person's own step.
+    fakeRuntime.clicks = 0;
+    const applied = await applyInput({ caller: ownerA, sessionId: session.id, command: { kind: "click", x: 100, y: 30 } });
+    assert.equal(applied.executed, "click");
+    assert.equal(fakeRuntime.clicks, 1, "the click reached the runtime exactly once");
+    const events = await listEvents(ORG_A, session.id, 20);
+    assert.ok(events.some((event) => event.kind === "human_click" && event.actor === "human"));
+  });
+
+  test("a dead browser is reported as broken, not shown as alive", async () => {
+    const session = await createSession({ organizationId: ORG_A, ownerId: OWNER, projectId: PROJECT_A });
+    await controlSession({ caller: ownerA, sessionId: session.id, action: "start" });
+    fakeRuntime.live = false;
+    fakeRuntime.crashed = "page_crashed";
+    const broken = await findBroken(ORG_A);
+    assert.equal(broken.length, 1);
+    assert.equal(broken[0].reason, "page_crashed");
+    // A person cannot drive a session whose browser is gone.
+    await controlSession({ caller: ownerA, sessionId: session.id, action: "take_over" }).catch(() => undefined);
+    await assert.rejects(
+      () => applyInput({ caller: ownerA, sessionId: session.id, command: { kind: "type", text: "x" } }),
+      (error: unknown) => error instanceof BrowserControlError
+    );
+    fakeRuntime.live = true;
+    fakeRuntime.crashed = null;
+  });
+
+  test("recovery relaunches the browser on the same record, and refuses a failed launch honestly", async () => {
+    const session = await createSession({ organizationId: ORG_A, ownerId: OWNER, projectId: PROJECT_A });
+    await controlSession({ caller: ownerA, sessionId: session.id, action: "start" });
+    fakeRuntime.live = false;
+
+    const recovered = await recoverSession({ caller: ownerA, sessionId: session.id });
+    assert.equal(recovered.session.status, "ready");
+    const events = await listEvents(ORG_A, session.id, 30);
+    assert.ok(events.some((event) => event.kind === "session_recovered"));
+
+    // A launch that fails leaves the record failed with a reason, never "recovered".
+    fakeRuntime.crashed = "page_closed";
+    fakeRuntime.openFails = true;
+    await assert.rejects(
+      () => recoverSession({ caller: ownerA, sessionId: session.id }),
+      (error: unknown) => error instanceof BrowserControlError && error.code === "recovery_failed"
+    );
+    assert.equal((await getSession(ORG_A, session.id))?.status, "failed");
+    assert.equal((await getSession(ORG_A, session.id))?.lastError, "launch_failed");
+    fakeRuntime.openFails = false;
+    fakeRuntime.crashed = null;
+    fakeRuntime.live = true;
+  });
+
+  test("a stopped session cannot be recovered back to life", async () => {
+    const session = await createSession({ organizationId: ORG_A, ownerId: OWNER, projectId: PROJECT_A });
+    await controlSession({ caller: ownerA, sessionId: session.id, action: "start" });
+    await controlSession({ caller: ownerA, sessionId: session.id, action: "stop" });
+    await assert.rejects(
+      () => recoverSession({ caller: ownerA, sessionId: session.id }),
+      (error: unknown) => error instanceof BrowserControlError && error.code === "session_ended"
+    );
   });
 
   test("the database refuses a project from another workspace", async () => {

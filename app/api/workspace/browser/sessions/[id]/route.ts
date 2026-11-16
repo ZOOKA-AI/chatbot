@@ -25,12 +25,19 @@ async function GETHandler(request: Request, context: { params: Promise<{ id: str
     listEvidence(organizationId, id, 20),
   ]);
 
+  const health = browserRuntime().health(id, organizationId);
+  const active = ["ready", "running", "paused", "taken_over", "starting"].includes(session.status);
+
   return json({
     session,
     events,
     evidence,
     runtime: {
-      live: browserRuntime().has(id, organizationId),
+      live: health.live,
+      // A session that claims to be active with no browser attached is reported as broken, and the
+      // panel offers recovery instead of showing a still frame from before the crash.
+      broken: active && !health.live,
+      crashedReason: health.crashed,
       engine: browserRuntime().version(),
     },
   });

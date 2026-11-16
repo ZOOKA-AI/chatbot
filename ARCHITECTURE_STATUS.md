@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 747 passed, 6 skipped, 753 total, 92 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 751 passed, 6 skipped, 757 total, 92 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -419,3 +419,31 @@ pass and passed on the second — it is documented, and it is not weakened.
 
 **Named limits** (in `docs/engineering/BROWSER_ARCHITECTURE.md`): no live video, no interactive human
 clicking, no mid-run approval flow, no crash-recovery resume, and CAPTCHA/MFA are never bypassed.
+
+### Milestone 013 — human control, crash recovery, approval checkpoint — COMPLETE
+
+The browser is now something a person can actually operate, not just watch. With control taken, a
+click in the frame is dispatched at the scaled page coordinate and navigates the page for real; typing
+goes through the keyboard into the focused field; scrolling and navigation use the same live session.
+The acceptance run proves it by clicking a coordinate that moved the page to `/second` and by a
+timeline that records `human_click`, `human_type`, `human_scroll` and `human_navigate`.
+
+**Two actors never share the wheel.** Human input while the agent holds control is refused with
+`agent_has_control`, and the agent is refused by `agentMayAct` while a person holds it. Both
+directions are tested.
+
+**Crash is detected, not guessed.** Chromium's `crash` and `close` events set the session health; a
+session claiming to be active with no browser is reported `broken` with its reason, and recovery
+relaunches a browser on the same record after claiming the transition conditionally, so two retries
+cannot run the customer's steps twice. A failed launch leaves `failed` with `launch_failed`, verified.
+
+**Approval gates a real capability.** A form submission opens no browser without an approved decision
+for its task; otherwise it files the request and returns `approval_required`, and a rejection is a
+hard refusal. Money, publishing, messaging and deletion remain refused outright, because a generic
+click cannot be proven to be any of them.
+
+**Gates:** 751 passed / 6 skipped / 757 in 92 files, twice, `tsc` 0, production build compiled.
+Acceptance 28/28 on real Chromium.
+
+**Still not built:** live video (the frame is a polled screenshot), approval that pauses a page
+mid-form, key presses other than typing and Enter.

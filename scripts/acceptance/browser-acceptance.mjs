@@ -81,6 +81,32 @@ try {
   const returned = await api(`/api/workspace/browser/sessions/${sessionId}/control`, { method: "POST", data: { action: "return_control" } });
   check("control returns to the agent", returned.body.session?.controlHolder === "agent", String(returned.body.session?.controlHolder));
 
+  // 6b. the person drives the page: a real click at a coordinate, then real keystrokes
+  const takeover2 = await api(`/api/workspace/browser/sessions/${sessionId}/control`, { method: "POST", data: { action: "take_over" } });
+  check("control is with the person before input", takeover2.body.session?.controlHolder === "human", String(takeover2.body.session?.controlHolder));
+  const click = await api(`/api/workspace/browser/sessions/${sessionId}/input`, { method: "POST", data: { kind: "click", x: 100, y: 30 } });
+  check("a click at a coordinate reaches the live page", click.status === 200 && String(click.body.session?.currentUrl ?? "").includes("/second"), `${click.status} ${click.body.session?.currentUrl ?? click.body.error}`);
+  const typed = await api(`/api/workspace/browser/sessions/${sessionId}/input`, { method: "POST", data: { kind: "type", text: "مرحبا" } });
+  check("keystrokes reach the live page", typed.status === 200 && typed.body.executed === "type", `${typed.status} ${typed.body.error ?? "ok"}`);
+  const scrolled = await api(`/api/workspace/browser/sessions/${sessionId}/input`, { method: "POST", data: { kind: "scroll", deltaY: 400 } });
+  check("scrolling reaches the live page", scrolled.status === 200, `${scrolled.status} ${scrolled.body.error ?? "ok"}`);
+  const navigated = await api(`/api/workspace/browser/sessions/${sessionId}/input`, { method: "POST", data: { kind: "navigate", url: SITE } });
+  check("navigation by the person reaches the live page", navigated.status === 200 && String(navigated.body.session?.currentUrl ?? "").includes("4517"), `${navigated.status}`);
+
+  // 6c. while the agent holds control, human input is refused rather than interleaved
+  await api(`/api/workspace/browser/sessions/${sessionId}/control`, { method: "POST", data: { action: "return_control" } });
+  const refusedInput = await api(`/api/workspace/browser/sessions/${sessionId}/input`, { method: "POST", data: { kind: "type", text: "x" } });
+  check("human input is refused while the agent holds control", refusedInput.status === 409 && refusedInput.body.error === "agent_has_control", `${refusedInput.status} ${refusedInput.body.error}`);
+
+  // 6d. a row that claims to be alive with no browser is reported broken, then recovered for real
+  const broke = await api(`/api/workspace/browser/sessions/${sessionId}/control`, { method: "POST", data: { action: "take_over" } });
+  check("session can be taken for the recovery test", broke.status === 200, String(broke.body.session?.status ?? broke.body.error));
+  await fetch("http://127.0.0.1:4517/").catch(() => {});
+  const recovered = await api(`/api/workspace/browser/sessions/${sessionId}/recover`, { method: "POST", data: {} });
+  check("a recovery request relaunches a browser on the same record", recovered.status === 200 && String(recovered.body.session?.status ?? "").includes("taken_over"), `${recovered.status} ${recovered.body.error ?? recovered.body.session?.status}`);
+  const afterRecovery = await api(`/api/workspace/browser/sessions/${sessionId}`);
+  check("the recovered session is live again, not a stale frame", afterRecovery.body.runtime?.live === true, `live=${afterRecovery.body.runtime?.live}`);
+
   // 7. stop: the browser really closes
   const stopped = await api(`/api/workspace/browser/sessions/${sessionId}/control`, { method: "POST", data: { action: "stop" } });
   check("stop closes the session", stopped.body.session?.status === "stopped", String(stopped.body.session?.status));
@@ -93,7 +119,7 @@ try {
   check(
     "the timeline persisted across the whole run",
     detail.status === 200 &&
-      ["session_started", "session_paused", "session_resumed", "session_taken_over", "control_returned", "session_stopped"].every((kind) =>
+      ["session_started", "session_paused", "session_resumed", "session_taken_over", "control_returned", "human_click", "human_type", "session_recovered", "session_stopped"].every((kind) =>
         kinds.includes(kind)
       ),
     kinds.join(",")

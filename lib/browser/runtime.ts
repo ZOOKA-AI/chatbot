@@ -44,6 +44,10 @@ type AnyPage = {
   title(): Promise<string>;
   waitForTimeout(ms: number): Promise<void>;
   innerText(selector: string): Promise<string>;
+  isClosed(): boolean;
+  on(event: string, handler: (...args: unknown[]) => void): void;
+  mouse: { click(x: number, y: number, options?: unknown): Promise<void> };
+  keyboard: { type(text: string, options?: unknown): Promise<void>; press(key: string): Promise<void> };
   textContent(selector: string): Promise<string | null>;
   close(): Promise<void>;
 };
@@ -66,6 +70,8 @@ type SessionHandle = {
   context: AnyContext;
   page: AnyPage;
   steps: number;
+  /** Set when Chromium reports a crash or the connection drops. Never cleared by guessing. */
+  crashed: string | null;
 };
 
 async function loadChromium(): Promise<{ launch: (options?: unknown) => Promise<AnyBrowser> }> {
@@ -129,8 +135,16 @@ class BrowserRuntime {
         serviceWorkers: "block",
       });
       const page = await context.newPage();
-      page.goto; // touch to fail fast if the page object is not what we expect
-      this.sessions.set(sessionId, { organizationId, context, page, steps: 0 });
+      const handle: SessionHandle = { organizationId, context, page, steps: 0, crashed: null };
+      // A crashed tab and a dropped browser are both real states the customer must be told about,
+      // so they are recorded when Chromium reports them rather than inferred from a failed request.
+      page.on("crash", () => {
+        handle.crashed = "page_crashed";
+      });
+      page.on("close", () => {
+        if (handle.crashed === null) handle.crashed = "page_closed";
+      });
+      this.sessions.set(sessionId, handle);
       return { ok: true };
     } catch (error) {
       return { ok: false, code: "launch_failed", message: describe(error) };
@@ -289,6 +303,68 @@ class BrowserRuntime {
       return { ok: true, url: handle.page.url(), title: await handle.page.title(), text: text.slice(0, limit) };
     } catch (error) {
       return { ok: false, code: "read_failed", message: describe(error) };
+    }
+  }
+
+  /** Whether a live browser is attached, and whether it has died since it was opened. */
+  health(sessionId: string, organizationId: string): { live: boolean; crashed: string | null } {
+    const handle = this.sessions.get(sessionId);
+    if (!handle || handle.organizationId !== organizationId) return { live: false, crashed: null };
+    if (handle.crashed) return { live: false, crashed: handle.crashed };
+    if (handle.page.isClosed()) return { live: false, crashed: "page_closed" };
+    if (!this.browser?.isConnected()) return { live: false, crashed: "browser_disconnected" };
+    return { live: true, crashed: null };
+  }
+
+  /**
+   * A real click at a point a person chose in a frame.
+   *
+   * This is what makes take-over more than a label: the coordinates come from the panel, the click is
+   * dispatched to the live page, and the resulting URL is read back. It is a real mouse event, not a
+   * suggestion to the agent.
+   */
+  async clickPoint(
+    sessionId: string,
+    organizationId: string,
+    point: { x: number; y: number }
+  ): Promise<{ ok: true; url: string } | BrowserFailure> {
+    const handle = this.handle(sessionId, organizationId);
+    if ("ok" in handle) return handle;
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y) || point.x < 0 || point.y < 0 || point.x > 4000 || point.y > 4000) {
+      return { ok: false, code: "invalid_point", message: "coordinates out of range" };
+    }
+    const exhausted = this.budget(handle);
+    if (exhausted) return exhausted;
+    try {
+      await handle.page.mouse.click(Math.round(point.x), Math.round(point.y));
+      await handle.page.waitForTimeout(250);
+      return { ok: true, url: handle.page.url() };
+    } catch (error) {
+      return { ok: false, code: "click_failed", message: describe(error) };
+    }
+  }
+
+  /** Real keystrokes into whatever the person has focused. */
+  async typeKeys(
+    sessionId: string,
+    organizationId: string,
+    text: string,
+    options: { submit?: boolean } = {}
+  ): Promise<{ ok: true; url: string } | BrowserFailure> {
+    const handle = this.handle(sessionId, organizationId);
+    if ("ok" in handle) return handle;
+    if (text.length > 500) return { ok: false, code: "text_too_long", message: `${text.length} characters` };
+    const exhausted = this.budget(handle);
+    if (exhausted) return exhausted;
+    try {
+      if (text.length > 0) await handle.page.keyboard.type(text);
+      if (options.submit) {
+        await handle.page.keyboard.press("Enter");
+        await handle.page.waitForTimeout(300);
+      }
+      return { ok: true, url: handle.page.url() };
+    } catch (error) {
+      return { ok: false, code: "typing_failed", message: describe(error) };
     }
   }
 

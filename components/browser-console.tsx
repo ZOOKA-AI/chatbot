@@ -25,6 +25,8 @@ type Session = {
 
 type EventRow = { id: string; seq: number; kind: string; actor: string; createdAt: string };
 type EvidenceRow = { id: string; label: string; url: string | null; createdAt: string; bytes: number };
+type RuntimeInfo = { live: boolean; broken?: boolean; crashedReason?: string | null; engine: string | null };
+type ApprovalRow = { id: string; reason: string; status: string; taskId: string | null };
 
 const STATUS_LABELS: Record<string, string> = {
   created: "جاهزة للبدء",
@@ -68,7 +70,14 @@ async function call<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; 
 export function BrowserConsole() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<{ session: Session; events: EventRow[]; evidence: EvidenceRow[]; runtime: { live: boolean; engine: string | null } } | null>(null);
+  const [detail, setDetail] = useState<{
+    session: Session;
+    events: EventRow[];
+    evidence: EvidenceRow[];
+    runtime: RuntimeInfo;
+  } | null>(null);
+  const [approvals, setApprovals] = useState<ApprovalRow[]>([]);
+  const [typed, setTyped] = useState("");
   const [startUrl, setStartUrl] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,9 +97,15 @@ export function BrowserConsole() {
     if (ok) setDetail(data);
   }, []);
 
+  const loadApprovals = useCallback(async () => {
+    const { ok, data } = await call<{ approvals?: ApprovalRow[] }>("/api/agents/approvals");
+    if (ok) setApprovals((data.approvals ?? []).filter((row) => row.status === "pending"));
+  }, []);
+
   useEffect(() => {
     void loadSessions();
-  }, [loadSessions]);
+    void loadApprovals();
+  }, [loadSessions, loadApprovals]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -136,6 +151,38 @@ export function BrowserConsole() {
     }
     await loadDetail(activeId);
     await loadSessions();
+  };
+
+  const sendInput = async (command: Record<string, unknown>) => {
+    if (!activeId) return;
+    const { ok, data } = await call<{ error?: string }>(`/api/workspace/browser/sessions/${activeId}/input`, {
+      method: "POST",
+      body: JSON.stringify(command),
+    });
+    if (!ok) setNotice(`رُفض الإدخال (${String(command.kind)}): ${data.error ?? "غير مسموح"}`);
+    else setNotice("نُفِّذ إدخالك على المتصفح الحي.");
+    await loadDetail(activeId);
+  };
+
+  const recover = async () => {
+    if (!activeId) return;
+    setBusy(true);
+    const { ok, data } = await call<{ error?: string }>(`/api/workspace/browser/sessions/${activeId}/recover`, {
+      method: "POST",
+      body: "{}",
+    });
+    setBusy(false);
+    setNotice(ok ? "استُعيدت الجلسة بمتصفح جديد على نفس السجل." : `تعذّرت الاستعادة: ${data.error ?? "سبب غير معروف"}`);
+    await loadDetail(activeId);
+  };
+
+  const decide = async (approvalId: string, decision: "approve" | "reject") => {
+    const { ok, data } = await call<{ error?: string }>(`/api/agents/approvals/${approvalId}`, {
+      method: "POST",
+      body: JSON.stringify({ decision, reason: decision === "reject" ? "مرفوض من لوحة المتصفح" : undefined }),
+    });
+    setNotice(ok ? (decision === "approve" ? "تمت الموافقة." : "تم الرفض.") : `تعذّر القرار: ${data.error ?? "غير مسموح"}`);
+    await loadApprovals();
   };
 
   const session = detail?.session ?? sessions.find((row) => row.id === activeId) ?? null;
@@ -238,18 +285,106 @@ export function BrowserConsole() {
               </div>
 
               <div className="rounded border border-white/10 p-2">
-                {live ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={frameTick}
-                    src={`/api/workspace/browser/sessions/${session.id}/frame?t=${frameTick}`}
-                    alt="لقطة حية من المتصفح"
-                    className="w-full rounded"
-                  />
+                {detail?.runtime.broken ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs" style={{ color: "#ffb4b4" }}>
+                      انقطعت جلسة المتصفح ({detail.runtime.crashedReason ?? "سبب غير مُبلَّغ"}). لا تُعرض صورة قديمة.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={recover}
+                      disabled={busy}
+                      className="self-start rounded px-3 py-1.5 text-xs"
+                      style={{ background: "#A23B72" }}
+                    >
+                      استعادة الجلسة
+                    </button>
+                  </div>
+                ) : live ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      key={frameTick}
+                      src={`/api/workspace/browser/sessions/${session.id}/frame?t=${frameTick}`}
+                      alt="لقطة حية من المتصفح"
+                      className="w-full rounded"
+                      style={{ cursor: session.controlHolder === "human" ? "crosshair" : "default" }}
+                      onClick={(event) => {
+                        if (session.controlHolder !== "human") {
+                          setNotice("تولَّ التحكم أولًا لينفّذ نقرك على المتصفح الحقيقي.");
+                          return;
+                        }
+                        const box = event.currentTarget.getBoundingClientRect();
+                        const scaleX = event.currentTarget.naturalWidth / box.width;
+                        const scaleY = event.currentTarget.naturalHeight / box.height;
+                        void sendInput({
+                          kind: "click",
+                          x: Math.round((event.clientX - box.left) * scaleX),
+                          y: Math.round((event.clientY - box.top) * scaleY),
+                        });
+                      }}
+                    />
+                    {session.controlHolder === "human" ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <input
+                          value={typed}
+                          onChange={(event) => setTyped(event.target.value)}
+                          placeholder="اكتب هنا ثم أرسل إلى الصفحة"
+                          className="flex-1 rounded border border-white/20 bg-transparent px-2 py-1 text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void sendInput({ kind: "type", text: typed });
+                            setTyped("");
+                          }}
+                          className="rounded border border-white/25 px-2 py-1 text-xs"
+                        >
+                          كتابة
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void sendInput({ kind: "type", text: typed, submit: true });
+                            setTyped("");
+                          }}
+                          className="rounded border border-white/25 px-2 py-1 text-xs"
+                        >
+                          كتابة وإرسال
+                        </button>
+                        <button type="button" onClick={() => void sendInput({ kind: "scroll", deltaY: 600 })} className="rounded border border-white/25 px-2 py-1 text-xs">
+                          نزول
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   <p className="text-xs opacity-70">
                     لا متصفح متصل بهذه الجلسة الآن. تُعرض الصورة الحيّة فقط عندما يكون المتصفح مفتوحًا فعليًا.
                   </p>
+                )}
+              </div>
+
+              <div>
+                <h3 className="mb-1 text-xs font-semibold opacity-70">طلبات الموافقة المعلّقة ({approvals.length})</h3>
+                {approvals.length === 0 ? (
+                  <p className="text-xs opacity-60">لا طلبات معلّقة.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1 text-xs">
+                    {approvals.map((row) => (
+                      <li key={row.id} className="rounded border border-white/10 p-2">
+                        <p className="mb-1">{row.reason}</p>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => decide(row.id, "approve")} className="rounded px-2 py-1" style={{ background: "#2E86AB" }}>
+                            موافقة
+                          </button>
+                          <button type="button" onClick={() => decide(row.id, "reject")} className="rounded border border-white/25 px-2 py-1">
+                            رفض
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
 
