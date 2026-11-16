@@ -142,6 +142,31 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 26 — Atomic decisions, validated migrations, and the chain traced (16 Nov 2026)
+
+PR #95 head `7d9a957f`, draft. No merge, no production deployment, no migration applied to production, no billing change, no paid service, no secret rotated.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 26.1 | Approval + audit in one transaction | DONE | `decideApproval` validates, transitions and inserts the audit row inside `db.transaction`. The insert runs only after the conditional UPDATE returned a row, so a losing race, another tenant or a missing row writes nothing |
+| 26.2 | Rollback proof | VERIFIED | The test occupies the unique slot first, then decides: the call rejects and the approval is still `pending` with `decidedBy` null. Nothing half-committed |
+| 26.3 | No duplicate decision records | DONE | Migration `pending/0033` adds `approvalId` plus a partial unique index; a second decision on the same approval returns null and the count stays at one |
+| 26.4 | Route no longer writes history | DONE | The HTTP route reports the result only; its tests now assert `recordDecision` is called zero times, which is what prevents the duplicate |
+| 26.5 | Tenant handle defect | FOUND and FIXED | The Commander handle is a Proxy that returned `transaction` unbound, so `db.transaction()` produced nothing at all and the first atomic attempt silently wrote no rows. Methods now bind to the handle they resolve from |
+| 26.6 | Migration 0032 + 0033 validated | DONE | Forward apply idempotent on the isolated instance; index is `(organizationId, createdAt DESC, id DESC)`; the unique index is partial; 0027–0031 remain compatible; both roll back and re-apply in development only |
+| 26.7 | Query performance | MEASURED | 50,000 rows over 20 workspaces, deep page inside a 2,500-row workspace: 0.142 ms via Index Scan with the index, 1.679 ms without it |
+| 26.8 | Browser acceptance | PREPARED, NOT RUN | `docs/engineering/BROWSER_ACCEPTANCE_PROCEDURE.md`: three acceptable ways to obtain an authorised session, twelve steps with the evidence each needs, and the rule that a screenshot is not evidence of a database change. No bypass attempted |
+| 26.9 | Chat to real work | DONE (partial chain) | `createExecutionTask`, `getExecutionStatus`, `listExecutionTasks` are wired into the chat toolset. No tool can complete, report or decide, so the model cannot fabricate a completion; replies carry the database's own status |
+| 26.10 | Chain traced | DOCUMENTED | `docs/engineering/E2E_EXECUTION_TRACE.md`: links 1, 2, 3, 7 real and tested; link 4 exists with no engine; 6 and 8 half-built; link 5 (tool invocation by a claimed agent) missing |
+| 26.11 | Preview deployment | READY | `dpl_71fctPUeDh` on `7d9a957f` |
+| 26.12 | `pnpm run build` | DONE | Compile succeeds, 124 pages, exit 0 |
+
+Numbers: 388 tests across 56 files with PostgreSQL, tsc clean.
+
+Remaining risks: nothing claims and executes a queued task, so the platform can record intent and refuse to fake completion but cannot yet act on its own; the reason rule and audit write are inside the domain but a caller outside a tenant transaction still writes with the shared handle; the browser procedure has never been executed.
+
+Next autonomous task: build the queue runner (claim by conditional UPDATE, execute one allow-listed tool, report a stored artefact), then re-run the browser procedure against a session the owner provides.
+
 ## Stage 25 — Domain reason rule, Load More, and a measured index (16 Nov 2026)
 
 PR #95 head `b5e10fe5`, draft. No merge, no production deployment, no migration applied, no billing change, no paid service, no secret rotated.
