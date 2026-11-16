@@ -1,0 +1,65 @@
+/* ZOOKA AI design tokens.
+   Source of truth for the visual workstream. Not imported by the app yet: the frozen
+   release candidate must not import a stylesheet it was not tested with, so this file
+   ships with the design branch and is wired in only after owner approval. */
+:root {
+  /* brand */
+  --zk-blue: #2E86AB;          /* electric blue, primary */
+  --zk-purple: #A23B72;        /* purple, accent */
+  --zk-ice: #F8F9FA;           /* ice white */
+  --zk-navy: #0B1220;          /* dark navy background */
+  --zk-navy-raised: #111A2B;   /* cards, panels */
+  --zk-navy-line: #1E2A3D;     /* hairlines, dividers */
+  --zk-cyan: #4FD1E8;          /* controlled neon: focus, glow, active */
+  --zk-ink: #0A1019;           /* text on light surfaces */
+
+  /* text */
+  --zk-text-on-dark: #F8F9FA;
+  --zk-text-muted-on-dark: #8FA3B8;
+  --zk-text-on-light: #0A1019;
+  --zk-text-muted-on-light: #5B6B7C;
+
+  /* functional */
+  --zk-success: #2FBF71;
+  --zk-warn: #E2A03F;
+  --zk-danger: #D9534F;
+
+  /* type: Cairo for Arabic, Inter for Latin, Geist Mono for code */
+  --zk-font-ar: Cairo, Tahoma, sans-serif;
+  --zk-font-en: Inter, system-ui, -apple-system, sans-serif;
+  --zk-font-mono: "Geist Mono", ui-monospace, monospace;
+  --zk-fs-display: clamp(2.5rem, 5vw, 4rem);
+  --zk-fs-h1: clamp(2rem, 3.4vw, 2.75rem);
+  --zk-fs-h2: clamp(1.5rem, 2.4vw, 2rem);
+  --zk-fs-h3: 1.25rem;
+  --zk-fs-body: 1rem;
+  --zk-fs-sm: 0.875rem;
+  --zk-fs-xs: 0.75rem;
+  --zk-lh-tight: 1.15;
+  --zk-lh-body: 1.6;
+  --zk-ls-brand: 0.06em;
+
+  /* spacing: 4px base */
+  --zk-1: 0.25rem; --zk-2: 0.5rem; --zk-3: 0.75rem; --zk-4: 1rem;
+  --zk-5: 1.25rem; --zk-6: 1.5rem; --zk-8: 2rem; --zk-10: 2.5rem;
+  --zk-12: 3rem; --zk-16: 4rem; --zk-24: 6rem;
+
+  /* radii and elevation */
+  --zk-r-sm: 8px; --zk-r-md: 12px; --zk-r-lg: 18px; --zk-r-xl: 24px; --zk-r-pill: 999px;
+  --zk-glow: 0 0 0 1px rgba(79,209,232,0.35), 0 8px 32px rgba(46,134,171,0.18);
+
+  /* motion: short, quiet, never bouncing */
+  --zk-dur-fast: 120ms; --zk-dur-base: 200ms; --zk-dur-slow: 320ms;
+  --zk-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* layout */
+  --zk-container: 1200px;
+  --zk-safe-margin: clamp(1rem, 5vw, 4rem);
+}
+
+/* Accessibility rules that come from measurement, not taste (see BRAND_GUIDE.md):
+   purple on navy is 3.04:1, so it is never body text there; the blue CTA with ice text
+   is 3.9:1, so its label is at least 18px/600 or the button switches to cyan on navy. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --zk-dur-fast: 0ms; --zk-dur-base: 0ms; --zk-dur-slow: 0ms; }
+}
