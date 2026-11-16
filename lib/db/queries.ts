@@ -619,7 +619,7 @@ export async function incrementGuestUsage(key: string) {
   // once their date suffix has passed and would otherwise accumulate forever.
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   try {
-    await db
+    await adminDb()
       .delete(guestUsage)
       .where(
         and(like(guestUsage.key, "ip:%"), lt(guestUsage.updatedAt, cutoff))
@@ -628,7 +628,7 @@ export async function incrementGuestUsage(key: string) {
     // Pruning is best-effort; never block the request on it.
   }
 
-  const [row] = await db
+  const [row] = await adminDb()
     .insert(guestUsage)
     .values({ key, count: 1 })
     .onConflictDoUpdate({
@@ -672,7 +672,7 @@ export async function releaseGuestUsage(key: string) {
 
 export async function getGuestUsage(key: string) {
   try {
-    const [row] = await db
+    const [row] = await adminDb()
       .select({ count: guestUsage.count })
       .from(guestUsage)
       .where(eq(guestUsage.key, key))
