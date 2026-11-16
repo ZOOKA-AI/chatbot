@@ -588,6 +588,28 @@ export const agentSchedule = pgTable(
   })
 );
 
+export const agentLaunchPlan = pgTable(
+  "AgentLaunchPlan",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    title: varchar("title", { length: 200 }).notNull(),
+    // The brief as the customer gave it, and the plan as it was built. Both are stored
+    // so a plan can be re-read exactly as it was presented, not regenerated differently.
+    brief: json("brief").notNull(),
+    plan: json("plan").notNull(),
+    // Per-step state lives in `steps`, keyed by step id. A plan's own status is derived
+    // from them, never stored, so the two cannot disagree.
+    steps: json("steps").notNull().default({}),
+    createdBy: varchar("createdBy", { length: 64 }).notNull().default("owner"),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    orgCreatedIdx: index("AgentLaunchPlan_org_created_idx").on(table.organizationId, table.createdAt),
+  })
+);
+
 export const agentTask = pgTable(
   "AgentTask",
   {

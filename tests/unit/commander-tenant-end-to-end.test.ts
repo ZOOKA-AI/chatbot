@@ -59,6 +59,7 @@ async function applyMigrations() {
     "pending/0031_tenant_runtime_role.sql",
       "pending/0033_decision_audit_uniqueness.sql",
       "pending/0038_schedule_and_agent_model.sql",
+      "pending/0039_launch_plan.sql",
   ];
   for (const name of files) {
     const body = readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8");

@@ -54,6 +54,7 @@ beforeAll(async () => {
   await apply(sqlFile("pending/0028_agent_tenant_scope.sql"));
   await apply(sqlFile("pending/0033_decision_audit_uniqueness.sql"));
   await apply(sqlFile("pending/0038_schedule_and_agent_model.sql"));
+  await apply(sqlFile("pending/0039_launch_plan.sql"));
   holder.db = drizzle(pg, { schema });
   center = (await import(CENTER)) as typeof import("@/lib/agents/command-center");
 });

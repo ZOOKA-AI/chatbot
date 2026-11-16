@@ -36,6 +36,7 @@ import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
 import { createCommanderTools } from "@/lib/ai/tools/commander";
+import { createLaunchTools } from "@/lib/ai/tools/launch";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
@@ -380,6 +381,12 @@ export async function POST(request: Request) {
           ...createCommanderTools({
             organizationId: workspaceContext.organizationId,
             userId: session.user.id,
+            canManage: ["owner", "admin"].includes(String(workspaceContext.role)),
+          }),
+          // Creating and reading launch plans. No tool here advances a step, so the
+          // model cannot claim a business was launched when a plan was merely written.
+          ...createLaunchTools({
+            organizationId: workspaceContext.organizationId,
             canManage: ["owner", "admin"].includes(String(workspaceContext.role)),
           }),
           getWeather,
