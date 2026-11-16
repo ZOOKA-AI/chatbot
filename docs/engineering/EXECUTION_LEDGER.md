@@ -1087,3 +1087,32 @@ the five exact requirements. Wallet at the time of writing: $0.50, automatic top
 no GPU purchased, no paid call made.
 
 No production deployment, no production migration, no merge, no purchase, no external publishing.
+
+## Milestone 018 — one interface, four providers (DIRECTIVE #058)
+
+PR #95 head `8cfb747` (draft). RunComfy plus fal behind a provider-independent gateway, with the local
+engines still first and money still the visible part.
+
+Documentation read on 16 November 2026: `https://docs.runcomfy.com` (Model API v2) and
+`https://fal.ai/docs/documentation/model-apis/queue`. No endpoint, field or price is invented below.
+
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 18.01 | Gateway interface | VERIFIED | `lib/studio/gateway/providers.ts`: id, tier, capabilities, readiness **code**, models, estimate, submit, status, result, cancel, error classification |
+| 18.02 | fal transport | VERIFIED | `queue.fal.run` submit with `Authorization: Key`, status by the returned `status_url`, result by `response_url`, cancel by `cancel_url` |
+| 18.03 | The fal 405 rule | VERIFIED | the returned URLs are used verbatim; rebuilding a URL with the model path is asserted to classify as `invalid_request` |
+| 18.04 | fal re-queue semantics | VERIFIED | a timeout re-polls the existing request; submit is never retried (asserted: one fetch after a 500) |
+| 18.05 | No invented fal prices | VERIFIED | models exist only via `FAL_MODELS_*`; an unconfigured price is `null`, which the router refuses as `cost_unknown` |
+| 18.06 | Router order | VERIFIED | capability → model → credential → health → cost → budget → tier → preference, 14 cases |
+| 18.07 | No silent substitution | VERIFIED | `requested_model_not_offered` with an empty order; the dearer requested model is chosen verbatim when offered |
+| 18.08 | Outage isolation | VERIFIED | a provider failing discovery is refused with its own code and another provider is chosen |
+| 18.09 | Live acceptance | 11/11 | `scripts/acceptance/runcomfy-status-check.mjs` on a real server: owner-only endpoints (307 anonymous), `credential_missing` named for both vendors, `paidGenerationEnabled=false`, cap 0.50, no key material |
+| 18.10 | Panel honesty | VERIFIED | fal added to `providerStatuses` with `credential_missing` / `paid_generation_disabled` / unverified-key wording |
+| 18.11 | Gates | 890 passed / 6 skipped / 896 in 102 files, twice | identical numbers both runs, `tsc` clean, `next build` 0 |
+| 18.12 | Real generation | BLOCKED — `CREDENTIAL_REQUIRED` | no `RUNCOMFY_API_TOKEN`, no `FAL_KEY`, switch off. Zero billable calls made |
+
+**Limit stated plainly:** the gateway is complete and refuses; it has never produced a pixel from a cloud
+provider. First real job needs one owner action per vendor plus one approved cost, listed in
+`docs/engineering/AI_GATEWAY.md`.
+
+No production deployment, no production migration, no merge, no purchase, no top-up.
