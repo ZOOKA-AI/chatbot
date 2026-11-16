@@ -1,6 +1,7 @@
 import { withPlatformClient } from "@/lib/db/platform-client";
 import { firstAgentIdentity } from "@/lib/agents/command-center";
 import { withCommanderScope } from "@/lib/agents/commander-scope";
+import { toolPayloadFor } from "./tool-payload";
 import { reclaimExpiredLeases } from "@/lib/agents/worker-lease";
 import { runTask } from "@/lib/agents/worker";
 
@@ -156,7 +157,7 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
             taskId: task.id,
             tool: config.tool,
             fetchImpl: config.fetchImpl,
-            payload: config.tool === "github_repo_inspect" ? { repo: "zooka-ai/chatbot" } : {},
+            payload: toolPayloadFor(config.tool),
           })
         );
         outcomes.push({

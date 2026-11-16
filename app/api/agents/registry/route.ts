@@ -2,14 +2,18 @@ import { z } from "zod";
 
 import {
   AGENT_SCOPES,
+  countOtherActiveAgents,
   listAgents,
+  updateAgentConfig,
   registerAgent,
 } from "@/lib/agents/command-center";
+import { guardLastActiveAgent, parseAgentPatch } from "@/lib/agents/agent-config";
 import { fields, validateJson } from "@/lib/validation/api";
 import {
   badRequest,
   callerOrganizationId,
   canManage,
+  forbidden,
   json,
   resolveCaller,
   unauthorized,
@@ -66,7 +70,52 @@ async function POSTHandler(request: Request) {
 }
 
 // Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+/**
+ * Changing an agent is a management action: an agent key may not edit scopes, because that
+ * is how an agent would grant itself authority it was not given.
+ */
+async function PATCHHandler(request: Request) {
+  const caller = await resolveCaller(request);
+  if (!caller) return unauthorized();
+  if (!canManage(caller)) return forbidden("owner_or_admin_required");
+
+  // The shape is described twice on purpose: this schema bounds what arrives, and
+  // `parseAgentPatch` decides what is meaningful. A field this schema does not name is
+  // refused by `parseAgentPatch` as unknown rather than silently dropped here.
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        agentId: fields.uuid,
+        displayName: z.string().optional(),
+        status: z.string().optional(),
+        environment: z.string().optional(),
+        scopes: z.array(z.string()).optional(),
+      })
+      .strict()
+  );
+  if (!parsed.ok) return badRequest(parsed.reason);
+
+  const { agentId, ...rest } = parsed.data as Record<string, unknown> & { agentId: string };
+  const validated = parseAgentPatch(rest);
+  if (!validated.ok) return badRequest(validated.error);
+
+  const organizationId = callerOrganizationId(caller);
+  if (validated.patch.status === "disabled") {
+    // Read, then write, both scoped to this workspace: the guard has to reason about the
+    // agents that remain, not about the one being changed.
+    const others = await countOtherActiveAgents({ organizationId, agentId });
+    const guarded = guardLastActiveAgent(validated.patch, others);
+    if (!guarded.ok) return badRequest(guarded.error);
+  }
+
+  const agent = await updateAgentConfig({ organizationId, agentId, patch: validated.patch });
+  if (!agent) return json({ error: "not_found" }, 404);
+  return json({ agent });
+}
+
 export const GET = withCommanderTenant(GETHandler);
+export const PATCH = withCommanderTenant(PATCHHandler);
 
 // Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
 export const POST = withCommanderTenant(POSTHandler);

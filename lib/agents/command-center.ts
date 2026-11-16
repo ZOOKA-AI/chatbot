@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import {
   agentApproval,
   agentDecision,
@@ -177,6 +177,64 @@ export async function listAgents(organizationId: string) {
     .from(agentIdentity)
     .where(eq(agentIdentity.organizationId, organizationId))
     .orderBy(desc(agentIdentity.createdAt));
+}
+
+/**
+ * Applies an already-validated configuration change, scoped to the workspace.
+ *
+ * The `organizationId` predicate is part of the UPDATE rather than a check performed
+ * beforehand: one statement cannot be raced by a request arriving between read and write.
+ */
+export async function updateAgentConfig(input: {
+  organizationId: string;
+  agentId: string;
+  patch: {
+    displayName?: string;
+    status?: string;
+    scopes?: string[];
+    environment?: string;
+  };
+}) {
+  const [row] = await db
+    .update(agentIdentity)
+    .set({
+      ...(input.patch.displayName === undefined ? {} : { displayName: input.patch.displayName }),
+      ...(input.patch.status === undefined ? {} : { status: input.patch.status }),
+      ...(input.patch.scopes === undefined ? {} : { scopes: input.patch.scopes }),
+      ...(input.patch.environment === undefined ? {} : { environment: input.patch.environment }),
+    })
+    .where(
+      and(
+        eq(agentIdentity.id, input.agentId),
+        eq(agentIdentity.organizationId, input.organizationId)
+      )
+    )
+    .returning({
+      id: agentIdentity.id,
+      slug: agentIdentity.slug,
+      displayName: agentIdentity.displayName,
+      role: agentIdentity.role,
+      scopes: agentIdentity.scopes,
+      environment: agentIdentity.environment,
+      status: agentIdentity.status,
+    });
+
+  return row ?? null;
+}
+
+/** How many other agents in this workspace can still execute work. */
+export async function countOtherActiveAgents(input: { organizationId: string; agentId: string }) {
+  const rows = await db
+    .select({ id: agentIdentity.id })
+    .from(agentIdentity)
+    .where(
+      and(
+        eq(agentIdentity.organizationId, input.organizationId),
+        eq(agentIdentity.status, "active"),
+        ne(agentIdentity.id, input.agentId)
+      )
+    );
+  return rows.length;
 }
 
 export async function heartbeat(agent: AgentIdentity) {

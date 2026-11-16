@@ -68,6 +68,7 @@ async function candidates(limit: number): Promise<Task[]> {
 
 async function execute(task: Task) {
   const { runTask } = await import("../../lib/agents/worker");
+  const { toolPayloadFor } = await import("../../lib/agents/tool-payload");
   const identity = await sql<{ id: string }[]>`
     select id from "AgentIdentity" where "organizationId" = ${task.organizationId} order by "createdAt" asc limit 1`;
   const agentId = identity[0]?.id;
@@ -84,7 +85,7 @@ async function execute(task: Task) {
   try {
     const outcome = await runTask(
       { id: agentId, organizationId: task.organizationId } as never,
-      { taskId: task.id, tool: config.worker.tool } as never
+      { taskId: task.id, tool: config.worker.tool, payload: toolPayloadFor(config.worker.tool) } as never
     );
 
     // A task that stays 'running' with no execution record is the failure this loop must
