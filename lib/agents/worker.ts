@@ -36,11 +36,14 @@ import type { WorkerTool } from "@/lib/agents/worker-types";
 
 type WorkerAgent = { id: string; organizationId: string };
 
+import { browserTaskRun } from "./worker-tools/browser-task";
+
 export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
   [projectDocumentCreate.name]: projectDocumentCreate,
+  browser_task_run: browserTaskRun,
 };
 
 export class WorkerRefusal extends Error {

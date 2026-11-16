@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 731 passed, 6 skipped, 737 total, 91 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 747 passed, 6 skipped, 753 total, 92 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -391,3 +391,31 @@ list contains no phantom.
 
 **Migration 0042 verified in every state that matters:** applied and self-verified, rolled back
 (table and the unique key it added both gone), reapplied empty, and re-insertable afterwards.
+
+### Milestone 012 — the real browser — COMPLETE (with named limits)
+
+Chromium 134, launched by this application, driving a page for a customer. Not a mock: the acceptance
+run signed in through the real form, created a session, started it, loaded a controlled site, read the
+page title from the live DOM, fetched an 11,853-byte PNG frame from the running browser, paused,
+took control, handed it back, resumed, stopped, and then got 409 for a frame instead of a stale image.
+
+**The agent path is real too.** An Arabic instruction became an action, the action became a queued
+task, the worker claimed it with its own key, `browser_task_run` opened a browser inside the worker,
+navigated to `https://example.com`, read 917 characters, saved a screenshot, closed the session, and
+the execution row says `succeeded` with the task `completed` by the worker, not by the UI.
+
+**Isolation was built as the permission model, not decoration.** A session belongs to a workspace and
+to a person; another workspace gets 404 for read and control; a member who does not own it gets 403;
+pause and take-over genuinely stop the agent because the agent asks `agentMayAct` before every step.
+
+**Two real defects were found by running it.** `next start` sets NODE_ENV=production, so the original
+loopback allowance never applied — the policy now keys on deployment markers and demands two explicit
+settings, refused outright under `VERCEL_ENV=production`. And the catalog rejected `startUrl` because
+input keys must be snake_case, which surfaced as a build failure rather than a runtime surprise.
+
+**Gates:** 747 passed / 6 skipped / 753 in 92 files; `tsc` clean; production build compiled. One
+intermittent known flake (`schedule.test.ts`, "two passes in the same second") failed on the first
+pass and passed on the second — it is documented, and it is not weakened.
+
+**Named limits** (in `docs/engineering/BROWSER_ARCHITECTURE.md`): no live video, no interactive human
+clicking, no mid-run approval flow, no crash-recovery resume, and CAPTCHA/MFA are never bypassed.

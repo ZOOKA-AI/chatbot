@@ -6,6 +6,7 @@ import {
   index,
   integer,
   json,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -545,6 +546,78 @@ export type AgentProject = InferSelectModel<typeof agentProject>;
  * open one years later without depending on an object store. `taskId` is unique so one run
  * cannot silently overwrite another's artifact.
  */
+/**
+ * A real browser session. The row is the authority: it carries the workspace, the owner, the
+ * project it works for and the lifetime. Chrome is only launched for a session row that already
+ * exists, and every control action re-reads it through the caller's organization.
+ */
+export const browserSession = pgTable(
+  "BrowserSession",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    projectId: uuid("projectId").references(() => agentProject.id, { onDelete: "cascade" }),
+    taskId: uuid("taskId").references(() => agentTask.id, { onDelete: "set null" }),
+    ownerId: varchar("ownerId", { length: 64 }).notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("created"),
+    startUrl: text("startUrl"),
+    currentUrl: text("currentUrl"),
+    currentTitle: text("currentTitle"),
+    controlHolder: varchar("controlHolder", { length: 16 }).notNull().default("agent"),
+    pendingApprovalId: uuid("pendingApprovalId"),
+    lastError: text("lastError"),
+    stepCount: integer("stepCount").notNull().default(0),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp("startedAt", { withTimezone: true }),
+    lastSeenAt: timestamp("lastSeenAt", { withTimezone: true }),
+    expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("endedAt", { withTimezone: true }),
+  },
+  (table) => ({
+    orgStatusIdx: index("BrowserSession_org_status_idx").on(table.organizationId, table.status, table.createdAt),
+  })
+);
+
+export const browserEvent = pgTable(
+  "BrowserEvent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    sessionId: uuid("sessionId")
+      .notNull()
+      .references(() => browserSession.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    kind: varchar("kind", { length: 32 }).notNull(),
+    actor: varchar("actor", { length: 16 }).notNull().default("agent"),
+    detail: jsonb("detail").notNull().default({}),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    sessionSeqKey: uniqueIndex("BrowserEvent_session_seq_key").on(table.sessionId, table.seq),
+    orgCreatedIdx: index("BrowserEvent_org_created_idx").on(table.organizationId, table.createdAt),
+  })
+);
+
+export const browserEvidence = pgTable(
+  "BrowserEvidence",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    sessionId: uuid("sessionId")
+      .notNull()
+      .references(() => browserSession.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 120 }).notNull(),
+    url: text("url"),
+    title: text("title"),
+    path: text("path").notNull(),
+    bytes: integer("bytes").notNull().default(0),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    sessionCreatedIdx: index("BrowserEvidence_session_created_idx").on(table.sessionId, table.createdAt),
+  })
+);
+
 export const projectDocument = pgTable(
   "ProjectDocument",
   {

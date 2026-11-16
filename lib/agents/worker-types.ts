@@ -56,4 +56,4 @@ export function redact(value: string): string {
  * a flag a tool can set for itself: a tool that sets `internalWrite` but is missing here is still
  * refused, and the worker's default stays "refuse anything that writes".
  */
-export const INTERNAL_WRITE_TOOLS = new Set<string>(["project_document_create"]);
+export const INTERNAL_WRITE_TOOLS = new Set<string>(["project_document_create", "browser_task_run"]);

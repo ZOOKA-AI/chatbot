@@ -121,6 +121,59 @@ const DRAFTS: TemplateDraft[] = [
     ],
   },
   {
+    id: "browser_research",
+    version: 1,
+    category: "operations",
+    title: {
+      ar: "جولة متصفح حقيقية",
+      en: "Real browser run",
+    },
+    description: {
+      ar: "يفتح متصفحًا حقيقيًا في جلسة خاصة بمساحتك، ويزور موقعًا معلنًا، وينفّذ خطوات محددة — فتح الصفحة، الضغط، الكتابة، الاختيار، التمرير، قراءة المحتوى — ويحفظ لقطات شاشة كدليل. لا يشتري ولا ينشر ولا يرسل ولا يحذف: أي خطوة من هذا النوع تُرفض قبل فتح المتصفح.",
+      en: "Opens a real browser in a session owned by your workspace, visits a declared site and runs the steps you specify — navigate, click, type, select, scroll, read — saving screenshots as evidence. It never purchases, publishes, messages or deletes: any such step is refused before a browser opens.",
+    },
+    inputs: [
+      {
+        key: "start_url",
+        type: "url",
+        required: true,
+        label: { ar: "الموقع", en: "Website" },
+        help: {
+          ar: "عنوان كامل يبدأ بـhttps، مثل https://example.com. العناوين الداخلية والشبكات الخاصة مرفوضة.",
+          en: "A full https address, for example https://example.com. Internal and private-network addresses are refused.",
+        },
+        placeholder: "https://example.com",
+        pattern: "^https://[A-Za-z0-9.-]+\\.[A-Za-z]{2,}(/.*)?$",
+      },
+      {
+        key: "goal",
+        type: "text",
+        required: true,
+        label: { ar: "ما تريده", en: "What you want" },
+        help: {
+          ar: "وصف قصير للغرض من الجولة، من ١٠ إلى ٣٠٠ حرف، يُسجَّل في سجل الجلسة.",
+          en: "A short description of the visit, 10 to 300 characters, recorded in the session timeline.",
+        },
+        placeholder: "قراءة عنوان الصفحة الرئيسية",
+        pattern: "^[A-Za-z0-9\u0600-\u06FF \u060C.,:؟!_-]{10,300}$",
+      },
+    ],
+    requiredTools: ["browser_task_run"],
+    requiredIntegrations: [],
+    responsibleRole: "owner",
+    approval: "none",
+    workflow: [
+      { ar: "فتح جلسة متصفح خاصة بمساحتك", en: "Open a browser session owned by your workspace" },
+      { ar: "التحقق من العنوان ورفض الشبكات الداخلية", en: "Check the address and refuse internal networks" },
+      { ar: "تنفيذ الخطوات وتسجيل كل خطوة في السجل", en: "Run the steps and record each one in the timeline" },
+      { ar: "حفظ لقطات الشاشة وإغلاق الجلسة", en: "Save screenshots and close the session" },
+    ],
+    outputs: [
+      { ar: "جلسة متصفح بسجل خطوات ولقطات شاشة", en: "A browser session with a step timeline and screenshots" },
+      { ar: "ملخص نتيجة يمكن مراجعته لاحقًا", en: "A result summary you can review later" },
+    ],
+  },
+  {
     id: "project_document",
     version: 1,
     category: "operations",
@@ -342,6 +395,23 @@ export function actionPayload(
   }
   if (tool === "workspace_readiness_inspect") {
     return { tool, payload: { label: inputs.label ?? "" } };
+  }
+  if (tool === "browser_task_run") {
+    // The steps are derived from the declared goal, never from arbitrary customer markup: this
+    // milestone opens the page, reads it and captures evidence. Free-form step plans reach the tool
+    // through the worker payload, not through this form.
+    const startUrl = String(inputs.start_url ?? "");
+    return {
+      tool,
+      payload: {
+        startUrl,
+        steps: [
+          { action: "navigate", url: startUrl },
+          { action: "read" },
+          { action: "screenshot", label: "entry" },
+        ],
+      },
+    };
   }
   if (tool === "project_document_create") {
     // projectId is added by the runner from the project the customer chose, never from the form.
