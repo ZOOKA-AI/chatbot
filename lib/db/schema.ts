@@ -7,6 +7,7 @@ import {
   integer,
   json,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -479,6 +480,41 @@ export const mediaJob = pgTable(
       table.organizationId,
       table.createdAt
     ),
+  })
+);
+
+
+/**
+ * A customer's media: what they uploaded and what the studio derived from it.
+ *
+ * The row is the index; the bytes live on disk under a tenant-prefixed path that is never taken from
+ * a request. `parentAssetId` keeps the lineage, so an edit never claims to be the original.
+ */
+export const studioAsset = pgTable(
+  "StudioAsset",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    projectId: uuid("projectId"),
+    kind: varchar("kind", { length: 8 }).notNull(),
+    source: varchar("source", { length: 16 }).notNull(),
+    storagePath: text("storagePath").notNull(),
+    mimeType: varchar("mimeType", { length: 64 }).notNull(),
+    bytes: integer("bytes").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    durationSeconds: numeric("durationSeconds", { precision: 8, scale: 3 }),
+    status: varchar("status", { length: 16 }).notNull().default("ready"),
+    operation: jsonb("operation"),
+    parentAssetId: uuid("parentAssetId"),
+    label: varchar("label", { length: 200 }),
+    createdBy: varchar("createdBy", { length: 64 }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    orgCreated: index("StudioAsset_org_created_idx").on(table.organizationId, table.createdAt),
+    project: index("StudioAsset_project_idx").on(table.projectId),
   })
 );
 

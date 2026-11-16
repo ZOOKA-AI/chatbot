@@ -8,7 +8,7 @@ so instead of rounding up.
 
 | Gate | Result | How |
 | --- | --- | --- |
-| Test suite (serial, twice) | 751 passed, 6 skipped, 757 total, 92 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
+| Test suite (serial, twice) | 767 passed, 6 skipped, 773 total, 93 files | `npx vitest run --no-file-parallelism`, twice, identical counts |
 | TypeScript | 0 errors | `npx tsc --noEmit` |
 | Production build | compiled | `pnpm run build` |
 | Migration parity | 2/2 passed | `tests/unit/migration-schema-parity.test.ts` against a database rebuilt from every migration |
@@ -447,3 +447,28 @@ Acceptance 28/28 on real Chromium.
 
 **Still not built:** live video (the frame is a polled screenshot), approval that pauses a page
 mid-form, key presses other than typing and Enter.
+
+### Milestone 014 — Creative Studio without a paid provider — COMPLETE for editing and rendering
+
+Real files, no generative provider required. `StudioAsset` (0044) indexes what a workspace holds with
+RLS and a composite `(projectId, organizationId)` key; bytes live under a tenant-prefixed path that is
+computed from the row, never from a request.
+
+**Images:** upload with server-side measurement, then resize, crop, text and logo overlays through
+ffmpeg, each producing a new asset that names its parent.
+
+**Video:** 1–12 scenes rendered to MP4 at 9:16, 1:1 or 16:9, scaled and padded so nothing is cropped,
+with optional per-scene titles and fades, `libx264`, and a probe that must succeed before a row is
+written. Two real defects were found by running it: `-shortest` let a short music track cut a four
+second film, and the generator briefly selected the local editor as if it were a generator.
+
+**Audio:** trim with loudness normalisation, gain, and a voiceover mix with the music ducked.
+
+**Gates:** 767 passed / 6 skipped / 773 in 93 files, twice, `tsc` 0, production build compiled. Studio
+acceptance 30/30 on real artifacts, including cross-tenant 404 on read, list and edit, and persistence
+across logout and login.
+
+**Blocked, and stated as blocked:** AI image generation. The ComfyUI adapter is complete and verified
+against fixtures (12 tests) but no `COMFYUI_ENDPOINT` exists, so `/api/studio/generate` answers 409 with
+its blockers and no generated image is ever displayed. Text-to-speech and background removal are not
+built.
