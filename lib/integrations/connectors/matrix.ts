@@ -2,6 +2,7 @@ import "server-only";
 
 import { CONNECTOR_SPECS } from "@/lib/integrations/connectors/registry";
 import { INTEGRATION_PLAYBOOKS } from "@/lib/integrations/playbooks";
+import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
 /**
  * The capability matrix the release is judged on. It is built from code, not
@@ -11,6 +12,11 @@ import { INTEGRATION_PLAYBOOKS } from "@/lib/integrations/playbooks";
  */
 export type MatrixRow = {
   providerId: string;
+  /** Canonical display name from the provider catalogue — never inferred. */
+  name: string;
+  nameAr: string;
+  /** Catalogue status, so the agent reports what the UI actually shows. */
+  catalogStatus: string;
   label: string;
   documentationReady: boolean;
   providerImplemented: boolean;
@@ -74,14 +80,29 @@ export function buildIntegrationMatrix(): MatrixRow[] {
   const specByProvider = new Map(
     CONNECTOR_SPECS.map((spec) => [spec.providerId, spec])
   );
+  const catalogById = new Map(
+    INTEGRATION_PROVIDERS.map((provider) => [provider.id, provider])
+  );
   const rows: MatrixRow[] = [];
 
   for (const playbook of INTEGRATION_PLAYBOOKS) {
     const spec = specByProvider.get(playbook.providerId);
+    // The catalogue is the single source of truth for names. A row without a
+    // catalogue entry would force the agent to guess a name, which is exactly
+    // the defect this guards against, so it fails instead.
+    const catalogEntry = catalogById.get(playbook.providerId);
+    if (!catalogEntry) {
+      throw new Error(
+        `provider ${playbook.providerId} is missing from INTEGRATION_PROVIDERS`
+      );
+    }
     const implemented = Boolean(spec) || BESPOKE_IMPLEMENTED.has(playbook.providerId);
     rows.push({
       providerId: playbook.providerId,
-      label: playbook.providerId,
+      name: catalogEntry.name,
+      nameAr: catalogEntry.nameAr,
+      catalogStatus: catalogEntry.status,
+      label: catalogEntry.name,
       documentationReady: true,
       providerImplemented: implemented,
       authenticationVerified: false,
