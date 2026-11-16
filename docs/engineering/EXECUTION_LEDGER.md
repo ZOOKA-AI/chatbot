@@ -1017,3 +1017,40 @@ weakened. Cause is not yet proven and it is recorded as intermittent.
 `local-ffmpeg:ready, comfyui:endpoint_not_configured`. No GPU was purchased and no paid call was made.
 
 No production deployment, no production migration, no merge, no purchase, no external publishing.
+
+## Milestone 016 — one Arabic sentence becomes a finished film (DIRECTIVE #053/#054)
+
+PR #95 head `2d852ad` (draft). The studio could cut out, narrate and render, but nothing turned the
+directive's own sentence into a film: the renderer accepted a narration *track*, it did not produce the
+voice, the frames or the logo from an instruction.
+
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 16.01 | Scheduling flake root cause | VERIFIED | `materialiseDueSchedules` returns `created` counting every due schedule in the database, while the assertion expected only its own two; a schedule left due by another suite inflated it. The fix counts rows per schedule id. |
+| 16.02 | Flake pinned, not silenced | VERIFIED | `schedule.test.ts` plants a stranger's due schedule and asserts its own rows are still exactly 2; 19/19 five consecutive runs, and in both full gates |
+| 16.03 | Underscore bug in asset lookup | VERIFIED | the needle had its `_` deleted, so `edit:background_remove` searched as `backgroundremove`; now escaped, not stripped, with a test on an underscore label |
+| 16.04 | `composePromo` — narration first | VERIFIED | `lib/studio/promo.ts`: the voice is synthesised first because its measured length decides scene duration; the last scene absorbs the rounding remainder so picture and voice end together |
+| 16.05 | Arabic frames shaped properly | VERIFIED | `scripts/studio/promo_frame.py` with `arabic_reshaper` + `python-bidi`; ffmpeg `drawtext` writes code points in order and produces disconnected, reversed Arabic |
+| 16.06 | Logo on every frame, tenant-scoped | VERIFIED | resolved by asset id inside the caller's workspace; a reference that matches nothing returns `logo_not_found` |
+| 16.07 | One sentence routes to the composition | VERIFIED | «اعمل فيديو ترويجي قصير بتعليق عربي ولوجو شركتي» → `studio_promo_video`; a film with no voice and no logo still → `studio_video_render`; a voice alone → `studio_narration`; 11 router/payload/refusal tests |
+| 16.08 | Agent executes it on the real queue | VERIFIED | 201 pending → worker 200 → «Composed a 1080×1920 promo film of 7.5s with 3 scenes and Arabic narration and the company logo» |
+| 16.09 | It is a real film | VERIFIED | 280,179 B download, `h264 1080×1920` + `aac`, 7.47 s measured by ffprobe; `acceptance/promo-film.mp4` and `acceptance/promo-poster.png` |
+| 16.10 | Belongs to the right project | VERIFIED | `projectId` filter returns the film; `project=67728637-9421-4a31-9f08-17ed93f692da` |
+| 16.11 | Metadata matches the bytes | VERIFIED | row 280,179 B vs file 280,179 B, `video` / `ready` |
+| 16.12 | Persisted and previewable | VERIFIED | in the library after the run; `/workspace/studio` 200 for the owner |
+| 16.13 | Another tenant denied | VERIFIED | file 404 and absent from the second workspace's list |
+| 16.14 | Duplicate and cancellation | VERIFIED | two identical waiting requests → same task id and `dedup=true`; cancelled task → worker 409 |
+| 16.15 | Provider ladder | VERIFIED | 6 decisions, tiers `local/none`; LOCAL → SELF_HOSTED → EXTERNAL_PAID; no paid engine chosen, `image_generate` `chosen=null` |
+| 16.16 | Cutout and voice proven by work | VERIFIED | cutout corner alpha 0; a 2.915 s Arabic voice asset |
+| 16.17 | Acceptance | 29/29 | `scripts/acceptance/studio-promo-acceptance.mjs`, report at `acceptance/promo-report.json` |
+| 16.18 | Gates | 810 passed / 6 skipped / 816 in 96 files, twice | identical numbers both runs, same `ZOOKA_TEST_PG_*` environment; `tsc` clean; `next build` 0 |
+| 16.19 | AI-generated imagery | NOT BUILT | no `COMFYUI_ENDPOINT`; refused with `endpoint_not_configured`, never faked |
+
+**Hosting requirement introduced:** none new. The film needs the same writable `STUDIO_MEDIA_DIR`,
+`ffmpeg`/`ffprobe` and Piper voice the deterministic studio already required. A serverless function
+cannot host composition, exactly as it cannot host rendering.
+
+**Limit stated plainly:** this is deterministic production from the customer's words and logo, never
+invented imagery. The action description says so in both languages.
+
+No production deployment, no production migration, no merge, no purchase, no external publishing.
