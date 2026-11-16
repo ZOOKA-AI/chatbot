@@ -554,6 +554,10 @@ export const agentIdentity = pgTable(
     // agent did before this column existed.
     modelProvider: varchar("modelProvider", { length: 32 }),
     modelId: varchar("modelId", { length: 80 }),
+    // NULL means unrestricted, which is how every agent behaved before this column. An
+    // array is a restriction on which worker tools this agent's tasks may run.
+    allowedTools: json("allowedTools").$type<string[]>(),
+    instructions: text("instructions"),
     lastSeenAt: timestamp("lastSeenAt"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },

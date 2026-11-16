@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { agentAllowsTool, toolCatalog } from "@/lib/agents/agent-tools";
 import { authenticateAgent, listTasks } from "@/lib/agents/command-center";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { executionReport, runTask } from "@/lib/agents/worker";
@@ -10,7 +11,9 @@ export const maxDuration = 60;
 const bodySchema = z
   .object({
     taskId: z.string().uuid().optional(),
-    tool: z.literal("github_repo_inspect"),
+    // Every tool the worker actually implements, so an assigned tool is reachable rather
+    // than one being hard-coded and the rest silently unusable.
+    tool: z.enum(toolCatalog().map((entry) => entry.id) as [string, ...string[]]),
     payload: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
@@ -32,6 +35,19 @@ async function POSTHandler(request: Request) {
 
   const parsed = await validateJson(request, bodySchema);
   if (!parsed.ok) return reply({ error: "invalid_body", detail: parsed.detail }, 400);
+
+  // The agent's own configuration decides what it may run. This is checked before any task
+  // is claimed, so a restricted agent cannot pick up work it was never assigned.
+  if (!agentAllowsTool(agent as unknown as { allowedTools?: unknown }, parsed.data.tool)) {
+    return reply(
+      {
+        error: "tool_not_assigned",
+        tool: parsed.data.tool,
+        detail: "This agent's configuration does not include that tool. An owner or admin can assign it.",
+      },
+      403
+    );
+  }
 
   let taskId = parsed.data.taskId;
   if (!taskId) {

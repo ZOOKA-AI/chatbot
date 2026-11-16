@@ -106,6 +106,11 @@ export function AppSidebar({
           label: isArabic ? "القائد" : "Commander",
         },
         {
+          href: "/workspace/agents",
+          icon: <Bot />,
+          label: isArabic ? "الوكلاء" : "Agents",
+        },
+        {
           href: "/workspace/schedules",
           icon: <Bot />,
           label: isArabic ? "المهام المجدولة" : "Scheduled tasks",

@@ -92,6 +92,7 @@ beforeAll(async () => {
   await apply(migration("pending/0033_decision_audit_uniqueness.sql"));
   await apply(migration("pending/0038_schedule_and_agent_model.sql"));
   await apply(migration("pending/0039_launch_plan.sql"));
+  await apply(migration("pending/0040_agent_tools_and_instructions.sql"));
 
   db = drizzle(pg, { schema });
   holder.db = db;

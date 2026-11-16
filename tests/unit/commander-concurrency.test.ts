@@ -70,6 +70,7 @@ beforeAll(async () => {
   await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0033_decision_audit_uniqueness.sql"), "utf8"));
   await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0038_schedule_and_agent_model.sql"), "utf8"));
   await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0039_launch_plan.sql"), "utf8"));
+  await apply(readFileSync(join(process.cwd(), "lib/db/migrations/pending/0040_agent_tools_and_instructions.sql"), "utf8"));
   db = drizzle(pg, { schema });
   holder.db = db;
 }, 60_000);

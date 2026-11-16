@@ -83,6 +83,7 @@ describe.skipIf(!ready)("scheduler", () => {
       "pending/0033_decision_audit_uniqueness.sql",
       "pending/0038_schedule_and_agent_model.sql",
       "pending/0039_launch_plan.sql",
+      "pending/0040_agent_tools_and_instructions.sql",
       "pending/0034_agent_execution.sql",
       "pending/0035_worker_lease_and_scheduler.sql",
     ]) {

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { validateToolSelection } from "@/lib/agents/agent-tools";
+
 /**
  * Validating an agent configuration change, before it reaches the database.
  *
@@ -30,6 +32,9 @@ export type AgentPatch = {
   environment?: string;
   modelProvider?: string | null;
   modelId?: string | null;
+  /** null clears the restriction; an array restricts this agent to those worker tools. */
+  allowedTools?: string[] | null;
+  instructions?: string | null;
 };
 
 /**
@@ -92,7 +97,16 @@ export function parseAgentPatch(body: unknown): PatchResult {
   }
 
   const input = body as Record<string, unknown>;
-  const allowed = new Set(["displayName", "status", "scopes", "environment", "modelProvider", "modelId"]);
+  const allowed = new Set([
+    "displayName",
+    "status",
+    "scopes",
+    "environment",
+    "modelProvider",
+    "modelId",
+    "allowedTools",
+    "instructions",
+  ]);
   const unknown = Object.keys(input).filter((key) => !allowed.has(key));
   if (unknown.length > 0) {
     return { ok: false, error: `unknown_fields:${unknown.join(",")}` };
@@ -166,7 +180,27 @@ export function parseAgentPatch(body: unknown): PatchResult {
     }
   }
 
+  if (input.allowedTools !== undefined) {
+    const tools = validateToolSelection(input.allowedTools);
+    if (!tools.ok) return { ok: false, error: tools.error };
+    patch.allowedTools = tools.tools;
+  }
+
+  if (input.instructions !== undefined) {
+    if (input.instructions === null) {
+      patch.instructions = null;
+    } else {
+      if (typeof input.instructions !== "string") return { ok: false, error: "instructions_must_be_a_string" };
+      const text = input.instructions.trim();
+      if (text.length > 4000) return { ok: false, error: "instructions_too_long" };
+      patch.instructions = text.length === 0 ? null : text;
+    }
+  }
+
+  // Only after every field has had its chance to populate the patch: a body carrying just
+  // instructions used to be refused as "empty_patch" because this check ran too early.
   if (Object.keys(patch).length === 0) return { ok: false, error: "empty_patch" };
+
   return { ok: true, patch };
 }
 

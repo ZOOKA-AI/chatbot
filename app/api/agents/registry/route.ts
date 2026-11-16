@@ -19,13 +19,27 @@ import {
   unauthorized,
 } from "@/lib/agents/auth";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
+import { toolCatalog } from "@/lib/agents/agent-tools";
+import { SELECTABLE_MODEL_PROVIDERS, modelCredentialStatus } from "@/lib/agents/agent-config";
 
 async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
   }
-  return json({ agents: await listAgents(callerOrganizationId(caller)) });
+  const agents = await listAgents(callerOrganizationId(caller));
+
+  // The picker needs to know what is assignable and what this deployment can actually reach.
+  // Both come from the server: a tool the worker does not implement, or a provider with no
+  // credential, must not appear as a choice the customer can make and then fail at.
+  return json({
+    agents,
+    tools: toolCatalog(),
+    providers: SELECTABLE_MODEL_PROVIDERS.map((provider) => ({
+      id: provider,
+      credentials: modelCredentialStatus(provider),
+    })),
+  });
 }
 
 /** Owner-only: registers an agent and returns its key exactly once. */

@@ -144,6 +144,10 @@ export async function registerAgent(input: RegisterInput) {
       keyHash: hashKey(key),
       scopes: scopes.length > 0 ? scopes : [...AGENT_SCOPES],
       environment: input.environment ?? "production",
+      // An agent starts with no tools. NULL means "never configured" and keeps the legacy
+      // unrestricted behaviour only for identities that predate tool assignment; a new agent
+      // must be given a tool deliberately rather than inheriting every one.
+      allowedTools: [],
     })
     .returning({
       id: agentIdentity.id,
@@ -193,8 +197,15 @@ export async function updateAgentConfig(input: {
     status?: string;
     scopes?: string[];
     environment?: string;
+    modelProvider?: string | null;
+    modelId?: string | null;
+    allowedTools?: string[] | null;
+    instructions?: string | null;
   };
 }) {
+  // Every field the parser validated is written here. Model selection used to be accepted by
+  // parseAgentPatch and dropped by this function, so a customer could choose a model, see no
+  // error, and have the old value persisted.
   const [row] = await db
     .update(agentIdentity)
     .set({
@@ -202,6 +213,10 @@ export async function updateAgentConfig(input: {
       ...(input.patch.status === undefined ? {} : { status: input.patch.status }),
       ...(input.patch.scopes === undefined ? {} : { scopes: input.patch.scopes }),
       ...(input.patch.environment === undefined ? {} : { environment: input.patch.environment }),
+      ...(input.patch.modelProvider === undefined ? {} : { modelProvider: input.patch.modelProvider }),
+      ...(input.patch.modelId === undefined ? {} : { modelId: input.patch.modelId }),
+      ...(input.patch.allowedTools === undefined ? {} : { allowedTools: input.patch.allowedTools }),
+      ...(input.patch.instructions === undefined ? {} : { instructions: input.patch.instructions }),
     })
     .where(
       and(
@@ -217,6 +232,10 @@ export async function updateAgentConfig(input: {
       scopes: agentIdentity.scopes,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
+      modelProvider: agentIdentity.modelProvider,
+      modelId: agentIdentity.modelId,
+      allowedTools: agentIdentity.allowedTools,
+      instructions: agentIdentity.instructions,
     });
 
   return row ?? null;
