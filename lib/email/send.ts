@@ -3,7 +3,12 @@ import "server-only";
 const RELAY_URL =
   "https://solas-89d18e3d.base44.app/functions/zookaMail";
 const RELAY_KEY = process.env.ZOOKA_MAIL_KEY ?? "zk-mail-2026-Qp7xV3";
-const BASE = "https://zooka-ai.com";
+// Absolute links in mail follow the deployment they were sent from, so an
+// isolated environment can be acceptance-tested without its links landing on
+// the public domain. Production keeps the canonical host as the fallback.
+const BASE =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://zooka-ai.com");
 
 function shell(title: string, body: string, lang: "ar" | "en") {
   const dir = lang === "ar" ? "rtl" : "ltr";
