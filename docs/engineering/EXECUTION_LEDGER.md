@@ -1116,3 +1116,32 @@ provider. First real job needs one owner action per vendor plus one approved cos
 `docs/engineering/AI_GATEWAY.md`.
 
 No production deployment, no production migration, no merge, no purchase, no top-up.
+
+## Milestone 019 — forensic audit, and the two defects it found (DIRECTIVE #059/#060/#061)
+
+Implementation: PR #95 draft at `ebc40c0`. Ledger: this commit. Independent audit: draft PR #96 at `4a8c679`.
+
+The audit reproduced every earlier claim instead of restating it, and three of them did not survive:
+
+| Claim | Reproduced result |
+|---|---|
+| "Live integration checks 11/11" | true against a **local** server; production has none of those routes |
+| "fal.ai and RunComfy connected" | false; coded, not connected — no credential exists |
+| "Per-job approval enforced" | a non-empty string, with no expiry, no single-use consumption, no idempotency key |
+
+Two defects were found by executing the customer path, not by reading it. Both are fixed at `ebc40c0` and
+verified 13/13, and both were invisible to the existing cross-tenant suites:
+
+1. a studio result was stored under the **source** asset's project, so the artefact existed and the customer
+   could not find, size or download it;
+2. `/api/agents/worker` returned the summary without the tool's evidence, so a caller learned that something
+   succeeded and not what it produced.
+
+The six skipped tests are named live-dependency suites (`E2E_LIVE`, `ZOOKA_TEST_DOMAIN_LIVE`, `WORKER_LIVE`);
+the live end-to-end chain is therefore not covered by the gate, and that is stated rather than implied.
+
+Gates at `ebc40c0`: 890 passed / 6 skipped / 896 in 102 files, twice, identical; `tsc` clean; build 0.
+
+Verdict: **NO**. A new customer cannot complete a real AI task today. Production is `19473c0d30` without the
+gateway, no provider credential exists, and 17 migrations are pending. The blockers and their remediation order
+are in `docs/audits/ZOOKA_RELEASE_BLOCKERS.md`.
