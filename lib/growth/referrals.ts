@@ -280,3 +280,51 @@ export async function awardFirstTask(input: {
     /* rewards are never allowed to fail an agent run */
   }
 }
+
+/**
+ * Called when an invited member verifies their address.
+ *
+ * Two things must happen at that moment, and neither did before: the referrer's
+ * pending reward for THIS invitee becomes claimable, and the referral count that
+ * earns the ten-referral bonus is evaluated. Both are idempotent, so a repeated
+ * verification cannot pay twice.
+ */
+export async function onInviteeVerified(inviteeUserId: string): Promise<void> {
+  const settings = await readSettings();
+  if (!settings.programEnabled) return;
+
+  try {
+    const released = (await adminDb().execute(sql`
+      UPDATE "RewardLedger" SET "status" = 'available'
+      WHERE "referredUserId" = ${inviteeUserId}::uuid
+        AND "status" = 'pending'
+        AND "kind" = 'referrer_verified_signup'
+      RETURNING "userId"::text AS "userId"
+    `)) as unknown as Array<{ userId: string }>;
+
+    const referrerId = released?.[0]?.userId;
+    if (!referrerId) return;
+
+    const counted = (await adminDb().execute(sql`
+      SELECT count(DISTINCT "referredUserId")::int AS n
+      FROM "RewardLedger"
+      WHERE "userId" = ${referrerId}::uuid
+        AND "referredUserId" IS NOT NULL
+        AND "status" IN ('available','pending')
+        AND "kind" = 'referrer_verified_signup'
+    `)) as unknown as Array<{ n: number }>;
+    const referrals = Number(counted?.[0]?.n ?? 0);
+
+    if (referrals >= 10) {
+      await award({
+        userId: referrerId,
+        kind: "ambassador_bonus",
+        points: settings.bonusAtTenReferrals,
+        idempotencyKey: `bonus_ten:${referrerId}`,
+        note: "ten verified referrals",
+      });
+    }
+  } catch {
+    /* a rewards failure must never block verification */
+  }
+}

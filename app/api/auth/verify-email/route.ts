@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isTokenShape } from "@/lib/auth/registration";
 import { consumeVerificationToken, markEmailVerified } from "@/lib/auth/verification";
-import { releasePending } from "@/lib/growth/referrals";
+import { onInviteeVerified, releasePending } from "@/lib/growth/referrals";
 
 /**
  * Confirms an email address from a single-use link.
@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     // A verified address makes the member's pending rewards claimable. Best
     // effort: verification must succeed even if the rewards table is down.
     await releasePending(consumed.userId).catch(() => undefined);
+    await onInviteeVerified(consumed.userId).catch(() => undefined);
     return back("success");
   } catch {
     return back("error");
