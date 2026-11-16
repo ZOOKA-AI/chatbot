@@ -79,6 +79,16 @@ async function route(request: NextRequest, requestId: string) {
     return NextResponse.next();
   }
 
+  /*
+   * An unsubscribe link is opened by someone who was invited and has no account
+   * here, so a session gate would make the promise in the email impossible to
+   * keep. The route authorises the request itself: the token is derived from the
+   * address, and a mismatch is refused with 400 before anything is written.
+   */
+  if (pathname === "/api/growth/unsubscribe") {
+    return NextResponse.next();
+  }
+
   // These exact endpoints require workspace sessions themselves and return JSON 401.
   if (
     pathname === "/api/media-engine" ||
