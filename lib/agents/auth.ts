@@ -31,6 +31,23 @@ export async function resolveCaller(request: Request): Promise<Caller | null> {
   };
 }
 
+/**
+ * The organisation a caller acts inside. An agent identity belongs to exactly
+ * one organisation; a signed-in caller to their own. Every Commander query is
+ * filtered by this value, so a valid key can only ever reach its own workspace.
+ */
+export function callerOrganizationId(caller: Caller): string {
+  return caller.kind === "agent" ? caller.agent.organizationId : caller.organizationId;
+}
+
+/**
+ * Who is acting. An agent has no user, so it names itself by its own id rather than pretending to be one:
+ * a spend approval must record which principal asked, and "system" is a lie a receipt should not carry.
+ */
+export function callerUserId(caller: Caller): string {
+  return caller.kind === "agent" ? `agent:${caller.agent.id}` : caller.userId;
+}
+
 export function canManage(
   caller: Caller
 ): caller is Extract<Caller, { kind: "owner" }> {

@@ -203,3 +203,22 @@ test("matrix reflects code, and never claims an unperformed verification", () =>
   const markdown = renderMatrixMarkdown(rows);
   assert.equal(markdown.trim().split("\n").length, rows.length + 2);
 });
+
+test("matrix names come from the provider catalogue, never from inference", () => {
+  const rows = buildIntegrationMatrix();
+  for (const row of rows) {
+    assert.equal(
+      row.label,
+      row.name,
+      `${row.providerId}: label must equal the catalogue name`
+    );
+    assert.ok(row.name.length > 0, `${row.providerId}: missing name`);
+    assert.ok(row.nameAr.length > 0, `${row.providerId}: missing Arabic name`);
+    assert.ok(
+      ["available", "beta", "coming_soon"].includes(row.catalogStatus),
+      `${row.providerId}: unexpected catalogue status ${row.catalogStatus}`
+    );
+  }
+  const names = rows.map((row) => row.name);
+  assert.equal(new Set(names).size, names.length, "catalogue names must be unique");
+});

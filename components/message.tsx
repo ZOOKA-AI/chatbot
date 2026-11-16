@@ -8,6 +8,7 @@ import { cn, sanitizeText } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
+import { ExecutionProgressCard } from "./chat/execution-progress-card";
 import { MessageContent } from "./elements/message";
 import { Response } from "./elements/response";
 import {
@@ -412,6 +413,35 @@ const PurePreviewMessage = ({
                   </Tool>
                 </div>
               );
+            }
+
+            // Commander tasks render their real stage, not a toast that disappears. The
+            // card reads the same endpoint as the Commander panel, so a task cannot look
+            // finished here while it is still queued there.
+            // Compared through a string, not against the part-type union: the Commander
+            // tools are assembled in the chat route and are not part of that generated
+            // union, so a literal comparison is both a type error and a stale assumption.
+            const commanderTool = type.slice("tool-".length);
+            if (
+              commanderTool === "createExecutionTask" ||
+              commanderTool === "getExecutionStatus"
+            ) {
+              // Narrowed by hand: the part union above does not contain these tools, so
+              // the fields have to be described here rather than read off `part`.
+              const toolPart = part as {
+                toolCallId: string;
+                state: string;
+                output?: { taskId?: string };
+              };
+              const { toolCallId, state } = toolPart;
+              const taskId = toolPart.output?.taskId;
+              if (state === "output-available" && taskId) {
+                return (
+                  <div className="w-[min(100%,450px)]" key={toolCallId}>
+                    <ExecutionProgressCard taskId={taskId} />
+                  </div>
+                );
+              }
             }
 
             if (type === "tool-getWeather") {

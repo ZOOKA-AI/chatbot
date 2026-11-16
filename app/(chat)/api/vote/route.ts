@@ -1,10 +1,17 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getChatById, getVotesByChatId, voteMessage } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { queryParamIsValid, uuidSchema } from "@/lib/validation/chat";
+import { z } from "zod";
 
-export async function GET(request: Request) {
+async function GETImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
+  const chatIdValid = queryParamIsValid(chatId, uuidSchema, "chatId", "must be a valid chat id");
+  if (!chatIdValid.ok) {
+    return chatIdValid.response;
+  }
 
   if (!chatId) {
     return new ChatbotError(
@@ -40,20 +47,31 @@ export async function GET(request: Request) {
   return Response.json(votes, { status: 200 });
 }
 
-export async function PATCH(request: Request) {
-  const {
-    chatId,
-    messageId,
-    type,
-  }: { chatId: string; messageId: string; type: "up" | "down" } =
-    await request.json();
+const voteBodySchema = z
+  .object({
+    chatId: uuidSchema,
+    messageId: uuidSchema,
+    type: z.enum(["up", "down"]),
+  })
+  .strict();
 
-  if (!chatId || !messageId || !type) {
+async function PATCHImpl(request: Request) {
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return new ChatbotError("bad_request:api", "Body must be JSON").toResponse();
+  }
+
+  const parsedBody = voteBodySchema.safeParse(raw);
+  if (!parsedBody.success) {
+    // Same reason string the endpoint always used, so clients keep working.
     return new ChatbotError(
       "bad_request:api",
       "Parameters chatId, messageId, and type are required."
     ).toResponse();
   }
+  const { chatId, messageId, type } = parsedBody.data;
 
   const context = await getWorkspaceContext();
 
@@ -83,3 +101,7 @@ export async function PATCH(request: Request) {
 
   return new Response("Message voted", { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const PATCH = withRequestTenantHandler(PATCHImpl);

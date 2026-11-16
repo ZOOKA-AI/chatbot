@@ -55,7 +55,7 @@ export function EmbedAuth() {
       toast({ type: "error", description: t.failed });
     } else if (state.status === "invalid_data") {
       toast({ type: "error", description: t.invalid });
-    } else if (state.status === "user_exists") {
+    } else if ((state.status as string) === "check_email") {
       toast({ type: "error", description: t.exists });
     } else if (state.status === "success") {
       if (mode === "register") {

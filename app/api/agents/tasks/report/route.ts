@@ -1,10 +1,14 @@
+import { z } from "zod";
+
 import { hasScope, reportTask } from "@/lib/agents/command-center";
+import { fields, validateJson } from "@/lib/validation/api";
 import { badRequest, forbidden, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
 
 const STATUSES = ["completed", "failed", "blocked"] as const;
 type ReportStatus = (typeof STATUSES)[number];
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -16,26 +20,34 @@ export async function POST(request: Request) {
     return forbidden("missing_scope:task:report");
   }
 
-  let payload: { taskId?: unknown; status?: unknown; evidence?: unknown };
-  try {
-    payload = (await request.json()) as typeof payload;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        taskId: fields.uuid,
+        status: z.enum(STATUSES),
+        evidence: z.string().trim().min(1).max(8000),
+      })
+      .strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
-
-  const taskId = typeof payload.taskId === "string" ? payload.taskId.trim() : "";
-  const status = STATUSES.includes(payload.status as ReportStatus)
-    ? (payload.status as ReportStatus)
-    : null;
-  const evidence = typeof payload.evidence === "string" ? payload.evidence.trim() : "";
-
-  if (!taskId || !status || !evidence) {
-    return badRequest("taskId_status_evidence_required");
-  }
+  const { taskId, status, evidence } = parsed.data as {
+    taskId: string;
+    status: ReportStatus;
+    evidence: string;
+  };
 
   const task = await reportTask(caller.agent, { taskId, status, evidence });
   if (!task) {
-    return json({ error: "task_not_owned_by_caller" }, 403);
+    // One answer covers three refusals on purpose: not this agent's task, not
+    // this organisation's task, and a gated task whose approval is missing or
+    // rejected. The reason is never exposed to the agent.
+    return json({ error: "task_not_reportable" }, 403);
   }
   return json({ task });
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);

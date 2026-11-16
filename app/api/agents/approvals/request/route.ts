@@ -1,7 +1,18 @@
-import { hasScope, requestApproval } from "@/lib/agents/command-center";
-import { badRequest, forbidden, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import { z } from "zod";
 
-export async function POST(request: Request) {
+import { hasScope, requestApproval } from "@/lib/agents/command-center";
+import {
+  badRequest,
+  callerOrganizationId,
+  forbidden,
+  json,
+  resolveCaller,
+  unauthorized,
+} from "@/lib/agents/auth";
+import { fields, validateJson, validateQuery } from "@/lib/validation/api";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
+
+async function POSTHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -13,22 +24,38 @@ export async function POST(request: Request) {
     return forbidden("missing_scope:approval:request");
   }
 
-  let payload: { taskId?: unknown; reason?: unknown };
-  try {
-    payload = (await request.json()) as typeof payload;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        // AgentTask.id is a uuid with a foreign key, so anything else is a body
+        // error, not a lookup miss.
+        taskId: fields.uuid.nullish(),
+        reason: fields.reason.optional(),
+      })
+      .strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
+  const { reason } = parsed.data;
 
-  const reason = typeof payload.reason === "string" ? payload.reason.trim() : "";
+  // The reason rule belongs to the domain, so a missing reason answers the
+  // specific code instead of a generic body rejection. Approval stays
+  // optional-reason deliberately: refusing always needs a written reason,
+  // granting does not.
   if (!reason) {
     return badRequest("reason_required");
   }
 
   const approval = await requestApproval(caller.agent, {
-    taskId: typeof payload.taskId === "string" ? payload.taskId : null,
+    organizationId: callerOrganizationId(caller),
+    taskId: parsed.data.taskId ?? null,
     reason,
   });
 
   return json({ approval, status: "pending_owner_decision" }, 201);
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { Suspense } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BillingProvider } from "@/components/billing-provider";
@@ -10,7 +11,7 @@ import { getLang } from "@/lib/i18n";
 import { workspacePlans } from "@/lib/saas/plans";
 import { displayWorkspaceName } from "@/lib/workspace-name";
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+async function LayoutImpl({ children }: { children: React.ReactNode }) {
   return (
     <>
       <DataStreamProvider>
@@ -88,3 +89,6 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
     </BillingProvider>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(LayoutImpl);

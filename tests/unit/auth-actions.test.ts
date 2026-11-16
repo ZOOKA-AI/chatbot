@@ -7,7 +7,10 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/app/(auth)/auth", () => ({ signIn: mocks.signIn }));
-vi.mock("next/headers", () => ({ cookies: vi.fn() }));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(),
+  headers: async () => new Headers({ "x-forwarded-for": "203.0.113.7" }),
+}));
 vi.mock("@/lib/affiliate", () => ({
   REFERRAL_COOKIE: "referral",
   recordReferralEvent: vi.fn(),
@@ -21,6 +24,8 @@ vi.mock("@/lib/db/queries", () => ({
 vi.mock("@/lib/email/send", () => ({
   sendWelcomeEmail: vi.fn(),
   sendPasswordResetEmail: vi.fn(),
+  sendVerificationEmail: vi.fn(),
+  sendExistingAccountNotice: vi.fn(),
 }));
 
 import { login, register } from "@/app/(auth)/actions";
@@ -63,5 +68,19 @@ test("oversized account emails fail validation before database access", async ()
   expect(
     await login({ status: "idle" }, form(`${"a".repeat(65)}@example.test`))
   ).toEqual({ status: "invalid_data" });
+  expect(mocks.signIn).not.toHaveBeenCalled();
+});
+
+test("registration gives the same answer whether or not the address is taken", async () => {
+  // First read: no account. Second read (after createUser): the new row.
+  mocks.getUser.mockResolvedValueOnce([]).mockResolvedValue([{ id: "u2", email: "user@example.test" }]);
+  const fresh = await register({ status: "idle" }, form());
+
+  mocks.createUser.mockReset();
+  mocks.getUser.mockResolvedValue([{ id: "u1", email: "user@example.test" }]);
+  const taken = await register({ status: "idle" }, form());
+
+  expect(fresh).toEqual({ status: "check_email" });
+  expect(taken).toEqual({ status: "check_email" });
   expect(mocks.signIn).not.toHaveBeenCalled();
 });

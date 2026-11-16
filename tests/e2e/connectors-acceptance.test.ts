@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { requireAcceptanceCredentials } from "./acceptance-guard";
 
 /**
  * Acceptance run against a real deployment with a regular (Pro) workspace user.
@@ -15,6 +16,14 @@ import { expect, test } from "@playwright/test";
 const email = process.env.ZOOKA_TEST_USER_EMAIL ?? "";
 const password = process.env.ZOOKA_TEST_USER_PASSWORD ?? "";
 const ready = Boolean(email && password);
+
+requireAcceptanceCredentials([
+  {
+    name: "pro-user",
+    email: process.env.ZOOKA_TEST_USER_EMAIL ?? "",
+    password: process.env.ZOOKA_TEST_USER_PASSWORD ?? "",
+  },
+]);
 
 test.describe("ZOOKA-AI connector acceptance (regular Pro user)", () => {
   test.skip(

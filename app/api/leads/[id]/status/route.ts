@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { updateLeadStatus } from "@/lib/db/leads";
@@ -8,7 +9,7 @@ const bodySchema = z.object({
   status: z.enum(LEAD_STATUSES),
 });
 
-export async function PATCH(
+async function PATCHImpl(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,3 +48,6 @@ export async function PATCH(
   }
   return NextResponse.json({ ok: true, status: parsed.data.status });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const PATCH = withRequestTenantHandler(PATCHImpl);

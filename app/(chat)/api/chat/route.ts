@@ -1,4 +1,5 @@
 import { geolocation, ipAddress } from "@vercel/functions";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -35,6 +36,8 @@ import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
+import { createCommanderTools } from "@/lib/ai/tools/commander";
+import { createLaunchTools } from "@/lib/ai/tools/launch";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
@@ -81,6 +84,7 @@ import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import { uuidSchema as idSchema } from "@/lib/validation/chat";
 
 /** Hard ceiling for one assistant turn (Vercel Pro allows 300s). */
 const RESPONSE_TIMEOUT_MS = 240_000;
@@ -97,8 +101,14 @@ function getStreamContext() {
 
 export { getStreamContext };
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   let requestBody: PostRequestBody;
+
+  // A ceiling on the whole payload, before it is parsed or sent to a model.
+  const declaredSize = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredSize) && declaredSize > 2_000_000) {
+    return new ChatbotError("bad_request:api", "Request body is too large").toResponse();
+  }
 
   try {
     const json = await request.json();
@@ -112,6 +122,7 @@ export async function POST(request: Request) {
     const missingProviderMessage = getMissingModelProviderMessage(lang, {
       aiGatewayApiKey: process.env.AI_GATEWAY_API_KEY,
       geminiApiKey: process.env.GEMINI_API_KEY,
+      groqApiKey: process.env.GROQ_API_KEY,
       vercel: process.env.VERCEL,
       isTest: isTestEnvironment,
     });
@@ -367,6 +378,19 @@ export async function POST(request: Request) {
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
         const tools: ToolSet = {
+          // Real work, not narration: these can queue a task and read its true
+          // state, and they give the model no way to declare anything finished.
+          ...createCommanderTools({
+            organizationId: workspaceContext.organizationId,
+            userId: session.user.id,
+            canManage: ["owner", "admin"].includes(String(workspaceContext.role)),
+          }),
+          // Creating and reading launch plans. No tool here advances a step, so the
+          // model cannot claim a business was launched when a plan was merely written.
+          ...createLaunchTools({
+            organizationId: workspaceContext.organizationId,
+            canManage: ["owner", "admin"].includes(String(workspaceContext.role)),
+          }),
           getWeather,
           createDocument: createDocument({ session, dataStream }),
           updateDocument: updateDocument({ session, dataStream }),
@@ -610,12 +634,15 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function DELETEImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
   if (!id) {
     return new ChatbotError("bad_request:api").toResponse();
+  }
+  if (!idSchema.safeParse(id).success) {
+    return new ChatbotError("bad_request:api", "Parameter id must be a valid chat id").toResponse();
   }
 
   const workspaceContext = await getWorkspaceContext();
@@ -645,3 +672,7 @@ export async function DELETE(request: Request) {
 
   return Response.json(deletedChat, { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const POST = withRequestTenantHandler(POSTImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

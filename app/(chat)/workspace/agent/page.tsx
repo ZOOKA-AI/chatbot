@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { AgentConsole } from "@/components/agent-console";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
@@ -10,7 +11,7 @@ const PLAN_LIMITS: Record<string, number> = {
   business: 2000,
 };
 
-export default async function WorkspaceAgentPage() {
+async function WorkspaceAgentPageImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     redirect("/login");
@@ -26,3 +27,6 @@ export default async function WorkspaceAgentPage() {
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(WorkspaceAgentPageImpl);

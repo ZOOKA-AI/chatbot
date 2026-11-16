@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { redirect } from "next/navigation";
 import {
   changeWorkspaceMemberRole,
@@ -15,7 +16,7 @@ import {
   getWorkspacesForUser,
 } from "@/lib/db/queries";
 
-export default async function WorkspacePage() {
+async function WorkspacePageImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     redirect("/login");
@@ -204,3 +205,6 @@ export default async function WorkspacePage() {
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(WorkspacePageImpl);

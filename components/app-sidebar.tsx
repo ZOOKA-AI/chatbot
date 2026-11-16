@@ -101,6 +101,36 @@ export function AppSidebar({
           label: isArabic ? "الوكيل التنفيذي" : "Operations agent",
         },
         {
+          href: "/workspace/commander",
+          icon: <Bot />,
+          label: isArabic ? "القائد" : "Commander",
+        },
+        {
+          href: "/workspace/agents",
+          icon: <Bot />,
+          label: isArabic ? "الوكلاء" : "Agents",
+        },
+        {
+          href: "/workspace/schedules",
+          icon: <Bot />,
+          label: isArabic ? "المهام المجدولة" : "Scheduled tasks",
+        },
+        {
+          href: "/workspace/projects",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "المشاريع" : "Projects",
+        },
+        {
+          href: "/workspace/actions",
+          icon: <Bot />,
+          label: isArabic ? "الإجراءات الجاهزة" : "Action catalog",
+        },
+        {
+          href: "/workspace/launch",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "إطلاق النشاط" : "Business launch",
+        },
+        {
           href: "/studio",
           icon: <BriefcaseBusiness />,
           label: isArabic ? "Zooka Studio · معاينة" : "Zooka Studio · Review",
@@ -223,6 +253,7 @@ export function AppSidebar({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
+                        aria-label="Delete all chats"
                         className="h-8 p-1 md:h-fit md:p-2"
                         onClick={() => setShowDeleteAllDialog(true)}
                         type="button"
@@ -239,6 +270,7 @@ export function AppSidebar({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
+                      aria-label="New chat"
                       className="h-8 p-1 md:h-fit md:p-2"
                       onClick={() => {
                         setOpenMobile(false);

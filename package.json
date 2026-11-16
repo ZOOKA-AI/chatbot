@@ -26,6 +26,7 @@
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.235",
     "@ai-sdk/google": "3.0.137",
+    "@ai-sdk/groq": "^3.0.83",
     "@ai-sdk/provider": "^3.0.3",
     "@ai-sdk/react": "3.0.39",
     "@codemirror/lang-javascript": "^6.2.2",

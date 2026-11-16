@@ -20,7 +20,7 @@ export function createConnectorTools(organizationId: string, userId?: string | n
   return {
     listConnectorMatrix: tool({
       description:
-        "Return the SaaS integration capability matrix: for every provider, whether documentation, the connector, agent tools and tenant isolation exist, which read operations are available, and what blocks it. Never reports a live verification it did not perform.",
+        "Return the SaaS integration capability matrix from the code registry: for every provider its canonical name (English + Arabic), catalogue status, whether documentation, the connector, agent tools and tenant isolation exist, which read operations are available, and what blocks it. Use the names exactly as returned; never infer or translate a provider name yourself. Never reports a live verification it did not perform.",
       inputSchema: z.object({}),
       execute: async () => {
         const rows = buildIntegrationMatrix();
@@ -30,6 +30,9 @@ export function createConnectorTools(organizationId: string, userId?: string | n
             "authenticationVerified and readOperationsVerified stay false here on purpose; run testConnectorConnection for a real proof.",
           rows: rows.map((row) => ({
             providerId: row.providerId,
+            name: row.name,
+            nameAr: row.nameAr,
+            catalogStatus: row.catalogStatus,
             documentationReady: row.documentationReady,
             providerImplemented: row.providerImplemented,
             agentToolsVerified: row.agentToolsVerified,

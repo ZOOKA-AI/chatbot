@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { LeadStatusSelect } from "@/components/lead-status-select";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { countLeadsByStatus, listLeads } from "@/lib/db/leads";
@@ -32,7 +33,7 @@ function sourceLabel(source: string | null, ar: boolean) {
   return entry ? (ar ? entry.ar : entry.en) : source;
 }
 
-export default async function LeadsSettingsPage() {
+async function LeadsSettingsPageImpl() {
   const context = await getWorkspaceContext();
   if (!context || context.user.type === "guest") {
     redirect("/login");
@@ -159,3 +160,6 @@ export default async function LeadsSettingsPage() {
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(LeadsSettingsPageImpl);

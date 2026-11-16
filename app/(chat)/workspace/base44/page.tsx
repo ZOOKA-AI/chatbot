@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { redirect } from "next/navigation";
 import { AgentConsole } from "@/components/base44/agent-console";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
@@ -7,7 +8,7 @@ import { getBase44UsageThisMonth } from "@/lib/base44/store";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
-export default async function Base44AgentPage() {
+async function Base44AgentPageImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     redirect("/login");
@@ -65,3 +66,6 @@ export default async function Base44AgentPage() {
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(Base44AgentPageImpl);

@@ -1,0 +1,103 @@
+# Coolify variant: identical stack, no host port bindings except through the proxy.
+# Use this when Coolify's Traefik/Caddy instance terminates TLS in front of `web`.
+
+name: zooka
+
+x-app-env: &app-env
+  DATABASE_URL: postgres://${POSTGRES_USER:-zooka}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zooka}
+  PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL to the Coolify domain}
+  AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+  STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+  STORAGE_LOCAL_DIR: /data/storage
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zooka}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-zooka}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zooka} -d ${POSTGRES_DB:-zooka}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    labels:
+      # Explicitly no proxy exposure for the database.
+      - "coolify.managed=true"
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: migrate
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: web
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      NODE_ENV: production
+      PORT: "3000"
+    expose:
+      - "3000"
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - "coolify.managed=true"
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: worker
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-5000}
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: scheduler
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      SCHEDULER_INTERVAL_MS: ${SCHEDULER_INTERVAL_MS:-30000}
+      SCHEDULER_GLOBAL_LIMIT: ${SCHEDULER_GLOBAL_LIMIT:-10}
+      SCHEDULER_PER_ORG_LIMIT: ${SCHEDULER_PER_ORG_LIMIT:-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+  storage:

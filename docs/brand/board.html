@@ -1,0 +1,82 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/tokens.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:var(--zk-navy);color:var(--zk-text-on-dark);
+font-family:var(--zk-font-en);line-height:var(--zk-lh-body)}
+body.ar{font-family:var(--zk-font-ar);direction:rtl}
+.wrap{max-width:var(--zk-container);margin:0 auto;padding:var(--zk-8) var(--zk-safe-margin)}
+header{display:flex;align-items:center;gap:var(--zk-4);flex-wrap:wrap}
+header img{height:48px}
+h1{font-size:var(--zk-fs-h1);line-height:var(--zk-lh-tight);margin:var(--zk-8) 0 var(--zk-2)}
+.lede{color:var(--zk-text-muted-on-dark);max-width:62ch;margin:0 0 var(--zk-8)}
+h2{font-size:var(--zk-fs-h2);margin:var(--zk-10) 0 var(--zk-4);letter-spacing:-.01em}
+.grid{display:grid;gap:var(--zk-4);grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.card{background:var(--zk-navy-raised);border:1px solid var(--zk-navy-line);border-radius:var(--zk-r-lg);padding:var(--zk-4)}
+.sw{height:64px;border-radius:var(--zk-r-md);margin-bottom:var(--zk-2)}
+.mono{font-family:var(--zk-font-mono);font-size:var(--zk-fs-xs);color:var(--zk-text-muted-on-dark)}
+.agents{display:flex;gap:var(--zk-4);flex-wrap:wrap;align-items:flex-start}
+.agents figure{margin:0;text-align:center;width:96px}
+.agents img{width:72px;height:72px}
+.agents figcaption{font-size:var(--zk-fs-xs);color:var(--zk-text-muted-on-dark);margin-top:var(--zk-1)}
+.light{background:var(--zk-ice);color:var(--zk-text-on-light);border-radius:var(--zk-r-lg);padding:var(--zk-6)}
+.light .lede{color:var(--zk-text-muted-on-light)}
+.btns{display:flex;gap:var(--zk-3);flex-wrap:wrap;align-items:center}
+.btn{font:inherit;font-weight:600;font-size:18px;border-radius:var(--zk-r-pill);padding:12px 22px;cursor:pointer;border:0}
+.btn-a{background:var(--zk-cyan);color:var(--zk-navy)}
+.btn-b{background:transparent;color:var(--zk-ice);border:1px solid var(--zk-navy-line)}
+.btn-c{background:var(--zk-blue);color:var(--zk-ice)}
+:focus-visible{outline:2px solid var(--zk-cyan);outline-offset:3px}
+.note{font-size:var(--zk-fs-sm);color:var(--zk-text-muted-on-dark);border-inline-start:3px solid var(--zk-purple);padding-inline-start:var(--zk-3)}
+.social{display:flex;gap:var(--zk-4);flex-wrap:wrap}
+.social img{width:200px;border-radius:var(--zk-r-md);border:1px solid var(--zk-navy-line)}
+.demo{display:inline-block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--zk-navy-line);border-radius:var(--zk-r-pill);padding:3px 8px;color:var(--zk-text-muted-on-dark)}
+@media (max-width:640px){header img{height:40px}.social img{width:140px}.agents figure{width:78px}}
+</style></head><body class="en">
+<div class="wrap">
+<header><img src="assets/logo-horizontal-dark.svg" alt="ZOOKA AI"><img src="assets/symbol-dark.svg" alt="" height="40"></header>
+<h1>Brand system v1 — verified on screen</h1>
+<p class="lede">Colour, type, symbol, agents and social templates generated from one geometry. Contrast values are measured; the numbers below are the restrictions that follow from them.</p>
+
+<h2>Palette</h2>
+<div class="grid">
+  <div class="card"><div class="sw" style="background:var(--zk-blue)"></div><strong>Electric blue</strong><div class="mono">#2E86AB · 4.56 on navy</div></div>
+  <div class="card"><div class="sw" style="background:var(--zk-purple)"></div><strong>Purple</strong><div class="mono">#A23B72 · 3.04 — large only</div></div>
+  <div class="card"><div class="sw" style="background:var(--zk-ice)"></div><strong>Ice white</strong><div class="mono">#F8F9FA · 17.76 AAA</div></div>
+  <div class="card"><div class="sw" style="background:var(--zk-navy);border:1px solid var(--zk-navy-line)"></div><strong>Dark navy</strong><div class="mono">#0B1220</div></div>
+  <div class="card"><div class="sw" style="background:var(--zk-cyan)"></div><strong>Cyan (neon)</strong><div class="mono">#4FD1E8 · 10.36 AAA</div></div>
+</div>
+
+<h2>Actions</h2>
+<div class="btns">
+  <button class="btn btn-a">Primary</button>
+  <button class="btn btn-b">Secondary</button>
+  <button class="btn btn-c">Legacy blue</button>
+</div>
+<p class="note">The legible primary is cyan on navy (10.36). The blue button with ice text measures 3.9, so its label is 18px/600 — shown here at that size, which is the minimum.</p>
+
+<h2>Agents</h2>
+<div class="agents">
+  <figure><img src="assets/agents/agent-general.svg" alt=""><figcaption>General</figcaption></figure>
+  <figure><img src="assets/agents/agent-research.svg" alt=""><figcaption>Research</figcaption></figure>
+  <figure><img src="assets/agents/agent-writing.svg" alt=""><figcaption>Writing</figcaption></figure>
+  <figure><img src="assets/agents/agent-design.svg" alt=""><figcaption>Design</figcaption></figure>
+  <figure><img src="assets/agents/agent-automation.svg" alt=""><figcaption>Automation</figcaption></figure>
+  <figure><img src="assets/agents/agent-analytics.svg" alt=""><figcaption>Analytics</figcaption></figure>
+  <figure><img src="assets/agents/agent-support.svg" alt=""><figcaption>Support</figcaption></figure>
+</div>
+
+<h2>On light</h2>
+<div class="light">
+  <img src="assets/logo-horizontal-light.svg" alt="ZOOKA AI" style="height:44px">
+  <p class="lede" style="margin-top:var(--zk-4)">Purple moves to the accent position on light surfaces, where it measures 5.85 and is safe for text.</p>
+  <div class="btns"><button class="btn btn-c" style="background:var(--zk-purple)">Purple action</button><button class="btn" style="background:var(--zk-navy);color:var(--zk-ice)">Navy action</button></div>
+</div>
+
+<h2>Social</h2>
+<div class="social">
+  <img src="assets/social/instagram-post.svg" alt="">
+  <img src="assets/social/instagram-story.svg" alt="">
+  <img src="assets/social/youtube-thumbnail.svg" alt="">
+</div>
+<p class="note">Any figure inside artwork carries a <span class="demo">demo</span> chip. No verification badge appears in any template.</p>
+</div></body></html>

@@ -1,5 +1,8 @@
 import "server-only";
 import { accountDatabaseError } from "./diagnostics";
+import { commanderActiveDb } from "./tenant-context";
+import { serviceConnectionAvailable, serviceDb } from "./service-client";
+import { tenantScopeEnabled } from "./tenant";
 
 import { agentMessage } from "./schema";
 
@@ -54,6 +57,7 @@ import {
   mediaJob,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
+import { claimPasswordResetToken } from "@/lib/auth/verification";
 import { mediaJobUpdateQuery, type MediaJobUpdate } from "./media-job-state";
 
 // Optionally, if not using email/pass login, you can
@@ -74,7 +78,49 @@ const client = postgres(connectionString, {
   idle_timeout: 20,
   connect_timeout: 10,
 });
-export const db = drizzle(client);
+const sharedDb = drizzle(client);
+
+/**
+ * Handle for writes that legitimately happen before, or outside, a tenant scope:
+ * the first organisation and membership at onboarding, administrator membership
+ * changes, and subscription lifecycle from a signature-verified webhook.
+ *
+ * Falls back to the request handle while enforcement is off, so behaviour is
+ * unchanged until the flag flips.
+ */
+export function adminDb() {
+  if (!tenantScopeEnabled()) {
+    return db;
+  }
+  if (!serviceConnectionAvailable()) {
+    // Fail loudly rather than letting an onboarding write die inside a policy
+    // error that reads like a bug in the policy.
+    throw new Error(
+      "DATABASE_URL_SERVICE is required when tenant RLS is enabled: administrative writes (onboarding, membership, subscription) have no tenant scope"
+    );
+  }
+  return serviceDb();
+}
+
+/**
+ * The database handle the application uses.
+ *
+ * When a request has published its tenant transaction (see request-tenant.ts),
+ * this resolves to that transaction, so every query issued by the handler is
+ * evaluated against the caller's tenant policies without changing the forty-odd
+ * call sites that import `db`.
+ *
+ * When nothing is published it resolves to the shared connection, which is the
+ * unchanged behaviour while enforcement is off.
+ */
+export const db = new Proxy(sharedDb as unknown as object, {
+  get(target, property) {
+    const active = commanderActiveDb() as Record<string | symbol, unknown> | null;
+    const resolved = (active ?? target) as Record<string | symbol, unknown>;
+    const value = Reflect.get(resolved, property, resolved);
+    return typeof value === "function" ? value.bind(resolved) : value;
+  },
+}) as typeof sharedDb;
 
 async function retryBlobRequest<T>(
   operation: (signal: AbortSignal) => Promise<T>
@@ -277,7 +323,10 @@ export async function getWorkspaceForUser(
   userId: string,
   organizationId?: string
 ) {
-  const [workspace] = await db
+  // Discovering which workspace a user belongs to happens before any tenant is
+  // known, so it cannot run on the runtime role under RLS: it uses the bootstrap
+  // connection (which is the shared handle while enforcement is off).
+  const [workspace] = await adminDb()
     .select({
       id: organization.id,
       name: organization.name,
@@ -330,12 +379,12 @@ export async function ensureUserWorkspace({
     return existingWorkspace;
   }
 
-  const [createdWorkspace] = await db
+  const [createdWorkspace] = await adminDb()
     .insert(organization)
     .values({ name: defaultWorkspaceNameForEmail(email) })
     .returning({ id: organization.id, name: organization.name });
 
-  await db
+  await adminDb()
     .insert(organizationMember)
     .values({
       organizationId: createdWorkspace.id,
@@ -343,7 +392,7 @@ export async function ensureUserWorkspace({
       role: "owner",
     })
     .onConflictDoNothing();
-  await db
+  await adminDb()
     .insert(subscription)
     .values({ organizationId: createdWorkspace.id })
     .onConflictDoNothing();
@@ -400,7 +449,7 @@ export function addWorkspaceMember({
   userId: string;
   role: "admin" | "member";
 }) {
-  return db
+  return adminDb()
     .insert(organizationMember)
     .values({ organizationId, userId, role })
     .onConflictDoNothing();
@@ -543,7 +592,7 @@ export function syncWorkspaceSubscription({
   externalSubscriptionId: string | null;
   periodEnd: Date | null;
 }) {
-  return db
+  return adminDb()
     .insert(subscription)
     .values({
       organizationId,
@@ -596,7 +645,7 @@ export async function incrementGuestUsage(key: string) {
  * limit the conditional update matches nothing and no row is returned.
  */
 export async function tryClaimGuestUsage(key: string, limit: number) {
-  const rows = (await db.execute(sql`
+  const rows = (await adminDb().execute(sql`
     INSERT INTO "GuestUsage" ("key", "count", "updatedAt")
     VALUES (${key}, 1, now())
     ON CONFLICT ("key") DO UPDATE
@@ -611,7 +660,7 @@ export async function tryClaimGuestUsage(key: string, limit: number) {
 /* Hand a claimed unit back, e.g. when the reply failed before its first token. */
 export async function releaseGuestUsage(key: string) {
   try {
-    await db.execute(sql`
+    await adminDb().execute(sql`
       UPDATE "GuestUsage"
       SET "count" = GREATEST("count" - 1, 0), "updatedAt" = now()
       WHERE "key" = ${key}
@@ -655,7 +704,11 @@ export function trackWorkspaceUsage({
 
 export async function getUser(email: string): Promise<User[]> {
   try {
-    return await db.select().from(user).where(eq(user.email, email));
+    // Identity lookup is pre-tenant: it runs during login, before any session
+    // exists, so there is no organisation to scope by. With tenant RLS on, the
+    // runtime role cannot read "User" without app.user_id, so this uses the
+    // bootstrap connection (flag off: that is still the shared handle).
+    return await adminDb().select().from(user).where(eq(user.email, email));
   } catch (error) {
     throw accountDatabaseError("lookup", error);
   }
@@ -665,7 +718,7 @@ export async function createUser(email: string, password: string) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await db.insert(user).values({ email, password: hashedPassword });
+    return await adminDb().insert(user).values({ email, password: hashedPassword });
   } catch (error) {
     throw accountDatabaseError("create", error);
   }
@@ -1698,29 +1751,33 @@ export async function deleteGoogleDriveConnectionIfUnchanged({
 
 export async function createPasswordResetToken(userId: string, tokenHash: string) {
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-  await db.insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
+  // Bootstrap-only table (0052): issued before any session exists.
+  await adminDb().insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
 }
 
+/**
+ * Consumes a reset token exactly once.
+ *
+ * The old version read the row, checked it, then wrote: two submissions arriving
+ * together both passed the check, so one token could reset the password twice.
+ * The claim is now a single conditional UPDATE (claimPasswordResetToken) that
+ * returns the userId only to the caller that won, and the password is written for
+ * that winner alone.
+ */
 export async function consumePasswordResetToken(
   tokenHash: string,
   newPassword: string
 ): Promise<boolean> {
-  const [row] = await db
-    .select()
-    .from(passwordResetToken)
-    .where(eq(passwordResetToken.tokenHash, tokenHash))
-    .limit(1);
-  if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+  const userId = await claimPasswordResetToken(tokenHash, { db });
+  if (!userId) {
     return false;
   }
+
   await db
     .update(user)
     .set({ password: generateHashedPassword(newPassword) })
-    .where(eq(user.id, row.userId));
-  await db
-    .update(passwordResetToken)
-    .set({ usedAt: new Date() })
-    .where(eq(passwordResetToken.tokenHash, tokenHash));
+    .where(eq(user.id, userId));
+
   return true;
 }
 

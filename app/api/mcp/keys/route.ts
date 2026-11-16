@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   createMcpKey,
@@ -8,7 +9,7 @@ import {
 
 /** إدارة مفاتيح MCP داخل الجلسة: إنشاء، عرض، إلغاء. */
 
-export async function GET() {
+async function GETImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -17,7 +18,7 @@ export async function GET() {
   return NextResponse.json({ keys });
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ key, token }, { status: 201 });
 }
 
-export async function DELETE(request: Request) {
+async function DELETEImpl(request: Request) {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -59,3 +60,8 @@ export async function DELETE(request: Request) {
   });
   return NextResponse.json({ revoked }, { status: revoked ? 200 : 404 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

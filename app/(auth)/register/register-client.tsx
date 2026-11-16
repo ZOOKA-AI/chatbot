@@ -26,7 +26,7 @@ const strings = {
     terms: "شروط الخدمة",
     and: " و",
     privacy: "سياسة الخصوصية",
-    exists: "الحساب موجود بالفعل!",
+    checkEmail: "تم استلام طلبك. إن كان البريد جديدًا فالحساب جاهز الآن — سجّل الدخول. وإن كان لديك حساب فاستخدم كلمة مرورك أو استعدها.",
     unavailable: "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً.",
     failed: "فشل إنشاء الحساب!",
     invalid: "تحقق من البريد الإلكتروني وكلمة المرور (6 أحرف على الأقل)!",
@@ -44,7 +44,8 @@ const strings = {
     terms: "Terms of Service",
     and: " and ",
     privacy: "Privacy Policy",
-    exists: "Account already exists!",
+    checkEmail:
+      "Your request was received. If this address is new, the account is ready — sign in. If you already have an account, use your password or reset it.",
     unavailable:
       "Account service is temporarily unavailable. Please try later.",
     failed: "Failed to create account!",
@@ -83,13 +84,13 @@ export function RegisterClient({
   useEffect(() => {
     if (state.status === "unavailable") {
       toast({ type: "error", description: t.unavailable });
-    } else if (state.status === "user_exists") {
-      toast({ type: "error", description: t.exists });
-    } else if (state.status === "failed") {
-      toast({ type: "error", description: t.failed });
     } else if (state.status === "invalid_data") {
       toast({ type: "error", description: t.invalid });
-    } else if (state.status === "success") {
+    } else if (state.status === "check_email") {
+      // Same answer for a fresh address and a registered one; the next step is a
+      // normal sign-in, which is the only place a password is actually checked.
+      toast({ type: "success", description: t.checkEmail });
+      router.push("/login");
       toast({ type: "success", description: t.success });
       setIsSuccessful(true);
       updateSession();

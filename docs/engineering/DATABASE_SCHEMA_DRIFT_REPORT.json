@@ -1,0 +1,2035 @@
+{
+  "findings": {
+    "missing_in_migrations": [
+      {
+        "object": "table Account",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table Session",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table VerificationToken",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table agent_memory",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table billing_event",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table file",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table integration_audit",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table integration_connection",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table integration_provider",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table lead",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table mcp_api_key",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table price_snapshot",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "table usage_counter",
+        "detail": "absent from the repository migrations"
+      },
+      {
+        "object": "Account.access_token",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "Account.expires_at",
+        "detail": "integer(32,0), nullable=YES, default=none"
+      },
+      {
+        "object": "Account.id_token",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "Account.provider",
+        "detail": "character varying(255), nullable=NO, default=none"
+      },
+      {
+        "object": "Account.providerAccountId",
+        "detail": "character varying(255), nullable=NO, default=none"
+      },
+      {
+        "object": "Account.refresh_token",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "Account.scope",
+        "detail": "character varying(255), nullable=YES, default=none"
+      },
+      {
+        "object": "Account.session_state",
+        "detail": "character varying(255), nullable=YES, default=none"
+      },
+      {
+        "object": "Account.token_type",
+        "detail": "character varying(255), nullable=YES, default=none"
+      },
+      {
+        "object": "Account.type",
+        "detail": "character varying(255), nullable=NO, default=none"
+      },
+      {
+        "object": "Account.userId",
+        "detail": "uuid, nullable=NO, default=none"
+      },
+      {
+        "object": "BlogPost.cover_url",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "BlogPost.id",
+        "detail": "text, nullable=NO, default=(gen_random_uuid())::text"
+      },
+      {
+        "object": "Chat.deletedAt",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "Document.embedding",
+        "detail": "USER-DEFINED, nullable=YES, default=none"
+      },
+      {
+        "object": "Organization.deletedAt",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "Organization.ownerId",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "Organization.plan",
+        "detail": "character varying(32), nullable=NO, default='free'::character varying"
+      },
+      {
+        "object": "Organization.slug",
+        "detail": "character varying(64), nullable=YES, default=none"
+      },
+      {
+        "object": "Session.expires",
+        "detail": "timestamp without time zone, nullable=NO, default=none"
+      },
+      {
+        "object": "Session.sessionToken",
+        "detail": "character varying(255), nullable=NO, default=none"
+      },
+      {
+        "object": "Session.userId",
+        "detail": "uuid, nullable=NO, default=none"
+      },
+      {
+        "object": "User.emailVerified",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "User.image",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "User.name",
+        "detail": "character varying(255), nullable=YES, default=none"
+      },
+      {
+        "object": "VerificationToken.expires",
+        "detail": "timestamp without time zone, nullable=NO, default=none"
+      },
+      {
+        "object": "VerificationToken.identifier",
+        "detail": "character varying(255), nullable=NO, default=none"
+      },
+      {
+        "object": "VerificationToken.token",
+        "detail": "character varying(255), nullable=NO, default=none"
+      },
+      {
+        "object": "agent_memory.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "agent_memory.id",
+        "detail": "bigint(64,0), nullable=NO, default=nextval('agent_memory_id_seq'::regclass)"
+      },
+      {
+        "object": "agent_memory.importance",
+        "detail": "integer(32,0), nullable=NO, default=7"
+      },
+      {
+        "object": "agent_memory.memory_key",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "agent_memory.memory_value",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "agent_memory.organization_id",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "agent_memory.updated_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "agent_memory.user_id",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "billing_event.amount_cents",
+        "detail": "integer(32,0), nullable=YES, default=none"
+      },
+      {
+        "object": "billing_event.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "billing_event.currency",
+        "detail": "character varying(8), nullable=YES, default=none"
+      },
+      {
+        "object": "billing_event.external_id",
+        "detail": "character varying(255), nullable=YES, default=none"
+      },
+      {
+        "object": "billing_event.id",
+        "detail": "uuid, nullable=NO, default=gen_random_uuid()"
+      },
+      {
+        "object": "billing_event.kind",
+        "detail": "character varying(64), nullable=NO, default=none"
+      },
+      {
+        "object": "billing_event.payload",
+        "detail": "jsonb, nullable=NO, default='{}'::jsonb"
+      },
+      {
+        "object": "billing_event.provider",
+        "detail": "character varying(32), nullable=NO, default='stripe'::character varying"
+      },
+      {
+        "object": "billing_event.workspace_id",
+        "detail": "uuid, nullable=NO, default=none"
+      },
+      {
+        "object": "chat.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "chat.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "chat.title",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "chat.user_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "chat.visibility",
+        "detail": "character varying, nullable=YES, default=none"
+      },
+      {
+        "object": "chat.workspace_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "document.content",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "document.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "document.embedding",
+        "detail": "USER-DEFINED, nullable=YES, default=none"
+      },
+      {
+        "object": "document.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "document.text",
+        "detail": "character varying, nullable=YES, default=none"
+      },
+      {
+        "object": "document.title",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "document.user_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "document.workspace_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "file.bucket",
+        "detail": "character varying(64), nullable=NO, default='workspace-files'::character varying"
+      },
+      {
+        "object": "file.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "file.id",
+        "detail": "uuid, nullable=NO, default=gen_random_uuid()"
+      },
+      {
+        "object": "file.mime_type",
+        "detail": "character varying(128), nullable=YES, default=none"
+      },
+      {
+        "object": "file.name",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "file.path",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "file.sha256",
+        "detail": "character varying(64), nullable=YES, default=none"
+      },
+      {
+        "object": "file.size_bytes",
+        "detail": "bigint(64,0), nullable=YES, default=none"
+      },
+      {
+        "object": "file.uploaded_by",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "file.workspace_id",
+        "detail": "uuid, nullable=NO, default=none"
+      },
+      {
+        "object": "integration_audit.action",
+        "detail": "character varying(48), nullable=NO, default=none"
+      },
+      {
+        "object": "integration_audit.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "integration_audit.detail",
+        "detail": "jsonb, nullable=NO, default='{}'::jsonb"
+      },
+      {
+        "object": "integration_audit.id",
+        "detail": "bigint(64,0), nullable=NO, default=nextval('integrationaudit_id_seq'::regclass)"
+      },
+      {
+        "object": "integration_audit.provider",
+        "detail": "character varying(32), nullable=YES, default=none"
+      },
+      {
+        "object": "integration_audit.user_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_audit.workspace_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.account_email",
+        "detail": "character varying(320), nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.connected_by",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "integration_connection.display_name",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.encrypted_tokens",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "integration_connection.expires_at",
+        "detail": "timestamp with time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.id",
+        "detail": "uuid, nullable=NO, default=gen_random_uuid()"
+      },
+      {
+        "object": "integration_connection.key_version",
+        "detail": "smallint(16,0), nullable=NO, default=1"
+      },
+      {
+        "object": "integration_connection.last_error",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.last_used_at",
+        "detail": "timestamp with time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.provider",
+        "detail": "character varying(32), nullable=NO, default=none"
+      },
+      {
+        "object": "integration_connection.provider_id",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.revoked_at",
+        "detail": "timestamp with time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.scopes",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_connection.status",
+        "detail": "text, nullable=NO, default='connected'::text"
+      },
+      {
+        "object": "integration_connection.updated_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "integration_connection.workspace_id",
+        "detail": "uuid, nullable=NO, default=none"
+      },
+      {
+        "object": "integration_provider.auth_type",
+        "detail": "text, nullable=NO, default='oauth2'::text"
+      },
+      {
+        "object": "integration_provider.capabilities",
+        "detail": "ARRAY, nullable=NO, default='{}'::text[]"
+      },
+      {
+        "object": "integration_provider.category",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "integration_provider.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "integration_provider.description",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_provider.description_ar",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_provider.docs_url",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "integration_provider.id",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "integration_provider.is_managed",
+        "detail": "boolean, nullable=NO, default=false"
+      },
+      {
+        "object": "integration_provider.name",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "integration_provider.name_ar",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "integration_provider.scopes",
+        "detail": "ARRAY, nullable=NO, default='{}'::text[]"
+      },
+      {
+        "object": "integration_provider.sort_order",
+        "detail": "integer(32,0), nullable=NO, default=100"
+      },
+      {
+        "object": "integration_provider.status",
+        "detail": "text, nullable=NO, default='available'::text"
+      },
+      {
+        "object": "integration_provider.updated_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "invite.accepted_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "invite.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "invite.email",
+        "detail": "character varying(254), nullable=YES, default=none"
+      },
+      {
+        "object": "invite.expires_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "invite.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "invite.invited_by",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "invite.role",
+        "detail": "character varying, nullable=YES, default=none"
+      },
+      {
+        "object": "invite.workspace_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.city",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "lead.external_key",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.id",
+        "detail": "uuid, nullable=NO, default=gen_random_uuid()"
+      },
+      {
+        "object": "lead.last_contact_at",
+        "detail": "timestamp with time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.name",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.notes",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.organization_id",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "lead.phone",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.service",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.source",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "lead.status",
+        "detail": "text, nullable=NO, default='new'::text"
+      },
+      {
+        "object": "mcp_api_key.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "mcp_api_key.created_by_user_id",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "mcp_api_key.id",
+        "detail": "uuid, nullable=NO, default=gen_random_uuid()"
+      },
+      {
+        "object": "mcp_api_key.key_hash",
+        "detail": "character varying(64), nullable=NO, default=none"
+      },
+      {
+        "object": "mcp_api_key.key_prefix",
+        "detail": "character varying(20), nullable=NO, default=none"
+      },
+      {
+        "object": "mcp_api_key.last_used_at",
+        "detail": "timestamp with time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "mcp_api_key.name",
+        "detail": "character varying(80), nullable=NO, default=none"
+      },
+      {
+        "object": "mcp_api_key.organization_id",
+        "detail": "text, nullable=NO, default=none"
+      },
+      {
+        "object": "mcp_api_key.revoked_at",
+        "detail": "timestamp with time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "message.attachments",
+        "detail": "json, nullable=YES, default=none"
+      },
+      {
+        "object": "message.chat_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "message.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "message.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "message.parts",
+        "detail": "json, nullable=YES, default=none"
+      },
+      {
+        "object": "message.role",
+        "detail": "character varying, nullable=YES, default=none"
+      },
+      {
+        "object": "price_snapshot.active",
+        "detail": "boolean, nullable=NO, default=true"
+      },
+      {
+        "object": "price_snapshot.created_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "price_snapshot.currency",
+        "detail": "character varying(8), nullable=NO, default='usd'::character varying"
+      },
+      {
+        "object": "price_snapshot.id",
+        "detail": "uuid, nullable=NO, default=gen_random_uuid()"
+      },
+      {
+        "object": "price_snapshot.interval",
+        "detail": "character varying(16), nullable=NO, default='month'::character varying"
+      },
+      {
+        "object": "price_snapshot.plan",
+        "detail": "character varying(32), nullable=NO, default=none"
+      },
+      {
+        "object": "price_snapshot.price_id",
+        "detail": "character varying(128), nullable=NO, default=none"
+      },
+      {
+        "object": "price_snapshot.product_id",
+        "detail": "character varying(128), nullable=YES, default=none"
+      },
+      {
+        "object": "price_snapshot.provider",
+        "detail": "character varying(32), nullable=NO, default='stripe'::character varying"
+      },
+      {
+        "object": "price_snapshot.unit_amount",
+        "detail": "integer(32,0), nullable=NO, default=none"
+      },
+      {
+        "object": "referral.code",
+        "detail": "character varying(64), nullable=YES, default=none"
+      },
+      {
+        "object": "referral.commission_pct",
+        "detail": "integer(32,0), nullable=YES, default=none"
+      },
+      {
+        "object": "referral.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "referral.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "referral.name",
+        "detail": "character varying(255), nullable=YES, default=none"
+      },
+      {
+        "object": "referral.platform",
+        "detail": "character varying(64), nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.amount_cents",
+        "detail": "integer(32,0), nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.code",
+        "detail": "character varying(64), nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.event",
+        "detail": "character varying(16), nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.external_ref",
+        "detail": "character varying(255), nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.plan",
+        "detail": "character varying(32), nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.user_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "referralevent.workspace_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "stream.chat_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "stream.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "stream.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.external_customer_id",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.external_subscription_id",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.period_end",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.plan",
+        "detail": "character varying, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.status",
+        "detail": "character varying, nullable=YES, default=none"
+      },
+      {
+        "object": "subscription.workspace_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.description",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.document_created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.document_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.is_resolved",
+        "detail": "boolean, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.original_text",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.suggested_text",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "suggestion.user_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "usage_counter.limit_value",
+        "detail": "bigint(64,0), nullable=YES, default=none"
+      },
+      {
+        "object": "usage_counter.metric",
+        "detail": "character varying(32), nullable=NO, default=none"
+      },
+      {
+        "object": "usage_counter.period_start",
+        "detail": "date, nullable=NO, default=none"
+      },
+      {
+        "object": "usage_counter.updated_at",
+        "detail": "timestamp with time zone, nullable=NO, default=now()"
+      },
+      {
+        "object": "usage_counter.used",
+        "detail": "bigint(64,0), nullable=NO, default=0"
+      },
+      {
+        "object": "usage_counter.workspace_id",
+        "detail": "uuid, nullable=NO, default=none"
+      },
+      {
+        "object": "vote.chat_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "vote.is_upvoted",
+        "detail": "boolean, nullable=YES, default=none"
+      },
+      {
+        "object": "vote.message_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "workspace.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "workspace.deleted_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "workspace.id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "workspace.name",
+        "detail": "text, nullable=YES, default=none"
+      },
+      {
+        "object": "workspace.owner_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "workspace.plan",
+        "detail": "character varying(32), nullable=YES, default=none"
+      },
+      {
+        "object": "workspace.slug",
+        "detail": "character varying(64), nullable=YES, default=none"
+      },
+      {
+        "object": "workspacemember.created_at",
+        "detail": "timestamp without time zone, nullable=YES, default=none"
+      },
+      {
+        "object": "workspacemember.role",
+        "detail": "character varying, nullable=YES, default=none"
+      },
+      {
+        "object": "workspacemember.user_id",
+        "detail": "uuid, nullable=YES, default=none"
+      },
+      {
+        "object": "workspacemember.workspace_id",
+        "detail": "uuid, nullable=YES, default=none"
+      }
+    ],
+    "missing_in_production": [
+      {
+        "object": "table AgentApproval",
+        "detail": "created by migrations but never applied"
+      },
+      {
+        "object": "table AgentDecision",
+        "detail": "created by migrations but never applied"
+      },
+      {
+        "object": "table AgentDeployment",
+        "detail": "created by migrations but never applied"
+      },
+      {
+        "object": "table AgentIdentity",
+        "detail": "created by migrations but never applied"
+      },
+      {
+        "object": "table AgentTask",
+        "detail": "created by migrations but never applied"
+      },
+      {
+        "object": "table Project",
+        "detail": "created by migrations but never applied"
+      },
+      {
+        "object": "AgentApproval.createdAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentApproval.decidedAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentApproval.decidedBy",
+        "detail": "character varying(64)"
+      },
+      {
+        "object": "AgentApproval.id",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentApproval.reason",
+        "detail": "text"
+      },
+      {
+        "object": "AgentApproval.requestedBy",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentApproval.status",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentApproval.taskId",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentDecision.agentId",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentDecision.body",
+        "detail": "text"
+      },
+      {
+        "object": "AgentDecision.createdAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentDecision.id",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentDecision.state",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentDecision.taskId",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentDecision.title",
+        "detail": "character varying(200)"
+      },
+      {
+        "object": "AgentDeployment.agentId",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentDeployment.commitSha",
+        "detail": "character varying(64)"
+      },
+      {
+        "object": "AgentDeployment.createdAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentDeployment.deploymentId",
+        "detail": "character varying(120)"
+      },
+      {
+        "object": "AgentDeployment.environment",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentDeployment.id",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentDeployment.notes",
+        "detail": "text"
+      },
+      {
+        "object": "AgentDeployment.rollbackOf",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentDeployment.status",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentIdentity.createdAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentIdentity.displayName",
+        "detail": "character varying(120)"
+      },
+      {
+        "object": "AgentIdentity.environment",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentIdentity.id",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentIdentity.keyHash",
+        "detail": "character varying(64)"
+      },
+      {
+        "object": "AgentIdentity.lastSeenAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentIdentity.role",
+        "detail": "character varying(64)"
+      },
+      {
+        "object": "AgentIdentity.scopes",
+        "detail": "json"
+      },
+      {
+        "object": "AgentIdentity.slug",
+        "detail": "character varying(64)"
+      },
+      {
+        "object": "AgentIdentity.status",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentTask.approvalRequired",
+        "detail": "boolean"
+      },
+      {
+        "object": "AgentTask.claimedAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentTask.createdAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentTask.createdBy",
+        "detail": "character varying(64)"
+      },
+      {
+        "object": "AgentTask.dependencies",
+        "detail": "json"
+      },
+      {
+        "object": "AgentTask.environment",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentTask.evidence",
+        "detail": "text"
+      },
+      {
+        "object": "AgentTask.id",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentTask.instruction",
+        "detail": "text"
+      },
+      {
+        "object": "AgentTask.ownerAgentId",
+        "detail": "uuid"
+      },
+      {
+        "object": "AgentTask.priority",
+        "detail": "character varying(16)"
+      },
+      {
+        "object": "AgentTask.reportedAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "AgentTask.rollbackPlan",
+        "detail": "text"
+      },
+      {
+        "object": "AgentTask.status",
+        "detail": "character varying(24)"
+      },
+      {
+        "object": "AgentTask.title",
+        "detail": "character varying(200)"
+      },
+      {
+        "object": "Project.createdAt",
+        "detail": "timestamp without time zone"
+      },
+      {
+        "object": "Project.createdBy",
+        "detail": "uuid"
+      },
+      {
+        "object": "Project.customDomain",
+        "detail": "character varying(253)"
+      },
+      {
+        "object": "Project.id",
+        "detail": "uuid"
+      },
+      {
+        "object": "Project.name",
+        "detail": "text"
+      },
+      {
+        "object": "Project.organizationId",
+        "detail": "uuid"
+      },
+      {
+        "object": "Project.status",
+        "detail": "character varying(16)"
+      },
+      {
+        "object": "Project.subdomain",
+        "detail": "character varying(63)"
+      },
+      {
+        "object": "Project.templateConfig",
+        "detail": "json"
+      },
+      {
+        "object": "Project.templateId",
+        "detail": "text"
+      },
+      {
+        "object": "Project.updatedAt",
+        "detail": "timestamp without time zone"
+      }
+    ],
+    "constraint_mismatch": [
+      {
+        "object": "BlogPost.author",
+        "detail": "nullable: production YES vs migrations NO"
+      },
+      {
+        "object": "\"Account\" Account_pkey",
+        "detail": "PRIMARY KEY (provider, \"providerAccountId\")"
+      },
+      {
+        "object": "\"BlogPost\" BlogPost_slug_key",
+        "detail": "UNIQUE (slug)"
+      },
+      {
+        "object": "\"Session\" Session_pkey",
+        "detail": "PRIMARY KEY (\"sessionToken\")"
+      },
+      {
+        "object": "\"VerificationToken\" VerificationToken_pkey",
+        "detail": "PRIMARY KEY (identifier, token)"
+      },
+      {
+        "object": "agent_memory agent_memory_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "agent_memory agent_memory_user_id_organization_id_memory_key_key",
+        "detail": "UNIQUE (user_id, organization_id, memory_key)"
+      },
+      {
+        "object": "billing_event billingevent_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "file file_bucket_path_key",
+        "detail": "UNIQUE (bucket, path)"
+      },
+      {
+        "object": "file file_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "integration_audit integrationaudit_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "integration_connection integrationconnection_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "integration_connection integrationconnection_workspace_id_provider_key",
+        "detail": "UNIQUE (workspace_id, provider)"
+      },
+      {
+        "object": "integration_provider integration_provider_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "lead lead_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "mcp_api_key mcp_api_key_key_hash_key",
+        "detail": "UNIQUE (key_hash)"
+      },
+      {
+        "object": "mcp_api_key mcp_api_key_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "price_snapshot pricesnapshot_pkey",
+        "detail": "PRIMARY KEY (id)"
+      },
+      {
+        "object": "price_snapshot pricesnapshot_provider_price_id_key",
+        "detail": "UNIQUE (provider, price_id)"
+      },
+      {
+        "object": "usage_counter usagecounter_pkey",
+        "detail": "PRIMARY KEY (workspace_id, metric, period_start)"
+      },
+      {
+        "object": "\"AgentApproval\" AgentApproval_pkey",
+        "detail": "in migrations only: PRIMARY KEY (id)"
+      },
+      {
+        "object": "\"AgentDecision\" AgentDecision_pkey",
+        "detail": "in migrations only: PRIMARY KEY (id)"
+      },
+      {
+        "object": "\"AgentDeployment\" AgentDeployment_pkey",
+        "detail": "in migrations only: PRIMARY KEY (id)"
+      },
+      {
+        "object": "\"AgentIdentity\" AgentIdentity_pkey",
+        "detail": "in migrations only: PRIMARY KEY (id)"
+      },
+      {
+        "object": "\"AgentIdentity\" AgentIdentity_slug_key",
+        "detail": "in migrations only: UNIQUE (slug)"
+      },
+      {
+        "object": "\"AgentTask\" AgentTask_pkey",
+        "detail": "in migrations only: PRIMARY KEY (id)"
+      },
+      {
+        "object": "\"Project\" Project_pkey",
+        "detail": "in migrations only: PRIMARY KEY (id)"
+      },
+      {
+        "object": "\"Project\" Project_subdomain_unique",
+        "detail": "in migrations only: UNIQUE (subdomain)"
+      },
+      {
+        "object": "\"BlogPost\" BlogPost_pkey",
+        "detail": "production PRIMARY KEY (id) vs migrations PRIMARY KEY (slug)"
+      }
+    ],
+    "type_mismatch": [
+      {
+        "object": "BlogPost.created_at",
+        "detail": "production timestamp with time zone vs migrations timestamp without time zone"
+      },
+      {
+        "object": "BlogPost.lang",
+        "detail": "production text vs migrations character varying(8)"
+      },
+      {
+        "object": "BlogPost.published_at",
+        "detail": "production timestamp with time zone vs migrations timestamp without time zone"
+      },
+      {
+        "object": "BlogPost.status",
+        "detail": "production text vs migrations character varying(16)"
+      },
+      {
+        "object": "BlogPost.updated_at",
+        "detail": "production timestamp with time zone vs migrations timestamp without time zone"
+      },
+      {
+        "object": "MediaJob.status",
+        "detail": "production character varying(16) vs migrations character varying"
+      }
+    ],
+    "foreign_key_mismatch": [
+      {
+        "object": "\"Account\" Account_userId_fkey",
+        "detail": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"AgentMessage\" AgentMessage_organizationId_fkey",
+        "detail": "FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"Base44AgentSession\" Base44AgentSession_organizationId_fkey",
+        "detail": "FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"Base44AgentSession\" Base44AgentSession_userId_fkey",
+        "detail": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"MediaJob\" MediaJob_organizationId_fkey",
+        "detail": "FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"N8nConnection\" N8nConnection_organizationId_fkey",
+        "detail": "FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"OAuthConnection\" OAuthConnection_organizationId_fkey",
+        "detail": "FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"Organization\" Organization_ownerId_fkey",
+        "detail": "FOREIGN KEY (\"ownerId\") REFERENCES \"User\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "\"PasswordResetToken\" PasswordResetToken_userId_fkey",
+        "detail": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"Session\" Session_userId_fkey",
+        "detail": "FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "billing_event billingevent_workspace_id_fkey",
+        "detail": "FOREIGN KEY (workspace_id) REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "file file_uploaded_by_fkey",
+        "detail": "FOREIGN KEY (uploaded_by) REFERENCES \"User\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "file file_workspace_id_fkey",
+        "detail": "FOREIGN KEY (workspace_id) REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "integration_audit integrationaudit_user_id_fkey",
+        "detail": "FOREIGN KEY (user_id) REFERENCES \"User\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "integration_audit integrationaudit_workspace_id_fkey",
+        "detail": "FOREIGN KEY (workspace_id) REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "integration_connection integrationconnection_workspace_id_fkey",
+        "detail": "FOREIGN KEY (workspace_id) REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "usage_counter usagecounter_workspace_id_fkey",
+        "detail": "FOREIGN KEY (workspace_id) REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"AgentApproval\" AgentApproval_requestedBy_AgentIdentity_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"requestedBy\") REFERENCES \"AgentIdentity\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "\"AgentApproval\" AgentApproval_taskId_AgentTask_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"taskId\") REFERENCES \"AgentTask\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"AgentDecision\" AgentDecision_agentId_AgentIdentity_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"agentId\") REFERENCES \"AgentIdentity\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "\"AgentDecision\" AgentDecision_taskId_AgentTask_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"taskId\") REFERENCES \"AgentTask\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "\"AgentDeployment\" AgentDeployment_agentId_AgentIdentity_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"agentId\") REFERENCES \"AgentIdentity\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "\"AgentMessage\" AgentMessage_organizationId_Organization_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"AgentTask\" AgentTask_ownerAgentId_AgentIdentity_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"ownerAgentId\") REFERENCES \"AgentIdentity\"(id) ON DELETE SET NULL"
+      },
+      {
+        "object": "\"Base44AgentSession\" Base44AgentSession_organizationId_Organization_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"Base44AgentSession\" Base44AgentSession_userId_User_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"MediaJob\" MediaJob_organizationId_Organization_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"N8nConnection\" N8nConnection_organizationId_Organization_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"OAuthConnection\" OAuthConnection_organizationId_Organization_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"organizationId\") REFERENCES \"Organization\"(id) ON DELETE CASCADE"
+      },
+      {
+        "object": "\"PasswordResetToken\" PasswordResetToken_userId_User_id_fk",
+        "detail": "in migrations only: FOREIGN KEY (\"userId\") REFERENCES \"User\"(id) ON DELETE CASCADE"
+      }
+    ],
+    "index_mismatch": [
+      {
+        "object": "Account Account_pkey",
+        "detail": "CREATE UNIQUE INDEX \"Account_pkey\" ON \"Account\" USING btree (provider, \"providerAccountId\")"
+      },
+      {
+        "object": "Account Account_userId_idx",
+        "detail": "CREATE INDEX \"Account_userId_idx\" ON \"Account\" USING btree (\"userId\")"
+      },
+      {
+        "object": "BlogPost BlogPost_lang_idx",
+        "detail": "CREATE INDEX \"BlogPost_lang_idx\" ON \"BlogPost\" USING btree (lang)"
+      },
+      {
+        "object": "BlogPost BlogPost_slug_key",
+        "detail": "CREATE UNIQUE INDEX \"BlogPost_slug_key\" ON \"BlogPost\" USING btree (slug)"
+      },
+      {
+        "object": "BlogPost BlogPost_status_published_idx",
+        "detail": "CREATE INDEX \"BlogPost_status_published_idx\" ON \"BlogPost\" USING btree (status, published_at DESC)"
+      },
+      {
+        "object": "Chat Chat_organizationId_deletedAt_idx",
+        "detail": "CREATE INDEX \"Chat_organizationId_deletedAt_idx\" ON \"Chat\" USING btree (\"organizationId\", \"deletedAt\")"
+      },
+      {
+        "object": "Chat Chat_organizationId_idx",
+        "detail": "CREATE INDEX \"Chat_organizationId_idx\" ON \"Chat\" USING btree (\"organizationId\")"
+      },
+      {
+        "object": "Chat Chat_userId_idx",
+        "detail": "CREATE INDEX \"Chat_userId_idx\" ON \"Chat\" USING btree (\"userId\")"
+      },
+      {
+        "object": "Document Document_embedding_hnsw",
+        "detail": "CREATE INDEX \"Document_embedding_hnsw\" ON \"Document\" USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "object": "Document Document_org_idx",
+        "detail": "CREATE INDEX \"Document_org_idx\" ON \"Document\" USING btree (\"organizationId\", \"createdAt\")"
+      },
+      {
+        "object": "Invitation Invitation_org_idx",
+        "detail": "CREATE INDEX \"Invitation_org_idx\" ON \"Invitation\" USING btree (\"organizationId\")"
+      },
+      {
+        "object": "Message Message_chatId_createdAt_idx",
+        "detail": "CREATE INDEX \"Message_chatId_createdAt_idx\" ON \"Message\" USING btree (\"chatId\", \"createdAt\")"
+      },
+      {
+        "object": "Message_v2 Message_v2_chatId_createdAt_idx",
+        "detail": "CREATE INDEX \"Message_v2_chatId_createdAt_idx\" ON \"Message_v2\" USING btree (\"chatId\", \"createdAt\")"
+      },
+      {
+        "object": "Message_v2 Message_v2_chatId_idx",
+        "detail": "CREATE INDEX \"Message_v2_chatId_idx\" ON \"Message_v2\" USING btree (\"chatId\")"
+      },
+      {
+        "object": "Organization Organization_slug_unique",
+        "detail": "CREATE UNIQUE INDEX \"Organization_slug_unique\" ON \"Organization\" USING btree (slug) WHERE (slug IS NOT NULL)"
+      },
+      {
+        "object": "Session Session_pkey",
+        "detail": "CREATE UNIQUE INDEX \"Session_pkey\" ON \"Session\" USING btree (\"sessionToken\")"
+      },
+      {
+        "object": "Session Session_userId_idx",
+        "detail": "CREATE INDEX \"Session_userId_idx\" ON \"Session\" USING btree (\"userId\")"
+      },
+      {
+        "object": "UsageEvent UsageEvent_org_createdAt_idx",
+        "detail": "CREATE INDEX \"UsageEvent_org_createdAt_idx\" ON \"UsageEvent\" USING btree (\"organizationId\", \"createdAt\")"
+      },
+      {
+        "object": "UsageEvent UsageEvent_org_created_idx",
+        "detail": "CREATE INDEX \"UsageEvent_org_created_idx\" ON \"UsageEvent\" USING btree (\"organizationId\", \"createdAt\")"
+      },
+      {
+        "object": "VerificationToken VerificationToken_pkey",
+        "detail": "CREATE UNIQUE INDEX \"VerificationToken_pkey\" ON \"VerificationToken\" USING btree (identifier, token)"
+      },
+      {
+        "object": "WebhookEvent WebhookEvent_provider_externalId_idx",
+        "detail": "CREATE UNIQUE INDEX \"WebhookEvent_provider_externalId_idx\" ON \"WebhookEvent\" USING btree (provider, \"externalId\")"
+      },
+      {
+        "object": "agent_memory agent_memory_org_idx",
+        "detail": "CREATE INDEX agent_memory_org_idx ON agent_memory USING btree (organization_id, importance DESC)"
+      },
+      {
+        "object": "agent_memory agent_memory_pkey",
+        "detail": "CREATE UNIQUE INDEX agent_memory_pkey ON agent_memory USING btree (id)"
+      },
+      {
+        "object": "agent_memory agent_memory_user_id_organization_id_memory_key_key",
+        "detail": "CREATE UNIQUE INDEX agent_memory_user_id_organization_id_memory_key_key ON agent_memory USING btree (user_id, organization_id, memory_key)"
+      },
+      {
+        "object": "billing_event billingevent_external_unique",
+        "detail": "CREATE UNIQUE INDEX billingevent_external_unique ON billing_event USING btree (provider, external_id) WHERE (external_id IS NOT NULL)"
+      },
+      {
+        "object": "billing_event billingevent_pkey",
+        "detail": "CREATE UNIQUE INDEX billingevent_pkey ON billing_event USING btree (id)"
+      },
+      {
+        "object": "billing_event billingevent_ws_idx",
+        "detail": "CREATE INDEX billingevent_ws_idx ON billing_event USING btree (workspace_id, created_at DESC)"
+      },
+      {
+        "object": "file file_bucket_path_key",
+        "detail": "CREATE UNIQUE INDEX file_bucket_path_key ON file USING btree (bucket, path)"
+      },
+      {
+        "object": "file file_pkey",
+        "detail": "CREATE UNIQUE INDEX file_pkey ON file USING btree (id)"
+      },
+      {
+        "object": "file file_ws_idx",
+        "detail": "CREATE INDEX file_ws_idx ON file USING btree (workspace_id, created_at DESC)"
+      },
+      {
+        "object": "integration_audit integrationaudit_pkey",
+        "detail": "CREATE UNIQUE INDEX integrationaudit_pkey ON integration_audit USING btree (id)"
+      },
+      {
+        "object": "integration_audit integrationaudit_ws_idx",
+        "detail": "CREATE INDEX integrationaudit_ws_idx ON integration_audit USING btree (workspace_id, created_at DESC)"
+      },
+      {
+        "object": "integration_connection integration_connection_provider_idx",
+        "detail": "CREATE INDEX integration_connection_provider_idx ON integration_connection USING btree (provider)"
+      },
+      {
+        "object": "integration_connection integration_connection_status_idx",
+        "detail": "CREATE INDEX integration_connection_status_idx ON integration_connection USING btree (workspace_id, status)"
+      },
+      {
+        "object": "integration_connection integrationconnection_pkey",
+        "detail": "CREATE UNIQUE INDEX integrationconnection_pkey ON integration_connection USING btree (id)"
+      },
+      {
+        "object": "integration_connection integrationconnection_workspace_id_provider_key",
+        "detail": "CREATE UNIQUE INDEX integrationconnection_workspace_id_provider_key ON integration_connection USING btree (workspace_id, provider)"
+      },
+      {
+        "object": "integration_provider integration_provider_pkey",
+        "detail": "CREATE UNIQUE INDEX integration_provider_pkey ON integration_provider USING btree (id)"
+      },
+      {
+        "object": "lead lead_org_external_key_idx",
+        "detail": "CREATE UNIQUE INDEX lead_org_external_key_idx ON lead USING btree (organization_id, external_key)"
+      },
+      {
+        "object": "lead lead_org_status_idx",
+        "detail": "CREATE INDEX lead_org_status_idx ON lead USING btree (organization_id, status)"
+      },
+      {
+        "object": "lead lead_pkey",
+        "detail": "CREATE UNIQUE INDEX lead_pkey ON lead USING btree (id)"
+      },
+      {
+        "object": "mcp_api_key mcp_api_key_key_hash_key",
+        "detail": "CREATE UNIQUE INDEX mcp_api_key_key_hash_key ON mcp_api_key USING btree (key_hash)"
+      },
+      {
+        "object": "mcp_api_key mcp_api_key_org_idx",
+        "detail": "CREATE INDEX mcp_api_key_org_idx ON mcp_api_key USING btree (organization_id, created_at DESC)"
+      },
+      {
+        "object": "mcp_api_key mcp_api_key_pkey",
+        "detail": "CREATE UNIQUE INDEX mcp_api_key_pkey ON mcp_api_key USING btree (id)"
+      },
+      {
+        "object": "price_snapshot pricesnapshot_pkey",
+        "detail": "CREATE UNIQUE INDEX pricesnapshot_pkey ON price_snapshot USING btree (id)"
+      },
+      {
+        "object": "price_snapshot pricesnapshot_provider_price_id_key",
+        "detail": "CREATE UNIQUE INDEX pricesnapshot_provider_price_id_key ON price_snapshot USING btree (provider, price_id)"
+      },
+      {
+        "object": "usage_counter usage_counter_metric_idx",
+        "detail": "CREATE INDEX usage_counter_metric_idx ON usage_counter USING btree (workspace_id, metric, period_start DESC)"
+      },
+      {
+        "object": "usage_counter usagecounter_pkey",
+        "detail": "CREATE UNIQUE INDEX usagecounter_pkey ON usage_counter USING btree (workspace_id, metric, period_start)"
+      },
+      {
+        "object": "AgentApproval AgentApproval_pkey",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"AgentApproval_pkey\" ON \"AgentApproval\" USING btree (id)"
+      },
+      {
+        "object": "AgentApproval AgentApproval_status_idx",
+        "detail": "in migrations only: CREATE INDEX \"AgentApproval_status_idx\" ON \"AgentApproval\" USING btree (status)"
+      },
+      {
+        "object": "AgentDecision AgentDecision_pkey",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"AgentDecision_pkey\" ON \"AgentDecision\" USING btree (id)"
+      },
+      {
+        "object": "AgentDecision AgentDecision_state_idx",
+        "detail": "in migrations only: CREATE INDEX \"AgentDecision_state_idx\" ON \"AgentDecision\" USING btree (state)"
+      },
+      {
+        "object": "AgentDeployment AgentDeployment_environment_idx",
+        "detail": "in migrations only: CREATE INDEX \"AgentDeployment_environment_idx\" ON \"AgentDeployment\" USING btree (environment)"
+      },
+      {
+        "object": "AgentDeployment AgentDeployment_pkey",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"AgentDeployment_pkey\" ON \"AgentDeployment\" USING btree (id)"
+      },
+      {
+        "object": "AgentIdentity AgentIdentity_keyHash_idx",
+        "detail": "in migrations only: CREATE INDEX \"AgentIdentity_keyHash_idx\" ON \"AgentIdentity\" USING btree (\"keyHash\")"
+      },
+      {
+        "object": "AgentIdentity AgentIdentity_pkey",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"AgentIdentity_pkey\" ON \"AgentIdentity\" USING btree (id)"
+      },
+      {
+        "object": "AgentIdentity AgentIdentity_slug_key",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"AgentIdentity_slug_key\" ON \"AgentIdentity\" USING btree (slug)"
+      },
+      {
+        "object": "AgentTask AgentTask_ownerAgentId_idx",
+        "detail": "in migrations only: CREATE INDEX \"AgentTask_ownerAgentId_idx\" ON \"AgentTask\" USING btree (\"ownerAgentId\")"
+      },
+      {
+        "object": "AgentTask AgentTask_pkey",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"AgentTask_pkey\" ON \"AgentTask\" USING btree (id)"
+      },
+      {
+        "object": "AgentTask AgentTask_status_idx",
+        "detail": "in migrations only: CREATE INDEX \"AgentTask_status_idx\" ON \"AgentTask\" USING btree (status)"
+      },
+      {
+        "object": "Project Project_organizationId_idx",
+        "detail": "in migrations only: CREATE INDEX \"Project_organizationId_idx\" ON \"Project\" USING btree (\"organizationId\")"
+      },
+      {
+        "object": "Project Project_pkey",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"Project_pkey\" ON \"Project\" USING btree (id)"
+      },
+      {
+        "object": "Project Project_subdomain_unique",
+        "detail": "in migrations only: CREATE UNIQUE INDEX \"Project_subdomain_unique\" ON \"Project\" USING btree (subdomain)"
+      },
+      {
+        "object": "BlogPost BlogPost_pkey",
+        "detail": "production CREATE UNIQUE INDEX \"BlogPost_pkey\" ON \"BlogPost\" USING btree (id) vs migrations CREATE UNIQUE INDEX \"BlogPost_pkey\" ON \"BlogPost\" USING btree (slug)"
+      }
+    ],
+    "rls_mismatch": [
+      {
+        "object": "policy .",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy (EXISTS ( SELECT 1.",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Chat.Chat_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Chat.Chat_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Document.Document_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Document.Document_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Invitation.Invitation_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Invitation.Invitation_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Message_v2.Message_v2_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Message_v2.Message_v2_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Organization.Organization_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy OrganizationMember.OrganizationMember_self_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Subscription.Subscription_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy Subscription.Subscription_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy UsageEvent.UsageEvent_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy UsageEvent.UsageEvent_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy User.User_self_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy User.User_self_update",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy billing_event.billing_event_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy billing_event.billing_event_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy file.file_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy file.file_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy integration_audit.integration_audit_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy integration_audit.integration_audit_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy integration_connection.integration_connection_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy integration_connection.integration_connection_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy integration_provider.provider_read_all",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy usage_counter.usage_counter_member_read",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "policy usage_counter.usage_counter_member_write",
+        "detail": "exists in production only"
+      },
+      {
+        "object": "rls on Affiliate",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on AgentMessage",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Base44AgentSession",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Chat",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Document",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on GoogleDriveConnection",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on GuestUsage",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Invitation",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on MediaJob",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Message",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Message_v2",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on N8nConnection",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on OAuthConnection",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Organization",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on OrganizationMember",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on PasswordResetToken",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on ReferralEvent",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Stream",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on StudioProject",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Subscription",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Suggestion",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on UsageEvent",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on User",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Vote",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on Vote_v2",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      },
+      {
+        "object": "rls on WebhookEvent",
+        "detail": "production enabled=t forced=f vs migrations enabled=f forced=f"
+      }
+    ],
+    "extension_mismatch": [
+      {
+        "object": "extension pg_graphql",
+        "detail": "1.5.11 in production only"
+      },
+      {
+        "object": "extension pg_stat_statements",
+        "detail": "1.11 in production only"
+      },
+      {
+        "object": "extension pgcrypto",
+        "detail": "1.3 in production only"
+      },
+      {
+        "object": "extension supabase_vault",
+        "detail": "0.3.1 in production only"
+      },
+      {
+        "object": "extension uuid-ossp",
+        "detail": "1.1 in production only"
+      },
+      {
+        "object": "extension vector",
+        "detail": "0.8.0 in production only"
+      }
+    ],
+    "role_mismatch": [
+      {
+        "object": "role anon",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role authenticated",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role authenticator",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role dashboard_user",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role pgbouncer",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role service_role",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role supabase_admin",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role supabase_auth_admin",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role supabase_etl_admin",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role supabase_read_only_user",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role supabase_realtime_admin",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role supabase_replication_admin",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role supabase_storage_admin",
+        "detail": "production only (cluster-level; see report)"
+      },
+      {
+        "object": "role zooka_app",
+        "detail": "migrations only"
+      },
+      {
+        "object": "role zooka_runtime",
+        "detail": "migrations only"
+      }
+    ],
+    "grant_mismatch": [
+      {
+        "object": "grants for postgres",
+        "detail": "175 grants in production only, e.g. [('Account', 'DELETE'), ('Account', 'INSERT'), ('Account', 'REFERENCES')]"
+      },
+      {
+        "object": "grants for postgres",
+        "detail": "42 grants in migrations only, e.g. [('AgentApproval', 'DELETE'), ('AgentApproval', 'INSERT'), ('AgentApproval', 'REFERENCES')]"
+      },
+      {
+        "object": "grants for service_role",
+        "detail": "364 grants in production only, e.g. [('Account', 'DELETE'), ('Account', 'INSERT'), ('Account', 'REFERENCES')]"
+      }
+    ]
+  },
+  "counts": {
+    "missing_in_migrations": 221,
+    "missing_in_production": 66,
+    "constraint_mismatch": 29,
+    "type_mismatch": 6,
+    "foreign_key_mismatch": 30,
+    "index_mismatch": 63,
+    "rls_mismatch": 55,
+    "extension_mismatch": 6,
+    "role_mismatch": 15,
+    "grant_mismatch": 3
+  },
+  "reference_note": "production catalogues read directly, read-only; candidate on PostgreSQL 15",
+  "reference_counts": {
+    "tables": 40,
+    "columns": 369,
+    "constraints": 89,
+    "indexes": 91,
+    "extensions": 7,
+    "rls": 40,
+    "policies": 33,
+    "roles": 14,
+    "grants": 728
+  },
+  "candidate_counts": {
+    "tables": 33,
+    "columns": 221,
+    "constraints": 74,
+    "indexes": 59,
+    "extensions": 1,
+    "rls": 33,
+    "policies": 0,
+    "roles": 3,
+    "grants": 231
+  }
+}

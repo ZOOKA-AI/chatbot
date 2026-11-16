@@ -1,16 +1,38 @@
-import { hasScope, listDecisions, recordDecision } from "@/lib/agents/command-center";
-import { badRequest, forbidden, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
+import { z } from "zod";
 
-export async function GET(request: Request) {
+import { hasScope, listDecisions, recordDecision } from "@/lib/agents/command-center";
+import {
+  badRequest,
+  callerOrganizationId,
+  forbidden,
+  json,
+  resolveCaller,
+  unauthorized,
+} from "@/lib/agents/auth";
+import { fields, validateJson, validateQuery } from "@/lib/validation/api";
+import { withCommanderTenant } from "@/lib/agents/commander-scope";
+
+async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
   }
-  const limit = Number(new URL(request.url).searchParams.get("limit") ?? 50);
-  return json({ decisions: await listDecisions(Number.isFinite(limit) ? limit : 50) });
+  const query = validateQuery(
+    request,
+    z.object({ limit: fields.limit.optional() }).strict()
+  );
+  if (!query.ok) {
+    return badRequest(query.reason);
+  }
+  return json({
+    decisions: await listDecisions(
+      callerOrganizationId(caller),
+      query.data.limit ?? 50
+    ),
+  });
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const caller = await resolveCaller(request);
   if (!caller) {
     return unauthorized();
@@ -19,15 +41,23 @@ export async function POST(request: Request) {
     return forbidden("missing_scope:decision:write");
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return badRequest("invalid_json");
+  const parsed = await validateJson(
+    request,
+    z
+      .object({
+        title: fields.shortText,
+        body: fields.body,
+        state: z.enum(["PROPOSED", "ACCEPTED", "REJECTED", "SUPERSEDED"]).optional(),
+        taskId: fields.uuid.nullish(),
+      })
+      .strict()
+  );
+  if (!parsed.ok) {
+    return badRequest(parsed.reason);
   }
-
-  const title = typeof payload.title === "string" ? payload.title.trim() : "";
-  const body = typeof payload.body === "string" ? payload.body.trim() : "";
+  const payload = parsed.data as Record<string, unknown>;
+  const title = parsed.data.title;
+  const body = parsed.data.body;
   if (!title || !body) {
     return badRequest("title_and_body_required");
   }
@@ -38,6 +68,7 @@ export async function POST(request: Request) {
     : "PROPOSED";
 
   const decision = await recordDecision(caller.kind === "agent" ? caller.agent : null, {
+    organizationId: callerOrganizationId(caller),
     title,
     body,
     state,
@@ -46,3 +77,9 @@ export async function POST(request: Request) {
 
   return json({ decision }, 201);
 }
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const GET = withCommanderTenant(GETHandler);
+
+// Runs inside the caller's tenant transaction when TENANT_RLS_ENABLED is on.
+export const POST = withCommanderTenant(POSTHandler);

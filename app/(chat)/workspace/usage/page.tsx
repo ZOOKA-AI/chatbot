@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { redirect } from "next/navigation";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling, getWorkspaceUsageDetail } from "@/lib/db/queries";
@@ -14,7 +15,7 @@ function label(event: string, lang: "ar" | "en") {
   return EVENT_LABELS[event]?.[lang] ?? event;
 }
 
-export default async function UsageReportPage() {
+async function UsageReportPageImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     redirect("/login");
@@ -189,3 +190,6 @@ export default async function UsageReportPage() {
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(UsageReportPageImpl);

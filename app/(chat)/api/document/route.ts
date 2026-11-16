@@ -1,4 +1,5 @@
 import type { ArtifactKind } from "@/components/artifact";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   deleteDocumentsByIdAfterTimestamp,
@@ -6,10 +7,15 @@ import {
   saveDocument,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { optionalIntIsValid, queryParamIsValid, uuidSchema } from "@/lib/validation/chat";
 
-export async function GET(request: Request) {
+async function GETImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const idValid = queryParamIsValid(id, uuidSchema, "id", "must be a valid document id");
+  if (!idValid.ok) {
+    return idValid.response;
+  }
 
   if (!id) {
     return new ChatbotError(
@@ -38,9 +44,13 @@ export async function GET(request: Request) {
   return Response.json(documents, { status: 200 });
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const idValid = queryParamIsValid(id, uuidSchema, "id", "must be a valid document id");
+  if (!idValid.ok) {
+    return idValid.response;
+  }
 
   if (!id) {
     return new ChatbotError(
@@ -74,10 +84,18 @@ export async function POST(request: Request) {
   return Response.json(document, { status: 200 });
 }
 
-export async function DELETE(request: Request) {
+async function DELETEImpl(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const idValid = queryParamIsValid(id, uuidSchema, "id", "must be a valid document id");
+  if (!idValid.ok) {
+    return idValid.response;
+  }
   const timestamp = searchParams.get("timestamp");
+  const timestampValid = optionalIntIsValid(timestamp, "timestamp");
+  if (!timestampValid.ok) {
+    return timestampValid.response;
+  }
 
   if (!id) {
     return new ChatbotError(
@@ -118,3 +136,8 @@ export async function DELETE(request: Request) {
 
   return Response.json(documentsDeleted, { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { workspacePlans } from "@/lib/saas/plans";
 
-export async function GET() {
+async function GETImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json(
@@ -37,3 +38,6 @@ export async function GET() {
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);

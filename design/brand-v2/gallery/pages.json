@@ -1,0 +1,152 @@
+[
+ {
+  "id": "landing",
+  "en": "Landing",
+  "ar": "الرئيسية",
+  "layout": "hero"
+ },
+ {
+  "id": "login",
+  "en": "Sign in",
+  "ar": "تسجيل الدخول",
+  "layout": "auth"
+ },
+ {
+  "id": "register",
+  "en": "Create account",
+  "ar": "إنشاء حساب",
+  "layout": "auth"
+ },
+ {
+  "id": "dashboard",
+  "en": "Dashboard",
+  "ar": "لوحة التحكم",
+  "layout": "dashboard"
+ },
+ {
+  "id": "chat",
+  "en": "AI chat",
+  "ar": "المحادثة الذكية",
+  "layout": "chat"
+ },
+ {
+  "id": "agents",
+  "en": "AI agents",
+  "ar": "وكلاء الذكاء",
+  "layout": "agents"
+ },
+ {
+  "id": "agent-detail",
+  "en": "Agent detail",
+  "ar": "تفاصيل الوكيل",
+  "layout": "detail"
+ },
+ {
+  "id": "studio",
+  "en": "Creative Studio",
+  "ar": "الاستوديو الإبداعي",
+  "layout": "studio"
+ },
+ {
+  "id": "video",
+  "en": "Video Studio",
+  "ar": "استوديو الفيديو",
+  "layout": "studio"
+ },
+ {
+  "id": "automation",
+  "en": "Automation",
+  "ar": "الأتمتة",
+  "layout": "automation"
+ },
+ {
+  "id": "integrations",
+  "en": "Integrations",
+  "ar": "التكاملات",
+  "layout": "integrations"
+ },
+ {
+  "id": "analytics",
+  "en": "Analytics",
+  "ar": "التحليلات",
+  "layout": "analytics"
+ },
+ {
+  "id": "projects",
+  "en": "Projects",
+  "ar": "المشاريع",
+  "layout": "table"
+ },
+ {
+  "id": "documents",
+  "en": "Documents",
+  "ar": "المستندات",
+  "layout": "table"
+ },
+ {
+  "id": "files",
+  "en": "Files",
+  "ar": "الملفات",
+  "layout": "grid"
+ },
+ {
+  "id": "billing",
+  "en": "Billing",
+  "ar": "الاشتراك",
+  "layout": "billing"
+ },
+ {
+  "id": "usage",
+  "en": "Usage",
+  "ar": "الاستهلاك",
+  "layout": "analytics"
+ },
+ {
+  "id": "settings",
+  "en": "Settings",
+  "ar": "الإعدادات",
+  "layout": "settings"
+ },
+ {
+  "id": "security",
+  "en": "Security centre",
+  "ar": "مركز الأمان",
+  "layout": "security"
+ },
+ {
+  "id": "notifications",
+  "en": "Notifications",
+  "ar": "الإشعارات",
+  "layout": "list"
+ },
+ {
+  "id": "admin",
+  "en": "Administration",
+  "ar": "الإدارة",
+  "layout": "admin"
+ },
+ {
+  "id": "developers",
+  "en": "Developers",
+  "ar": "المطوّرون",
+  "layout": "code"
+ },
+ {
+  "id": "pricing",
+  "en": "Pricing",
+  "ar": "الأسعار",
+  "layout": "pricing"
+ },
+ {
+  "id": "help",
+  "en": "Help centre",
+  "ar": "مركز المساعدة",
+  "layout": "list"
+ },
+ {
+  "id": "zikr",
+  "en": "ZEKR · Quranic",
+  "ar": "ذكر · القرآن",
+  "layout": "zikr"
+ }
+]

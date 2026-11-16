@@ -1,4 +1,5 @@
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import {
   appendAgentMessage,
   getAgentHistory,
@@ -15,16 +16,27 @@ import { ChatbotError } from "@/lib/errors";
  * workspace, so two customers can never share agent memory.
  *
  * Requires AGENT_WEBHOOK_KEY (and optionally AGENT_WEBHOOK_URL) in the
+ * server environment; Preview may override both with AGENT_WEBHOOK_*_PREVIEW.
  * server environment. The route fails closed with 503 when unset.
  */
 export const maxDuration = 60;
 
+/**
+ * Preview acceptance must never reach the production agent webhook. The
+ * *_PREVIEW variables exist only on the Preview scope, so a preview deployment
+ * falls back to an isolated test webhook instead of the live agent, and the
+ * production secret types are never widened by adding a Preview target.
+ */
 const WEBHOOK_URL =
+  process.env.AGENT_WEBHOOK_URL_PREVIEW ??
   process.env.AGENT_WEBHOOK_URL ??
   "https://helmyharoon817979.n8n-wsk.com/webhook/zooka-agent";
 
 const WEBHOOK_KEY =
-  process.env.AGENT_WEBHOOK_KEY ?? process.env.SOLAS_AGENT_KEY ?? "";
+  process.env.AGENT_WEBHOOK_KEY_PREVIEW ??
+  process.env.AGENT_WEBHOOK_KEY ??
+  process.env.SOLAS_AGENT_KEY ??
+  "";
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 30,
@@ -48,7 +60,7 @@ function limitFor(plan: string) {
   return PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const context = await getWorkspaceContext();
   if (!context) {
     return new ChatbotError("unauthorized:chat").toResponse();
@@ -182,3 +194,6 @@ export async function POST(request: Request) {
     { headers: { "cache-control": "no-store" } }
   );
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const POST = withRequestTenantHandler(POSTImpl);

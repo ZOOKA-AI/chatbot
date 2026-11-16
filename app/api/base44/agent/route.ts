@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
+import { requestIdFrom } from "@/lib/http/request-id";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   Base44AgentError,
@@ -29,7 +31,7 @@ function isAgentAccessAllowed(role: string) {
 }
 
 
-export async function GET() {
+async function GETImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -55,7 +57,7 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -141,8 +143,19 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof Base44AgentError) {
+      // The message can carry upstream response text and the names of the
+      // server's configuration variables, so it goes to the log, not the client.
+      const requestId = requestIdFrom(request.headers);
+      console.error(
+        JSON.stringify({
+          route: "/api/base44/agent",
+          requestId,
+          status: error.status,
+          message: error.message,
+        })
+      );
       return NextResponse.json(
-        { error: "base44_error", message: error.message },
+        { error: "base44_error", requestId },
         { status: error.status === 401 ? 502 : error.status }
       );
     }
@@ -150,3 +163,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "base44_error" }, { status: 502 });
   }
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);

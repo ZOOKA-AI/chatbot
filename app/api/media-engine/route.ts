@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
@@ -228,7 +229,7 @@ async function readJob(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   try {
     return await createJob(request);
   } catch {
@@ -236,10 +237,14 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+async function GETImpl(request: Request) {
   try {
     return await readJob(request);
   } catch {
     return NextResponse.json({ error: "تعذّر قراءة الطلب" }, { status: 500 });
   }
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const POST = withRequestTenantHandler(POSTImpl);
+export const GET = withRequestTenantHandler(GETImpl);

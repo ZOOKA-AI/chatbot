@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
@@ -91,7 +91,27 @@ export function LoginClient({
 
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get("email") as string);
-    formAction(formData);
+    // Sign in through the Auth.js browser client, which posts to
+    // /api/auth/callback/credentials. The server action returns "success" but
+    // its response carries no Set-Cookie, so the session never reached the
+    // browser and every protected page bounced back to /login. Proven by
+    // calling the callback route directly: it sets __Secure-authjs.session-token.
+    void signIn("credentials", {
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+      redirect: false,
+    }).then((result) => {
+      if (result?.error) {
+        toast({ type: "error", description: t.invalid });
+        return;
+      }
+      setIsSuccessful(true);
+      updateSession();
+      router.refresh();
+      // A full assign is intentional: the middleware has to see the new cookie on
+      // the very next navigation.
+      window.location.assign("/workspace");
+    });
   };
 
   return (

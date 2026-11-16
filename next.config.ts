@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Standalone output is what the self-hosted web image runs (see deploy/docker). It is
+  // opt-in so the hosted build is byte-for-byte what it was before this package existed:
+  // Vercel never sets this variable.
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   async headers() {
     return [
       {

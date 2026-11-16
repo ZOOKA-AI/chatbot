@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { McpKeysManager } from "@/components/mcp-keys-manager";
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   title: "MCP",
 };
 
-export default function McpSettingsPage() {
+async function McpSettingsPageImpl() {
   // الجلسة والكوكيز تُقرأ داخل Suspense حتى لا تُحجب الصفحة كاملة.
   return (
     <Suspense fallback={null}>
@@ -64,3 +65,6 @@ async function McpSettingsContent() {
     </main>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(McpSettingsPageImpl);
