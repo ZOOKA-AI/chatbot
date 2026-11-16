@@ -746,3 +746,30 @@ only under the rewritten host. No authentication code was changed in this milest
 
 Gates: 646 passed / 6 skipped / 652 twice serially, `tsc` 0 errors, production build compiled.
 PR #95 head `7857e57`. Production untouched; migrations 0036–0040 still unapplied.
+
+---
+
+## Milestone 007 / Phase 1 — Workspace projects and the action catalog
+
+Date 16 November 2026. Branch `feat/commander-tenant-scope`, PR #95 head `f2bcf90`.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 22.01 | `AgentProject` table, migration 0041 | VERIFIED | 18/18 checks on a database rebuilt from all 42 migrations: objects, three FKs, unique name per workspace, RLS enabled, policy present, runtime grants, A/B isolation, no-context sees nothing, cross-tenant write refused, rollback, re-apply |
+| 22.02 | Link to the hosted-site `Project` table | VERIFIED, CONDITIONAL BY DESIGN | foreign key created only where that table exists; `tests/unit/workspace-project-schema.test.ts` covers both shapes, `ON DELETE SET NULL` confirmed via `confdeltype = 'n'` |
+| 22.03 | Project store, tenant scoped | VERIFIED | 17 tests on real PostgreSQL: isolation, name uniqueness, rename collision, unknown status, empty patch, cross-tenant edit `not_found`, delete vs archive, assignment refusing a foreign agent |
+| 22.04 | Deleting a project that holds work | VERIFIED | archives instead of deleting, `keptTasks = 1`, task still readable afterwards |
+| 22.05 | Action catalog contract | VERIFIED | 20 tests; `executable` derived from the worker's tool registry, an unimplemented tool cannot be offered |
+| 22.06 | Input validation | VERIFIED | missing field named (`missing_repo`), undeclared key refused, declared pattern enforced, whitespace trimmed, blank required value treated as missing |
+| 22.07 | Execution planner refusals | VERIFIED | not executable, tool not assigned, inactive agent, plan without agent runs, exhausted allowance — each before a task exists |
+| 22.08 | Duplicate submissions | VERIFIED | identical request inside five minutes returns the queued task with `deduplicated: true`; finished task not reused; older identical request is new work |
+| 22.09 | Route authorization | VERIFIED | 401 without a session and without reaching the runner, 403 for a member, 400 for an unknown body key, organisation taken from the caller |
+| 22.10 | `/workspace/projects`, `/workspace/actions` | VERIFIED IN BROWSER | 17/17 acceptance with a real form login; project persisted across reload, catalogue Arabic-first, detail rollups at zero rather than a placeholder |
+| 22.11 | Execution withheld when no agent holds the tool | VERIFIED | run control disabled in the browser for an agent created with the zero-tool default |
+| 22.12 | Regression: 30 tests across two suites | ROOT CAUSE FOUND AND FIXED | eleven PGlite harnesses built their schema from a migration list ending at 0040, so the ORM declared `projectId` against a database without it; each chain now applies 0041 and the runtime-role grant is conditional because those harnesses never create `zooka_runtime` |
+| 22.13 | Running an action to a stored result in the browser | UNTESTED | needs an agent holding a tool plus a live provider credential; proven only to the queued-task boundary |
+| 22.14 | Per-project membership | NOT BUILT | access follows the workspace role; no member list exists |
+
+Gates: 707 passed / 6 skipped / 713 in 87 files, run twice serially with identical counts, `tsc`
+0 errors, production build compiled, migration 0041 verified 18/18, browser acceptance 17/17.
+Production untouched: no deployment, no production migration, no merge, both PRs still draft.
