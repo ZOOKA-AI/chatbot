@@ -315,3 +315,48 @@ Gates at `ebc40c0`: 890 passed / 6 skipped / 896 in 102 files, twice, identical;
 **What this does not change.** The verdict stays NO. The customer path now works completely *in this
 workspace*, against a local server. It still does not exist in production (`main` has none of it), still has
 no provider credential, and still needs 17 pending migrations. B1, B2, B4, B5, B6, B7 and B8 are untouched.
+
+---
+
+## Appendix A — 2026-11-16, remediation evidence (appended, original findings unedited)
+
+This appendix does not revise any finding above. It records what was fixed and what remains true.
+
+**Findings above that were reproduced and then fixed**
+
+- "The approval is free text with no expiry, no single consumption and no idempotency" — replaced by
+  `StudioSpendApproval` (migration `0045`): ownership, provider, model, capability, ceiling, expiry, status
+  machine `pending → approved → consumed`, unique `idempotencyKey`, and `uncertain` for an unread provider
+  outcome. Consumption is a conditional update, so two simultaneous submissions produce one job. 19 tests.
+- "The execution worker never calls a model" — `lib/agents/model-invocation.ts` now does, and refuses before the
+  network when the workspace, agent status, model or credential does not allow it. 16 tests with a stubbed
+  transport. One real completion on a free tier returned `ZOOKA`; that is stated separately from the stubbed
+  path rather than folded into it.
+- "ComfyUI is called without an outbound guard" — every hop is re-checked, cloud metadata is refused
+  unconditionally, and a LAN worker needs an explicit acknowledgement. 11 tests, including a redirect to
+  `169.254.169.254` that is refused before the request is made.
+- "34 migration files pending, 17 pairs" — now 18 pairs (`0028`–`0045`), rehearsed as 18/18 up, down and
+  reapply on a disposable clone. Three defects were found by the rehearsal: `0030` was not re-runnable,
+  `0031`'s rollback left grants on six tables, and its role drop failed on a cluster-wide role.
+
+**Findings above that remain true**
+
+- RunComfy and fal.ai are implemented and unconfigured. No credential exists; no cloud job has run.
+- The migrations are unapplied outside a disposable local database. Preview and Production are untouched.
+- No staging environment exists: a separate database needs a credential the workspace does not hold.
+- Six live-chain tests are still skipped by environment gate (1 worker, 2 domain, 3 end-to-end). None was
+  converted into a pass.
+- Production still carries no file from this branch.
+
+**New findings from this pass**
+
+- The model provider authenticates (12 models) but serves none of the gateway registry ids. A provider
+  catalogue was added from the provider's own `/models` response; without it every direct call would have been
+  refused as `model_not_allowed`.
+- At `max_tokens: 16` the reasoning model returns empty content because every token goes to reasoning. The
+  gateway refuses that as `empty_completion` instead of showing an empty answer to a customer.
+- Rolling back `0029`, `0034`, `0035`, `0038` and `0039` drops five tables and their rows. This is documented in
+  `docs/release/ROLLBACK_PLAN.md` rather than discovered during a release.
+
+**Gate evidence at this appendix's date:** 935 passed / 6 skipped / 941 total across 105 files, twice,
+identical; `tsc --noEmit` exit 0 twice; `pnpm run build` successful twice.
