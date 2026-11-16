@@ -142,6 +142,29 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 37 — Milestone 026: task detail, evidence and progress in chat (16 Nov 2026)
+
+PR #95 implementation, PR #92 this entry. Both Draft. No production deployment, no production migration, no merge, no paid service.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 37.1 | Preserve uncommitted progress work | VERIFIED | `git status` inspected first; `execution-progress.ts` and its tests committed, nothing reset |
+| 37.2 | Progress contract complete | VERIFIED | 18 tests over nine stages including timed_out and blocked, plus the polling rules |
+| 37.3 | Task detail consumes it | VERIFIED | `TaskExecutionPanel` reads `GET /api/agents/tasks/[id]`; stage, next step, attempts, timing, evidence, error |
+| 37.4 | Evidence shown with its verification state | VERIFIED | evidence present/absent, tool, reference, summary; "no evidence recorded" is a first-class state |
+| 37.5 | Retry and cancellation controls | VERIFIED (logic) | buttons gate on `progress.canRetry` / `canCancel`; they call the existing retry and cancel endpoints, which enforce owner/admin and tenant scope |
+| 37.6 | No fabricated progress | VERIFIED | no percentage and no progress bar anywhere; grep confirms |
+| 37.7 | Chat surface | VERIFIED (wiring) | `ExecutionProgressCard` renders for createExecutionTask / getExecutionStatus tool results and polls until terminal |
+| 37.8 | One source of truth across surfaces | VERIFIED | both surfaces call the same endpoint; the chat sentence is produced by the server |
+| 37.9 | Client/server boundary respected | FIXED | first build failed because a client component imported `server-only`; helpers split into `execution-stage.ts` rather than weakening the guard |
+| 37.10 | Stale type assumption removed | FIXED | `part.type` compared against values absent from the generated union; now an explicit narrow |
+| 37.11 | Quality gates | VERIFIED | 492 passed / 4 skipped across 68 files, `tsc --noEmit` 0 errors, `pnpm run build` compiled |
+| 37.12 | Browser verification | BLOCKED | no session available and hosted Preview remains protected; nothing here is claimed as seen working |
+
+**Release prerequisite unchanged:** `pending/0037` must be applied and verified on production before code selecting `User.emailVerifiedAt` is deployed there.
+
+**Still open:** self-hosted images unbuilt (no Docker in this environment), backups not exercised against a container stack, and no successful tool run end-to-end (needs repository credentials that should not be created for a smoke test).
+
 ## Stage 36 — Directive #026: execution UX truth, and a self-hosting package (16 Nov 2026)
 
 PR #95 head `02dfca4`, PR #92 this entry. Both Draft, unmerged. No production deployment, no production migration, no merge, no paid service, no credential disclosed.
