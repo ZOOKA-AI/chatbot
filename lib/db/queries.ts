@@ -88,7 +88,7 @@ const sharedDb = drizzle(client);
  * Falls back to the request handle while enforcement is off, so behaviour is
  * unchanged until the flag flips.
  */
-function adminDb() {
+export function adminDb() {
   if (!tenantScopeEnabled()) {
     return db;
   }
@@ -645,7 +645,7 @@ export async function incrementGuestUsage(key: string) {
  * limit the conditional update matches nothing and no row is returned.
  */
 export async function tryClaimGuestUsage(key: string, limit: number) {
-  const rows = (await db.execute(sql`
+  const rows = (await adminDb().execute(sql`
     INSERT INTO "GuestUsage" ("key", "count", "updatedAt")
     VALUES (${key}, 1, now())
     ON CONFLICT ("key") DO UPDATE
@@ -660,7 +660,7 @@ export async function tryClaimGuestUsage(key: string, limit: number) {
 /* Hand a claimed unit back, e.g. when the reply failed before its first token. */
 export async function releaseGuestUsage(key: string) {
   try {
-    await db.execute(sql`
+    await adminDb().execute(sql`
       UPDATE "GuestUsage"
       SET "count" = GREATEST("count" - 1, 0), "updatedAt" = now()
       WHERE "key" = ${key}
@@ -1751,7 +1751,8 @@ export async function deleteGoogleDriveConnectionIfUnchanged({
 
 export async function createPasswordResetToken(userId: string, tokenHash: string) {
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-  await db.insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
+  // Bootstrap-only table (0052): issued before any session exists.
+  await adminDb().insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
 }
 
 /**

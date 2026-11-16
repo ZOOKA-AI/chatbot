@@ -1,6 +1,6 @@
 import { captureException } from "@sentry/nextjs";
 import { and, eq } from "drizzle-orm";
-import { db } from "@/lib/db/queries";
+import { adminDb } from "@/lib/db/queries";
 import { webhookEvent } from "@/lib/db/schema";
 
 /**
@@ -15,7 +15,7 @@ export async function claimWebhookEvent(input: {
   failClosed?: boolean;
 }): Promise<boolean> {
   try {
-    const inserted = await db
+    const inserted = await adminDb()
       .insert(webhookEvent)
       .values({
         provider: input.provider,
@@ -39,7 +39,7 @@ export async function releaseWebhookEvent(input: {
   externalId: string;
 }): Promise<void> {
   try {
-    await db
+    await adminDb()
       .delete(webhookEvent)
       .where(
         and(

@@ -23,7 +23,9 @@ type AnyDb = any;
 function defaultDb(): AnyDb {
   // Required lazily so importing this module never opens a connection.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require("@/lib/db/queries").db as AnyDb;
+  // Bootstrap-only tables (0052): tokens are issued and consumed before a session
+  // exists, so this must never use the tenant runtime role.
+  return require("@/lib/db/queries").adminDb() as AnyDb;
 }
 
 export type IssueResult = { token: string; hash: string; expiresAt: Date };

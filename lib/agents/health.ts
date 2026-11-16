@@ -5,6 +5,7 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 import * as queriesModule from "@/lib/db/queries";
 import { commanderActiveDb } from "@/lib/db/tenant-context";
 import { agentExecution, agentTask, schedulerRun } from "@/lib/db/schema";
+import { adminDb } from "@/lib/db/queries";
 
 /**
  * Execution health, read from the database rather than reported by the worker.
@@ -152,7 +153,9 @@ export async function workspaceExecutionHealth(organizationId: string): Promise<
         }
   );
 
-  const [scheduler] = await db
+  // SchedulerRun is global telemetry owned by the system, not by a tenant, so it
+  // is read on the bootstrap connection (0052 revokes runtime access to it).
+  const [scheduler] = await adminDb()
     .select({ startedAt: schedulerRun.startedAt, status: schedulerRun.status, error: schedulerRun.error })
     .from(schedulerRun)
     .orderBy(sql`${schedulerRun.startedAt} desc`)
