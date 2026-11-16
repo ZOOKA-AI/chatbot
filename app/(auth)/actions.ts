@@ -154,6 +154,15 @@ export const register = async (
     }
 
     if (createdUserId) {
+      // Launch testing program: first successful registrations claim a free
+      // slot. Best effort on purpose — a claim must never fail a sign-up, and a
+      // failed registration never reaches this point so it cannot burn a slot.
+      try {
+        const { claimLaunchSlot } = await import("@/lib/billing/launch-program");
+        await claimLaunchSlot(createdUserId);
+      } catch (error) {
+        console.error("launch slot claim skipped", (error as Error)?.message);
+      }
       if (verificationEnabled()) {
         try {
           const { token } = await issueVerificationToken(createdUserId);
