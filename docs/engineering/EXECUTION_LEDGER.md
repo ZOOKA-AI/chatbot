@@ -142,6 +142,28 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 38 — Milestone 027: first successful tool execution, agent configuration (16 Nov 2026)
+
+PR #95 implementation, PR #92 this entry. Both Draft. No production deployment, no production migration, no merge, no paid service, no credential published.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 38.1 | Successful authorized tool run | VERIFIED | task completed in 308 ms; evidence persisted: `zooka-ai/chatbot: branch main, public, 7944 KB, last push 2026-11-16T01:52:08Z` |
+| 38.2 | Root cause of `bad_repo_name` | FIXED | scheduler passed `{repo}`, worker passed nothing; one payload source now (`lib/agents/tool-payload.ts`), 5 tests |
+| 38.3 | Credential refusal behaves | VERIFIED | ANSI-C-quoted token refused as `credential_malformed` instead of being sent |
+| 38.4 | No duplicate execution | VERIFIED | one execution row; a re-poll of two workers added none |
+| 38.5 | Correct UI status | VERIFIED (derivation) | `describeExecution` maps that execution to `completed` with evidence verified; 18 tests |
+| 38.6 | Tenant isolation | VERIFIED (code + suite) | `updateAgentConfig` filters `organizationId` inside the UPDATE; isolation suite green |
+| 38.7 | Agent rename / disable / scopes / environment | VERIFIED (API) | PATCH `/api/agents/registry`, owner/admin only; 12 pure validation tests |
+| 38.8 | Agent config UI | NOT IMPLEMENTED | stated, not claimed |
+| 38.9 | Recurring schedules + cron + Asia/Dubai | NOT IMPLEMENTED | needs columns (`scheduledFor`, `nextRunAt`, `schedule`, `timezone`, `model`) and a pending migration; no UI will be built over a schema that cannot store it |
+| 38.10 | Per-agent model selection | NOT IMPLEMENTED | same schema prerequisite |
+| 38.11 | Chat and worker provider consistency | ANSWERED, NOT UNIFIED | chat uses the AI SDK gateway; worker execution uses `MODEL_PROVIDER`. Two real paths, documented in PROVIDERS.md |
+| 38.12 | Quality gates | VERIFIED | 510 passed / 4 skipped, 70 files, `tsc --noEmit` 0 errors, `pnpm run build` compiled |
+| 38.13 | Docker / container acceptance | BLOCKED | Docker still absent from this environment |
+
+**Still open, unchanged:** `pending/0037` blocks production deployment of code reading `User.emailVerifiedAt`; backups not exercised against a container stack.
+
 ## Stage 37 — Milestone 026: task detail, evidence and progress in chat (16 Nov 2026)
 
 PR #95 implementation, PR #92 this entry. Both Draft. No production deployment, no production migration, no merge, no paid service.
