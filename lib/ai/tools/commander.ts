@@ -102,7 +102,10 @@ export function createCommanderTools(input: {
               "No such task in this workspace. Say you cannot find it; do not guess a status.",
           };
         }
-        const run = await executionReport(input.organizationId, task.id);
+        // Same scope as the task read above. The first version called this on the
+        // shared handle, which is a cross-tenant read in production and a hard
+        // failure under enforced row-level security.
+        const run = await scoped(() => executionReport(input.organizationId, task.id));
         return {
           ok: true,
           taskId: task.id,

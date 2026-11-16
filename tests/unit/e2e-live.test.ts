@@ -20,7 +20,8 @@ vi.mock("@/lib/db/queries", () => ({
   },
 }));
 
-import { createTask, getTask } from "@/lib/agents/command-center";
+import { createTask, getTask, listTasks } from "@/lib/agents/command-center";
+import { createCommanderTools } from "@/lib/ai/tools/commander";
 import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { executionReport } from "@/lib/agents/worker";
 import { runScheduler } from "@/lib/agents/scheduler";
@@ -113,6 +114,39 @@ describe.skipIf(!ready)("real end-to-end chain", () => {
 
     const [run] = await admin`select status, "claimedCount", "succeededCount" from "SchedulerRun" where id = ${String(result.schedulerRunId)}`;
     assert.equal(run.succeededCount, 1);
+  }, 90_000);
+
+  test("a chat command becomes real work and a verified result", async () => {
+    // What the model can actually call in a conversation: create, then read.
+    const tools = createCommanderTools({ organizationId: ORG_A, userId: "owner-user-1", canManage: true });
+    const queued = (await tools.createExecutionTask.execute!(
+      {
+        title: "Report the authorised repository state",
+        instruction: "Read zooka-ai/chatbot metadata and report branch, size and last push",
+      },
+      { toolCallId: "chat-1", messages: [] } as never
+    )) as { ok: boolean; taskId: string; status: string };
+    console.log("CHAT_QUEUED", JSON.stringify(queued));
+    assert.equal(queued.ok, true);
+    assert.equal(queued.status, "pending", "the chat tool may not report work as done");
+
+    // Scheduler claims it, in a bounded pass.
+    const pass = await runScheduler({ batchSize: 1, globalLimit: 2, perOrganizationLimit: 1, tool: "github_repo_inspect" });
+    console.log("CHAT_SCHEDULER", JSON.stringify({ run: pass.schedulerRunId, outcome: pass.outcomes[0] }));
+    assert.equal(pass.outcomes[0]?.status, "completed", `worker said ${pass.outcomes[0]?.error}`);
+
+    // The same tool the model uses to tell the user what happened.
+    const status = (await tools.getExecutionStatus.execute!(
+      { taskId: queued.taskId },
+      { toolCallId: "chat-2", messages: [] } as never
+    )) as Record<string, unknown>;
+    console.log("CHAT_STATUS", JSON.stringify(status));
+
+    const history = await withCommanderScope(ORG_A, () => listTasks({ organizationId: ORG_A, limit: 20 }));
+    const row = history.find((task) => task.id === queued.taskId);
+    console.log("CHAT_HISTORY", JSON.stringify({ taskId: row?.id, status: row?.status, evidence: String(row?.evidence).slice(0, 160) }));
+    assert.equal(row?.status, "completed");
+    assert.match(String(row?.evidence), /branch main/);
   }, 90_000);
 
   test("the same chain reads the workspace's Vercel deployments", async () => {
