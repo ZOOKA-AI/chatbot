@@ -360,3 +360,36 @@ This appendix does not revise any finding above. It records what was fixed and w
 
 **Gate evidence at this appendix's date:** 935 passed / 6 skipped / 941 total across 105 files, twice,
 identical; `tsc --noEmit` exit 0 twice; `pnpm run build` successful twice.
+
+## Appendix B — 2026-11-16, the allowlist defect (findings above unchanged)
+
+Nothing earlier in this document is retracted or edited. This appendix records a defect that the earlier audit
+missed and that was found by probing the built server rather than reading the code.
+
+**The claim that did not hold.** The earlier appendices reported the agent tool policy as enforced, on the
+strength of `agentAllowsTool` and its unit tests. Enforcement was not in force. `authenticateAgent` never
+selected `allowedTools`, so at runtime every agent had no policy, and the rule treated "no policy" as
+"unrestricted". The unit tests passed because they constructed their own objects instead of asking the
+authentication query what it returns. This is the same class of error the audit was written to catch: a passing
+test standing in for a working path.
+
+**Severity.** An agent the owner had restricted to a single read tool could execute any registered tool,
+including write and network tools, through the HTTP worker route and the scheduler. No credential crossed a
+tenant boundary, and no cross-tenant read was possible, but the per-agent permission boundary did not exist.
+
+**Evidence after the fix** (real PostgreSQL 15.19, built server, real HTTP):
+
+- `403 tool_not_assigned` for a tool the agent does not hold;
+- `403` for a malformed stored policy;
+- `200` for a tool it does hold;
+- `401` for an unknown key;
+- another tenant received `queue_empty` while the owner of the queued task executed it in the same second;
+- a task row inserted directly into the queue is refused when `runTask` re-checks the policy.
+
+**Gates.** 984 passed / 0 failed / 6 skipped, twice, identical; `tsc` exit 0 twice; production build exit 0
+twice. Two of my own earlier verification runs were invalid and are recorded as such: one reported 43 failures
+after the local database cluster died mid-run, another reported 6 failures because the health suite was pointed
+at the shared database instead of its own. Neither number is a result about the code.
+
+**Still open.** No Production change; no migration applied; PR #95 Draft and unmerged; the GitHub token that
+sat in the local remote URL is removed from the working copy but not yet rotated, which remains an owner action.
