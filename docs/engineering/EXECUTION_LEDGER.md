@@ -142,6 +142,32 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 32 — Production credential rotated, and a domain correction (16 Nov 2026)
+
+PR #95 (rotation hygiene, `19340f6`) and PR #92 (this entry). No merge. The only production change is the one the owner authorised and Phase 9 permits: a credential rotation plus the narrowly scoped configuration update and restart needed to keep the database reachable.
+
+**Correction first, because it affects how every earlier entry reads.** The production domain is `zooka-ai.com`. The spelling `zoka-ai.com` used in earlier stages does not exist: RDAP returns 404, Google and Cloudflare both return NXDOMAIN, and Vercel answers `not_found` for that project domain. `zooka-ai.com` is registered (24 Nov 2025, expires 24 Nov 2035), verified in Vercel, and serves production on `dpl_GmbEtyYcUX`.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 32.1 | Production health before any change | VERIFIED | `/` 200, `/login` 200, `/api/auth/providers` 200, `/workspace/agent` 307, `/api/agent` 405 |
+| 32.2 | Backup readiness before rotation | VERIFIED | `GET /api/admin/backup` 200, 854,794 bytes, generated minutes before the change |
+| 32.3 | Rotation mechanism | FOUND | Supabase pooler reachable on 5432 and 6543, so the role password could be changed without a dashboard session; the management token remains 401 |
+| 32.4 | Credential rotated | DONE | `ALTER ROLE postgres WITH PASSWORD`, 48 generated characters, never printed and never written into a report |
+| 32.5 | Old credential retired | VERIFIED | Rejected on both ports, re-tested after propagation |
+| 32.6 | Dependent configuration | DONE | `DATABASE_URL` and `POSTGRES_URL` patched in Vercel, production scope only |
+| 32.7 | Restart | DONE | Production redeployed `dpl_GmbEtyYcUX` READY; the live HTML reports that deployment id |
+| 32.8 | Database connectivity after | VERIFIED | `POST /api/admin/migrate` 200 with `failed={}`, RLS 40 on / 0 off |
+| 32.9 | Existing records intact | VERIFIED | Direct read: 277 users, 299 messages, 60 chats; nothing deleted or reset |
+| 32.10 | Read and write operations | VERIFIED | Transactional write succeeded on the new credential |
+| 32.11 | Backup connectivity after | VERIFIED | `GET /api/admin/backup` 200 at 854,794 bytes |
+| 32.12 | Disk hygiene | DONE | The vault backup holding the retired value was deleted; no copy of it remains on disk |
+| 32.13 | Rollback guard | ARMED, NOT USED | The script restored the previous password automatically if the Vercel update failed |
+| 32.14 | Neither password in reporting | DONE | No value appears in any document, commit, or message |
+| 32.15 | Suite, types, build | DONE | 421 passed across 59 files, `tsc --noEmit` clean, `pnpm run build` exit 0 with 126 pages |
+
+Deliberately not done: no feature release to production, and no Vercel variable changed other than the two connection strings the rotation required.
+
 ## Stage 31 — The credential incident, and a Preview that cannot be provisioned yet (16 Nov 2026)
 
 PR #95 head `c279d7f`, draft. No merge, no production deployment, no production migration, no billing change, no paid service, no credential exposed in this stage, no authentication bypassed.
