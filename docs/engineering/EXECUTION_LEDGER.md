@@ -142,6 +142,39 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 29 — Authenticated acceptance, and the read that was not scoped (16 Nov 2026)
+
+PR #95 head `32046f7`, draft. No merge, no production deployment, no production migration, no billing change, no paid service, no secret exposed, no authentication bypassed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 29.1 | Preview inventory | DONE | 45 project variables, 7 preview-targeted, and none of them a database credential: `DATABASE_URL`/`POSTGRES_URL` are production-only |
+| 29.2 | Scheduler protection in preview | VERIFIED | `SCHEDULER_TOKEN`, `DATABASE_URL_PLATFORM`, `DATABASE_URL_TENANT` all absent from preview, so the endpoint is 401 and then 503 by design |
+| 29.3 | Preview authentication | BLOCKED (documented) | Every preview path answers 302 to `vercel.com/sso-api`; `AUTH_SECRET` is a separate preview value, so a production session cannot be replayed and none may be forged |
+| 29.4 | Chat command → task | VERIFIED | Real tool call: `ok:true`, task `baa27f7c`, status `pending`, note "No agent has run it yet" |
+| 29.5 | Task → scheduler | VERIFIED | Run `3af93266`, one task claimed under per-org 1 / global 2 / batch 1 |
+| 29.6 | Scheduler → worker → GitHub | VERIFIED | Execution `d034bbc6`, tool `github_repo_inspect`, 199 ms, workspace credential |
+| 29.7 | Stored evidence | VERIFIED | `evidenceRef: execution:d034bbc6…`, summary "zooka-ai/chatbot: branch main, public, 9868 KB, last push 2026-11-16T00:29:17Z" |
+| 29.8 | User-visible result | VERIFIED | `getExecutionStatus` returned "Recorded as completed, with a verified tool execution behind it" |
+| 29.9 | Execution history | VERIFIED | `listTasks` for the workspace shows the task completed with the same evidence |
+| 29.10 | Member refused | DONE | The chat tool returns `ok:false` with an owner/admin message and no task id, and the queue stays empty |
+| 29.11 | Owner/admin vs member vs agent | DONE | `canManage` admits owner and admin only; a member session and an agent key are both refused |
+| 29.12 | Cross-tenant | DONE | Workspace A cannot see workspace B's queue in the acceptance test; the worker suite proves a foreign task answers `task_not_found` |
+| 29.13 | Unauthorised repository | DONE | Installation tokens must list the repository, else `repo_not_in_installation` |
+| 29.14 | Missing credentials | DONE | `not_connected` / `platform_credential_not_enabled`, never a silent platform fallback |
+| 29.15 | Expired lease | DONE | Recovery closes the attempt `timed_out`, fails the task, and a stale worker cannot settle it |
+| 29.16 | Cancelled execution | DONE | A mid-flight cancel outranks a successful tool result |
+| 29.17 | Failed tool call | DONE | The task fails with the tool's error stored verbatim |
+| 29.18 | Preview cron plan | DOCUMENTED, NOT ACTIVATED | `docs/engineering/SCHEDULER_PREVIEW_PLAN.md`: five steps, one task per hour ceiling, platform connection that refuses production hosts, and the honest gap that no alert is wired |
+| 29.19 | Full suite | DONE | 421 passed across 59 files on PostgreSQL; 4 skipped are the opt-in live tests |
+| 29.20 | Build | DONE | `pnpm run build` exit 0, 126 pages |
+
+**The defect this stage found:** `getExecutionStatus` in the chat bridge read the execution report on the shared connection. Under enforced RLS that is a hard failure; in production, where RLS is off, it was an unscoped cross-tenant read inside the very file whose header claims every read goes through the tenant scope. It was found by driving the real tool against real PostgreSQL and watching the shared-connection guard throw, not by reading the code. Fixed by wrapping the call in the same scope as the task read.
+
+Remaining blockers, stated plainly: authenticating on the preview is impossible without an owner decision, because Vercel SSO and a separate `AUTH_SECRET` both stand in front of it and neither may be bypassed; the preview has no database of its own, so nothing can run there end to end until one exists; no cron is configured in any environment; and no failure alert is sent when a pass fails.
+
+Next milestone: a preview-only development database, so the authenticated journey can be exercised in a browser rather than only against PostgreSQL in the sandbox.
+
 ## Stage 28 — Scheduled, leased, tenant-credentialled (16 Nov 2026)
 
 PR #95 head `8d0ae10`, draft. PR #92 carries this entry. No merge, no production deployment, no production migration, no billing change, no paid service, no credential exposed.
