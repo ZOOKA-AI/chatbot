@@ -14,6 +14,14 @@ const BASE = process.env.ACCEPT_BASE || "https://localhost:3444";
 const OUT = process.env.ACCEPT_OUT || "acceptance-rc/brand";
 const EMAIL = process.env.ACCEPT_EMAIL || "rc-b-mwjc8sws@zooka-test.dev";
 const PASS = process.env.ACCEPT_PASSWORD || "Rc-Accept-2026!x7Qm";
+/**
+ * Vercel Deployment Protection: a host that protects its previews answers 302 to
+ * vercel.com/sso-api for any scripted client. When the owner has stored a Protection
+ * Bypass for Automation in the agent secrets, it is presented as a header (and the
+ * response sets the bypass cookie for the cookie jar). The value is never printed.
+ */
+const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS || "";
+const BYPASS_HEADERS = BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {};
 mkdirSync(OUT, { recursive: true });
 
 const PAGES = [
@@ -45,7 +53,13 @@ const PAGES = [
 ];
 
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
-const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } });
+const ctx = await browser.newContext({
+  ignoreHTTPSErrors: true,
+  viewport: { width: 1440, height: 900 },
+  extraHTTPHeaders: BYPASS_HEADERS,
+});
+if (BYPASS) ctx.setExtraHTTPHeaders(BYPASS_HEADERS);
+console.log(`base=${BASE} bypass=${BYPASS ? "present" : "absent"}`);
 const csrf = (await (await ctx.request.get(`${BASE}/api/auth/csrf`)).json()).csrfToken;
 await ctx.request.post(`${BASE}/api/auth/callback/credentials`, {
   form: { csrfToken: csrf, email: EMAIL, password: PASS, callbackUrl: `${BASE}/` },

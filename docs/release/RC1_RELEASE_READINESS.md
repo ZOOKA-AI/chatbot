@@ -21,9 +21,9 @@ migrations need an owner decision before they touch anything.
 | Unit suite, run 2 | 900 passed / 0 failed / 141 skipped (1041) |
 | Execution lifecycle (API, real routes) | PASS 15/15 |
 | Brand and locale audit | PASS 50/50 (25 pages × ar/en) |
-| Browser E2E leg (`tests/e2e`) | BLOCKED, environment (see §5) |
-| Hosted preview acceptance | PARTIAL: public and DB reads verified on the deployment, authenticated journeys BLOCKED by automation guard (see §6) |
-| Migration audit 0028–0049 | COMPLETE, no production application |
+| AI provider for the E2E chat leg | BLOCKED: stored Gemini key returns 400 today, no gateway key (see §5) |
+| Hosted preview | PARTIAL: deployment serves and its DB answers; authenticated journeys need a bypass credential (see §6) |
+| Migration audit 0028–0049 | COMPLETE, plan written, prerequisite gaps found, nothing applied |
 
 ## 1. Final commit
 
@@ -123,72 +123,90 @@ Four defects were found by this audit and fixed:
 4. The audit listed `/compare`, a route the product never had; the real route is
    `/cookies`.
 
-## 5. Browser E2E leg: BLOCKED, environment
+## 5. AI provider: no usable credential, proven today
 
-`tests/e2e` (99 tests) starts its own dev server and drives the chat UI. It stops at
-test 3, "sends message and receives AI response":
+The E2E chat leg needs a model that answers. The chat route reads exactly two credentials,
+`GEMINI_API_KEY` and `AI_GATEWAY_API_KEY`. Checked again in this cycle rather than trusted
+from an earlier note:
 
-```
-Error: locator.fill: Test timeout of 240000ms exceeded
-```
+| Credential | Availability | Live result |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | present in the agent environment | `GET v1beta/models` → **400 INVALID_ARGUMENT, "API key not valid"** |
+| `AI_GATEWAY_API_KEY` | absent | no gateway key to present |
+| `GROQ_API_KEY` | present and valid | powers the agent path (`lib/agents/model-invocation.ts`), which the chat route never calls |
 
-Root cause, established rather than guessed: the test sends a message and waits for an
-assistant reply, which requires a model provider credential and an authenticated chat
-session in the harness. Neither exists in this sandbox: every provider key on Preview
-is absent by design, and `PAID_GENERATION_ENABLED=false` refuses paid inference. The
-input never becomes usable, so `fill` waits until it times out. This is the harness
-lacking a provider, not a regression in the branch: the same tests passed selection but
-not execution, and no assertion in them touches RC-1 code.
+So there is no authorized model credential to reuse for this leg. The Groq key is real and
+free, but wiring it into the chat route would be a code change to the product, not a test
+setup change, and this cycle is under a development freeze for non-blockers. The E2E chat
+leg therefore stays unrun, and it is not counted as passing.
 
-To unblock: a Groq (or equivalent) key in the E2E environment. Groq was already proven
-reachable in this project (`GET /v1/models` 200, one real completion), so a single
-non-paid key closes this leg.
+What that costs, precisely: the browser E2E suite covers the chat surface. Everything the
+release actually depends on (task lifecycle, worker, persistence, isolation, all 25 pages)
+is covered by the run in §3, the local browser audit in §4, and the unit suite.
 
-## 6. Hosted preview acceptance: PARTIAL
+## 6. Hosted preview acceptance: blocked on one credential, harness ready
 
-Replayed against the real Preview URL `https://chatbot-bz07dacsu-zooka-ai1.vercel.app`.
+Two separate things were true and are now measured separately.
 
-**Reached this time.** An earlier attempt in this cycle concluded BLOCKED because plain
-HTTP clients are intercepted by Vercel Deployment Protection (`302 → vercel.com/sso-api`).
-That conclusion was right about `curl` and wrong about the deployment: driving the owner's
-own Chrome, which already holds a team session, passes the protection and the app serves
-normally. Verified on the hosted build:
+**Deployment protection.** The project has no Protection Bypass for Automation. Searched
+every place it could live: the whole agent vault (zero keys mentioning Vercel), the agent
+environment (zero `VERCEL*` names), and the earlier incident record, which confirms both
+bypass secrets were deleted from the dashboard and the API reports `protectionBypass = 0`.
+There is no authorized bypass credential in existence to reuse, and deployment protection
+is deliberately left on.
 
-| Journey | Hosted result |
-| --- | --- |
-| `/login` renders the real form (Arabic, RTL, cookie banner) | PASS |
-| `/register` renders the real form | PASS |
-| `/api/auth/session` responds `null` for an anonymous caller | PASS, runtime + auth route live |
-| `/blog` renders with its real empty state ("لا توجد مقالات منشورة بعد") | PASS, the BlogPost query ran against the hosted database |
+**What was verified on the deployment anyway.** Driving the owner's own Chrome, which
+already holds a team session, reaches the hosted build: `/login` and `/register` render,
+`/api/auth/session` answers `null` anonymously, and `/blog` runs its real `BlogPost` query
+and shows its empty state. So the deployment serves and its database answers.
 
-So the deployment is not inert: pages render, the auth endpoint answers, and a real
-database query completes. The earlier "BLOCKED" was a client limitation.
-
-**Still blocked, exact failure.** Submitting either auth form is refused by the browser
-automation guard, not by the app:
+**What is blocked, exactly.** Submitting either auth form from automation is refused before
+the click lands:
 
 ```
-Error: Refusing to click — its link/form target is a local/private URL.
-Error: Refusing Enter — the focused form submits to a local/private URL.
+Refusing to click — its link/form target is a local/private URL.
 ```
 
-Reproduced on both `/login` and `/register`, after filling email and password through
-real key events, at the exact element coordinates reported for the submit button. The
-page does not change and shows no validation error, so the form never posts. The guard
-classifies the unsigned, client-rendered form target as private; the same two forms
-submit correctly against the production build over the local TLS proxy, which is why the
-local audit in §4 reaches authenticated pages and this one cannot.
+Reproduced on `/login` and `/register`, at the reported element coordinates, with real key
+events. The page does not change and shows no validation error. This is the browser tool's
+URL classifier refusing the form target, not the application rejecting a login, and it is
+the reason the hosted authenticated journeys are still unverified.
 
-Consequence, stated plainly: **hosted authenticated journeys are not verified.** Public
-hosted rendering, the auth endpoint and one real database read are. Everything
-authenticated (workspace, Commander task, documents, tenant isolation) is proven locally
-against a production build and the same isolated Neon database, not on the deployment.
+**Harness is ready for the moment a bypass exists.** `scripts/acceptance/rc-brand-audit.mjs`
+now reads `VERCEL_AUTOMATION_BYPASS` and presents it as `x-vercel-protection-bypass` on the
+browser context and its request context, without printing it. It logs
+`bypass=present|absent` and nothing else. It already logs in through
+`/api/auth/callback/credentials` with a CSRF token, which is a scripted client and
+therefore needs the bypass. With the secret in place, the same 25-page bilingual audit runs
+against the deployment:
 
-To close this one of three is needed: a `VERCEL_AUTOMATION_BYPASS` secret so a scripted
-client can be used, a shared deployment link created by the owner, or the owner running
-the four authenticated journeys by hand in their own tab.
+```
+ACCEPT_BASE=https://chatbot-bz07dacsu-zooka-ai1.vercel.app pnpm exec node scripts/acceptance/rc-brand-audit.mjs
+```
+
+**Exact owner action**, one of:
+
+1. Vercel → project `chatbot` → Settings → Deployment Protection → Protection Bypass for
+   Automation → Generate, then store the value in the agent secrets form as
+   `VERCEL_AUTOMATION_BYPASS` (never paste it in chat). Hosted acceptance then runs unmodified.
+2. Or run the four authenticated journeys by hand in a signed-in tab: register, workspace,
+   create a project, create a task and open its document.
+3. Or create a Shareable Link for the preview and hand it over through the secrets form.
 
 ## 7. Database release safety: 22 pending migrations
+
+The exact, ordered production plan is `docs/release/PRODUCTION_MIGRATION_PLAN.md`. It exists
+because this audit found something that would have stopped a production run on its first
+line: **production does not have the tables the pending set alters.** Comparing the pending
+migrations against a schema-only dump of production (pg_dump 17.12, server 17.6, 40 tables):
+`Project`, `AgentIdentity`, `AgentTask`, `AgentDecision`, `AgentApproval` and
+`AgentDeployment` are absent, and `0028` opens with `ALTER TABLE "AgentIdentity" ...`, whose
+`IF NOT EXISTS` guards the column, not the table. Applied as numbered, it fails with
+`42P01`. The two migrations that create those tables are `0017` and `0027`, both in the base
+set and both pure guarded `CREATE`s that touch no existing production table. They are the
+real first step, and the plan now says so.
+
+
 
 `lib/db/migrations/pending/` holds 22 migrations, numbered `0028` through `0049`, each
 with a paired `.down.sql` (44 files). The eight that ship with the earlier baseline are
@@ -213,21 +231,25 @@ verify with the parity test and a real login before declaring recovery.
 
 ## 8. Remaining blockers
 
-| # | Blocker | Owner action | Effect if unresolved |
+| # | Blocker | Exact owner action | Effect if unresolved |
 | --- | --- | --- | --- |
-| B1 | Hosted auth forms cannot be submitted by automation (guard refuses the client-rendered form target) | add `VERCEL_AUTOMATION_BYPASS` to agent secrets, or create a shared deployment link, or run the four authenticated journeys by hand | authenticated acceptance stays unverified on the deployment |
-| B2 | E2E chat leg needs `AI_GATEWAY_API_KEY` or a valid `GEMINI_API_KEY`; the chat route reads only those two | provide one | browser E2E leg stays BLOCKED (the Groq key already present powers the agent path, not the chat route) |
-| B3 | 22 pending migrations unapplied to production | approve the sequence in §7 | cannot promote; app code assumes the new shape |
-| B4 | Vercel account status `overdue` | settle billing | deployment risk is schedule, not correctness |
-| B5 | PR #98 is Draft | review and merge when B1–B3 clear | release does not ship |
+| B1 | No Protection Bypass for Automation exists (verified: none in dashboard, vault or environment) | generate one in the Vercel dashboard and store it as the agent secret `VERCEL_AUTOMATION_BYPASS`, or run the four journeys by hand, or share a preview link through secrets | authenticated hosted acceptance stays unverified |
+| B2 | No usable model credential: `GEMINI_API_KEY` returns 400 "API key not valid", no `AI_GATEWAY_API_KEY` | supply one free Google AI Studio key or a gateway key | the chat E2E leg stays unrun |
+| B3 | 22 pending migrations, and production lacks the six prerequisite tables | approve the ordered plan in `PRODUCTION_MIGRATION_PLAN.md` | the release commit cannot be deployed |
+| B4 | Vercel plan status `overdue` | settle billing | deployment reliability, not correctness |
+| B5 | PR #98 is Draft | review and merge after B1–B3 | release does not ship |
 
 ## 9. Recommendation
 
-**NO-GO today, GO once B1, B2 and B3 clear.** The hosted deployment was reached in this
-cycle and is live, which narrows the first blocker from "cannot reach the deployment" to
-"cannot submit its auth form from a script".  The engineering work the release depends
-on is done and reproducible twice over: the execution path is real, the suite is green,
-the build compiles, and the pages hold up in both languages. Nothing in this report is
-inferred from a previous run. Promoting before hosted acceptance passes would mean
-shipping on local evidence alone, which is exactly the substitution the directive
-forbids.
+**NO-GO today. GO once B1, B2 and B3 clear.**
+
+What changed since the last draft of this report: the hosted deployment was reached and is
+demonstrably live, so one blocker narrowed from "cannot reach it" to "cannot present a
+credential to it"; and the migration audit found a real ordering defect that would have
+failed a production run on its first statement, which is now written into an ordered plan.
+Both are progress in the direction that matters, and neither is completion.
+
+Nothing here is inferred. The suite ran twice, the execution path produced real ids, the
+pages were loaded in both languages, the Gemini key was rejected live, and the migration
+claims were diffed against a production schema dump. Production is unchanged, PR #98 is
+still Draft, and no migration has been applied anywhere but the isolated preview database.
