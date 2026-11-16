@@ -8,9 +8,6 @@ import { getBase44UsageThisMonth } from "@/lib/base44/store";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
-// Session-scoped page: never prerender it, the build must not touch the database.
-export const dynamic = "force-dynamic";
-
 async function Base44AgentPageImpl() {
   const context = await getWorkspaceContext();
   if (!context) {

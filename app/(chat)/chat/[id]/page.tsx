@@ -9,9 +9,6 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { convertToUIMessages } from "@/lib/utils";
 
-// Session-scoped page: never prerender it, the build must not touch the database.
-export const dynamic = "force-dynamic";
-
 async function PageImpl(props: { params: Promise<{ id: string }> }) {
   return (
     <Suspense fallback={<div className="flex h-dvh" />}>

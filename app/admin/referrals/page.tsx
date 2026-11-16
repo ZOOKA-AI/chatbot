@@ -6,9 +6,6 @@ import { affiliate } from "@/lib/db/schema";
 import { getReferralReport, normalizeCode } from "@/lib/affiliate";
 import { referralEvent } from "@/lib/db/schema";
 
-// Session-scoped page: never prerender it, the build must not touch the database.
-export const dynamic = "force-dynamic";
-
 type PageProps = {
   searchParams: Promise<{
     k?: string;

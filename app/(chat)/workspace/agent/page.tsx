@@ -4,9 +4,6 @@ import { AgentConsole } from "@/components/agent-console";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 
-// Session-scoped page: never prerender it, the build must not touch the database.
-export const dynamic = "force-dynamic";
-
 const PLAN_LIMITS: Record<string, number> = {
   free: 30,
   starter: 100,

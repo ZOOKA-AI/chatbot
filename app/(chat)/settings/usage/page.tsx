@@ -7,9 +7,6 @@ import { getLang } from "@/lib/i18n";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { workspacePlans } from "@/lib/saas/plans";
 
-// Session-scoped page: never prerender it, the build must not touch the database.
-export const dynamic = "force-dynamic";
-
 /** Usage is metered per calendar month in UTC, the same window the quota checks read. */
 function currentPeriod() {
   const now = new Date();
