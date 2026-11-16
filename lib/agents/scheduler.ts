@@ -1,6 +1,7 @@
 import { withPlatformClient } from "@/lib/db/platform-client";
 import { firstAgentIdentity } from "@/lib/agents/command-center";
 import { withCommanderScope } from "@/lib/agents/commander-scope";
+import { materialiseDueSchedules } from "./schedule";
 import { toolPayloadFor } from "./tool-payload";
 import { reclaimExpiredLeases } from "@/lib/agents/worker-lease";
 import { runTask } from "@/lib/agents/worker";
@@ -107,7 +108,23 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
       >`select id, "taskId", "organizationId" from "AgentExecution"
         where status = 'running' and "leaseExpiresAt" is not null and "leaseExpiresAt" < now()
         limit 50`;
-      const repaired = await reclaimExpiredLeases(
+      // Recurring schedules become tasks before anything is dispatched, inside this pass and
+    // under the same advisory lock. A second scheduler cannot duplicate a slot: the work is
+    // an INSERT that relies on the unique ("scheduleId", "scheduledFor") index, not on this
+    // lock being the only writer.
+    let materialised = { created: 0, advanced: 0, skipped: 0 };
+    try {
+      materialised = await materialiseDueSchedules({});
+    } catch (error) {
+      // A schedule that cannot be materialised must not stop execution of the tasks that
+      // already exist; it is reported in the run row instead.
+      console.error(JSON.stringify({
+        event: "schedule_materialisation_failed",
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+
+    const repaired = await reclaimExpiredLeases(
         withCommanderScope,
         expired.map((row) => ({ executionId: row.id, taskId: row.taskId, organizationId: row.organizationId }))
       );

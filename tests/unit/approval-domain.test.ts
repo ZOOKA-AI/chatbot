@@ -65,6 +65,7 @@ describe.skipIf(!ready)("decideApproval, called directly", () => {
       "pending/0030_agent_rls_policies.sql",
       "pending/0031_tenant_runtime_role.sql",
       "pending/0033_decision_audit_uniqueness.sql",
+      "pending/0038_schedule_and_agent_model.sql",
     ];
     for (const name of files) {
       const body = readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8");

@@ -3,7 +3,7 @@ import { describe, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { guardLastActiveAgent, parseAgentPatch } from "@/lib/agents/agent-config";
+import { guardLastActiveAgent, modelCredentialStatus, parseAgentPatch } from "@/lib/agents/agent-config";
 
 /**
  * An agent's scopes are its authority, so these tests treat a rejected patch as the
@@ -85,5 +85,51 @@ describe("a workspace keeps a way to execute work", () => {
 
   test("the guard does not interfere with other changes", () => {
     assert.equal(guardLastActiveAgent({ displayName: "Renamed" }, 0).ok, true);
+  });
+});
+
+describe("model selection is validated before it is stored", () => {
+  test("provider and model are accepted together", () => {
+    const result = parseAgentPatch({ modelProvider: "anthropic", modelId: "claude-sonnet-4-5" });
+    assert.equal(result.ok, true);
+    assert.equal(result.ok && result.patch.modelProvider, "anthropic");
+  });
+
+  test("a provider without a model is refused", () => {
+    const result = parseAgentPatch({ modelProvider: "anthropic" });
+    assert.equal(result.ok, false);
+    assert.equal(!result.ok && result.error, "model_provider_and_id_must_be_set_together");
+  });
+
+  test("a model without a provider is refused", () => {
+    assert.equal(parseAgentPatch({ modelId: "gpt-5" }).ok, false);
+  });
+
+  test("an unsupported provider is refused rather than stored", () => {
+    const result = parseAgentPatch({ modelProvider: "someones-api", modelId: "x-1" });
+    assert.equal(result.ok, false);
+    assert.equal(!result.ok && result.error, "unsupported_model_provider");
+  });
+
+  test("a model id with spaces or shell metacharacters is refused", () => {
+    for (const modelId of ["has space", "semi;colon", "x", "dollar$(x)"]) {
+      assert.equal(parseAgentPatch({ modelProvider: "ollama", modelId }).ok, false, modelId);
+    }
+  });
+
+  test("both null means back to the deployment default, and is allowed", () => {
+    const result = parseAgentPatch({ modelProvider: null, modelId: null });
+    assert.equal(result.ok, true);
+    assert.equal(result.ok && result.patch.modelProvider, null);
+  });
+
+  test("credentials are reported, not assumed", () => {
+    assert.equal(modelCredentialStatus("ollama", {}).ok, true);
+    assert.equal(modelCredentialStatus("anthropic", {}).ok, false);
+    assert.equal(modelCredentialStatus("anthropic", { ANTHROPIC_API_KEY: "k" }).ok, true);
+    assert.equal(modelCredentialStatus("gateway", {}).reason, "missing_gateway_credential");
+    assert.equal(modelCredentialStatus("google", { GEMINI_API_KEY: "k" }).ok, true);
+    assert.equal(modelCredentialStatus("openai-compatible", { MODEL_API_KEY: "k" }).ok, true);
+    assert.equal(modelCredentialStatus("nope", {}).reason, "unsupported_provider");
   });
 });

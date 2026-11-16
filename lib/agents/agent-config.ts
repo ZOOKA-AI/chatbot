@@ -28,7 +28,55 @@ export type AgentPatch = {
   status?: AgentStatus;
   scopes?: AgentScope[];
   environment?: string;
+  modelProvider?: string | null;
+  modelId?: string | null;
 };
+
+/**
+ * Providers a workspace administrator may select. The list is the same set the execution
+ * layer can actually reach (`lib/platform/models.ts`); anything else is refused here rather
+ * than discovered at the first task, where the failure would look like a tool problem.
+ */
+export const SELECTABLE_MODEL_PROVIDERS = [
+  "gateway",
+  "openai-compatible",
+  "anthropic",
+  "google",
+  "ollama",
+] as const;
+
+export type SelectableModelProvider = (typeof SELECTABLE_MODEL_PROVIDERS)[number];
+
+/**
+ * Whether this deployment holds what the chosen provider needs. Reported, never enforced by
+ * silence: an agent pinned to a provider with no key is a configuration error the owner
+ * should see in the UI, not a task that fails at 3am.
+ */
+export function modelCredentialStatus(
+  provider: string,
+  env: Record<string, string | undefined> = process.env
+): { ok: boolean; reason?: string } {
+  if (!(SELECTABLE_MODEL_PROVIDERS as readonly string[]).includes(provider)) {
+    return { ok: false, reason: "unsupported_provider" };
+  }
+  if (provider === "ollama") return { ok: true }; // a local endpoint needs no key
+  if (provider === "gateway") {
+    return env.AI_GATEWAY_API_KEY || env.VERCEL_OIDC_TOKEN
+      ? { ok: true }
+      : { ok: false, reason: "missing_gateway_credential" };
+  }
+  if (provider === "anthropic") {
+    return env.ANTHROPIC_API_KEY ? { ok: true } : { ok: false, reason: "missing_anthropic_credential" };
+  }
+  if (provider === "google") {
+    return env.GOOGLE_GENERATIVE_AI_API_KEY || env.GEMINI_API_KEY
+      ? { ok: true }
+      : { ok: false, reason: "missing_google_credential" };
+  }
+  return env.MODEL_API_KEY || env.OPENAI_API_KEY
+    ? { ok: true }
+    : { ok: false, reason: "missing_openai_compatible_credential" };
+}
 
 export type PatchResult = { ok: true; patch: AgentPatch } | { ok: false; error: string };
 
@@ -44,7 +92,7 @@ export function parseAgentPatch(body: unknown): PatchResult {
   }
 
   const input = body as Record<string, unknown>;
-  const allowed = new Set(["displayName", "status", "scopes", "environment"]);
+  const allowed = new Set(["displayName", "status", "scopes", "environment", "modelProvider", "modelId"]);
   const unknown = Object.keys(input).filter((key) => !allowed.has(key));
   if (unknown.length > 0) {
     return { ok: false, error: `unknown_fields:${unknown.join(",")}` };
@@ -92,6 +140,30 @@ export function parseAgentPatch(body: unknown): PatchResult {
       return { ok: false, error: "task_claim_requires_task_report" };
     }
     patch.scopes = unique;
+  }
+
+  // Model selection is a pair. One without the other is the shape that produces a task
+  // running a provider's default model while the UI shows nothing selected.
+  const hasProvider = input.modelProvider !== undefined;
+  const hasModel = input.modelId !== undefined;
+  if (hasProvider !== hasModel) {
+    return { ok: false, error: "model_provider_and_id_must_be_set_together" };
+  }
+  if (hasProvider && hasModel) {
+    if (input.modelProvider === null && input.modelId === null) {
+      // Explicitly clearing returns the agent to the deployment default.
+      patch.modelProvider = null;
+      patch.modelId = null;
+    } else {
+      if (typeof input.modelProvider !== "string" || !(SELECTABLE_MODEL_PROVIDERS as readonly string[]).includes(input.modelProvider)) {
+        return { ok: false, error: "unsupported_model_provider" };
+      }
+      if (typeof input.modelId !== "string" || !/^[A-Za-z0-9._:/-]{2,80}$/.test(input.modelId)) {
+        return { ok: false, error: "invalid_model_id" };
+      }
+      patch.modelProvider = input.modelProvider;
+      patch.modelId = input.modelId;
+    }
   }
 
   if (Object.keys(patch).length === 0) return { ok: false, error: "empty_patch" };

@@ -550,6 +550,10 @@ export const agentIdentity = pgTable(
     scopes: json("scopes").$type<string[]>().notNull().default([]),
     environment: varchar("environment", { length: 24 }).notNull().default("production"),
     status: varchar("status", { length: 24 }).notNull().default("active"),
+    // Nullable on purpose: null means "use the deployment default", which is what every
+    // agent did before this column existed.
+    modelProvider: varchar("modelProvider", { length: 32 }),
+    modelId: varchar("modelId", { length: 80 }),
     lastSeenAt: timestamp("lastSeenAt"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
@@ -557,6 +561,30 @@ export const agentIdentity = pgTable(
     orgIdx: index("AgentIdentity_organizationId_idx").on(table.organizationId),
     slugIdx: unique("AgentIdentity_slug_key").on(table.slug),
     keyIdx: index("AgentIdentity_keyHash_idx").on(table.keyHash),
+  })
+);
+
+export const agentSchedule = pgTable(
+  "AgentSchedule",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    agentId: uuid("agentId"),
+    title: varchar("title", { length: 200 }).notNull(),
+    instruction: text("instruction").notNull(),
+    tool: varchar("tool", { length: 64 }).notNull().default("github_repo_inspect"),
+    cronExpression: varchar("cronExpression", { length: 64 }).notNull(),
+    timezone: varchar("timezone", { length: 64 }).notNull().default("Asia/Dubai"),
+    enabled: boolean("enabled").notNull().default(true),
+    missedRunPolicy: varchar("missedRunPolicy", { length: 16 }).notNull().default("skip"),
+    nextRunAt: timestamp("nextRunAt", { withTimezone: true }),
+    lastRunAt: timestamp("lastRunAt", { withTimezone: true }),
+    createdBy: varchar("createdBy", { length: 64 }).notNull().default("owner"),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    orgNextIdx: index("AgentSchedule_org_next_idx").on(table.organizationId, table.nextRunAt),
   })
 );
 
@@ -577,6 +605,11 @@ export const agentTask = pgTable(
     environment: varchar("environment", { length: 24 }).notNull().default("production"),
     status: varchar("status", { length: 24 }).notNull().default("pending"),
     evidence: text("evidence"),
+    // Which recurring schedule produced this row, and for which slot. The pair is unique
+    // (pending/0038), which is what stops two schedulers creating the same occurrence.
+    scheduleId: uuid("scheduleId"),
+    scheduledFor: timestamp("scheduledFor", { withTimezone: true }),
+    payload: json("payload").$type<Record<string, unknown>>(),
     approvalRequired: boolean("approvalRequired").notNull().default(false),
     rollbackPlan: text("rollbackPlan"),
     claimedAt: timestamp("claimedAt"),
