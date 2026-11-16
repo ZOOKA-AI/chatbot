@@ -142,6 +142,38 @@ applied anywhere, no merge, no deployment, no billing or secret change.
 | 21.13 | BACKUP_TOKEN rotation | PREPARED_NOT_EXECUTED | plan only; no rotation, no secret change |
 | 21.14 | Vercel billing | BLOCKER (recorded) | team on `pro` with `billing.status = overdue`. Not paid, not changed |
 
+## Stage 27 — The first execution worker (16 Nov 2026)
+
+PR #95 head `27ff1f07`, draft. No merge, no production deployment, no production migration, no billing change, no paid service, no credential exposed.
+
+| ID | Task | Status | Evidence |
+|---|---|---|---|
+| 27.1 | Atomic claim | DONE | Conditional UPDATE on `status='pending'`; approval-gated tasks refused at claim unless their own organisation approved |
+| 27.2 | Duplicate execution impossible | DONE | Partial unique index `(taskId) where status='running'` plus a pre-insert check; the second worker writes nothing and the count stays at one |
+| 27.3 | Organisation isolation | DONE | Another tenant's task answers `task_not_found`; the suite runs on `zooka_runtime` with the shared connection stubbed to throw, so an escape fails loudly |
+| 27.4 | Tool authorisation | DONE | Unknown or non-read-only tool is refused before the claim; the task is left `pending` |
+| 27.5 | Timeouts | DONE | Per-tool `timeoutMs`, abort signal, attempt recorded `timed_out`, task `failed` |
+| 27.6 | Cancellation | DONE | The task is re-read after the tool returns; a mid-flight cancel outranks the result and the task stays `cancelled` |
+| 27.7 | Retry ceiling | DONE | Attempts counted before claiming; at three the task becomes `blocked`, never retried for ever |
+| 27.8 | Completion requires a verified result | DONE | Completion is written only after `ok: true`; a failure stores the tool's error verbatim; a report that changes no row is recorded as cancelled, not completed |
+| 27.9 | Evidence | DONE | `AgentExecution` records task, organisation, agent, tool, attempt, start, finish, duration, status, result summary, evidence reference and error |
+| 27.10 | No credentials in evidence | DONE | Every outgoing string passes `redact`; a leaking file is fed through the real tool and the stored row contains `[redacted]`, not the token |
+| 27.11 | Audit integrity | DONE | `zooka_runtime` is denied DELETE on `AgentExecution`; the denial is asserted, not assumed |
+| 27.12 | One real read-only tool | DONE | `github_repo_inspect`: four GETs, allowlisted repository, no writes of any kind |
+| 27.13 | LIVE execution | VERIFIED | Real call through the worker against api.github.com: task `5f52aedb`, execution `c9a13067`, `completed`, "zooka-ai/chatbot: branch main, public, 9868 KB, last push 2026-11-16T00:04:43Z; read 1 file(s)" |
+| 27.14 | Chat reflects execution | DONE | `getExecutionStatus` returns the last attempt and says "unverified" if a task says completed without a successful execution behind it |
+| 27.15 | Migration 0034 | DONE (pending) | `AgentExecution`, RLS policy on `organizationId`, partial unique index, grants minus DELETE |
+| 27.16 | Preview deployment | READY | `dpl_9oX6U4FPbF` for the chatbot project on `27ff1f07`; the `zeker-app` twin of the same commit is CANCELED, which is long-standing and expected |
+| 27.17 | `pnpm run build` | DONE | Compile succeeds, 125 pages, exit 0 |
+
+Numbers: 401 tests across 57 files with PostgreSQL (1 skipped: the opt-in live call), tsc clean.
+
+Two defects found, both recorded in `docs/engineering/EXECUTION_WORKER.md`: drizzle wraps driver errors so the SQLSTATE check did not fire, and a failed statement aborts the tenant transaction, making recovery impossible; and `GITHUB_ACCESS_TOKEN` in the shared env file is ANSI-C quoted (`$'gho_...'`), so the literal `$'` reached the header and every request answered 401 until the value was read from offset 3. The worker prefers `WORKER_GITHUB_TOKEN` so a quoted value in the shared file cannot break it again.
+
+Remaining blockers: no scheduler calls the worker, so nothing runs on its own; one tool exists; nobody has operated the endpoint with a real agent key; the browser procedure remains unexecuted.
+
+Next autonomous task: a scheduler that claims and runs pending tasks on a cadence, with a per-workspace concurrency ceiling, plus a second read-only tool so the registry is not a single point of failure.
+
 ## Stage 26 — Atomic decisions, validated migrations, and the chain traced (16 Nov 2026)
 
 PR #95 head `7d9a957f`, draft. No merge, no production deployment, no migration applied to production, no billing change, no paid service, no secret rotated.
