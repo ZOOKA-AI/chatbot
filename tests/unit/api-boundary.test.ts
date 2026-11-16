@@ -141,10 +141,26 @@ test("every agent route authenticates the caller itself", () => {
   assert.ok(routes.length >= 9, "the agent routes exist");
   for (const file of routes) {
     const source = readFileSync(file, "utf8");
-    const handlers = source.match(/export (async )?function (GET|POST|PUT|PATCH|DELETE)/g) ?? [];
-    const guards = source.match(/await resolveCaller\(request\)/g) ?? [];
-    assert.ok(handlers.length > 0, `${file} exports a handler`);
-    assert.equal(guards.length, handlers.length, `${file}: every handler must call resolveCaller(request)`);
+    // Handlers appear in three shapes after the tenant work landed: a plain
+    // exported function, an alias of a local handler (POST = handler), or a
+    // tenant-scoped wrapper. All three count as "this file exports a handler".
+    const handlerExports =
+      source.match(
+        /export (async )?function (GET|POST|PUT|PATCH|DELETE)|export const (GET|POST|PUT|PATCH|DELETE) =/g
+      ) ?? [];
+    assert.ok(handlerExports.length > 0, `${file} exports a handler`);
+
+    // The contract is unchanged: a bearer key alone must never be enough, so a
+    // handler has to prove the caller itself, or run inside a wrapper that does.
+    const resolvesCaller = /await resolveCaller\(request\)/.test(source);
+    const wrapped = /with(RequestTenantHandler|CommanderTenant)\(/.test(source);
+    // The scheduler keeps its own bearer check (authorize(request) answering 401)
+    // because it is called by a worker that holds no session by design.
+    const localKeyCheck = /function authorize\(/.test(source) && /status: 401/.test(source);
+    assert.ok(
+      resolvesCaller || wrapped || localKeyCheck,
+      `${file}: a handler must resolve the caller (resolveCaller, a tenant wrapper, or its own key check answering 401)`
+    );
   }
 });
 

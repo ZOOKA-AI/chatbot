@@ -111,7 +111,7 @@ export function SiteHeader({ lang }: { lang: Lang }) {
             alt="Zooka AI"
             className="h-9 w-9 rounded-lg"
             height={36}
-            src="/images/zooka-logo-120.png"
+            src="/brand/zooka-mark-256.png"
             width={36}
           />
           <span className="text-base tracking-tight">Zooka AI</span>

@@ -1,0 +1,74 @@
+[
+ {
+  "id": "research",
+  "en": "Research",
+  "ar": "بحث",
+  "file": "icons/agents/research.svg"
+ },
+ {
+  "id": "writing",
+  "en": "Writing",
+  "ar": "كتابة",
+  "file": "icons/agents/writing.svg"
+ },
+ {
+  "id": "design",
+  "en": "Design",
+  "ar": "تصميم",
+  "file": "icons/agents/design.svg"
+ },
+ {
+  "id": "analysis",
+  "en": "Analysis",
+  "ar": "تحليل",
+  "file": "icons/agents/analysis.svg"
+ },
+ {
+  "id": "automation",
+  "en": "Automation",
+  "ar": "أتمتة",
+  "file": "icons/agents/automation.svg"
+ },
+ {
+  "id": "code",
+  "en": "Code",
+  "ar": "برمجة",
+  "file": "icons/agents/code.svg"
+ },
+ {
+  "id": "data",
+  "en": "Data",
+  "ar": "بيانات",
+  "file": "icons/agents/data.svg"
+ },
+ {
+  "id": "security",
+  "en": "Security",
+  "ar": "أمان",
+  "file": "icons/agents/security.svg"
+ },
+ {
+  "id": "media",
+  "en": "Media",
+  "ar": "وسائط",
+  "file": "icons/agents/media.svg"
+ },
+ {
+  "id": "voice",
+  "en": "Voice",
+  "ar": "صوت",
+  "file": "icons/agents/voice.svg"
+ },
+ {
+  "id": "zikr",
+  "en": "Zikr",
+  "ar": "ذكر",
+  "file": "icons/agents/zikr.svg"
+ },
+ {
+  "id": "ops",
+  "en": "Operations",
+  "ar": "عمليات",
+  "file": "icons/agents/ops.svg"
+ }
+]

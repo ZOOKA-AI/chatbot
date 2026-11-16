@@ -1,0 +1,23 @@
+/* ZOOKA AI — design tokens v2 (single source of truth) */
+:root {
+  --zk-blue: #2E86AB; --zk-purple: #A23B72; --zk-ice: #F8F9FA; --zk-navy: #0B1220; --zk-cyan: #10D4FF;
+  --zk-surface-0: #070d18; --zk-surface-2: #121c2e; --zk-surface-3: #1b263c;
+  --zk-text-on-dark: #eaf2fb; --zk-text-on-dark-muted: #93a4bd;
+  --zk-text-on-light: #0b1220; --zk-text-on-light-muted: #4a5a72;
+  --zk-border-dark: rgba(16,212,255,.18); --zk-border-light: rgba(11,18,32,.12);
+  --zk-glow-cyan: 0 0 0 1px rgba(16,212,255,.25), 0 18px 48px -20px rgba(16,212,255,.55);
+  --zk-glow-purple: 0 0 0 1px rgba(162,59,114,.28), 0 18px 48px -20px rgba(162,59,114,.5);
+  --zk-radius-xs: 6px; --zk-radius-sm: 10px; --zk-radius-md: 16px; --zk-radius-lg: 24px; --zk-radius-pill: 999px;
+  --zk-space-1: 4px; --zk-space-2: 8px; --zk-space-3: 12px; --zk-space-4: 16px;
+  --zk-space-5: 24px; --zk-space-6: 32px; --zk-space-7: 48px; --zk-space-8: 64px; --zk-space-9: 96px;
+  --zk-font-ar: "IBM Plex Sans Arabic","Cairo",system-ui,sans-serif;
+  --zk-font-en: "Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --zk-text-display: clamp(2rem,1.2rem + 2.4vw,3.5rem);
+  --zk-text-h1: clamp(1.75rem,1.2rem + 1.6vw,2.5rem);
+  --zk-text-h2: clamp(1.35rem,1.1rem + .9vw,1.85rem);
+  --zk-motion-fast: 120ms; --zk-motion-base: 220ms; --zk-motion-slow: 420ms;
+  --zk-ease: cubic-bezier(.22,.61,.36,1);
+}
+@media (prefers-reduced-motion: reduce) { :root { --zk-motion-fast:0ms; --zk-motion-base:0ms; --zk-motion-slow:0ms; } }
+[data-theme="light"] { --zk-canvas: var(--zk-ice); --zk-card:#fff; --zk-text:var(--zk-text-on-light); --zk-text-muted:var(--zk-text-on-light-muted); --zk-border:var(--zk-border-light); }
+[data-theme="dark"] { --zk-canvas: var(--zk-surface-0); --zk-card: var(--zk-surface-2); --zk-text:var(--zk-text-on-dark); --zk-text-muted:var(--zk-text-on-dark-muted); --zk-border:var(--zk-border-dark); }
