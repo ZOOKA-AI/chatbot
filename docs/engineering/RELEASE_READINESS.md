@@ -216,3 +216,76 @@ One interface over local engines, the owner's ComfyUI, RunComfy and fal. Details
 
 Release blocker: one owner action per vendor (enter the key through the secret form), plus an explicit
 `PAID_GENERATION_ENABLED=true` and one approved job. The rest of the studio does not depend on it.
+
+---
+
+## Appendix — engineering ledger snapshot
+
+# ZOOKA-AI — Release readiness
+
+Nothing here is a date. Each line is a gate with the evidence that would close it.
+
+## Gate 1 — Security (PR #91)
+
+| Requirement | State |
+|---|---|
+| Cache headers on all responses | met (verified on the wire) |
+| No credential leak in body or logs | met (verified) |
+| Restore still works | met (verified round trip) |
+| Live preview verification | **open** — needs the Vercel bypass key |
+| Owner merge approval | **open** |
+| Deploy plan + rollback | ready: `git revert` of one commit, no state to undo |
+
+## Gate 2 — Database
+
+| Requirement | State |
+|---|---|
+| Isolated dev database | **open** — Supabase quota + token, or a Neon seat |
+| 0027 verified on a connected server | **open** — verified on an engine only |
+| Rollback script | ready and proven |
+| Production untouched | met |
+
+## Gate 3 — Tenant isolation
+
+Data-layer isolation is proven; two live tenants are **open** (depends on Gate 2).
+
+## Gate 4 — Commander
+
+Engine: implemented and tested. HTTP layer and UI: **open**, both depend on Gate 2.
+A UI that displays invented task states is explicitly forbidden.
+
+## Gate 5 — Integrations
+
+9 connectors exist on `feat/saas-connectors` (PR #88, merged) behind an audited
+executor with usage caps. Verified: the executor refuses an unconnected provider
+before any network call, and isolation holds at the call boundary. **Open:** a
+real read with a real credential for any of the nine, and live two-tenant proof.
+
+## Gate 6 — Frontend/design
+
+Tokens exist (PR #90, draft) with RTL/LTR, reduced motion and mobile tests.
+**Open:** application to any page, and a preview review.
+
+## Gate 7 — Release
+
+Preview smoke tests, production health sweep, owner sign-off. All **open**.
+
+## Honest summary
+
+The platform has a verified security fix waiting on access and approval, a
+verified data model waiting on a database, and an engine waiting on a UI. The
+dependency that unlocks the most work is the **development database**; the second
+is the **preview bypass key**.
+
+## Promo composition (Directive #054) — see the full table on PR #95
+
+`composePromo` turns one Arabic sentence into a finished film with no provider: narration first (its
+measured length sets the scene duration), one brand frame per scene with the logo, then the MP4. Frames
+are shaped in Python (`arabic_reshaper`, `python-bidi`), because ffmpeg `drawtext` writes code points in
+order and yields disconnected, reversed Arabic.
+
+Acceptance 29/29 on a real server: 1080×1920 h264 + aac, 7.47 s, 280,179 B, in the chosen project, row
+bytes equal to file bytes, second workspace 404 on read and absent from its list, cancelled task
+refused, ladder LOCAL → SELF_HOSTED → EXTERNAL_PAID with no paid engine chosen. Gates 810 passed /
+6 skipped twice, `tsc` clean, build 0. Scheduling flake closed at the cause and pinned by a planted
+stranger schedule.
