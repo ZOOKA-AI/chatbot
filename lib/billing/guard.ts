@@ -53,12 +53,18 @@ export async function authorizeExecution(
   }
 
   const subscription = await getSubscriptionStatus(client, input.organizationId);
+  // A missing billing account reports no balance rather than zero, so narrow once here:
+  // an account that does not exist must not be described to the caller as an empty wallet.
+  const knownBalance =
+    "balanceMinor" in subscription && typeof subscription.balanceMinor === "number"
+      ? subscription.balanceMinor
+      : 0;
   if (!billingEnforcementEnabled()) {
     return {
       allowed: true,
       reservationId: "",
       estimateMinor: estimate,
-      balanceMinor: "balanceMinor" in subscription ? subscription.balanceMinor : 0,
+      balanceMinor: knownBalance,
       lowBalance: false,
       message: `Billing enforcement is off. This execution is estimated at ${formatAed(estimate)} and will not be charged.`,
     };

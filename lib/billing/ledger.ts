@@ -238,7 +238,22 @@ export async function recordUsage(
   );
 }
 
-export async function getSubscriptionStatus(client: SqlClient, organizationId: string) {
+export type SubscriptionStatus =
+  | { subscribed: false; status: "none"; reason: "no_billing_account" }
+  | {
+      subscribed: boolean;
+      status: string;
+      planCode: string;
+      priceMinor: number;
+      includedCreditMinor: number;
+      currency: string;
+      balanceMinor: number;
+    };
+
+export async function getSubscriptionStatus(
+  client: SqlClient,
+  organizationId: string
+): Promise<SubscriptionStatus> {
   const { rows } = await client.query<{
     status: string;
     plan_code: string;
