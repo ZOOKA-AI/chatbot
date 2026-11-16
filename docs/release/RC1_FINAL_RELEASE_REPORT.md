@@ -112,3 +112,54 @@ or a manual acceptance pass, a billing decision, and a merge.
 
 Production is unchanged, main is unchanged, PR #98 is still Draft, and no payment provider,
 migration or deployment was touched.
+
+---
+
+# Addendum, 16 November 2026 20:50 Dubai (deployment failures + payments)
+
+## Failed deployments: both root causes are code, not configuration
+
+| Commit | Branch | Vercel | First fatal error | Cause class |
+| --- | --- | --- | --- | --- |
+| `b89b322` | feat/uae-billing | failed | `lib/billing/guard.ts(57,5): error TS2322` — `balanceMinor` as `number \| undefined` | application code |
+| `b4994fd` | feat/commander-tenant-scope | failed | `Route "/admin": Next.js encountered uncached or runtime data during prerendering` | application code + `cacheComponents` |
+| `9c9fdb2` | feat/commander-tenant-scope | failed | same class (pages marked dynamic, then reverted) | application code + `cacheComponents` |
+| `160807e` | feat/commander-tenant-scope | failed | same class; tree still lacked the fix | application code + `cacheComponents` |
+| `4d811f4` | feat/commander-tenant-scope | success | — | fixed by returning `false` from `tenantScopeEnabled()` during the build phase |
+| `7365e9c` | release/rc-1 | success | — | unaffected |
+
+Each failure was reproduced in a clean worktree with `pnpm install --frozen-lockfile` and
+`pnpm run build`, so the quoted line is the actual first fatal error, not an inference.
+
+No missing environment variable and no Vercel misconfiguration was found in any of them. The
+billing failure is entirely mine: I pushed `b89b322` without ever running `tsc` on its branch; the
+check I ran afterwards was on `rc-1`, which does not contain those files.
+
+Fixes: `e36858e` (billing, now **Vercel success**) and the already-landed `4d811f4` (tenant scope,
+local build exit 0 and `tsc` 0). Details in `DEPLOYMENT_FAILURES_2026-11-16.md`.
+
+## RC-1 impact: none
+
+`rc-1` is green on Vercel at `7365e9c`, and neither defect is present on it. The credit ledger
+(`lib/billing/ledger.ts`, `guard.ts`, `payments.ts`, migration `0050`) exists only on
+`feat/uae-billing`. The two files named `lib/billing/*` on `rc-1` are older entitlement helpers,
+untouched by this work.
+
+## Payments, sandbox only
+
+`feat/uae-billing` at `7da85a9`: HMAC-verified webhooks (constant-time, and a missing secret refuses
+everything rather than accepting anything), body validation instead of coercion, two-layer
+idempotency (unique provider reference plus event-keyed ledger grants), cross-tenant replay refused
+as an attack, `past_due` on failure without credit, refunds reversed once. 9 tests on real
+PostgreSQL, 27 billing tests in total, `tsc` 0, build exit 0. No provider client exists, no key is
+read, and no charge is possible.
+
+## Hosted acceptance
+
+Still **BLOCKED**, and not by Vercel: the deployment renders in the owner's Chrome with no SSO wall,
+but the browser automation layer refuses to submit the login form on the public domain
+(`Refusing Enter — the focused form submits to a local/private URL`). Typing works, submission does
+not. A Protection Bypass would unblock the scripted HTTP harness
+(`scripts/acceptance/rc-brand-audit.mjs`), not the browser form path, so the six journeys need
+either that bypass stored as `VERCEL_AUTOMATION_BYPASS` or a manual pass. Protection was not
+disabled and nothing was bypassed.
