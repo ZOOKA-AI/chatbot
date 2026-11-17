@@ -82,8 +82,6 @@ import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
 import { runInTenantTransaction } from "@/lib/db/tenant-client";
-import { sql } from "drizzle-orm";
-import { adminDb } from "@/lib/db/queries";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -626,12 +624,6 @@ async function POSTImpl(request: Request) {
         ),
       onError: (error) => {
         logModelProviderFailure(error, selectedChatModel, "chat");
-        // TEMPORARY acceptance diagnostics (removed once the agent run is traced).
-        void adminDb()
-          .execute(
-            sql`insert into "AcceptanceDiag" (marker, detail) values (${"chat.onError"}, ${`agent=${agentMode};model=${selectedChatModel};${error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 400) : String(error).slice(0, 400)}`})`,
-          )
-          .catch(() => undefined);
         if (
           error instanceof Error &&
           error.message?.includes(

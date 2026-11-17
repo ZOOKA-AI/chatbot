@@ -25,3 +25,16 @@ describe("chat finish callback", () => {
     expect(source).not.toContain("runWithCommanderDb(requestTenantDb");
   });
 });
+
+describe("agent allowance", () => {
+  it("is taken from the workspace entitlement, not the billing plan", () => {
+    expect(source).toContain("monthlyAgentRuns: agentRunsLimit");
+    expect(source).not.toContain("monthlyAgentRuns: plan.monthlyAgentRuns");
+  });
+
+  it("does not ask the billing-plan quota for an agent run", () => {
+    const gate = source.slice(source.indexOf("let agentQuotaAllowed"), source.indexOf("agentAccessAuthorized ="));
+    expect(gate).toContain("agentRunsLimit > 0");
+    expect(gate).not.toContain("checkQuota(");
+  });
+});
