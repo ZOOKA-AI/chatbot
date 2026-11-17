@@ -16,7 +16,10 @@ export const metadata: Metadata = {
 export default function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string | string[] }>;
+  searchParams: Promise<{
+    error?: string | string[];
+    registered?: string | string[];
+  }>;
 }) {
   return (
     <Suspense fallback={null}>
@@ -28,15 +31,19 @@ export default function Page({
 async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string | string[] }>;
+  searchParams: Promise<{
+    error?: string | string[];
+    registered?: string | string[];
+  }>;
 }) {
   const lang = await getLang();
-  const { error } = await searchParams;
+  const { error, registered } = await searchParams;
   return (
     <LoginClient
       facebookEnabled={facebookLoginEnabled}
       googleEnabled={googleLoginEnabled}
       hasAuthError={Boolean(error)}
+      justRegistered={Boolean(registered)}
       lang={lang}
       microsoftEnabled={microsoftLoginEnabled}
       phoneEnabled={phoneLoginEnabled}

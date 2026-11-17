@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
@@ -11,6 +10,10 @@ import { PhoneSignInForm } from "@/components/phone-sign-in-form";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
+import {
+  registerFeedback,
+  SUBMIT_LOCK_MS,
+} from "@/lib/auth/register-feedback";
 import { type RegisterActionState, register } from "../actions";
 
 const strings = {
@@ -30,7 +33,6 @@ const strings = {
     unavailable: "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً.",
     failed: "فشل إنشاء الحساب!",
     invalid: "تحقق من البريد الإلكتروني وكلمة المرور (6 أحرف على الأقل)!",
-    success: "تم إنشاء الحساب بنجاح!",
   },
   en: {
     title: "Sign Up",
@@ -50,7 +52,6 @@ const strings = {
       "Account service is temporarily unavailable. Please try later.",
     failed: "Failed to create account!",
     invalid: "Failed validating your submission!",
-    success: "Account created successfully!",
   },
 } as const;
 
@@ -71,31 +72,50 @@ export function RegisterClient({
   const router = useRouter();
 
   const [email, setEmail] = useState("");
-  const [isSuccessful, setIsSuccessful] = useState(false);
+  // Shut while the outcome is being announced or the sign-in form loads. It is
+  // always released again: a disabled button must never outlive the message.
+  const [submitLocked, setSubmitLocked] = useState(false);
 
   const [state, formAction] = useActionState<RegisterActionState, FormData>(
     register,
     { status: "idle" }
   );
 
-  const { update: updateSession } = useSession();
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: router and updateSession are stable refs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: router is a stable ref
   useEffect(() => {
-    if (state.status === "unavailable") {
-      toast({ type: "error", description: t.unavailable });
-    } else if (state.status === "invalid_data") {
-      toast({ type: "error", description: t.invalid });
-    } else if (state.status === "check_email") {
-      // Same answer for a fresh address and a registered one; the next step is a
-      // normal sign-in, which is the only place a password is actually checked.
-      toast({ type: "success", description: t.checkEmail });
-      router.push("/login");
-      toast({ type: "success", description: t.success });
-      setIsSuccessful(true);
-      updateSession();
-      router.refresh();
+    const feedback = registerFeedback(state.status);
+
+    if (feedback.kind === "none") {
+      setSubmitLocked(false);
+      return;
     }
+
+    const text = {
+      checkEmail: t.checkEmail,
+      unavailable: t.unavailable,
+      invalid: t.invalid,
+      failed: t.failed,
+    }[feedback.kind === "navigate" ? feedback.toast.text : feedback.text];
+
+    toast({ type: feedback.kind === "navigate" ? feedback.toast.tone : feedback.tone, description: text });
+
+    // Release the button on its own timer first, so no code path below can
+    // leave a spinner running if the move to the sign-in form does not happen.
+    setSubmitLocked(feedback.lockSubmit);
+    const release = feedback.lockSubmit
+      ? setTimeout(() => setSubmitLocked(false), SUBMIT_LOCK_MS)
+      : null;
+
+    if (feedback.kind === "navigate") {
+      // replace, not push: pressing Back from the sign-in form must not land on
+      // a form that has already been submitted. No router.refresh() here, it
+      // re-renders the current route and cancels the move.
+      router.replace(feedback.to);
+    }
+
+    return () => {
+      if (release) clearTimeout(release);
+    };
   }, [state.status]);
 
   const handleSubmit = (formData: FormData) => {
@@ -125,7 +145,7 @@ export function RegisterClient({
           defaultEmail={email}
           labels={{ email: t.email, password: t.password }}
         >
-          <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
+          <SubmitButton isSuccessful={submitLocked}>{t.submit}</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {`${t.hasAccount} `}
             <Link

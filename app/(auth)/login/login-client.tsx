@@ -27,6 +27,8 @@ const strings = {
     invalid: "بيانات الدخول غير صحيحة!",
     authError:
       "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى.",
+    justRegistered:
+      "تم استلام طلبك. إن كان هذا بريدك الجديد فالحساب جاهز: سجّل الدخول الآن. وإن كان لديك حساب فاستخدم كلمة مرورك أو استعدها.",
   },
   en: {
     title: "Sign In",
@@ -41,6 +43,8 @@ const strings = {
     invalid: "Invalid credentials!",
     authError:
       "Unable to sign in. Please try again or use another sign-in method.",
+    justRegistered:
+      "Your request was received. If this address is new, the account is ready: sign in now. If you already have an account, use your password or reset it.",
   },
 } as const;
 
@@ -51,6 +55,7 @@ export function LoginClient({
   microsoftEnabled = false,
   phoneEnabled = false,
   hasAuthError = false,
+  justRegistered = false,
 }: {
   lang: "ar" | "en";
   googleEnabled?: boolean;
@@ -58,6 +63,7 @@ export function LoginClient({
   microsoftEnabled?: boolean;
   phoneEnabled?: boolean;
   hasAuthError?: boolean;
+  justRegistered?: boolean;
 }) {
   const t = strings[lang];
   const router = useRouter();
@@ -127,6 +133,15 @@ export function LoginClient({
         {hasAuthError ? (
           <p className="px-4 text-center text-red-600 text-sm" role="alert">
             {t.authError}
+          </p>
+        ) : null}
+        {justRegistered && !hasAuthError ? (
+          <p
+            className="px-4 text-center text-emerald-600 text-sm dark:text-emerald-400"
+            data-testid="register-notice"
+            role="status"
+          >
+            {t.justRegistered}
           </p>
         ) : null}
         {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
