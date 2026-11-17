@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { adminDb } from "@/lib/db/queries";
-import { getTrafficSnapshot } from "@/lib/analytics/growth";
+import { getTrafficSnapshotForOrganization } from "@/lib/analytics/growth";
 import { readSettings } from "@/lib/growth/referrals";
 import { getLang } from "@/lib/i18n";
 
@@ -15,7 +15,9 @@ export default async function GrowthAdminPage() {
   const lang = await getLang();
   const ar = lang === "ar";
   const settings = await readSettings();
-  const traffic = await getTrafficSnapshot();
+  // Prefer the workspace's own read-only Google grant; fall back to the
+  // deployment service account when the owner has not connected one yet.
+  const traffic = await getTrafficSnapshotForOrganization(context.organizationId);
 
   let recent: Array<Record<string, unknown>> = [];
   let audit: Array<Record<string, unknown>> = [];
@@ -127,6 +129,30 @@ export default async function GrowthAdminPage() {
             <span className="text-[10px] text-muted-foreground">
               {new Date(traffic.generatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC
             </span>
+          ) : null}
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          {traffic.source === "workspace_oauth" ? (
+            <span>
+              {ar
+                ? "متصل بحساب Google الخاص بك بصلاحية قراءة فقط."
+                : "Connected to your own Google account with read-only access."}
+            </span>
+          ) : (
+            <a
+              className="rounded-full border px-3 py-1 font-semibold hover:bg-muted"
+              href="/api/integrations/google-growth/connect"
+            >
+              {ar
+                ? "اربط Google Analytics وSearch Console"
+                : "Connect Google Analytics and Search Console"}
+            </a>
+          )}
+          {traffic.source === "workspace_oauth" ? (
+            <a className="underline" href="/api/integrations/google-growth">
+              {ar ? "حالة الاتصال" : "Connection status"}
+            </a>
           ) : null}
         </div>
 
