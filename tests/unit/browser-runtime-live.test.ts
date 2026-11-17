@@ -76,6 +76,31 @@ describe.skipIf(!hasChromium)("real browser runtime", () => {
     if (!refused.ok) expect(refused.code.startsWith("url_refused")).toBe(true);
   }, 120_000);
 
+  it("keeps each workspace on its own browser", async () => {
+    const a = "iso-workspace-a";
+    const b = "iso-workspace-b";
+    await browserRuntime().open(a, "org-a");
+    await browserRuntime().open(b, "org-b");
+    await browserRuntime().navigate(a, "org-a", "https://example.com");
+    await browserRuntime().navigate(b, "org-b", "https://example.org");
+
+    // A workspace cannot reach into another workspace's browser even with its session id.
+    const crossed = await browserRuntime().navigate(a, "org-b", "https://example.net");
+    expect(crossed.ok).toBe(false);
+    if (!crossed.ok) expect(crossed.code).toBe("session_owned_by_another_workspace");
+
+    // And the two pages are genuinely separate documents, not one shared tab.
+    const pageA = await browserRuntime().read(a, "org-a", {});
+    const pageB = await browserRuntime().read(b, "org-b", {});
+    expect(pageA.ok && pageB.ok).toBe(true);
+    if (pageA.ok && pageB.ok) {
+      expect(pageA.url).toContain("example.com");
+      expect(pageB.url).toContain("example.org");
+    }
+    await browserRuntime().close(a);
+    await browserRuntime().close(b);
+  }, 180_000);
+
   it("reports which engine is serving", () => {
     expect(["local_chromium", "browserless", "browserbase", "remote_cdp"]).toContain(
       browserRuntime().engine()
