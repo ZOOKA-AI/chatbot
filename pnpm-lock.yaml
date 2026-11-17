@@ -191,8 +191,8 @@ importers:
         specifier: ^5.5.2
         version: 5.5.2
       playwright-core:
-        specifier: ^1.65.1
-        version: 1.65.1
+        specifier: ^1.51.0
+        version: 1.51.0
       postgres:
         specifier: ^3.4.4
         version: 3.4.5
@@ -4562,11 +4562,6 @@ packages:
   playwright-core@1.51.0:
     resolution: {integrity: sha512-x47yPE3Zwhlil7wlNU/iktF7t2r/URR3VLbH6EknJd/04Qc/PSJ0EY3CMXipmglLG+zyRxW6HNo2EGbKLHPWMg==}
     engines: {node: '>=18'}
-    hasBin: true
-
-  playwright-core@1.65.1:
-    resolution: {integrity: sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw==}
-    engines: {node: '>=20'}
     hasBin: true
 
   playwright@1.51.0:
@@ -9417,8 +9412,6 @@ snapshots:
   pkce-challenge@5.0.1: {}
 
   playwright-core@1.51.0: {}
-
-  playwright-core@1.65.1: {}
 
   playwright@1.51.0:
     dependencies:

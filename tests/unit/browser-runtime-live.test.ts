@@ -45,7 +45,13 @@ describe.skipIf(!hasChromium)("real browser runtime", () => {
       expect(navigated.url).toContain("example.com");
     }
 
-    const read = await browserRuntime().read(SESSION, ORG, {});
+    // The page arrives on domcontentloaded, so text can be empty for a moment. Poll briefly, the way
+    // a caller would, instead of asserting on the first frame.
+    let read = await browserRuntime().read(SESSION, ORG, {});
+    for (let attempt = 0; attempt < 5 && read.ok && read.text.length < 80; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      read = await browserRuntime().read(SESSION, ORG, {});
+    }
     expect(read.ok).toBe(true);
     if (read.ok) {
       expect(read.text.length).toBeGreaterThan(80);
