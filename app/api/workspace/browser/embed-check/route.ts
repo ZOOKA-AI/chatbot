@@ -9,8 +9,6 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
  * interactive but only works when the site allows framing, so it is decided per URL from the site's
  * real response headers instead of by trial and error in the panel.
  */
-export const dynamic = "force-dynamic";
-
 type Verdict = {
   embeddable: boolean;
   reason:
