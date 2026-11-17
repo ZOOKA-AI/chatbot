@@ -1,3 +1,4 @@
+import { embedVerdict } from "@/lib/browser/embed-policy";
 import { assessUrl } from "@/lib/browser/url-policy";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 
@@ -20,12 +21,6 @@ type Verdict = {
   finalUrl: string | null;
   detail: string | null;
 };
-
-function frameAncestors(csp: string | null): string | null {
-  if (!csp) return null;
-  const match = csp.match(/frame-ancestors([^;]*)/i);
-  return match ? match[1].trim() : null;
-}
 
 export async function GET(request: Request) {
   const context = await getWorkspaceContext();
@@ -57,22 +52,16 @@ export async function GET(request: Request) {
       cache: "no-store",
     });
 
-    const xfo = response.headers.get("x-frame-options");
-    const ancestors = frameAncestors(
-      response.headers.get("content-security-policy"),
-    );
-    const refusal =
-      xfo && /deny|sameorigin/i.test(xfo)
-        ? "x_frame_options"
-        : ancestors && !/(^|\s)\*(\s|$)/.test(ancestors)
-          ? "frame_ancestors"
-          : "allowed";
+    const judgement = embedVerdict({
+      xFrameOptions: response.headers.get("x-frame-options"),
+      contentSecurityPolicy: response.headers.get("content-security-policy"),
+    });
 
     const verdict: Verdict = {
-      embeddable: refusal === "allowed",
-      reason: refusal as Verdict["reason"],
+      embeddable: judgement.embeddable,
+      reason: judgement.reason,
       finalUrl: response.url || policy.url,
-      detail: xfo ?? ancestors ?? null,
+      detail: judgement.detail,
     };
     return Response.json(verdict, { headers: { "cache-control": "no-store" } });
   } catch (error) {
