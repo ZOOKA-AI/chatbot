@@ -6,10 +6,22 @@
  * opt-in through the environment. Without either, the browser is reported as not provisioned rather
  * than pretended, which is what the panel says to the customer.
  */
-export type RemoteEndpoint = {
-  url: string;
-  engine: "remote_cdp" | "browserbase";
-};
+export type RemoteEndpoint = { url: string; engine: "remote_cdp" | "browserbase" | "browserless" };
+
+/**
+ * Browserless: a managed Chromium that is reached over the same DevTools protocol. The stealth route
+ * is the one that survives ordinary bot checks, and it is where the token belongs - a plain /chrome
+ * endpoint rejects a stealth-style connection.
+ */
+function browserlessEndpoint(): { url: string; engine: "browserless" } | null {
+  const token = process.env.BROWSERLESS_TOKEN?.trim();
+  if (!token) return null;
+  const region = process.env.BROWSERLESS_REGION?.trim() || "production-sfo";
+  return {
+    url: `wss://${region}.browserless.io/stealth?token=${encodeURIComponent(token)}&solveCaptchas=true`,
+    engine: "browserless",
+  };
+}
 
 function browserbaseEndpoint(): { url: string; engine: "browserbase" } | null {
   const apiKey = process.env.BROWSERBASE_API_KEY?.trim();
@@ -26,7 +38,7 @@ function browserbaseEndpoint(): { url: string; engine: "browserbase" } | null {
 export function staticRemoteEndpoint(): RemoteEndpoint | null {
   const url = process.env.BROWSER_CDP_URL?.trim();
   if (url) return { url, engine: "remote_cdp" };
-  return browserbaseEndpoint();
+  return browserlessEndpoint() ?? browserbaseEndpoint();
 }
 
 export function remoteConfigured(): boolean {

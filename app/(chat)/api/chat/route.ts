@@ -39,6 +39,7 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
 import { createCommanderTools } from "@/lib/ai/tools/commander";
 import { createLaunchTools } from "@/lib/ai/tools/launch";
+import { createBrowserTools } from "@/lib/ai/tools/browser";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
@@ -356,6 +357,12 @@ async function POSTImpl(request: Request) {
     const connectorTools = agentAccessAuthorized
       ? createConnectorTools(workspaceContext.organizationId, session.user.id)
       : {};
+    const browserTools = agentAccessAuthorized
+      ? createBrowserTools({
+          organizationId: workspaceContext.organizationId,
+          userId: session.user.id,
+        })
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -449,6 +456,7 @@ async function POSTImpl(request: Request) {
           ...googleAdsTools,
           ...integrationSetupTools,
           ...connectorTools,
+          ...browserTools,
         };
 
         const tracing = createChatTracing();
