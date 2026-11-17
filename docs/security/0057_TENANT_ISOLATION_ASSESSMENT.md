@@ -349,7 +349,21 @@ severity:
 - **B2 (blocker, design):** `app_is_member()` reads `request.jwt.claims`, which the app never
   sets, so five member policies are dead. Either write the claim when the tenant context is
   set, or rewrite the helper against `app.user_id`.
-- **B3 (verification):** `DATABASE_URL_SERVICE` must exist in production, not preview only.
+- **B3 (verification, measured):** `DATABASE_URL_SERVICE` does **not** exist in production. The
+  Vercel env inventory shows `DATABASE_URL_SERVICE`, `DATABASE_URL_TENANT`, `TENANT_RLS_ENABLED`
+  and `DATABASE_URL_PLATFORM` on **preview only**; production carries `DATABASE_URL` and the
+  Stripe variables. Registration would fail loudly (`queries.ts:100`) the moment the flag flips.
+- **B4 (architecture, found while executing B1 and B2):** `lib/db/tenant-client.ts` refuses to
+  run at all against this project. `tenantRuntimeUrl()` hard-rejects the production refs
+  (`FORBIDDEN_HOSTS = ["krzfrsaquvmwctsajhlm", "bylfizytgayoefuyliix"]`) with
+  *"refusing to run tenant-scoped work against a production project"*, and also refuses a
+  tenant URL equal to the primary one. The file's own header calls its intent "a dedicated
+  development database". So `runInTenantTransaction` cannot serve production traffic, and the
+  section 10 cutover below describes a switch the code is written to prevent. Production
+  isolation therefore needs a deliberate decision, not a variable flip: either lift that guard
+  in a reviewed change with its own rollback, or keep production on the owner connection and
+  accept that isolation stays partial. This is the honest reason the cutover is NO-GO, more
+  than any single missing environment variable.
 
 After B1 and B2 are fixed and B3 is verified, the cutover is a 10-minute change with a
 one-variable rollback. The isolation itself is already proven: 14/14 on the production policy
@@ -358,3 +372,39 @@ set, with no path that returns another tenant's row.
 **Unproven by design, and stated as such:** a live connection as `zooka_runtime` against
 production, concurrency behaviour, and pooler behaviour under real load. Those require the
 role password or the switch itself, and this assessment was required to leave both alone.
+
+---
+
+## 14. What changed after the verdict was written
+
+Executed on 2026-11-18 before any production action, and it changed the picture in a useful
+direction.
+
+**B1 and B2 are fixed** in PR #114 (`fix/cutover-blockers-b1-b2`, commit `4831abb`):
+
+- `verifyMcpKey()` and `touchMcpKey()` now read through `adminDb()`, the bootstrap connection,
+  because a key is what identifies the workspace and no tenant exists yet. The tenant-scoped
+  functions keep the tenant handle. `adminDb()` still falls back to the request handle while
+  enforcement is off, so today's behaviour is unchanged.
+- Both tenant runners now publish `request.jwt.claims` (`{"sub": <userId>, "role":
+  "authenticated"}`) and `request.jwt.claim.sub` in the same transaction-local scope, which is
+  what `app_is_member()` and the five member policies were always missing.
+- Verification: `tsc` clean, a new source guard (5 assertions) that fails if either fix is
+  reverted, and the full suite at 1020 passed / 150 skipped / 6 failed, where the six are the
+  pre-existing browser- and credential-dependent tests that fail identically on clean `main`.
+
+**B3 was measured, not assumed:** `DATABASE_URL_SERVICE` is preview-only.
+
+**B4 was found by reading the code the cutover would call.** It is the real stop sign: the tenant
+runner is a preview harness on purpose, and no environment variable changes that.
+
+**Nothing in production was touched:** no migration applied, no variable added or changed, no
+role password set, no data read beyond the read-only audit queries. The switch is not a step
+that can be taken by editing a dashboard, and pretending otherwise would have put registration
+and sign-in at risk at 03:45 with nobody watching the gates.
+
+**The decision this leaves with the owner is a product one:** run the production cutover (lift
+the guard in a reviewed change, provision `DATABASE_URL_SERVICE` and the runtime credential,
+schedule a monitored window) or keep production on the owner connection and say plainly that
+isolation is partial. Until that is chosen, the honest status is: **isolation proven on the
+policy set, not enforced in production.**
