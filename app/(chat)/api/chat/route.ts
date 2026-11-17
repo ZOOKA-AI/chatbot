@@ -260,7 +260,9 @@ async function POSTImpl(request: Request) {
     const agentAccessAuthorized = isAgentAccessAuthorized({
       agentMode,
       supportsTools,
-      monthlyAgentRuns: plan.monthlyAgentRuns,
+      // Same allowance as the gate and the badge above: the billing plan reads as
+      // "free" for a launch testing claim, and free carries zero agent runs.
+      monthlyAgentRuns: agentRunsLimit,
       agentRunsUsed: billing.usage.agentRuns,
       quotaAllowed: agentQuotaAllowed,
     });
