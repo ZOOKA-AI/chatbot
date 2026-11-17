@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { adminDb } from "@/lib/db/queries";
+import { getTrafficSnapshot } from "@/lib/analytics/growth";
 import { readSettings } from "@/lib/growth/referrals";
 import { getLang } from "@/lib/i18n";
 
@@ -14,6 +15,7 @@ export default async function GrowthAdminPage() {
   const lang = await getLang();
   const ar = lang === "ar";
   const settings = await readSettings();
+  const traffic = await getTrafficSnapshot();
 
   let recent: Array<Record<string, unknown>> = [];
   let audit: Array<Record<string, unknown>> = [];
@@ -114,6 +116,120 @@ export default async function GrowthAdminPage() {
             ))
           )}
         </ul>
+      </section>
+
+      <section className="rounded-2xl border bg-card p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">
+            {ar ? "حركة الموقع · آخر 28 يومًا" : "Traffic · last 28 days"}
+          </h2>
+          {traffic.generatedAt ? (
+            <span className="text-[10px] text-muted-foreground">
+              {new Date(traffic.generatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC
+            </span>
+          ) : null}
+        </div>
+
+        {!traffic.configured ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {ar
+              ? "لم تُضبط مصادر الزيارات بعد. المطلوب في متغيّرات البيئة: GOOGLE_GROWTH_SA_JSON وGA4_PROPERTY_ID وGSC_SITE. لا تُعرض أي أرقام قبل ذلك."
+              : "Traffic sources are not configured. Required environment: GOOGLE_GROWTH_SA_JSON, GA4_PROPERTY_ID and GSC_SITE. No numbers are shown before that."}
+          </p>
+        ) : null}
+
+        {traffic.configured && traffic.ga4 ? (
+          <div className="mt-3 space-y-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl border p-2">
+                <div className="text-lg font-semibold">{traffic.ga4.sessions}</div>
+                <div className="text-[10px] text-muted-foreground">{ar ? "جلسات" : "sessions"}</div>
+              </div>
+              <div className="rounded-xl border p-2">
+                <div className="text-lg font-semibold">{traffic.ga4.users}</div>
+                <div className="text-[10px] text-muted-foreground">{ar ? "مستخدمون" : "users"}</div>
+              </div>
+              <div className="rounded-xl border p-2">
+                <div className="text-lg font-semibold">{traffic.ga4.views}</div>
+                <div className="text-[10px] text-muted-foreground">{ar ? "مشاهدات" : "views"}</div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <h3 className="text-xs font-semibold">{ar ? "القنوات" : "Channels"}</h3>
+                <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                  {traffic.ga4.channels.length === 0 ? (
+                    <li>{ar ? "لا بيانات." : "No data."}</li>
+                  ) : (
+                    traffic.ga4.channels.map((row) => (
+                      <li key={row.label} className="flex justify-between gap-2">
+                        <span className="truncate font-mono">{row.label}</span>
+                        <span className="font-semibold">{row.sessions}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold">{ar ? "أهم الصفحات" : "Top pages"}</h3>
+                <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                  {traffic.ga4.pages.length === 0 ? (
+                    <li>{ar ? "لا بيانات." : "No data."}</li>
+                  ) : (
+                    traffic.ga4.pages.map((row) => (
+                      <li key={row.path} className="flex justify-between gap-2">
+                        <span className="truncate font-mono">{row.path}</span>
+                        <span className="font-semibold">{row.views}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {traffic.gsc ? (
+          <div className="mt-4 space-y-2 border-t pt-3">
+            <h3 className="text-xs font-semibold">{ar ? "بحث Google" : "Google Search"}</h3>
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div>
+                <div className="font-semibold">{traffic.gsc.clicks}</div>
+                <div className="text-[10px] text-muted-foreground">{ar ? "نقرات" : "clicks"}</div>
+              </div>
+              <div>
+                <div className="font-semibold">{traffic.gsc.impressions}</div>
+                <div className="text-[10px] text-muted-foreground">{ar ? "ظهور" : "impressions"}</div>
+              </div>
+              <div>
+                <div className="font-semibold">{(traffic.gsc.ctr * 100).toFixed(1)}%</div>
+                <div className="text-[10px] text-muted-foreground">{ar ? "نسبة النقر" : "CTR"}</div>
+              </div>
+              <div>
+                <div className="font-semibold">{traffic.gsc.position.toFixed(1)}</div>
+                <div className="text-[10px] text-muted-foreground">{ar ? "متوسط الترتيب" : "position"}</div>
+              </div>
+            </div>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {traffic.gsc.queries.map((row) => (
+                <li key={row.query} className="flex justify-between gap-2">
+                  <span className="truncate">{row.query}</span>
+                  <span className="font-mono">
+                    {row.clicks}/{row.impressions}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {traffic.error ? (
+          <p className="mt-3 text-[10px] text-amber-600">
+            {ar ? "تعذّر جزء من البيانات: " : "Partial data unavailable: "}
+            {traffic.error}
+          </p>
+        ) : null}
       </section>
     </div>
   );
