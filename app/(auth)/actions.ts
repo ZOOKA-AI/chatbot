@@ -14,6 +14,7 @@ import { sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/email/send";
 import { createHash, randomBytes } from "node:crypto";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 
 import {
   NEUTRAL_SIGNUP_STATUS,
@@ -207,7 +208,15 @@ export const register = async (
       }
     } else if (verificationEnabled()) {
       // Tell the real owner their address was used, never the caller.
-      void sendExistingAccountNotice(email, "ar");
+      // after(), not a bare void promise: on serverless the function can be
+      // frozen as soon as the response is sent, dropping the notice.
+      after(async () => {
+        try {
+          await sendExistingAccountNotice(email, "ar");
+        } catch (error) {
+          console.error("existing-account notice skipped", (error as Error)?.message);
+        }
+      });
     }
 
     return { status: NEUTRAL_SIGNUP_STATUS };
@@ -244,13 +253,24 @@ export const requestPasswordReset = async (
       // Neutral: a throttle refusal must not confirm the address either.
       return { status: "sent" };
     }
-    const [existing] = await getUser(email);
-    if (existing) {
-      const token = randomBytes(32).toString("hex");
-      const tokenHash = createHash("sha256").update(token).digest("hex");
-      await createPasswordResetToken(existing.id, tokenHash);
-      await sendPasswordResetEmail(email, token, "ar");
-    }
+    // The lookup, token insert and mail send run after the response is sent.
+    // Awaiting them here made a registered address answer measurably slower
+    // than an unknown one (DB write + mail relay round trip), which is an
+    // enumeration oracle even though the text is identical.
+    after(async () => {
+      try {
+        const [existing] = await getUser(email);
+        if (!existing) {
+          return;
+        }
+        const token = randomBytes(32).toString("hex");
+        const tokenHash = createHash("sha256").update(token).digest("hex");
+        await createPasswordResetToken(existing.id, tokenHash);
+        await sendPasswordResetEmail(email, token, "ar");
+      } catch (error) {
+        console.error("password reset delivery failed", (error as Error)?.message);
+      }
+    });
   } catch (error) {
     console.error("password reset request failed", error);
   }
@@ -259,7 +279,7 @@ export const requestPasswordReset = async (
 };
 
 export type ResetPasswordState = {
-  status: "idle" | "success" | "invalid_token" | "invalid_data";
+  status: "idle" | "success" | "invalid_token" | "invalid_data" | "unavailable";
 };
 
 export const resetPassword = async (
@@ -272,6 +292,13 @@ export const resetPassword = async (
     return { status: "invalid_data" };
   }
   const tokenHash = createHash("sha256").update(token).digest("hex");
-  const ok = await consumePasswordResetToken(tokenHash, password);
-  return { status: ok ? "success" : "invalid_token" };
+  try {
+    const ok = await consumePasswordResetToken(tokenHash, password);
+    return { status: ok ? "success" : "invalid_token" };
+  } catch (error) {
+    // A database outage must not crash the page: the link stays unused and the
+    // person can retry once service is back.
+    console.error("password reset failed", (error as Error)?.message);
+    return { status: "unavailable" };
+  }
 };
