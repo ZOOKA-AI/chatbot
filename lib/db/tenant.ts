@@ -176,6 +176,24 @@ export async function withTenantScope<T>(
       context.organizationId,
     ]);
 
+    // Identity claim, for the same reason as runInTenantTransaction: the
+    // member-scoped policies and app_is_member() resolve auth.uid(), which reads
+    // the JWT claim, never app.user_id.
+    if (context.userId) {
+      await tx.query("select set_config($1, $2, true)", [
+        TENANT_USER_SETTING,
+        context.userId,
+      ]);
+      await tx.query("select set_config($1, $2, true)", [
+        "request.jwt.claims",
+        JSON.stringify({ sub: context.userId, role: "authenticated" }),
+      ]);
+      await tx.query("select set_config($1, $2, true)", [
+        "request.jwt.claim.sub",
+        context.userId,
+      ]);
+    }
+
     // Read it back: what the policies will use must be exactly what was resolved.
     const settingName = TENANT_SETTING;
     const { rows } = await tx.query<{ current: string | null }>(
