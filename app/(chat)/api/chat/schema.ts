@@ -62,7 +62,7 @@ export const postRequestBodySchema = z.object({
     .string()
     .min(1)
     .max(64)
-    .regex(/^[a-zA-Z0-9._:-]+$/, "unknown model identifier"),
+    .regex(/^[a-zA-Z0-9._:/-]+$/, "unknown model identifier"),
   selectedVisibilityType: z.enum(["public", "private"]),
   agentMode: z.boolean().default(false),
 }).superRefine((body, ctx) => {

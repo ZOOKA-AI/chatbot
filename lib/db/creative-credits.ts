@@ -13,32 +13,6 @@ import {
  * من محفظة التوكنز تلقائياً، وهو نفس السعر المشتق من هامش 75%.
  */
 
-let schemaReady = false;
-
-async function ensureSchema(): Promise<void> {
-  if (schemaReady) {
-    return;
-  }
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS creative_credits (
-      organization_id text PRIMARY KEY,
-      image_units integer NOT NULL DEFAULT 0,
-      video_units integer NOT NULL DEFAULT 0,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )`);
-  // سجل كل استهلاك: مصدره حزمة أم محفظة، للتدقيق وحساب الهامش لاحقاً.
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS creative_usage (
-      id bigserial PRIMARY KEY,
-      organization_id text NOT NULL,
-      kind varchar(16) NOT NULL,
-      source varchar(16) NOT NULL,
-      weighted_tokens integer NOT NULL DEFAULT 0,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )`);
-  schemaReady = true;
-}
-
 export async function grantCreativeUnits({
   organizationId,
   kind,
@@ -48,7 +22,6 @@ export async function grantCreativeUnits({
   kind: CreativeKind;
   units: number;
 }): Promise<number> {
-  await ensureSchema();
   const column = kind === "image" ? "image_units" : "video_units";
   const rows = await db.execute<{ total: number }>(sql`
     INSERT INTO creative_credits (organization_id, ${sql.raw(column)})
@@ -74,7 +47,6 @@ export async function consumeCreativeUnit({
   organizationId: string;
   kind: CreativeKind;
 }): Promise<ConsumeResult> {
-  await ensureSchema();
   const column = kind === "image" ? "image_units" : "video_units";
 
   const rows = await db.execute<{ remaining: number }>(sql`
@@ -113,7 +85,6 @@ export async function consumeCreativeUnit({
 export async function readCreativeBalance(
   organizationId: string
 ): Promise<{ images: number; videos: number }> {
-  await ensureSchema();
   const rows = await db.execute<{ image_units: number; video_units: number }>(sql`
     SELECT image_units, video_units FROM creative_credits
     WHERE organization_id = ${organizationId} LIMIT 1

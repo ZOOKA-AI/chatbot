@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { db } from "@/lib/db/queries";
+import { adminDb } from "@/lib/db/queries";
 
 /**
  * Login by phone: a six-digit code is stored hashed, verified once, and then
@@ -62,29 +62,6 @@ export function emailForPhone(phone: string): string {
   return `phone.${phone.replace(/\D/g, "")}@phone.zooka-ai.com`;
 }
 
-let schemaReady = false;
-
-async function ensureSchema(): Promise<void> {
-  if (schemaReady) {
-    return;
-  }
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS "PhoneOtp" (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      phone varchar(32) NOT NULL,
-      code_hash varchar(64) NOT NULL,
-      ip varchar(64),
-      attempts integer NOT NULL DEFAULT 0,
-      consumed_at timestamptz,
-      expires_at timestamptz NOT NULL,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )`);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS "PhoneOtp_phone_created_idx"
-      ON "PhoneOtp" (phone, created_at DESC)`);
-  schemaReady = true;
-}
-
 export type IssueCodeResult =
   | { ok: true; code: string }
   | { ok: false; reason: "rate_limited" | "unavailable" };
@@ -97,9 +74,8 @@ export async function issuePhoneCode({
   ip: string | null;
 }): Promise<IssueCodeResult> {
   try {
-    await ensureSchema();
 
-    const phoneRows = (await db.execute<{ total: number }>(sql`
+    const phoneRows = (await adminDb().execute<{ total: number }>(sql`
       SELECT count(*)::int AS total
       FROM "PhoneOtp"
       WHERE phone = ${phone}
@@ -110,7 +86,7 @@ export async function issuePhoneCode({
     }
 
     if (ip) {
-      const ipRows = (await db.execute<{ total: number }>(sql`
+      const ipRows = (await adminDb().execute<{ total: number }>(sql`
         SELECT count(*)::int AS total
         FROM "PhoneOtp"
         WHERE ip = ${ip}
@@ -122,7 +98,7 @@ export async function issuePhoneCode({
     }
 
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-    await db.execute(sql`
+    await adminDb().execute(sql`
       INSERT INTO "PhoneOtp" (phone, code_hash, ip, expires_at)
       VALUES (
         ${phone},
@@ -154,8 +130,7 @@ export async function verifyPhoneCode({
     return { ok: false, reason: "invalid" };
   }
   try {
-    await ensureSchema();
-    const rows = (await db.execute<{
+    const rows = (await adminDb().execute<{
       id: string;
       code_hash: string;
       attempts: number;
@@ -176,12 +151,12 @@ export async function verifyPhoneCode({
     }
 
     if (!safeEqual(row.code_hash, digest(code))) {
-      await db.execute(sql`
+      await adminDb().execute(sql`
         UPDATE "PhoneOtp" SET attempts = attempts + 1 WHERE id = ${row.id}`);
       return { ok: false, reason: "invalid" };
     }
 
-    const updated = (await db.execute<{ id: string }>(sql`
+    const updated = (await adminDb().execute<{ id: string }>(sql`
       UPDATE "PhoneOtp"
       SET consumed_at = now()
       WHERE id = ${row.id} AND consumed_at IS NULL
