@@ -81,8 +81,6 @@ import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
-import { sql } from "drizzle-orm";
-import { adminDb } from "@/lib/db/queries";
 import { runInTenantTransaction } from "@/lib/db/tenant-client";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
@@ -540,47 +538,68 @@ async function POSTImpl(request: Request) {
             userId: session.user.id ?? null,
           },
           async () => {
-            // TEMPORARY acceptance diagnostics: record that the finish step ran and
-            // what it failed on, so a silent rejection is visible instead of guessed.
-            const diag = async (marker: string, detail?: unknown) => {
-              try {
-                await adminDb().execute(sql`
-              insert into "AcceptanceDiag" (marker, detail)
-              values (${marker}, ${detail === undefined ? null : String(detail)})
-            `);
-              } catch {
-                /* diagnostics must never break the reply */
-              }
-            };
-            await diag("onFinish.enter", `messages=${finishedMessages.length}`);
-            try {
-              if (isToolApprovalFlow) {
-                for (const finishedMsg of finishedMessages) {
-                  const existingMsg = uiMessages.find(
-                    (m) => m.id === finishedMsg.id,
-                  );
-                  if (existingMsg) {
-                    await updateMessage({
-                      id: finishedMsg.id,
-                      parts: finishedMsg.parts,
-                      organizationId: workspaceContext.organizationId,
-                    });
-                  } else {
-                    await saveMessages({
-                      messages: [
-                        {
-                          id: finishedMsg.id,
-                          role: finishedMsg.role,
-                          parts: finishedMsg.parts,
-                          createdAt: new Date(),
-                          attachments: [],
-                          chatId: id,
-                        },
-                      ],
-                      organizationId: workspaceContext.organizationId,
-                    });
-                  }
+            if (isToolApprovalFlow) {
+              for (const finishedMsg of finishedMessages) {
+                const existingMsg = uiMessages.find(
+                  (m) => m.id === finishedMsg.id,
+                );
+                if (existingMsg) {
+                  await updateMessage({
+                    id: finishedMsg.id,
+                    parts: finishedMsg.parts,
+                    organizationId: workspaceContext.organizationId,
+                  });
+                } else {
+                  await saveMessages({
+                    messages: [
+                      {
+                        id: finishedMsg.id,
+                        role: finishedMsg.role,
+                        parts: finishedMsg.parts,
+                        createdAt: new Date(),
+                        attachments: [],
+                        chatId: id,
+                      },
+                    ],
+                    organizationId: workspaceContext.organizationId,
+                  });
                 }
+              }
+              if (
+                agentAccessAuthorized &&
+                !hasPendingToolApproval(
+                  finishedMessages,
+                  new Set(
+                    uiMessages.map((currentMessage) => currentMessage.id),
+                  ),
+                )
+              ) {
+                await recordUsage(
+                  session.user.id,
+                  "agent_run",
+                  workspaceContext.organizationId,
+                );
+              }
+            } else if (finishedMessages.length > 0) {
+              // الحفظ صار upsert على المعرّف، فنمرّر كل الرسائل: الجديدة تُدرج
+              // والمعدَّلة أو المُعاد توليدها يُحدَّث نصها بدل رفض العملية.
+              await saveMessages({
+                messages: finishedMessages.map((currentMessage) => ({
+                  id: currentMessage.id,
+                  role: currentMessage.role,
+                  parts: currentMessage.parts,
+                  createdAt: new Date(),
+                  attachments: [],
+                  chatId: id,
+                })),
+                organizationId: workspaceContext.organizationId,
+              });
+              if (message?.role === "user") {
+                await recordUsage(
+                  session.user.id,
+                  "chat_message",
+                  workspaceContext.organizationId,
+                );
                 if (
                   agentAccessAuthorized &&
                   !hasPendingToolApproval(
@@ -596,52 +615,7 @@ async function POSTImpl(request: Request) {
                     workspaceContext.organizationId,
                   );
                 }
-              } else if (finishedMessages.length > 0) {
-                // الحفظ صار upsert على المعرّف، فنمرّر كل الرسائل: الجديدة تُدرج
-                // والمعدَّلة أو المُعاد توليدها يُحدَّث نصها بدل رفض العملية.
-                await saveMessages({
-                  messages: finishedMessages.map((currentMessage) => ({
-                    id: currentMessage.id,
-                    role: currentMessage.role,
-                    parts: currentMessage.parts,
-                    createdAt: new Date(),
-                    attachments: [],
-                    chatId: id,
-                  })),
-                  organizationId: workspaceContext.organizationId,
-                });
-                if (message?.role === "user") {
-                  await recordUsage(
-                    session.user.id,
-                    "chat_message",
-                    workspaceContext.organizationId,
-                  );
-                  if (
-                    agentAccessAuthorized &&
-                    !hasPendingToolApproval(
-                      finishedMessages,
-                      new Set(
-                        uiMessages.map((currentMessage) => currentMessage.id),
-                      ),
-                    )
-                  ) {
-                    await recordUsage(
-                      session.user.id,
-                      "agent_run",
-                      workspaceContext.organizationId,
-                    );
-                  }
-                }
               }
-              await diag("onFinish.done");
-            } catch (error) {
-              await diag(
-                "onFinish.error",
-                error instanceof Error
-                  ? `${error.name}: ${error.message}`.slice(0, 500)
-                  : String(error).slice(0, 500),
-              );
-              throw error;
             }
           },
         ),
