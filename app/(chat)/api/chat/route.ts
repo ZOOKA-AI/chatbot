@@ -81,6 +81,7 @@ import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { commanderActiveDb, runWithCommanderDb } from "@/lib/db/tenant-context";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -139,6 +140,9 @@ async function POSTImpl(request: Request) {
       selectedVisibilityType,
       agentMode,
     } = requestBody;
+
+    // Captured once, while the request context is still alive.
+    const requestTenantDb = commanderActiveDb();
 
     const [botResult, workspaceContext] = await Promise.all([
       checkBotId(),
@@ -503,7 +507,17 @@ async function POSTImpl(request: Request) {
         }
       },
       generateId: generateUUID,
-      onFinish: async ({ messages: finishedMessages }) => {
+      /*
+       * The finish callback runs after the response has started streaming, and
+       * the request's async context is gone by then: the tenant handle captured
+       * at the top of the handler is published again here, or every write it
+       * performs would fall back to the shared connection and be refused by row
+       * level security. The inserted rows are the assistant message and the
+       * usage event, so without this the reply streams and then nothing is
+       * persisted.
+       */
+      onFinish: async ({ messages: finishedMessages }) =>
+        runWithCommanderDb(requestTenantDb, async () => {
         if (isToolApprovalFlow) {
           for (const finishedMsg of finishedMessages) {
             const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
@@ -577,7 +591,7 @@ async function POSTImpl(request: Request) {
             }
           }
         }
-      },
+        }),
       onError: (error) => {
         logModelProviderFailure(error, selectedChatModel, "chat");
         if (
