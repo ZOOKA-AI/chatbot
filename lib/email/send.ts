@@ -4,7 +4,11 @@ import { resolveEmailBase } from "./base";
 
 const RELAY_URL =
   "https://solas-89d18e3d.base44.app/functions/zookaMail";
-const RELAY_KEY = process.env.ZOOKA_MAIL_KEY ?? "zk-mail-2026-Qp7xV3";
+// No fallback on purpose: a default baked into the source is a published secret
+// and makes every deployment able to relay mail even with the variable unset.
+// The value lives only in the environment now; without it the sender refuses
+// loudly instead of quietly using a known key.
+const RELAY_KEY = process.env.ZOOKA_MAIL_KEY?.trim() ?? "";
 // The canonical origin unless an isolated run explicitly overrides it; see
 // resolveEmailBase for why a deployment host must never leak into a mail.
 const BASE = resolveEmailBase();
@@ -32,6 +36,12 @@ function button(href: string, label: string) {
 }
 
 export async function sendMail(to: string, subject: string, html: string) {
+  if (!RELAY_KEY) {
+    // Loud and safe: a mail we cannot authenticate is a mail we must not send.
+    console.error("email relay key missing: ZOOKA_MAIL_KEY is not set");
+    return false;
+  }
+
   try {
     const response = await fetch(RELAY_URL, {
       method: "POST",
