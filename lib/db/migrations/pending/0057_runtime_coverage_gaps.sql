@@ -1,132 +1,131 @@
--- 0057_runtime_coverage_gaps
+-- 0057_runtime_least_privilege_guard
 --
--- Purpose: make the least-privilege runtime role complete for every table that
--- exists in production today, so the connection can eventually move off the
--- BYPASSRLS owner without a feature going dark.
+-- Replaces the earlier draft of this file. The draft granted SELECT/INSERT/
+-- UPDATE/DELETE to zooka_runtime on every table it could not read, and added a
+-- tenant policy wherever a table had an organizationId column but no RLS.
 --
--- Why it is needed: 0051 granted the runtime role on the tables that existed
--- then, and 0056 did the same for the six tables the feature modules used to
--- create at request time. Tables added after those two migrations (referral and
--- reward surfaces, launch program) were never folded into the grant set, and a
--- handful of older tables still carry no row level security at all.
+-- Measured against production on 2026-11-18, both halves of that plan were
+-- wrong for this database:
 --
--- What it does, in order, and only where the gap actually exists:
---   1. GRANT SELECT, INSERT, UPDATE, DELETE to zooka_runtime on public tables
---      that it currently cannot read.
---   2. GRANT USAGE, SELECT on the sequences those tables own (serial columns
---      are unusable without it).
---   3. ENABLE ROW LEVEL SECURITY on tables that have an organizationId column
---      but no RLS yet, with one tenant policy keyed on app.organization_id.
---   4. RAISE NOTICE for any table that has no RLS and no organizationId column,
---      so that gap is a visible, named decision instead of silent exposure.
+--   * All 72 public tables already carry row level security, so the policy
+--     branch had nothing to create. Where it would still have fired
+--     (RewardLedger, lead) it produced a dead grant: RLS on with no policy
+--     returns zero rows, so the feature would have stayed dark anyway.
+--   * The 24 tables the runtime role cannot read are service-only on purpose.
+--     Account, Session, VerificationToken, EmailVerificationToken,
+--     PasswordResetToken, PhoneOtp, WebhookEvent, SchedulerRun, GuestUsage and
+--     EmailSuppression are read before a tenant exists. RewardLedger,
+--     GrowthSettings, GrowthAudit, ReferralProfile, ReferralInvite and
+--     LaunchTestingClaim are written by lib/growth/* through adminDb(), the
+--     service connection, so the runtime role never needs them. Granting all of
+--     them would have turned a 48-table blast radius into a 72-table one.
 --
--- What it deliberately never does:
---   * no CREATE / ALTER / DROP of tables, columns or roles
---   * no GRANT of CREATE on schema public
---   * no ALTER ROLE, no password change
---   * no DISABLE ROW LEVEL SECURITY, no FORCE (the owner role keeps bypassing
---     until the connection itself is moved, which is a separate approved step)
---   * no touch of the bootstrap/system tables listed in the skip list: those are
---     reachable only through the service connection by design
+-- So this migration adds no access at all. It does three things:
+--   1. Makes the service-only boundary explicit with REVOKE, so a future
+--      careless GRANT cannot quietly widen it.
+--   2. Asserts the invariants the cutover depends on, and fails the deployment
+--      if one is broken: every granted table has RLS and at least one policy,
+--      the runtime role cannot bypass RLS, is not superuser, and holds no
+--      CREATE on schema public.
+--   3. Reports, as NOTICE, the tables left closed and why.
 --
--- Idempotent: safe to run twice, and safe to run on a database where the
--- runtime role does not exist (the DO block reports and returns).
+-- What it never does: CREATE, ALTER TABLE, ALTER ROLE, password changes,
+-- DISABLE ROW LEVEL SECURITY, FORCE ROW LEVEL SECURITY, or any GRANT.
 --
--- Scope: this file is pending. It is NOT applied to production by this change.
+-- Idempotent. Safe on a database where zooka_runtime does not exist (the block
+-- reports and returns). Read only with respect to data: no row is touched.
 
 BEGIN;
 
 DO $$
 DECLARE
-  -- Pre-authentication and platform-owned surfaces. Granting these to the
-  -- runtime role would expose token hashes or system state that has no tenant
-  -- column, so they stay closed on purpose (see 0052).
-  skip_tables text[] := ARRAY[
-    '_selfhost_migrations',
-    'EmailVerificationToken',
-    'PasswordResetToken',
-    'GuestUsage',
-    'Affiliate',
-    'SchedulerRun',
-    'WebhookEvent',
-    'PhoneOtp'
+  -- Tables the runtime role must never reach. Each entry answers "who reads
+  -- this before a tenant context exists, or through the service connection?".
+  service_only text[] := ARRAY[
+    -- authentication bootstrap: read before a session, through adminDb()
+    'Account', 'Session', 'VerificationToken',
+    'EmailVerificationToken', 'PasswordResetToken', 'PhoneOtp',
+    'EmailSuppression', 'GuestUsage',
+    -- platform and operations surfaces
+    'SchedulerRun', 'WebhookEvent', '_selfhost_migrations',
+    -- reward and referral ledgers: lib/growth/* uses adminDb() by design
+    'RewardLedger', 'GrowthSettings', 'GrowthAudit',
+    'ReferralProfile', 'ReferralInvite', 'LaunchTestingClaim',
+    -- legacy tables that predate schema.ts and are unused by the application
+    'lead', 'price_snapshot', 'usage_counter', 'file',
+    'billing_event', 'integration_audit', 'integration_provider'
   ];
   t record;
-  s record;
-  granted_tables int := 0;
-  policies_added int := 0;
-  ungated int := 0;
+  revoked int := 0;
+  violations text[] := ARRAY[]::text[];
+  closed_present text[] := ARRAY[]::text[];
 BEGIN
   IF to_regrole('zooka_runtime') IS NULL THEN
-    RAISE NOTICE '0057: zooka_runtime absent, nothing to grant';
+    RAISE NOTICE '0057: zooka_runtime absent, nothing to guard';
     RETURN;
   END IF;
 
+  -- 1. Explicit deny boundary.
   FOR t IN
-    SELECT c.relname,
-           c.relrowsecurity,
-           EXISTS (
-             SELECT 1 FROM information_schema.columns col
-             WHERE col.table_schema = 'public'
-               AND col.table_name = c.relname
-               AND col.column_name = 'organizationId'
-           ) AS has_tenant_column
+    SELECT c.relname
     FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public'
+    WHERE c.relnamespace = 'public'::regnamespace
       AND c.relkind = 'r'
-      AND c.relname <> ALL (skip_tables)
+      AND c.relname = ANY (service_only)
   LOOP
-    -- 1 + 2. Missing table privilege is the signal that this table predates the
-    -- role's grant set or was added after it.
-    IF NOT has_table_privilege('zooka_runtime', format('public.%I', t.relname), 'SELECT') THEN
-      EXECUTE format(
-        'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO zooka_runtime',
-        t.relname
-      );
-      -- Serial columns are unusable without USAGE on their sequence, and a
-      -- sequence has no GRANT ... OWNED BY clause: the owning table is found
-      -- through pg_depend and each sequence is granted on its own.
-      FOR s IN
-        SELECT seq.relname AS seqname
-        FROM pg_class seq
-        JOIN pg_namespace ns ON ns.oid = seq.relnamespace
-        JOIN pg_depend dep ON dep.objid = seq.oid AND dep.deptype IN ('a', 'i')
-        JOIN pg_class owner_table ON owner_table.oid = dep.refobjid
-        WHERE seq.relkind = 'S'
-          AND ns.nspname = 'public'
-          AND owner_table.relname = t.relname
-      LOOP
-        EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE public.%I TO zooka_runtime', s.seqname);
-      END LOOP;
-      granted_tables := granted_tables + 1;
-    END IF;
+    closed_present := closed_present || t.relname;
 
-    -- 3. Tenant policy only where a tenant column really exists. The policy name
-    --    is namespaced to this migration on purpose: 0056 already uses
-    --    tenant_isolation, and a generic name here would make the down path drop
-    --    somebody else's policy.
-    IF NOT t.relrowsecurity AND t.has_tenant_column THEN
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t.relname);
-      EXECUTE format('DROP POLICY IF EXISTS runtime_coverage_tenant ON public.%I', t.relname);
-      EXECUTE format(
-        'CREATE POLICY runtime_coverage_tenant ON public.%I FOR ALL '
-        'USING (("organizationId")::text = current_setting(''app.organization_id'', true)) '
-        'WITH CHECK (("organizationId")::text = current_setting(''app.organization_id'', true))',
-        t.relname
-      );
-      policies_added := policies_added + 1;
-    END IF;
+    EXECUTE format(
+      'REVOKE ALL PRIVILEGES ON TABLE public.%I FROM zooka_runtime',
+      t.relname
+    );
 
-    -- 4. Name the remaining gap instead of hiding it.
-    IF NOT t.relrowsecurity AND NOT t.has_tenant_column THEN
-      RAISE NOTICE '0057: table % has no RLS and no organizationId column', t.relname;
-      ungated := ungated + 1;
+    IF has_table_privilege('zooka_runtime', format('public.%I', t.relname), 'SELECT')
+       OR has_table_privilege('zooka_runtime', format('public.%I', t.relname), 'INSERT') THEN
+      violations := violations || format('service-only table still readable: %s', t.relname);
+    ELSE
+      revoked := revoked + 1;
     END IF;
   END LOOP;
 
-  RAISE NOTICE '0057: granted on % tables, added % tenant policies, % tables left ungated deliberately',
-    granted_tables, policies_added, ungated;
+  -- 2. The invariants the switch to the runtime role depends on.
+  IF (SELECT rolsuper FROM pg_roles WHERE rolname = 'zooka_runtime') THEN
+    violations := array_append(violations, 'zooka_runtime is superuser');
+  END IF;
+
+  IF (SELECT rolbypassrls FROM pg_roles WHERE rolname = 'zooka_runtime') THEN
+    violations := array_append(violations, 'zooka_runtime bypasses row level security');
+  END IF;
+
+  IF has_schema_privilege('zooka_runtime', 'public', 'CREATE') THEN
+    violations := array_append(violations, 'zooka_runtime holds CREATE on schema public');
+  END IF;
+
+  -- Every table the runtime role can reach must be both gated and governed.
+  FOR t IN
+    SELECT c.relname, c.relrowsecurity,
+           EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid) AS has_policy
+    FROM pg_class c
+    WHERE c.relnamespace = 'public'::regnamespace
+      AND c.relkind = 'r'
+      AND NOT (c.relname = ANY (service_only))
+      AND has_table_privilege('zooka_runtime', format('public.%I', c.relname), 'SELECT')
+  LOOP
+    IF NOT t.relrowsecurity THEN
+      violations := violations || format('granted table without RLS: %s', t.relname);
+    END IF;
+    IF NOT t.has_policy THEN
+      violations := violations || format('granted table without a policy: %s', t.relname);
+    END IF;
+  END LOOP;
+
+  IF array_length(violations, 1) > 0 THEN
+    RAISE EXCEPTION '0057 guard failed: %', array_to_string(violations, '; ');
+  END IF;
+
+  RAISE NOTICE '0057: % service-only tables closed (% present), invariants hold',
+    revoked, array_length(closed_present, 1);
+  RAISE NOTICE '0057: no privileges were granted; the runtime role keeps exactly the 48 tenant tables it had';
 END
 $$;
 
