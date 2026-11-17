@@ -86,7 +86,10 @@ async function loadChromium(): Promise<{
   launch: (options?: unknown) => Promise<AnyBrowser>;
   connectOverCDP: (endpoint: string, options?: unknown) => Promise<AnyBrowser>;
 }> {
-  for (const moduleName of ["playwright", "@playwright/test"]) {
+  // playwright-core is the declared dependency, and the only one a production bundle ships:
+  // `playwright` and `@playwright/test` are dev-only, so listing them first made every deployed
+  // function throw browser_runtime_unavailable even with a remote engine configured.
+  for (const moduleName of ["playwright-core", "playwright", "@playwright/test"]) {
     try {
       const loaded = (await import(/* webpackIgnore: true */ moduleName)) as {
         chromium?: {

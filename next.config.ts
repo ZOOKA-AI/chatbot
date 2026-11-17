@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // The browser runtime loads a Chromium driver at request time through a computed import, which
+  // the bundler cannot trace. Keeping it external makes the package part of the deployed function;
+  // without this the import resolves to nothing inside the lambda.
+  serverExternalPackages: ["playwright-core"],
   // Standalone output is what the self-hosted web image runs (see deploy/docker). It is
   // opt-in so the hosted build is byte-for-byte what it was before this package existed:
   // Vercel never sets this variable.
