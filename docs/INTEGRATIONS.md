@@ -9,11 +9,18 @@
 | المكوّن | المتغيّرات | الحالة المطلوبة |
 |---|---|---|
 | قاعدة البيانات (Supabase Postgres + Drizzle) | `DATABASE_URL` (الأولوية) ثم `POSTGRES_URL` | Transaction pooler، بورت 6543، `?pgbouncer=true&sslmode=require`، المستخدم `postgres.<project-ref>` |
+| متغيّرات اتصال إضافية من Supabase/Vercel | `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `POSTGRES_USER`, `POSTGRES_HOST`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE` | قد يوفّرها تكامل Supabase في Vercel. التطبيق وDrizzle لا يقرآنها مباشرة؛ لا تستبدل بها `DATABASE_URL` أو `POSTGRES_URL` |
+| مفاتيح Supabase API | `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` | لا يقرأها التطبيق حاليًا. لا تُضف بادئة `NEXT_PUBLIC_` إلى أي مفتاح سري |
 | ترحيلات | `MIGRATION_TOKEN` | `/api/admin/migrate` بالترويسة `x-migration-token` |
 | نسخ احتياطي | `BACKUP_TOKEN` | `/api/admin/backup` — يغطي 14 جدولًا فقط |
-| المصادقة | `AUTH_SECRET`، `NEXTAUTH_SECRET`، `AUTH_URL`، `NEXT_PUBLIC_APP_URL` | `AUTH_URL` يجب أن يطابق الدومين الذي يسجّل عليه المستخدم الدخول |
+| المصادقة | `AUTH_SECRET`، `NEXTAUTH_SECRET`، `AUTH_URL`، `NEXT_PUBLIC_APP_URL` | في الإنتاج يجب أن يكون `AUTH_URL` هو `https://zooka-ai.com`؛ تُوجَّه صفحات وطلبات الدخول من النطاقات الأخرى إلى هذا النطاق قبل بدء OAuth، وتبقى ملفات التحقق خاصة به |
 | الحد من المعدل | `REDIS_URL` | اختياري لكن بدونه الحد يعمل محليًا فقط |
 | التخزين | `BLOB_READ_WRITE_TOKEN` | مطلوب لرفع الملفات والصور |
+
+أسماء متغيّرات Supabase/Vercel أعلاه موثّقة للتعرّف على القيم التي قد ينشئها
+التكامل تلقائيًا، وليست متطلبات تشغيل إضافية. اتصال التطبيق بقاعدة البيانات
+يعتمد على `DATABASE_URL` أولًا ثم `POSTGRES_URL`. لا تضع قيم المتغيّرات أو
+روابط اتصال تحتوي على كلمات مرور في المستودع أو المحادثات.
 
 ## 2. تسجيل الدخول
 

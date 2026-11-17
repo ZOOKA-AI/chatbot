@@ -53,10 +53,12 @@ export async function GET(request: Request) {
   try {
     tokenResponse = await fetch("https://api.x.com/2/oauth2/token", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
       body: new URLSearchParams({
         client_id: clientId,
-        client_secret: clientSecret,
         code,
         code_verifier: verified.codeVerifier,
         grant_type: "authorization_code",
