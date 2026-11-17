@@ -121,11 +121,11 @@ export function LoginClient({
   };
 
   return (
-    <div className="flex h-dvh w-screen items-start justify-center bg-background pt-12 md:items-center md:pt-0">
+    <div className="flex min-h-dvh w-full items-start justify-center bg-background px-0 pt-16 pb-10 md:items-center md:py-10">
       <LanguageToggle lang={lang} />
-      <div className="flex w-full max-w-md flex-col gap-12 overflow-hidden rounded-2xl">
+      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl sm:gap-10">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
+          <h1 className="font-semibold text-2xl dark:text-zinc-50">{t.title}</h1>
           <p className="text-gray-500 text-sm dark:text-zinc-400">
             {t.subtitle}
           </p>
@@ -157,14 +157,14 @@ export function LoginClient({
           labels={{ email: t.email, password: t.password }}
         >
           <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
-          <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
+          <Link
+            className="inline-flex min-h-11 items-center justify-center self-center px-2 text-muted-foreground text-sm underline underline-offset-4"
+            href="/forgot-password"
+          >
+            {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
+          </Link>
+          <p className="text-center text-gray-600 text-sm dark:text-zinc-400">
             {`${t.noAccount} `}
-            <Link
-              className="text-muted-foreground text-xs underline"
-              href="/forgot-password"
-            >
-              {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
-            </Link>{" "}
             <Link
               className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
               href="/register"
