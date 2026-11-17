@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { adminDb } from "@/lib/db/queries";
 import { getTrafficSnapshotForOrganization } from "@/lib/analytics/growth";
+import { growthNotice } from "@/lib/analytics/growth-notice";
 import { readSettings } from "@/lib/growth/referrals";
 import { getLang } from "@/lib/i18n";
 
@@ -18,6 +19,7 @@ export default async function GrowthAdminPage() {
   // Prefer the workspace's own read-only Google grant; fall back to the
   // deployment service account when the owner has not connected one yet.
   const traffic = await getTrafficSnapshotForOrganization(context.organizationId);
+  const notice = growthNotice(traffic, ar);
 
   let recent: Array<Record<string, unknown>> = [];
   let audit: Array<Record<string, unknown>> = [];
@@ -216,6 +218,14 @@ export default async function GrowthAdminPage() {
           </div>
         ) : null}
 
+        {traffic.ga4 ? (
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            {ar
+              ? "قد يتجاوز مجموع جلسات القنوات عدد الجلسات الكلي، لأن GA4 قد ينسب الجلسة الواحدة إلى أكثر من قناة."
+              : "Channel sessions can add up to more than the total, because GA4 may attribute one session to more than one channel group."}
+          </p>
+        ) : null}
+
         {traffic.gsc ? (
           <div className="mt-4 space-y-2 border-t pt-3">
             <h3 className="text-xs font-semibold">{ar ? "بحث Google" : "Google Search"}</h3>
@@ -250,10 +260,14 @@ export default async function GrowthAdminPage() {
           </div>
         ) : null}
 
-        {traffic.error ? (
-          <p className="mt-3 text-[10px] text-amber-600">
-            {ar ? "تعذّر جزء من البيانات: " : "Partial data unavailable: "}
-            {traffic.error}
+        {notice ? (
+          <p
+            className={`mt-3 text-[11px] ${
+              notice.tone === "failure" ? "text-red-600" : "text-amber-600"
+            }`}
+            role="status"
+          >
+            {notice.message}
           </p>
         ) : null}
       </section>

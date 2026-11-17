@@ -18,6 +18,40 @@ import { createSign } from "node:crypto";
  *   GSC_SITE               Search Console property, default sc-domain:zooka-ai.com
  */
 
+/**
+ * Failure text that is safe to render: one line, bounded, and with anything
+ * that looks like a credential removed. A Google error message is useful to the
+ * owner; a leaked access token or a signed query string is not.
+ */
+export function safeFailureReason(
+  error: unknown,
+  fallback = "traffic_snapshot_failed"
+): string {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : error === undefined || error === null
+          ? ""
+          : String(error);
+
+  const cleaned = raw
+    .replace(/bearer\s+[A-Za-z0-9._~+/=-]+/gi, "bearer [redacted]")
+    .replace(
+      /\b(access_token|refresh_token|id_token|client_secret|api_key|token|key|secret|password)=([^&\s]+)/gi,
+      "$1=[redacted]"
+    )
+    .replace(/[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g, "[redacted-jwt]")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) {
+    return fallback;
+  }
+  return cleaned.length > 200 ? `${cleaned.slice(0, 200)}...` : cleaned;
+}
+
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPES = [
   "https://www.googleapis.com/auth/analytics.readonly",
@@ -350,8 +384,7 @@ async function buildSnapshot(organizationId?: string): Promise<TrafficSnapshot> 
     } catch (searchError) {
       // Analytics and Search Console are independent: one failing must not hide
       // the other. The notice is surfaced, never replaced with zeros.
-      snapshot.error =
-        searchError instanceof Error ? searchError.message : "gsc_query_failed";
+      snapshot.error = safeFailureReason(searchError, "gsc_query_failed");
     }
 
     return snapshot;
@@ -360,7 +393,7 @@ async function buildSnapshot(organizationId?: string): Promise<TrafficSnapshot> 
       configured: true,
       generatedAt,
       source: resolved.source,
-      reason: error instanceof Error ? error.message : "traffic_snapshot_failed",
+      reason: safeFailureReason(error),
     };
   }
 }
