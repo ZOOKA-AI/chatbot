@@ -81,6 +81,8 @@ import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { sql } from "drizzle-orm";
+import { adminDb } from "@/lib/db/queries";
 import { commanderActiveDb, runWithCommanderDb } from "@/lib/db/tenant-context";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
@@ -518,6 +520,19 @@ async function POSTImpl(request: Request) {
        */
       onFinish: async ({ messages: finishedMessages }) =>
         runWithCommanderDb(requestTenantDb, async () => {
+        // TEMPORARY acceptance diagnostics: record that the finish step ran and
+        // what it failed on, so a silent rejection is visible instead of guessed.
+        const diag = async (marker: string, detail?: unknown) => {
+          try {
+            await adminDb().execute(sql`
+              insert into "AcceptanceDiag" (marker, detail)
+              values (${marker}, ${detail === undefined ? null : String(detail)})
+            `);
+          } catch {
+            /* diagnostics must never break the reply */
+          }
+        };
+        await diag("onFinish.enter", `messages=${finishedMessages.length};tenantDb=${requestTenantDb ? "yes" : "no"}`);
         if (isToolApprovalFlow) {
           for (const finishedMsg of finishedMessages) {
             const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
@@ -591,6 +606,7 @@ async function POSTImpl(request: Request) {
             }
           }
         }
+        await diag("onFinish.done");
         }),
       onError: (error) => {
         logModelProviderFailure(error, selectedChatModel, "chat");
