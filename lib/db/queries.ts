@@ -1914,6 +1914,15 @@ export async function consumePasswordResetToken(
     .set({ password: generateHashedPassword(newPassword) })
     .where(eq(user.id, userId));
 
+  // Any other unused link for this account dies with the password it was meant
+  // to replace, so an older email cannot be replayed after a successful reset.
+  await adminDb()
+    .update(passwordResetToken)
+    .set({ usedAt: new Date() })
+    .where(
+      and(eq(passwordResetToken.userId, userId), isNull(passwordResetToken.usedAt))
+    );
+
   return true;
 }
 
