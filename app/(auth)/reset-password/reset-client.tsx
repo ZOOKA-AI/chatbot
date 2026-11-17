@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { PasswordStrength } from "@/components/password-strength";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 import { LoaderIcon } from "@/components/icons";
 import { type ResetPasswordState, resetPassword } from "../actions";
 
@@ -20,6 +22,7 @@ export function ResetPasswordClient({
     resetPassword,
     { status: "idle" }
   );
+  const [password, setPassword] = useState("");
   const error =
     state.status === "invalid_token"
       ? ar
@@ -27,8 +30,8 @@ export function ResetPasswordClient({
         : "This link expired or was already used. Request a new one."
       : state.status === "invalid_data"
         ? ar
-          ? "كلمة المرور يجب أن تكون 6 أحرف على الأقل."
-          : "Password must be at least 6 characters."
+          ? "كلمة المرور يجب أن تكون 8 أحرف على الأقل وغير شائعة."
+          : "Password must be at least 8 characters and not a common one."
         : state.status === "unavailable"
           ? ar
             ? "الخدمة غير متاحة مؤقتًا. لم يُستخدم الرابط؛ حاول مرة أخرى بعد قليل."
@@ -70,14 +73,13 @@ export function ResetPasswordClient({
                 className="h-12 w-full rounded-md border bg-transparent px-3 text-base md:h-11 md:text-sm"
                 dir="ltr"
                 id="new-password"
-                minLength={6}
+                minLength={MIN_PASSWORD_LENGTH}
                 name="password"
+                onChange={(event) => setPassword(event.target.value)}
                 required
                 type="password"
               />
-              <p className="text-muted-foreground text-xs" id="reset-hint">
-                {ar ? "6 أحرف على الأقل." : "At least 6 characters."}
-              </p>
+              <PasswordStrength id="reset-hint" lang={lang} value={password} />
             </div>
             {error ? (
               <p className="text-destructive text-sm" id="reset-error" role="alert">
