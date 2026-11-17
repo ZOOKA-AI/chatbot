@@ -44,7 +44,7 @@ export function ForgotPasswordClient({ lang }: { lang: "ar" | "en" }) {
                 aria-describedby={state.status === "invalid" ? "forgot-email-error" : undefined}
                 aria-invalid={state.status === "invalid"}
                 autoComplete="email"
-                className="h-12 w-full rounded-md border bg-transparent px-3 text-base md:h-10 md:text-sm"
+                className="h-12 w-full rounded-md border bg-transparent px-3 text-base md:h-11 md:text-sm"
                 dir="ltr"
                 id="forgot-email"
                 inputMode="email"
@@ -60,7 +60,7 @@ export function ForgotPasswordClient({ lang }: { lang: "ar" | "en" }) {
               </p>
             ) : null}
             <button
-              className="relative inline-flex h-12 w-full items-center justify-center rounded-md bg-primary px-4 font-medium text-base text-primary-foreground disabled:opacity-60 md:h-10 md:text-sm"
+              className="relative inline-flex h-12 w-full items-center justify-center rounded-md bg-primary px-4 font-medium text-base text-primary-foreground disabled:opacity-60 md:h-11 md:text-sm"
               disabled={pending}
               type="submit"
             >
