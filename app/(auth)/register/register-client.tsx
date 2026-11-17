@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
+import { PasswordStrength } from "@/components/password-strength";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
 import { SocialSignInButtons } from "@/components/social-sign-in-buttons";
 import { PhoneSignInForm } from "@/components/phone-sign-in-form";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -32,7 +34,7 @@ const strings = {
     checkEmail: "تم استلام طلبك. إن كان البريد جديدًا فالحساب جاهز الآن — سجّل الدخول. وإن كان لديك حساب فاستخدم كلمة مرورك أو استعدها.",
     unavailable: "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً.",
     failed: "فشل إنشاء الحساب!",
-    invalid: "تحقق من البريد الإلكتروني وكلمة المرور (6 أحرف على الأقل)!",
+    invalid: "تحقق من البريد الإلكتروني. كلمة المرور 8 أحرف على الأقل وغير شائعة.",
   },
   en: {
     title: "Sign Up",
@@ -51,7 +53,7 @@ const strings = {
     unavailable:
       "Account service is temporarily unavailable. Please try later.",
     failed: "Failed to create account!",
-    invalid: "Failed validating your submission!",
+    invalid: "Check your email. The password needs at least 8 characters and must not be a common one.",
   },
 } as const;
 
@@ -72,6 +74,7 @@ export function RegisterClient({
   const router = useRouter();
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   // Shut while the outcome is being announced or the sign-in form loads. It is
   // always released again: a disabled button must never outlive the message.
   const [submitLocked, setSubmitLocked] = useState(false);
@@ -144,7 +147,11 @@ export function RegisterClient({
           action={handleSubmit}
           defaultEmail={email}
           labels={{ email: t.email, password: t.password }}
+          onPasswordChange={setPassword}
           passwordAutoComplete="new-password"
+          passwordHint={<PasswordStrength id="password-strength" lang={lang} value={password} />}
+          passwordHintId="password-strength"
+          passwordMinLength={MIN_PASSWORD_LENGTH}
         >
           <SubmitButton isSuccessful={submitLocked}>{t.submit}</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
