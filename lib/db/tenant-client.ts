@@ -135,6 +135,18 @@ export async function runInTenantTransaction<T>(
     // user-owned policies would see no user and fail closed on a valid session.
     if (context.userId) {
       await tx.execute(sql`select set_config(${TENANT_USER_SETTING}, ${context.userId}, true)`);
+
+      // app_is_member() reads auth.uid(), which resolves the JWT claim and not
+      // app.user_id. Without the claim every member-scoped policy evaluates to
+      // false and the tables only stay readable because a parallel
+      // app.organization_id policy happens to exist. Publishing the claim is what
+      // makes those five policies mean what their names say.
+      await tx.execute(
+        sql`select set_config('request.jwt.claims', ${JSON.stringify({ sub: context.userId, role: "authenticated" })}, true)`
+      );
+      await tx.execute(
+        sql`select set_config('request.jwt.claim.sub', ${context.userId}, true)`
+      );
     }
 
     // drizzle's postgres-js driver returns the row list itself, not a { rows } envelope.

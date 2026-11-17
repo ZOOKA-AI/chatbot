@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { db } from "@/lib/db/queries";
+import { adminDb, db } from "@/lib/db/queries";
 
 /**
  * مفاتيح MCP: النص الصريح يظهر مرة واحدة عند الإنشاء، والمخزَّن هو SHA-256
@@ -127,7 +127,13 @@ export async function verifyMcpKey(
     return null;
   }
   try {
-    const rows = (await db.execute<{
+    // Before a key is verified there is no tenant: the key is what identifies the
+    // workspace. Reading mcp_api_key through the tenant handle returns zero rows
+    // under RLS (the policy compares organization_id with an unset
+    // app.organization_id) and the catch below would report a valid key as
+    // "invalid" with nothing in the logs. This is bootstrap authentication, so it
+    // uses the service connection, exactly like Session and VerificationToken.
+    const rows = (await adminDb().execute<{
       id: string;
       organization_id: string;
       created_by_user_id: string | null;
@@ -157,7 +163,9 @@ export async function verifyMcpKey(
 
 export async function touchMcpKey(keyId: string): Promise<void> {
   try {
-    await db.execute(sql`
+    // Same reason as verifyMcpKey: the row is addressed by id, not by a tenant,
+    // so a tenant-scoped UPDATE matches nothing and silently stops the clock.
+    await adminDb().execute(sql`
       UPDATE mcp_api_key SET last_used_at = now() WHERE id = ${keyId}`);
   } catch {
     // A failed timestamp update must not fail the request.
