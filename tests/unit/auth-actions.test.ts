@@ -11,6 +11,13 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(),
   headers: async () => new Headers({ "x-forwarded-for": "203.0.113.7" }),
 }));
+// after() needs a live request scope; run the deferred work inline in tests.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => {
+    void Promise.resolve().then(task);
+  },
+}));
 vi.mock("@/lib/affiliate", () => ({
   REFERRAL_COOKIE: "referral",
   recordReferralEvent: vi.fn(),
