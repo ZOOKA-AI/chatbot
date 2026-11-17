@@ -533,6 +533,7 @@ async function POSTImpl(request: Request) {
           }
         };
         await diag("onFinish.enter", `messages=${finishedMessages.length};tenantDb=${requestTenantDb ? "yes" : "no"}`);
+        try {
         if (isToolApprovalFlow) {
           for (const finishedMsg of finishedMessages) {
             const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
@@ -607,6 +608,13 @@ async function POSTImpl(request: Request) {
           }
         }
         await diag("onFinish.done");
+        } catch (error) {
+          await diag(
+            "onFinish.error",
+            error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : String(error).slice(0, 500)
+          );
+          throw error;
+        }
         }),
       onError: (error) => {
         logModelProviderFailure(error, selectedChatModel, "chat");
