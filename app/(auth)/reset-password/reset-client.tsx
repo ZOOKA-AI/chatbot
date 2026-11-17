@@ -6,7 +6,7 @@ import { LoaderIcon } from "@/components/icons";
 import { type ResetPasswordState, resetPassword } from "../actions";
 
 const primaryButton =
-  "relative inline-flex h-12 w-full items-center justify-center rounded-md bg-primary px-4 font-medium text-base text-primary-foreground disabled:opacity-60 md:h-10 md:text-sm";
+  "relative inline-flex h-12 w-full items-center justify-center rounded-md bg-primary px-4 font-medium text-base text-primary-foreground disabled:opacity-60 md:h-11 md:text-sm";
 
 export function ResetPasswordClient({
   lang,
@@ -67,7 +67,7 @@ export function ResetPasswordClient({
                 aria-describedby={error ? "reset-error" : "reset-hint"}
                 aria-invalid={Boolean(error)}
                 autoComplete="new-password"
-                className="h-12 w-full rounded-md border bg-transparent px-3 text-base md:h-10 md:text-sm"
+                className="h-12 w-full rounded-md border bg-transparent px-3 text-base md:h-11 md:text-sm"
                 dir="ltr"
                 id="new-password"
                 minLength={6}
