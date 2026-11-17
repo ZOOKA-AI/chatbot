@@ -367,42 +367,62 @@ export function getWorkspacesForUser(userId: string) {
     .orderBy(asc(organizationMember.createdAt));
 }
 
+/**
+ * Creates the first organisation for an account.
+ *
+ * Onboarding runs inside one transaction and only for an account that exists.
+ * Both rules are load bearing: a session token can outlive its user row (the
+ * account is deleted, the cookie is still valid), and the earlier code inserted
+ * the organisation first, so a failing membership insert left an empty
+ * organisation behind on every attempt. Under tenant enforcement those orphans
+ * accumulate silently: the workspace is never reachable, and nothing reports it.
+ *
+ * Returns null when there is no such user, which unsets the organisation on the
+ * caller's token instead of inventing one.
+ */
 export async function ensureUserWorkspace({
   userId,
   email,
 }: {
   userId: string;
   email: string;
-}) {
+}): Promise<{ id: string; name: string; role: string } | null> {
   const existingWorkspace = await getWorkspaceForUser(userId);
   if (existingWorkspace) {
     return existingWorkspace;
   }
 
-  const [createdWorkspace] = await adminDb()
-    .insert(organization)
-    .values({ name: defaultWorkspaceNameForEmail(email) })
-    .returning({ id: organization.id, name: organization.name });
+  return adminDb().transaction(async (tx) => {
+    const [account] = await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
 
-  await adminDb()
-    .insert(organizationMember)
-    .values({
-      organizationId: createdWorkspace.id,
-      userId,
-      role: "owner",
-    })
-    .onConflictDoNothing();
-  await adminDb()
-    .insert(subscription)
-    .values({ organizationId: createdWorkspace.id })
-    .onConflictDoNothing();
-
-  return (
-    (await getWorkspaceForUser(userId)) ?? {
-      ...createdWorkspace,
-      role: "owner" as const,
+    if (!account) {
+      return null;
     }
-  );
+
+    const [createdWorkspace] = await tx
+      .insert(organization)
+      .values({ name: defaultWorkspaceNameForEmail(email) })
+      .returning({ id: organization.id, name: organization.name });
+
+    await tx
+      .insert(organizationMember)
+      .values({
+        organizationId: createdWorkspace.id,
+        userId,
+        role: "owner",
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(subscription)
+      .values({ organizationId: createdWorkspace.id })
+      .onConflictDoNothing();
+
+    return { ...createdWorkspace, role: "owner" };
+  });
 }
 
 export function getWorkspaceMembers(organizationId: string) {
@@ -1934,4 +1954,14 @@ export async function appendAgentMessage({
     role,
     content: content.slice(0, 8000),
   });
+}
+
+/** Owner of a workspace, used by the launch testing program to resolve a claim. */
+export async function getWorkspaceOwnerId(organizationId: string) {
+  const [row] = await adminDb()
+    .select({ userId: organizationMember.userId })
+    .from(organizationMember)
+    .where(eq(organizationMember.organizationId, organizationId))
+    .limit(1);
+  return row?.userId ?? null;
 }

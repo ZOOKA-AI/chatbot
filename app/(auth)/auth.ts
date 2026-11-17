@@ -210,8 +210,11 @@ export const {
           userId: token.id,
           email: user?.email ?? token.email ?? "My workspace",
         });
-        token.organizationId = workspace.id;
-        token.organizationRole = workspace.role as OrganizationRole;
+        // A token can outlive its account. An empty organisation is falsy, so
+        // every workspace route answers 401 and the visitor signs in again,
+        // instead of the session pointing at a workspace nobody owns.
+        token.organizationId = workspace?.id ?? "";
+        token.organizationRole = (workspace?.role ?? "member") as OrganizationRole;
       }
 
       return token;

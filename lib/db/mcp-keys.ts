@@ -11,30 +11,6 @@ import { db } from "@/lib/db/queries";
 
 const TOKEN_PREFIX = "zk_mcp_";
 
-let schemaReady = false;
-
-async function ensureSchema(): Promise<void> {
-  if (schemaReady) {
-    return;
-  }
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS mcp_api_key (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      organization_id text NOT NULL,
-      created_by_user_id text,
-      name varchar(80) NOT NULL,
-      key_prefix varchar(20) NOT NULL,
-      key_hash varchar(64) NOT NULL UNIQUE,
-      last_used_at timestamptz,
-      revoked_at timestamptz,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )`);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS mcp_api_key_org_idx
-      ON mcp_api_key (organization_id, created_at DESC)`);
-  schemaReady = true;
-}
-
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -56,7 +32,6 @@ export async function createMcpKey({
   userId: string;
   name: string;
 }): Promise<{ token: string; key: McpKeySummary }> {
-  await ensureSchema();
   const token = `${TOKEN_PREFIX}${randomBytes(24).toString("base64url")}`;
   const prefix = token.slice(0, TOKEN_PREFIX.length + 6);
   const rows = (await db.execute<{
@@ -93,7 +68,6 @@ export async function listMcpKeys(
   organizationId: string
 ): Promise<McpKeySummary[]> {
   try {
-    await ensureSchema();
     const rows = (await db.execute<{
       id: string;
       name: string;
@@ -132,7 +106,6 @@ export async function revokeMcpKey({
   organizationId: string;
   id: string;
 }): Promise<boolean> {
-  await ensureSchema();
   const rows = (await db.execute<{ id: string }>(sql`
     UPDATE mcp_api_key SET revoked_at = now()
     WHERE id = ${id} AND organization_id = ${organizationId} AND revoked_at IS NULL
@@ -154,7 +127,6 @@ export async function verifyMcpKey(
     return null;
   }
   try {
-    await ensureSchema();
     const rows = (await db.execute<{
       id: string;
       organization_id: string;

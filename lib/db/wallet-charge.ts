@@ -2,7 +2,6 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
-import { ensureWalletSchema } from "@/lib/db/token-wallets";
 
 /**
  * خصم ذرّي من محفظة التوكنز الموزونة. لا يُسمح بالخصم الذي يجعل الرصيد سالباً،
@@ -24,8 +23,6 @@ export async function chargeWallet({
   if (!Number.isFinite(weighted) || weighted < 0) {
     return { ok: false, remaining: null };
   }
-  await ensureWalletSchema();
-
   const rows = (await db.execute<{ weighted_remaining: string }>(sql`
     UPDATE token_wallets
     SET weighted_remaining = weighted_remaining - ${weighted}, updated_at = now()

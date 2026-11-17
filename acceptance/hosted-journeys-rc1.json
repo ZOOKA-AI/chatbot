@@ -1,0 +1,38 @@
+{
+  "base": "https://chatbot-git-release-rc-1-zooka-ai1.vercel.app",
+  "at": "2026-11-16T17:11:46.345Z",
+  "passed": 2,
+  "total": 6,
+  "results": [
+    {
+      "journey": "registration",
+      "status": "FAIL",
+      "detail": "redirected 307 to /register — bypass not accepted"
+    },
+    {
+      "journey": "login",
+      "status": "PASS",
+      "detail": "session established for qa.preview@zooka-ai.test"
+    },
+    {
+      "journey": "session persistence",
+      "status": "PASS",
+      "detail": "same user across two requests 2s apart (qa.preview@zooka-ai.test)"
+    },
+    {
+      "journey": "chat",
+      "status": "FAIL",
+      "detail": "threw: fetch failed"
+    },
+    {
+      "journey": "agent execution",
+      "status": "FAIL",
+      "detail": "POST /api/agent 503, first 120 chars: {\"error\":\"agent_not_configured\"}"
+    },
+    {
+      "journey": "logout",
+      "status": "FAIL",
+      "detail": "session empty: false, protected page 200"
+    }
+  ]
+}

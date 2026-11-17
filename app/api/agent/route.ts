@@ -7,6 +7,8 @@ import {
   trackWorkspaceUsage,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { hasLaunchSlot, isLaunchProgramOpen } from "@/lib/billing/launch-program";
+import { awardFirstTask } from "@/lib/growth/referrals";
 
 /**
  * Server-side bridge to the private n8n agent (the "brain").
@@ -89,7 +91,9 @@ async function POSTImpl(request: Request) {
   const plan = normalizePlan(subscription?.plan);
   const limit = limitFor(plan);
 
-  if (usage.agentRuns >= limit) {
+  const launchFree = isLaunchProgramOpen() && (await hasLaunchSlot(context.user.id));
+
+  if (!launchFree && usage.agentRuns >= limit) {
     return Response.json(
       {
         error: "plan_limit_reached",
@@ -172,6 +176,11 @@ async function POSTImpl(request: Request) {
   } catch {
     // Memory writes must never lose an answer that was already produced.
   }
+
+  await awardFirstTask({
+    userId: context.user.id,
+    organizationId: context.organizationId,
+  }).catch(() => undefined);
 
   try {
     await trackWorkspaceUsage({

@@ -27,35 +27,6 @@ function sql() {
   return client;
 }
 
-let schemaReady = false;
-
-export async function ensureWalletSchema() {
-  if (schemaReady) {
-    return;
-  }
-  const q = sql();
-  await q`
-    CREATE TABLE IF NOT EXISTS token_wallets (
-      organization_id text PRIMARY KEY,
-      plan text NOT NULL,
-      weighted_remaining bigint NOT NULL DEFAULT 0,
-      period_start timestamptz,
-      period_end timestamptz,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )`;
-  await q`
-    CREATE TABLE IF NOT EXISTS token_grants (
-      id bigserial PRIMARY KEY,
-      organization_id text NOT NULL,
-      grant_key text NOT NULL UNIQUE,
-      plan text NOT NULL,
-      weighted bigint NOT NULL,
-      granted_at timestamptz NOT NULL DEFAULT now()
-    )`;
-  await q`CREATE INDEX IF NOT EXISTS token_grants_org_idx ON token_grants (organization_id)`;
-  schemaReady = true;
-}
-
 export interface GrantArgs {
   organizationId: string;
   plan: string;
@@ -87,7 +58,6 @@ export async function grantTokensForBillingPeriod(
     throw new Error("A valid billing period is required");
   }
   const periodStart = args.periodStart;
-  await ensureWalletSchema();
   const q = sql();
 
   return await q.begin(async (tx) => {
@@ -128,7 +98,6 @@ export async function grantTokensForBillingPeriod(
 }
 
 export async function readWallet(organizationId: string) {
-  await ensureWalletSchema();
   const q = sql();
   const rows = await q`
     SELECT organization_id, plan, weighted_remaining, period_start, period_end

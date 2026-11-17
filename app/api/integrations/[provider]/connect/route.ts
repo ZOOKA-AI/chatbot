@@ -12,8 +12,9 @@ import {
   oauthStateCookieName,
 } from "@/lib/integrations/oauth/state";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 
-export async function GET(
+async function GETImpl(
   request: Request,
   { params }: { params: Promise<{ provider: string }> }
 ) {
@@ -78,3 +79,7 @@ export async function GET(
   });
   return response;
 }
+
+// Tenant-scoped exports: every query runs inside the caller's tenant
+// transaction, so row level security is evaluated for this workspace.
+export const GET = withRequestTenantHandler(GETImpl);

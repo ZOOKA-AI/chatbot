@@ -1,0 +1,38 @@
+{
+  "base": "https://chatbot-rw07yrurq-zooka-ai1.vercel.app",
+  "at": "2026-11-16T18:56:32.191Z",
+  "passed": 6,
+  "total": 6,
+  "results": [
+    {
+      "journey": "registration",
+      "status": "PASS",
+      "detail": "register page 200 and renders email + password fields (form submit itself needs the browser: server action)"
+    },
+    {
+      "journey": "login",
+      "status": "PASS",
+      "detail": "session established for qa.preview@zooka-ai.test"
+    },
+    {
+      "journey": "session persistence",
+      "status": "PASS",
+      "detail": "same user across two requests 2s apart (qa.preview@zooka-ai.test)"
+    },
+    {
+      "journey": "chat",
+      "status": "PASS",
+      "detail": "chat page 200 with session; /api/agent anonymous = 405 (refuses without a session)"
+    },
+    {
+      "journey": "agent execution",
+      "status": "PASS",
+      "detail": "POST /api/agent 200; AgentMessage 8->10 (written roles: user); assistant row confirmed"
+    },
+    {
+      "journey": "logout",
+      "status": "PASS",
+      "detail": "session empty after signout; /workspace/agent 307 to login"
+    }
+  ]
+}

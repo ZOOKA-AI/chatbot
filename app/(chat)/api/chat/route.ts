@@ -20,6 +20,7 @@ import {
   isAgentAccessAuthorized,
 } from "@/lib/ai/agent-access";
 import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { resolvePrivateImageMessages } from "@/lib/ai/private-image-messages";
 import {
@@ -38,6 +39,7 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
 import { createCommanderTools } from "@/lib/ai/tools/commander";
 import { createLaunchTools } from "@/lib/ai/tools/launch";
+import { createBrowserTools } from "@/lib/ai/tools/browser";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { createGoogleDriveTools } from "@/lib/ai/tools/google-drive";
 import { createCalendarTools } from "@/lib/ai/tools/google-calendar";
@@ -80,6 +82,7 @@ import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { runInTenantTransaction } from "@/lib/db/tenant-client";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -107,7 +110,10 @@ async function POSTImpl(request: Request) {
   // A ceiling on the whole payload, before it is parsed or sent to a model.
   const declaredSize = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declaredSize) && declaredSize > 2_000_000) {
-    return new ChatbotError("bad_request:api", "Request body is too large").toResponse();
+    return new ChatbotError(
+      "bad_request:api",
+      "Request body is too large",
+    ).toResponse();
   }
 
   try {
@@ -127,7 +133,10 @@ async function POSTImpl(request: Request) {
       isTest: isTestEnvironment,
     });
     if (missingProviderMessage) {
-      return new ChatbotError("offline:chat", missingProviderMessage).toResponse();
+      return new ChatbotError(
+        "offline:chat",
+        missingProviderMessage,
+      ).toResponse();
     }
     const {
       id,
@@ -169,7 +178,7 @@ async function POSTImpl(request: Request) {
       return agentModeErrorResponse(
         "unsupported_model",
         lang,
-        selectedChatModel
+        selectedChatModel,
       );
     }
     const { session } = workspaceContext;
@@ -201,44 +210,58 @@ async function POSTImpl(request: Request) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
-    if (effectivePlan === "free" && paidModelIds.has(selectedChatModel)) {
+    // Agent access comes from one place: a paid subscription or a live launch
+    // testing claim (entitlements). The limit is still the plan's, so usage is
+    // metered and recorded exactly as for a paying workspace, and nothing is
+    // deducted because no ledger runs here.
+    const entitlements = await getWorkspaceEntitlements(
+      workspaceContext.organizationId,
+    );
+    const agentRunsLimit = entitlements.canUseAgentMode
+      ? workspacePlans[entitlements.plan].monthlyAgentRuns
+      : 0;
+
+    if (!entitlements.canUseAgentMode && paidModelIds.has(selectedChatModel)) {
       return agentModeErrorResponse("paid_model_required", lang);
     }
 
-    if (agentMode && plan.monthlyAgentRuns === 0) {
+    if (agentMode && agentRunsLimit === 0) {
       return agentModeErrorResponse("plan_required", lang);
     }
 
-    if (agentMode && billing.usage.agentRuns >= plan.monthlyAgentRuns) {
+    if (agentMode && billing.usage.agentRuns >= agentRunsLimit) {
       return agentModeErrorResponse("quota", lang);
     }
 
     const messageQuota = await checkQuota(
       session.user.id,
       "chat_message",
-      workspaceContext.organizationId
+      workspaceContext.organizationId,
     );
     if (!messageQuota.allowed) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
+    // The agent allowance above already reflects the workspace's entitlement: a
+    // paid plan or a live launch testing claim. checkQuota() instead reads the
+    // billing subscription, which reads as "free" for an entitled tester, so its
+    // agent_run limit is 0 and every agent run was refused as over quota. The
+    // allowance and the running total are the same numbers the UI shows.
     let agentQuotaAllowed = false;
     if (agentMode) {
-      const agentQuota = await checkQuota(
-        session.user.id,
-        "agent_run",
-        workspaceContext.organizationId
-      );
-      if (!agentQuota.allowed) {
+      agentQuotaAllowed =
+        agentRunsLimit > 0 && billing.usage.agentRuns < agentRunsLimit;
+      if (!agentQuotaAllowed) {
         return agentModeErrorResponse("quota", lang);
       }
-      agentQuotaAllowed = true;
     }
 
     const agentAccessAuthorized = isAgentAccessAuthorized({
       agentMode,
       supportsTools,
-      monthlyAgentRuns: plan.monthlyAgentRuns,
+      // Same allowance as the gate and the badge above: the billing plan reads as
+      // "free" for a launch testing claim, and free carries zero agent runs.
+      monthlyAgentRuns: agentRunsLimit,
       agentRunsUsed: billing.usage.agentRuns,
       quotaAllowed: agentQuotaAllowed,
     });
@@ -270,7 +293,7 @@ async function POSTImpl(request: Request) {
         (error) => {
           console.error("Failed to generate chat title:", error);
           return null;
-        }
+        },
       );
     }
 
@@ -334,6 +357,12 @@ async function POSTImpl(request: Request) {
     const connectorTools = agentAccessAuthorized
       ? createConnectorTools(workspaceContext.organizationId, session.user.id)
       : {};
+    const browserTools = agentAccessAuthorized
+      ? createBrowserTools({
+          organizationId: workspaceContext.organizationId,
+          userId: session.user.id,
+        })
+      : {};
 
     const requestHints: RequestHints = {
       longitude,
@@ -363,8 +392,8 @@ async function POSTImpl(request: Request) {
     const modelMessages = await convertToModelMessages(
       await resolvePrivateImageMessages(
         uiMessages,
-        workspaceContext.organizationId
-      )
+        workspaceContext.organizationId,
+      ),
     );
 
     // Workspace memory loads once per request; a failure returns [] and the
@@ -383,13 +412,17 @@ async function POSTImpl(request: Request) {
           ...createCommanderTools({
             organizationId: workspaceContext.organizationId,
             userId: session.user.id,
-            canManage: ["owner", "admin"].includes(String(workspaceContext.role)),
+            canManage: ["owner", "admin"].includes(
+              String(workspaceContext.role),
+            ),
           }),
           // Creating and reading launch plans. No tool here advances a step, so the
           // model cannot claim a business was launched when a plan was merely written.
           ...createLaunchTools({
             organizationId: workspaceContext.organizationId,
-            canManage: ["owner", "admin"].includes(String(workspaceContext.role)),
+            canManage: ["owner", "admin"].includes(
+              String(workspaceContext.role),
+            ),
           }),
           getWeather,
           createDocument: createDocument({ session, dataStream }),
@@ -423,6 +456,7 @@ async function POSTImpl(request: Request) {
           ...googleAdsTools,
           ...integrationSetupTools,
           ...connectorTools,
+          ...browserTools,
         };
 
         const tracing = createChatTracing();
@@ -475,7 +509,7 @@ async function POSTImpl(request: Request) {
         });
 
         dataStream.merge(
-          result.toUIMessageStream({ sendReasoning: isReasoningModel })
+          result.toUIMessageStream({ sendReasoning: isReasoningModel }),
         );
 
         if (titlePromise) {
@@ -491,87 +525,117 @@ async function POSTImpl(request: Request) {
         }
       },
       generateId: generateUUID,
-      onFinish: async ({ messages: finishedMessages }) => {
-        if (isToolApprovalFlow) {
-          for (const finishedMsg of finishedMessages) {
-            const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
-            if (existingMsg) {
-              await updateMessage({
-                id: finishedMsg.id,
-                parts: finishedMsg.parts,
-                organizationId: workspaceContext.organizationId,
-              });
-            } else {
-              await saveMessages({
-                messages: [
-                  {
-                    id: finishedMsg.id,
-                    role: finishedMsg.role,
-                    parts: finishedMsg.parts,
-                    createdAt: new Date(),
-                    attachments: [],
-                    chatId: id,
-                  },
-                ],
-                organizationId: workspaceContext.organizationId,
-              });
-            }
-          }
-          if (
-            agentAccessAuthorized &&
-            !hasPendingToolApproval(
-              finishedMessages,
-              new Set(uiMessages.map((currentMessage) => currentMessage.id))
-            )
-          ) {
-            await recordUsage(
-              session.user.id,
-              "agent_run",
-              workspaceContext.organizationId
-            );
-          }
-        } else if (finishedMessages.length > 0) {
-          // الحفظ صار upsert على المعرّف، فنمرّر كل الرسائل: الجديدة تُدرج
-          // والمعدَّلة أو المُعاد توليدها يُحدَّث نصها بدل رفض العملية.
-          await saveMessages({
-            messages: finishedMessages.map((currentMessage) => ({
-              id: currentMessage.id,
-              role: currentMessage.role,
-              parts: currentMessage.parts,
-              createdAt: new Date(),
-              attachments: [],
-              chatId: id,
-            })),
+      /*
+       * The finish callback runs after the response has started streaming, and
+       * the request's async context is gone by then: the tenant handle captured
+       * at the top of the handler is published again here, or every write it
+       * performs would fall back to the shared connection and be refused by row
+       * level security. The inserted rows are the assistant message and the
+       * usage event, so without this the reply streams and then nothing is
+       * persisted.
+       */
+      /*
+       * The finish callback runs after the response has started streaming: the
+       * request's own transaction has already committed and its tenant setting is
+       * gone, so writes issued here were filtered out by row level security and
+       * the reply streamed but was never persisted. A fresh tenant transaction,
+       * opened for the workspace resolved at the top of this handler, puts the
+       * writes back inside their tenant.
+       */
+      onFinish: async ({ messages: finishedMessages }) =>
+        runInTenantTransaction(
+          {
             organizationId: workspaceContext.organizationId,
-          });
-          if (message?.role === "user") {
-            await recordUsage(
-              session.user.id,
-              "chat_message",
-              workspaceContext.organizationId
-            );
-            if (
-              agentAccessAuthorized &&
-              !hasPendingToolApproval(
-                finishedMessages,
-                new Set(uiMessages.map((currentMessage) => currentMessage.id))
-              )
-            ) {
-              await recordUsage(
-                session.user.id,
-                "agent_run",
-                workspaceContext.organizationId
-              );
+            userId: session.user.id ?? null,
+          },
+          async () => {
+            if (isToolApprovalFlow) {
+              for (const finishedMsg of finishedMessages) {
+                const existingMsg = uiMessages.find(
+                  (m) => m.id === finishedMsg.id,
+                );
+                if (existingMsg) {
+                  await updateMessage({
+                    id: finishedMsg.id,
+                    parts: finishedMsg.parts,
+                    organizationId: workspaceContext.organizationId,
+                  });
+                } else {
+                  await saveMessages({
+                    messages: [
+                      {
+                        id: finishedMsg.id,
+                        role: finishedMsg.role,
+                        parts: finishedMsg.parts,
+                        createdAt: new Date(),
+                        attachments: [],
+                        chatId: id,
+                      },
+                    ],
+                    organizationId: workspaceContext.organizationId,
+                  });
+                }
+              }
+              if (
+                agentAccessAuthorized &&
+                !hasPendingToolApproval(
+                  finishedMessages,
+                  new Set(
+                    uiMessages.map((currentMessage) => currentMessage.id),
+                  ),
+                )
+              ) {
+                await recordUsage(
+                  session.user.id,
+                  "agent_run",
+                  workspaceContext.organizationId,
+                );
+              }
+            } else if (finishedMessages.length > 0) {
+              // الحفظ صار upsert على المعرّف، فنمرّر كل الرسائل: الجديدة تُدرج
+              // والمعدَّلة أو المُعاد توليدها يُحدَّث نصها بدل رفض العملية.
+              await saveMessages({
+                messages: finishedMessages.map((currentMessage) => ({
+                  id: currentMessage.id,
+                  role: currentMessage.role,
+                  parts: currentMessage.parts,
+                  createdAt: new Date(),
+                  attachments: [],
+                  chatId: id,
+                })),
+                organizationId: workspaceContext.organizationId,
+              });
+              if (message?.role === "user") {
+                await recordUsage(
+                  session.user.id,
+                  "chat_message",
+                  workspaceContext.organizationId,
+                );
+                if (
+                  agentAccessAuthorized &&
+                  !hasPendingToolApproval(
+                    finishedMessages,
+                    new Set(
+                      uiMessages.map((currentMessage) => currentMessage.id),
+                    ),
+                  )
+                ) {
+                  await recordUsage(
+                    session.user.id,
+                    "agent_run",
+                    workspaceContext.organizationId,
+                  );
+                }
+              }
             }
-          }
-        }
-      },
+          },
+        ),
       onError: (error) => {
         logModelProviderFailure(error, selectedChatModel, "chat");
         if (
           error instanceof Error &&
           error.message?.includes(
-            "AI Gateway requires a valid credit card on file to service requests"
+            "AI Gateway requires a valid credit card on file to service requests",
           )
         ) {
           return "AI Gateway requires a valid credit card on file to service requests. Please visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card to add a card and unlock your free credits.";
@@ -581,7 +645,7 @@ async function POSTImpl(request: Request) {
           (error.name === "TimeoutError" || error.name === "AbortError")
         ) {
           return lang === "ar"
-            ? "المهمة خدت وقت أطول من الحد المسموح لرد واحد. الجزء اللي وصل محفوظ — اطلب \"كمّل\" وأنا أكمل من نفس النقطة."
+            ? 'المهمة خدت وقت أطول من الحد المسموح لرد واحد. الجزء اللي وصل محفوظ — اطلب "كمّل" وأنا أكمل من نفس النقطة.'
             : 'The task ran past the time allowed for a single reply. The part that arrived is kept — say "continue" and I will pick up from there.';
         }
         return describeModelProviderFailure(error, lang);
@@ -605,7 +669,7 @@ async function POSTImpl(request: Request) {
             });
             await streamContext.createNewResumableStream(
               streamId,
-              () => sseStream
+              () => sseStream,
             );
           }
         } catch (_) {
@@ -623,7 +687,7 @@ async function POSTImpl(request: Request) {
     if (
       error instanceof Error &&
       error.message?.includes(
-        "AI Gateway requires a valid credit card on file to service requests"
+        "AI Gateway requires a valid credit card on file to service requests",
       )
     ) {
       return new ChatbotError("bad_request:activate_gateway").toResponse();
@@ -642,7 +706,10 @@ async function DELETEImpl(request: Request) {
     return new ChatbotError("bad_request:api").toResponse();
   }
   if (!idSchema.safeParse(id).success) {
-    return new ChatbotError("bad_request:api", "Parameter id must be a valid chat id").toResponse();
+    return new ChatbotError(
+      "bad_request:api",
+      "Parameter id must be a valid chat id",
+    ).toResponse();
   }
 
   const workspaceContext = await getWorkspaceContext();

@@ -28,6 +28,7 @@ import { sendExistingAccountNotice, sendVerificationEmail } from "@/lib/email/se
 
 import { signIn } from "./auth";
 import { isDatabaseUnavailable } from "@/lib/db/diagnostics";
+import { award, getOrCreateReferralCode, resolveReferralCode } from "@/lib/growth/referrals";
 
 const authFormSchema = z.object({
   email: z.string().trim().email().max(64),
@@ -154,6 +155,15 @@ export const register = async (
     }
 
     if (createdUserId) {
+      // Launch testing program: first successful registrations claim a free
+      // slot. Best effort on purpose — a claim must never fail a sign-up, and a
+      // failed registration never reaches this point so it cannot burn a slot.
+      try {
+        const { claimLaunchSlot } = await import("@/lib/billing/launch-program");
+        await claimLaunchSlot(createdUserId);
+      } catch (error) {
+        console.error("launch slot claim skipped", (error as Error)?.message);
+      }
       if (verificationEnabled()) {
         try {
           const { token } = await issueVerificationToken(createdUserId);
@@ -170,8 +180,30 @@ export const register = async (
         if (refCode) {
           await recordReferralEvent({ code: refCode, event: "signup", userId: createdUserId });
         }
+        // Referral rewards: welcome points for the new account (released on
+        // verification) and the referrer's reward, also pending until then.
+        // Rewards never fail a sign-up.
+        await getOrCreateReferralCode(createdUserId);
+        await award({
+          userId: createdUserId,
+          kind: "welcome_registration",
+          points: 20,
+          idempotencyKey: `welcome:${createdUserId}`,
+        });
+        if (refCode) {
+          const referrerId = await resolveReferralCode(refCode);
+          if (referrerId && referrerId !== createdUserId) {
+            await award({
+              userId: referrerId,
+              kind: "referrer_verified_signup",
+              points: 50,
+              idempotencyKey: `referrer_signup:${createdUserId}`,
+              referredUserId: createdUserId,
+            });
+          }
+        }
       } catch (error) {
-        console.error("Failed to record referral signup", error);
+        console.error("Referral reward skipped", (error as Error)?.message);
       }
     } else if (verificationEnabled()) {
       // Tell the real owner their address was used, never the caller.

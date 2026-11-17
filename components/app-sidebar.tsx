@@ -96,6 +96,11 @@ export function AppSidebar({
       label: isArabic ? "العمل" : "Work",
       items: [
         {
+          href: "/workspace/live-browser",
+          icon: <Cable />,
+          label: isArabic ? "المتصفح المباشر" : "Live browser",
+        },
+        {
           href: "/workspace/agent",
           icon: <Bot />,
           label: isArabic ? "الوكيل التنفيذي" : "Operations agent",
@@ -138,7 +143,9 @@ export function AppSidebar({
         {
           href: "/dashboard/studio",
           icon: <FileText />,
-          label: isArabic ? "استوديو الوسائط · تجريبي" : "Media studio · Preview",
+          label: isArabic
+            ? "استوديو الوسائط · تجريبي"
+            : "Media studio · Preview",
         },
         {
           href: workAssistantHref,

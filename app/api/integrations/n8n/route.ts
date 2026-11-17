@@ -8,8 +8,9 @@ import {
   saveN8nCredentials,
 } from "@/lib/integrations/n8n/store";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 
-export async function GET() {
+async function GETImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -21,7 +22,7 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const context = await getWorkspaceContext();
   if (!context || context.user.type !== "regular") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
   });
 }
 
-export async function DELETE() {
+async function DELETEImpl() {
   const context = await getWorkspaceContext();
   if (!context || context.user.type !== "regular") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -80,3 +81,9 @@ export async function DELETE() {
   await deleteN8nCredentials(context.organizationId);
   return NextResponse.json({ connected: false });
 }
+
+// Tenant-scoped exports: every query runs inside the caller's tenant
+// transaction, so row level security is evaluated for this workspace.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

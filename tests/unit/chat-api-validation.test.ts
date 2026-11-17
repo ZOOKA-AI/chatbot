@@ -249,18 +249,37 @@ describe("chat POST body", () => {
   });
 
   test("the model identifier is bounded and shaped", () => {
-    for (const model of ["", "x".repeat(65), "../../etc/passwd", "model name"]) {
+    // A gateway id contains one provider separator. Every real id the app can
+    // route to looks like this, and the shape must not admit a path fragment:
+    // "../../etc/passwd" and "a/b/c" are still refused.
+    for (const model of [
+      "",
+      "x".repeat(65),
+      "../../etc/passwd",
+      "a/b/c",
+      "/leading",
+      "trailing/",
+      "model name",
+    ]) {
       assert.equal(
         postRequestBodySchema.safeParse({ ...base, selectedChatModel: model }).success,
         false,
         model
       );
     }
-    assert.equal(
-      postRequestBodySchema.safeParse({ ...base, selectedChatModel: "chat-model-reasoning" })
-        .success,
-      true
-    );
+    for (const model of [
+      "chat-model-reasoning",
+      "openai/gpt-4.1-mini",
+      "google/gemini-2.5-flash",
+      "groq/llama-3.3-70b-versatile",
+      "xai/grok-4-fast-reasoning",
+    ]) {
+      assert.equal(
+        postRequestBodySchema.safeParse({ ...base, selectedChatModel: model }).success,
+        true,
+        model
+      );
+    }
   });
 
   test("the whole conversation has a content budget, not just each field", () => {

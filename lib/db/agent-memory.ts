@@ -5,33 +5,10 @@ import { db } from "@/lib/db/queries";
 
 /**
  * Durable facts the agent learns about a workspace. Scoped by workspace so two
- * tenants can never read each other's notes, and created lazily so the feature
- * works without a manual migration step.
+ * tenants can never read each other's notes. The table comes from migration
+ * 0056: this module only reads and writes, it never creates schema, because the
+ * application role holds no CREATE privilege.
  */
-
-let schemaReady = false;
-
-async function ensureSchema(): Promise<void> {
-  if (schemaReady) {
-    return;
-  }
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS agent_memory (
-      id bigserial PRIMARY KEY,
-      user_id text NOT NULL,
-      organization_id text NOT NULL,
-      memory_key text NOT NULL,
-      memory_value text NOT NULL,
-      importance integer NOT NULL DEFAULT 7,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now(),
-      UNIQUE (user_id, organization_id, memory_key)
-    )`);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS agent_memory_org_idx
-      ON agent_memory (organization_id, importance DESC)`);
-  schemaReady = true;
-}
 
 export type AgentMemory = {
   key: string;
@@ -54,7 +31,6 @@ export async function saveAgentMemory({
   value,
   importance = 7,
 }: SaveMemoryArgs): Promise<AgentMemory> {
-  await ensureSchema();
   const rows = (await db.execute<{
     memory_key: string;
     memory_value: string;
@@ -89,7 +65,6 @@ export async function listAgentMemories({
   limit?: number;
 }): Promise<AgentMemory[]> {
   try {
-    await ensureSchema();
     const rows = (await db.execute<{
       memory_key: string;
       memory_value: string;
@@ -131,7 +106,6 @@ export async function searchAgentMemories({
     return listAgentMemories({ limit, organizationId });
   }
   try {
-    await ensureSchema();
     const rows = (await db.execute<{
       memory_key: string;
       memory_value: string;
