@@ -144,7 +144,9 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          // The approved identity is the dark neural canvas with breathing
+          // cyan/plum neon, so it is the default rather than an option.
+          defaultTheme="dark"
           disableTransitionOnChange
           enableSystem
         >
