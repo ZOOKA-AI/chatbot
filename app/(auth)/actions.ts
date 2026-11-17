@@ -23,6 +23,7 @@ import {
   planRegistration,
 } from "@/lib/auth/registration";
 import { issueVerificationToken } from "@/lib/auth/verification";
+import { passwordProblem } from "@/lib/auth/password-policy";
 import { ipThrottle, resetThrottle, signupThrottle } from "@/lib/auth/throttle";
 import { generateHashedPassword } from "@/lib/db/utils";
 import { sendExistingAccountNotice, sendVerificationEmail } from "@/lib/email/send";
@@ -105,7 +106,9 @@ export const register = async (
   const email = normalizeEmail(formData.get("email"));
   const password = String(formData.get("password") ?? "");
 
-  if (!email || password.length < 6) {
+  // Same answer for a weak password whether or not the address exists, so the
+  // policy check cannot be used to probe accounts.
+  if (!email || passwordProblem(password)) {
     return { status: "invalid_data" };
   }
 
@@ -288,7 +291,7 @@ export const resetPassword = async (
 ): Promise<ResetPasswordState> => {
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");
-  if (!isTokenShape(token) || password.length < 6) {
+  if (!isTokenShape(token) || passwordProblem(password)) {
     return { status: "invalid_data" };
   }
   const tokenHash = createHash("sha256").update(token).digest("hex");
