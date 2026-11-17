@@ -18,7 +18,7 @@ export function ResetPasswordClient({
   );
   return (
     <div className="flex min-h-dvh items-center justify-center px-4" dir={ar ? "rtl" : "ltr"}>
-      <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
         <h1 className="mb-6 font-semibold text-2xl">
           {ar ? "كلمة مرور جديدة" : "Choose a new password"}
         </h1>
@@ -28,7 +28,7 @@ export function ResetPasswordClient({
               {ar ? "تم تغيير كلمة المرور بنجاح." : "Your password has been updated."}
             </p>
             <Link
-              className="rounded-md bg-primary px-4 py-2 text-center font-medium text-primary-foreground text-sm"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2.5 text-center font-medium text-primary-foreground text-sm"
               href="/login"
             >
               {ar ? "تسجيل الدخول" : "Sign in"}
@@ -42,7 +42,7 @@ export function ResetPasswordClient({
           <form action={action} className="flex flex-col gap-3">
             <input name="token" type="hidden" value={token} />
             <input
-              className="rounded-md border bg-transparent px-3 py-2 text-sm"
+              className="min-h-11 rounded-md border bg-transparent px-3 py-2 text-base"
               minLength={6}
               name="password"
               placeholder={ar ? "كلمة المرور الجديدة (6 أحرف على الأقل)" : "New password (min 6 characters)"}
@@ -62,13 +62,13 @@ export function ResetPasswordClient({
               </p>
             ) : null}
             <button
-              className="rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm disabled:opacity-60"
+              className="min-h-11 rounded-md bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm disabled:opacity-60"
               disabled={pending}
               type="submit"
             >
               {ar ? "حفظ كلمة المرور" : "Save password"}
             </button>
-            <Link className="text-center text-muted-foreground text-xs underline" href="/forgot-password">
+            <Link className="inline-flex min-h-11 items-center justify-center text-center text-muted-foreground text-sm underline" href="/forgot-password">
               {ar ? "طلب رابط جديد" : "Request a new link"}
             </Link>
           </form>

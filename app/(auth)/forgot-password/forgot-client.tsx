@@ -12,7 +12,7 @@ export function ForgotPasswordClient({ lang }: { lang: "ar" | "en" }) {
   );
   return (
     <div className="flex min-h-dvh items-center justify-center px-4" dir={ar ? "rtl" : "ltr"}>
-      <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
         <h1 className="mb-2 font-semibold text-2xl">
           {ar ? "استعادة كلمة المرور" : "Forgot your password?"}
         </h1>
@@ -30,7 +30,7 @@ export function ForgotPasswordClient({ lang }: { lang: "ar" | "en" }) {
         ) : (
           <form action={action} className="flex flex-col gap-3">
             <input
-              className="rounded-md border bg-transparent px-3 py-2 text-sm"
+              className="min-h-11 rounded-md border bg-transparent px-3 py-2 text-base"
               name="email"
               placeholder="you@example.com"
               required
@@ -42,7 +42,7 @@ export function ForgotPasswordClient({ lang }: { lang: "ar" | "en" }) {
               </p>
             ) : null}
             <button
-              className="rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm disabled:opacity-60"
+              className="min-h-11 rounded-md bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm disabled:opacity-60"
               disabled={pending}
               type="submit"
             >
