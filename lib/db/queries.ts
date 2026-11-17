@@ -38,6 +38,7 @@ import {
   type DBMessage,
   document,
   googleDriveConnection,
+  oauthConnection,
   passwordResetToken,
   guestUsage,
   invitation,
@@ -1767,6 +1768,121 @@ export async function deleteGoogleDriveConnectionIfUnchanged({
     .returning({ organizationId: googleDriveConnection.organizationId });
   return deleted.length > 0;
 }
+
+/*
+ * Growth traffic connector (GA4 + Search Console).
+ *
+ * Uses the multi-provider OAuthConnection table so a workspace can hold the
+ * Google Drive grant and the growth grant side by side: the primary key is
+ * (organizationId, provider), and Google Drive keeps its own legacy table.
+ * Only ciphertext is ever written by callers; nothing here knows how to decrypt.
+ */
+export async function getGrowthOAuthConnection(organizationId: string) {
+  const [row] = await db
+    .select({
+      encryptedTokens: oauthConnection.encryptedTokens,
+      scopes: oauthConnection.scopes,
+      accountName: oauthConnection.accountName,
+      tokenExpiresAt: oauthConnection.tokenExpiresAt,
+      updatedAt: oauthConnection.updatedAt,
+    })
+    .from(oauthConnection)
+    .where(
+      and(
+        eq(oauthConnection.organizationId, organizationId),
+        eq(oauthConnection.provider, "google_growth")
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+export function saveGrowthOAuthConnection({
+  organizationId,
+  encryptedTokens,
+  scopes,
+  accountName,
+  tokenExpiresAt,
+}: {
+  organizationId: string;
+  encryptedTokens: string;
+  scopes: string;
+  accountName: string | null;
+  tokenExpiresAt: Date;
+}) {
+  return db
+    .insert(oauthConnection)
+    .values({
+      organizationId,
+      provider: "google_growth",
+      encryptedTokens,
+      scopes,
+      accountName,
+      tokenExpiresAt,
+    })
+    .onConflictDoUpdate({
+      target: [oauthConnection.organizationId, oauthConnection.provider],
+      set: {
+        encryptedTokens,
+        scopes,
+        accountName,
+        tokenExpiresAt,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/**
+ * Compare-and-set so two concurrent refreshes cannot leave the row holding a
+ * token that was already replaced. Returns false when the caller lost the race.
+ */
+export async function updateGrowthOAuthConnectionIfUnchanged({
+  organizationId,
+  previousEncryptedTokens,
+  encryptedTokens,
+  tokenExpiresAt,
+}: {
+  organizationId: string;
+  previousEncryptedTokens: string;
+  encryptedTokens: string;
+  tokenExpiresAt: Date;
+}) {
+  const updated = await db
+    .update(oauthConnection)
+    .set({ encryptedTokens, tokenExpiresAt, updatedAt: new Date() })
+    .where(
+      and(
+        eq(oauthConnection.organizationId, organizationId),
+        eq(oauthConnection.provider, "google_growth"),
+        eq(oauthConnection.encryptedTokens, previousEncryptedTokens)
+      )
+    )
+    .returning({ organizationId: oauthConnection.organizationId });
+  return updated.length > 0;
+}
+
+export async function deleteGrowthOAuthConnection({
+  organizationId,
+  previousEncryptedTokens,
+}: {
+  organizationId: string;
+  /** When given, only delete if the stored ciphertext is still the one we read. */
+  previousEncryptedTokens?: string;
+}) {
+  const conditions = [
+    eq(oauthConnection.organizationId, organizationId),
+    eq(oauthConnection.provider, "google_growth"),
+  ];
+  if (previousEncryptedTokens) {
+    conditions.push(eq(oauthConnection.encryptedTokens, previousEncryptedTokens));
+  }
+  const deleted = await db
+    .delete(oauthConnection)
+    .where(and(...conditions))
+    .returning({ organizationId: oauthConnection.organizationId });
+  return deleted.length > 0;
+}
+
 
 
 export async function createPasswordResetToken(userId: string, tokenHash: string) {

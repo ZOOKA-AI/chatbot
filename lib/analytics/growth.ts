@@ -37,6 +37,12 @@ export type TrafficSnapshot = {
   configured: boolean;
   reason?: string;
   generatedAt?: string;
+  /**
+   * Which credential produced the numbers: a workspace OAuth grant (owner
+   * connected their own Google account) or the deployment service account.
+   * The UI states this so nobody assumes per-workspace data when it is shared.
+   */
+  source?: "workspace_oauth" | "service_account";
   ga4?: {
     sessions: number;
     users: number;
@@ -188,22 +194,76 @@ function isoDate(offsetDays: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export async function getTrafficSnapshot(): Promise<TrafficSnapshot> {
+type ResolvedToken =
+  | { token: string; source: "workspace_oauth" | "service_account" }
+  | { reason: string };
+
+/**
+ * Picks the credential for a snapshot.
+ *
+ * A workspace that connected its own Google account wins, because that grant is
+ * scoped to the properties the owner actually holds. The deployment service
+ * account stays as the fallback so a single-tenant deployment keeps working
+ * without anybody clicking through a consent screen.
+ *
+ * The OAuth module is imported lazily: it is server-only, and this file is also
+ * unit tested without a Next.js runtime.
+ */
+async function resolveToken(organizationId?: string): Promise<ResolvedToken> {
+  if (organizationId) {
+    try {
+      const { getGrowthAccessToken } = await import(
+        "@/lib/integrations/google-growth/server"
+      );
+      const token = await getGrowthAccessToken(organizationId);
+      if (token) {
+        return { token, source: "workspace_oauth" };
+      }
+    } catch (error) {
+      // A broken connector must not take the panel down; fall through to the
+      // service account and let the reason show up if that is missing too.
+      console.error("Growth OAuth token unavailable", {
+        reason: error instanceof Error ? error.name : "unknown",
+      });
+    }
+  }
+
   const sa = readServiceAccount();
+  if (!sa) {
+    return {
+      reason: organizationId
+        ? "no_connection_and_no_service_account"
+        : "missing_service_account",
+    };
+  }
+
+  try {
+    return { token: await getAccessToken(sa), source: "service_account" };
+  } catch (error) {
+    return {
+      reason:
+        error instanceof Error ? error.message : "service_account_token_failed",
+    };
+  }
+}
+
+async function buildSnapshot(organizationId?: string): Promise<TrafficSnapshot> {
   const propertyId = process.env.GA4_PROPERTY_ID;
   const site = process.env.GSC_SITE ?? "sc-domain:zooka-ai.com";
 
-  if (!sa || !propertyId) {
-    return {
-      configured: false,
-      reason: !sa ? "missing_service_account" : "missing_property_id",
-    };
+  if (!propertyId) {
+    return { configured: false, reason: "missing_property_id" };
+  }
+
+  const resolved = await resolveToken(organizationId);
+  if ("reason" in resolved) {
+    return { configured: false, reason: resolved.reason };
   }
 
   const generatedAt = new Date().toISOString();
 
   try {
-    const token = await getAccessToken(sa);
+    const token = resolved.token;
 
     const [totals, channels, pages] = await Promise.all([
       ga4Report(token, propertyId, {
@@ -236,6 +296,7 @@ export async function getTrafficSnapshot(): Promise<TrafficSnapshot> {
     const snapshot: TrafficSnapshot = {
       configured: true,
       generatedAt,
+      source: resolved.source,
       ga4: {
         sessions: numberOf(0),
         users: numberOf(1),
@@ -298,7 +359,24 @@ export async function getTrafficSnapshot(): Promise<TrafficSnapshot> {
     return {
       configured: true,
       generatedAt,
+      source: resolved.source,
       reason: error instanceof Error ? error.message : "traffic_snapshot_failed",
     };
   }
+}
+
+/** Deployment-level snapshot (service account only). Unchanged public shape. */
+export function getTrafficSnapshot(): Promise<TrafficSnapshot> {
+  return buildSnapshot();
+}
+
+/**
+ * Snapshot for one workspace: a connected Google grant is used when present,
+ * otherwise the service account. Numbers are still real or absent, never
+ * estimated.
+ */
+export function getTrafficSnapshotForOrganization(
+  organizationId: string
+): Promise<TrafficSnapshot> {
+  return buildSnapshot(organizationId);
 }
