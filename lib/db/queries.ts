@@ -735,6 +735,23 @@ export async function getUser(email: string): Promise<User[]> {
   }
 }
 
+/**
+ * The stored password hash for one account, or undefined when the row is gone.
+ * Read on every session refresh to end sessions after a password change, so it
+ * selects one column by primary key. Pre-tenant like getUser: it runs while the
+ * session itself is being validated.
+ */
+export async function getUserCredentialById(
+  id: string
+): Promise<{ password: string | null } | undefined> {
+  const [row] = await adminDb()
+    .select({ password: user.password })
+    .from(user)
+    .where(eq(user.id, id))
+    .limit(1);
+  return row;
+}
+
 export async function createUser(email: string, password: string) {
   const hashedPassword = generateHashedPassword(password);
 
