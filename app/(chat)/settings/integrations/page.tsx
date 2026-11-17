@@ -20,12 +20,13 @@ import {
   PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withTenantPage } from "@/lib/db/request-tenant";
 
 export const metadata: Metadata = {
   title: "Integrations",
 };
 
-export default async function IntegrationsPage({
+async function IntegrationsPage({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -587,3 +588,7 @@ export default async function IntegrationsPage({
     </main>
   );
 }
+
+// The page reads this workspace's connections, so it renders inside the
+// caller's tenant transaction.
+export default withTenantPage(IntegrationsPage);

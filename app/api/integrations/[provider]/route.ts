@@ -14,6 +14,7 @@ import {
 } from "@/lib/integrations/oauth/store";
 import { isTokenProviderId } from "@/lib/integrations/token-providers";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 
 async function tokenProviderState(workspaceId: string, provider: string) {
   const connections = await listWorkspaceIntegrations(workspaceId);
@@ -26,7 +27,7 @@ async function tokenProviderState(workspaceId: string, provider: string) {
   };
 }
 
-export async function GET(
+async function GETImpl(
   _request: Request,
   { params }: { params: Promise<{ provider: string }> }
 ) {
@@ -71,7 +72,7 @@ export async function GET(
   });
 }
 
-export async function DELETE(
+async function DELETEImpl(
   _request: Request,
   { params }: { params: Promise<{ provider: string }> }
 ) {
@@ -103,7 +104,7 @@ export async function DELETE(
   return NextResponse.json({ provider, connected: false });
 }
 
-export async function POST(
+async function POSTImpl(
   _request: Request,
   { params }: { params: Promise<{ provider: string }> }
 ) {
@@ -124,3 +125,9 @@ export async function POST(
   }
   return NextResponse.json({ provider, ready: true });
 }
+
+// Tenant-scoped exports: every query runs inside the caller's tenant
+// transaction, so row level security is evaluated for this workspace.
+export const GET = withRequestTenantHandler(GETImpl);
+export const POST = withRequestTenantHandler(POSTImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

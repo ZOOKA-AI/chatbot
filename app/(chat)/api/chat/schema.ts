@@ -62,7 +62,13 @@ export const postRequestBodySchema = z.object({
     .string()
     .min(1)
     .max(64)
-    .regex(/^[a-zA-Z0-9._:/-]+$/, "unknown model identifier"),
+    // Gateway-prefixed ids carry exactly one slash (openai/gpt-4.1-mini,
+    // google/gemini-2.5-flash, groq/...). One separator, never leading,
+    // trailing or repeated, so "../../etc/passwd" stays rejected.
+    .regex(
+      /^[a-zA-Z0-9._:-]+(?:\/[a-zA-Z0-9._:-]+)?$/,
+      "unknown model identifier"
+    ),
   selectedVisibilityType: z.enum(["public", "private"]),
   agentMode: z.boolean().default(false),
 }).superRefine((body, ctx) => {

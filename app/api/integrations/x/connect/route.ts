@@ -6,11 +6,12 @@ import {
   oauthStateCookieName,
 } from "@/lib/integrations/oauth/state";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 
 const CALLBACK_URI = "https://zooka-ai.com/api/integrations/x/callback";
 const SCOPES = ["tweet.read", "tweet.write", "users.read", "offline.access"];
 
-export async function GET(request: Request) {
+async function GETImpl(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -63,3 +64,7 @@ export async function GET(request: Request) {
   });
   return response;
 }
+
+// Tenant-scoped exports: every query runs inside the caller's tenant
+// transaction, so row level security is evaluated for this workspace.
+export const GET = withRequestTenantHandler(GETImpl);

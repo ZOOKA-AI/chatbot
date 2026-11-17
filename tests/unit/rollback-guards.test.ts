@@ -27,7 +27,9 @@ function downFiles(): DownFile[] {
 }
 
 const GUARD_RE = /DO \$\$[\s\S]*?END \$\$;/g;
-const TABLE_RE = /to_regclass\('public\."([A-Za-z]+)"'\)/;
+// Table names are not all CamelCase: the runtime modules use snake_case
+// (agent_memory, publish_post), so the guard parser has to accept underscores.
+const TABLE_RE = /to_regclass\('public\."([A-Za-z_][A-Za-z0-9_]*)"'\)/;
 
 function guardsOf(sql: string): Array<{ table: string; block: string }> {
   return (sql.match(GUARD_RE) ?? [])

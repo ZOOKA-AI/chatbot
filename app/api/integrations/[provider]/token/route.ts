@@ -18,6 +18,7 @@ import {
   TOKEN_PROVIDERS,
 } from "@/lib/integrations/token-providers";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 
 /**
  * BYOK connect: the workspace admin pastes a long-lived access token instead of
@@ -28,7 +29,7 @@ import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
  * ciphertext, and read back once to prove the round trip before we report
  * success.
  */
-export async function POST(
+async function POSTImpl(
   request: Request,
   { params }: { params: Promise<{ provider: string }> }
 ) {
@@ -201,3 +202,7 @@ export async function POST(
     encryptedRoundTrip: readBack === token,
   });
 }
+
+// Tenant-scoped exports: every query runs inside the caller's tenant
+// transaction, so row level security is evaluated for this workspace.
+export const POST = withRequestTenantHandler(POSTImpl);

@@ -20,6 +20,7 @@ import {
   isAgentAccessAuthorized,
 } from "@/lib/ai/agent-access";
 import { agentModeErrorResponse } from "@/lib/ai/agent-mode-errors";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { resolvePrivateImageMessages } from "@/lib/ai/private-image-messages";
 import {
@@ -201,15 +202,26 @@ async function POSTImpl(request: Request) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
-    if (effectivePlan === "free" && paidModelIds.has(selectedChatModel)) {
+    // Agent access comes from one place: a paid subscription or a live launch
+    // testing claim (entitlements). The limit is still the plan's, so usage is
+    // metered and recorded exactly as for a paying workspace, and nothing is
+    // deducted because no ledger runs here.
+    const entitlements = await getWorkspaceEntitlements(
+      workspaceContext.organizationId
+    );
+    const agentRunsLimit = entitlements.canUseAgentMode
+      ? workspacePlans[entitlements.plan].monthlyAgentRuns
+      : 0;
+
+    if (!entitlements.canUseAgentMode && paidModelIds.has(selectedChatModel)) {
       return agentModeErrorResponse("paid_model_required", lang);
     }
 
-    if (agentMode && plan.monthlyAgentRuns === 0) {
+    if (agentMode && agentRunsLimit === 0) {
       return agentModeErrorResponse("plan_required", lang);
     }
 
-    if (agentMode && billing.usage.agentRuns >= plan.monthlyAgentRuns) {
+    if (agentMode && billing.usage.agentRuns >= agentRunsLimit) {
       return agentModeErrorResponse("quota", lang);
     }
 

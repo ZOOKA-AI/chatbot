@@ -22,6 +22,10 @@ const DB_MODULES = [
   "@/lib/db/projects",
   "@/lib/db/token-wallets",
   "@/lib/db/wallet-charge",
+  // Entitlements read Subscription and UsageEvent through the workspace
+  // resolver, so a route that only imports this module still touches the
+  // database and must run inside the caller's tenant transaction.
+  "@/lib/saas/entitlements",
 ];
 
 const SCOPE_MARKERS = [

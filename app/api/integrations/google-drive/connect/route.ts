@@ -17,8 +17,9 @@ import {
 } from "@/lib/integrations/google-drive/token-response";
 import { assertCanConnect } from "@/lib/billing/assert-entitlement";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 
-export async function GET(request: Request) {
+async function GETImpl(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -87,3 +88,7 @@ export async function GET(request: Request) {
   response.cookies.set(GOOGLE_DRIVE_VERIFIER_COOKIE, verifier, cookieOptions);
   return response;
 }
+
+// Tenant-scoped exports: every query runs inside the caller's tenant
+// transaction, so row level security is evaluated for this workspace.
+export const GET = withRequestTenantHandler(GETImpl);
