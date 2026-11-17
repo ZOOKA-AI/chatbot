@@ -6,6 +6,7 @@ import {
   staticRemoteEndpoint,
 } from "@/lib/browser/remote";
 import { assessUrl } from "@/lib/browser/url-policy";
+import { chromium as playwrightChromium } from "playwright-core";
 
 /**
  * The real browser.
@@ -82,30 +83,17 @@ type SessionHandle = {
   crashed: string | null;
 };
 
-async function loadChromium(): Promise<{
-  launch: (options?: unknown) => Promise<AnyBrowser>;
-  connectOverCDP: (endpoint: string, options?: unknown) => Promise<AnyBrowser>;
-}> {
-  // playwright-core is the declared dependency, and the only one a production bundle ships:
-  // `playwright` and `@playwright/test` are dev-only, so listing them first made every deployed
-  // function throw browser_runtime_unavailable even with a remote engine configured.
-  for (const moduleName of ["playwright-core", "playwright", "@playwright/test"]) {
-    try {
-      const loaded = (await import(/* webpackIgnore: true */ moduleName)) as {
-        chromium?: {
-          launch: (options?: unknown) => Promise<AnyBrowser>;
-          connectOverCDP: (
-            endpoint: string,
-            options?: unknown,
-          ) => Promise<AnyBrowser>;
-        };
-      };
-      if (loaded.chromium) return loaded.chromium;
-    } catch {
-      // try the next candidate
-    }
-  }
-  throw new Error("browser_runtime_unavailable");
+/**
+ * The Chromium driver.
+ *
+ * This is a static import on purpose. The previous version resolved the module by name at request
+ * time, which cannot be traced by the bundler and fails inside a deployed function with
+ * browser_runtime_unavailable no matter what is configured - a failure that looks exactly like a
+ * missing token. playwright-core is a declared runtime dependency, so importing it directly is both
+ * simpler and honest: if it is missing, the build says so.
+ */
+async function loadChromium() {
+  return playwrightChromium;
 }
 
 class BrowserRuntime {
