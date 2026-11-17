@@ -243,17 +243,18 @@ async function POSTImpl(request: Request) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
+    // The agent allowance above already reflects the workspace's entitlement: a
+    // paid plan or a live launch testing claim. checkQuota() instead reads the
+    // billing subscription, which reads as "free" for an entitled tester, so its
+    // agent_run limit is 0 and every agent run was refused as over quota. The
+    // allowance and the running total are the same numbers the UI shows.
     let agentQuotaAllowed = false;
     if (agentMode) {
-      const agentQuota = await checkQuota(
-        session.user.id,
-        "agent_run",
-        workspaceContext.organizationId,
-      );
-      if (!agentQuota.allowed) {
+      agentQuotaAllowed =
+        agentRunsLimit > 0 && billing.usage.agentRuns < agentRunsLimit;
+      if (!agentQuotaAllowed) {
         return agentModeErrorResponse("quota", lang);
       }
-      agentQuotaAllowed = true;
     }
 
     const agentAccessAuthorized = isAgentAccessAuthorized({
