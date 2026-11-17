@@ -18,14 +18,15 @@ export async function refreshXTokenBundle(
   }
   try {
     const body = new URLSearchParams({
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
       grant_type: "refresh_token",
       refresh_token: tokens.refreshToken,
     });
     const response = await fetcher("https://api.x.com/2/oauth2/token", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
       body,
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
