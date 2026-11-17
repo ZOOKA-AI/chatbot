@@ -1,24 +1,29 @@
 import "server-only";
 
+import { resolveEmailBase } from "./base";
+
 const RELAY_URL =
   "https://solas-89d18e3d.base44.app/functions/zookaMail";
 const RELAY_KEY = process.env.ZOOKA_MAIL_KEY ?? "zk-mail-2026-Qp7xV3";
-// Absolute links in mail follow the deployment they were sent from, so an
-// isolated environment can be acceptance-tested without its links landing on
-// the public domain. Production keeps the canonical host as the fallback.
-const BASE =
-  process.env.NEXT_PUBLIC_APP_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://zooka-ai.com");
+// The canonical origin unless an isolated run explicitly overrides it; see
+// resolveEmailBase for why a deployment host must never leak into a mail.
+const BASE = resolveEmailBase();
 
-function shell(title: string, body: string, lang: "ar" | "en") {
+export function renderShell(
+  title: string,
+  body: string,
+  lang: "ar" | "en",
+  overrideBase?: string
+) {
+  const base = overrideBase ?? BASE;
   const dir = lang === "ar" ? "rtl" : "ltr";
   return `<!doctype html><html dir="${dir}"><body style="margin:0;background:#0b0f19;padding:32px 12px;font-family:Segoe UI,Tahoma,Arial,sans-serif;color:#e5e7eb">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
 <table role="presentation" width="560" style="max-width:560px;background:#111827;border:1px solid #1f2937;border-radius:16px;padding:32px">
-<tr><td style="text-align:center;padding-bottom:20px"><img src="${BASE}/images/zooka-logo-120.png" width="56" height="56" alt="Zooka AI" style="border-radius:12px"><div style="font-size:20px;font-weight:700;margin-top:10px;color:#fff">Zooka AI</div></td></tr>
+<tr><td style="text-align:center;padding-bottom:20px"><table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto"><tr><td width="60" height="60" align="center" valign="middle" style="width:60px;height:60px;background:#16213a;border:1px solid #2f4368;border-radius:16px"><img src="${base}/images/zooka-email-logo.png" width="60" height="60" alt="Zooka AI" style="display:block;width:60px;height:60px;border:0;border-radius:16px"></td></tr></table><div style="font-size:20px;font-weight:700;margin-top:10px;color:#fff;letter-spacing:.2px">Zooka AI</div></td></tr>
 <tr><td style="font-size:18px;font-weight:600;color:#fff;padding-bottom:12px">${title}</td></tr>
 <tr><td style="font-size:15px;line-height:1.7;color:#d1d5db">${body}</td></tr>
-<tr><td style="padding-top:28px;font-size:12px;color:#6b7280;border-top:1px solid #1f2937;margin-top:24px">Zooka AI · <a href="${BASE}/privacy" style="color:#9ca3af">${lang === "ar" ? "سياسة الخصوصية" : "Privacy"}</a> · <a href="${BASE}/contact" style="color:#9ca3af">${lang === "ar" ? "تواصل معنا" : "Contact"}</a></td></tr>
+<tr><td style="padding-top:28px;font-size:12px;color:#6b7280;border-top:1px solid #1f2937;margin-top:24px">Zooka AI · <a href="${base}/privacy" style="color:#9ca3af">${lang === "ar" ? "سياسة الخصوصية" : "Privacy"}</a> · <a href="${base}/contact" style="color:#9ca3af">${lang === "ar" ? "تواصل معنا" : "Contact"}</a></td></tr>
 </table></td></tr></table></body></html>`;
 }
 
@@ -47,7 +52,7 @@ export function sendWelcomeEmail(to: string, lang: "ar" | "en" = "ar") {
   const body = ar
     ? `<p>تم إنشاء حسابك بنجاح. من لوحة التحكم تقدر تبدأ محادثة، تفعّل وضع الوكيل، وتربط تكاملاتك (Google Drive، Gmail، n8n وغيرها) من صفحة الإعدادات.</p>${button(`${BASE}/`, "ابدأ الآن")}<p style="font-size:13px;color:#9ca3af">لو ما كنتش أنت صاحب هذا التسجيل تجاهل هذه الرسالة.</p>`
     : `<p>Your account is ready. Start a chat, switch on agent mode, and connect your integrations (Google Drive, Gmail, n8n and more) from Settings.</p>${button(`${BASE}/`, "Open Zooka AI")}<p style="font-size:13px;color:#9ca3af">If you did not sign up, you can ignore this email.</p>`;
-  return sendMail(to, title, shell(title, body, lang));
+  return sendMail(to, title, renderShell(title, body, lang, BASE));
 }
 
 export function sendPasswordResetEmail(
@@ -61,7 +66,7 @@ export function sendPasswordResetEmail(
   const body = ar
     ? `<p>وصلنا طلب لإعادة تعيين كلمة مرور حسابك. الرابط صالح لمدة 30 دقيقة ويُستخدم مرة واحدة.</p>${button(link, "تعيين كلمة مرور جديدة")}<p style="font-size:13px;color:#9ca3af">لو ما طلبتش ذلك تجاهل الرسالة؛ كلمة مرورك الحالية لم تتغير.</p>`
     : `<p>We received a request to reset your password. The link is valid for 30 minutes and can be used once.</p>${button(link, "Set a new password")}<p style="font-size:13px;color:#9ca3af">If you did not request this, ignore this email; your password is unchanged.</p>`;
-  return sendMail(to, title, shell(title, body, lang));
+  return sendMail(to, title, renderShell(title, body, lang, BASE));
 }
 
 /**
@@ -79,7 +84,7 @@ export function sendVerificationEmail(
   const body = ar
     ? `<p>لتأكيد بريدك، افتح الرابط التالي. الرابط صالح 24 ساعة ويُستخدم مرة واحدة فقط.</p>${button(link, "تأكيد البريد")}<p style="font-size:13px;color:#9ca3af">لو ما أنشأتش حسابًا، تجاهل هذه الرسالة ولن يُفعَّل شيء.</p>`
     : `<p>Open the link below to confirm your address. It is valid for 24 hours and can be used once.</p>${button(link, "Confirm email")}<p style="font-size:13px;color:#9ca3af">If you did not create an account, ignore this email and nothing will happen.</p>`;
-  return sendMail(to, title, shell(title, body, lang));
+  return sendMail(to, title, renderShell(title, body, lang, BASE));
 }
 
 /**
@@ -99,5 +104,5 @@ export function sendExistingAccountNotice(to: string, lang: "ar" | "en" = "ar") 
         `${BASE}/forgot-password`,
         "Forgot password"
       )}<p style="font-size:13px;color:#9ca3af">If this was not you, no action is needed.</p>`;
-  return sendMail(to, title, shell(title, body, lang));
+  return sendMail(to, title, renderShell(title, body, lang, BASE));
 }

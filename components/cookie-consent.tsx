@@ -64,14 +64,14 @@ gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: true });`}
           </p>
           <div className="flex shrink-0 gap-2">
             <button
-              className="rounded-md border px-3 py-2 text-sm"
+              className="min-h-11 rounded-md border px-4 py-2.5 text-sm"
               onClick={() => saveConsent("rejected")}
               type="button"
             >
               {lang === "ar" ? "الضروري فقط" : "Necessary only"}
             </button>
             <button
-              className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+              className="min-h-11 rounded-md bg-primary px-4 py-2.5 text-sm text-primary-foreground"
               onClick={() => saveConsent("accepted")}
               type="button"
             >
