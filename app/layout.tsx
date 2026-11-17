@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cairo, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { GlobalSiteComponents } from "@/components/global-site-components";
+import { PwaRegister } from "@/components/pwa-register";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
@@ -149,6 +150,7 @@ export default function RootLayout({
         >
           <Toaster position="top-center" />
           <SessionProvider>{children}</SessionProvider>
+          <PwaRegister />
           <GlobalSiteComponents year={SITE_YEAR} />
         </ThemeProvider>
       </body>
