@@ -36,7 +36,7 @@ export function AuthForm({
         <Input
           autoComplete="email"
           autoFocus
-          className="h-12 bg-muted text-base md:h-10 md:text-sm"
+          className="h-12 bg-muted text-base md:h-11 md:text-sm"
           defaultValue={defaultEmail}
           dir="ltr"
           id="email"
@@ -57,7 +57,7 @@ export function AuthForm({
         </Label>
 
         <Input
-          className="h-12 bg-muted text-base md:h-10 md:text-sm"
+          className="h-12 bg-muted text-base md:h-11 md:text-sm"
           autoComplete={passwordAutoComplete}
           dir="ltr"
           id="password"
