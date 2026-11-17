@@ -207,7 +207,11 @@ class BrowserRuntime {
       this.sessions.set(sessionId, handle);
       return { ok: true };
     } catch (error) {
-      return { ok: false, code: "launch_failed", message: describe(error) };
+      // The reason matters to whoever has to fix the engine: a refused token and a refused
+      // connection look identical if only the code survives.
+      const message = describe(error);
+      console.error("[browser] open failed:", message);
+      return { ok: false, code: "launch_failed", message };
     }
   }
 

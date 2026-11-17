@@ -251,7 +251,9 @@ export async function controlSession(input: {
     if (!("ok" in opened) || opened.ok !== true) {
       await update(input.caller.organizationId, input.sessionId, {
         status: "failed",
-        lastError: "code" in opened ? opened.code : "launch_failed",
+        // Keep the engine's own words next to the code so the panel and the operator see a reason
+        // rather than a bare "unavailable".
+        lastError: "code" in opened ? `${opened.code}: ${opened.message ?? ""}`.trim() : "launch_failed",
       });
       await appendEvent({
         organizationId: input.caller.organizationId,
