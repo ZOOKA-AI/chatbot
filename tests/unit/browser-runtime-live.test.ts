@@ -11,12 +11,25 @@ import { browserRuntime } from "@/lib/browser/runtime";
  * suite skips instead of pretending to have verified anything.
  */
 const hasChromium = await (async () => {
+  // A remote engine counts as a browser: the runtime uses it before any local one.
+  if (
+    process.env.BROWSERLESS_TOKEN?.trim() ||
+    process.env.BROWSER_CDP_URL?.trim() ||
+    (process.env.BROWSERBASE_API_KEY?.trim() && process.env.BROWSERBASE_PROJECT_ID?.trim())
+  ) {
+    return true;
+  }
+  // The Playwright package being importable is not enough: CI installs the
+  // package without downloading a browser, and the suite then failed instead of
+  // skipping. Require the executable itself.
+  const { existsSync } = await import("node:fs");
   for (const candidate of ["playwright", "@playwright/test"]) {
     try {
       const loaded = (await import(/* @vite-ignore */ candidate)) as {
-        chromium?: { launch: unknown };
+        chromium?: { executablePath?: () => string };
       };
-      if (loaded.chromium) return true;
+      const path = loaded.chromium?.executablePath?.();
+      if (path && existsSync(path)) return true;
     } catch {
       // try the next candidate
     }
