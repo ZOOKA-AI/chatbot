@@ -6,6 +6,7 @@ import {
   encryptGoogleDriveTokens,
 } from "@/lib/integrations/google-drive/crypto";
 import { db } from "@/lib/db/queries";
+import { normalizeScopes } from "@/lib/integrations/scopes";
 
 /**
  * Shared integration layer for every provider (Gmail, Drive, Meta, TikTok,
@@ -89,7 +90,7 @@ export async function listProviderCatalog(): Promise<IntegrationProvider[]> {
     description: (row.description as string) ?? null,
     descriptionAr: (row.description_ar as string) ?? null,
     authType: row.auth_type as string,
-    scopes: (row.scopes as string[]) ?? [],
+    scopes: normalizeScopes(row.scopes),
     status: row.status as ProviderStatus,
     isManaged: Boolean(row.is_managed),
     capabilities: (row.capabilities as string[]) ?? [],
@@ -112,7 +113,7 @@ export async function listWorkspaceIntegrations(
     providerId: row.provider as string,
     displayName: (row.display_name as string) ?? null,
     accountEmail: (row.account_email as string) ?? null,
-    scopes: (row.scopes as string[]) ?? [],
+    scopes: normalizeScopes(row.scopes),
     status: row.status as WorkspaceIntegration["status"],
     expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
     lastUsedAt: row.last_used_at ? new Date(row.last_used_at as string) : null,
@@ -124,7 +125,7 @@ export async function saveIntegrationConnection(input: {
   workspaceId: string;
   providerId: string;
   tokens: IntegrationTokens;
-  scopes?: string[];
+  scopes?: string[] | string | null;
   accountEmail?: string | null;
   displayName?: string | null;
   connectedBy?: string | null;
@@ -141,7 +142,7 @@ export async function saveIntegrationConnection(input: {
     values
       (${input.workspaceId}, ${input.providerId}, ${input.providerId},
        ${input.displayName ?? null}, ${input.accountEmail ?? null},
-       ${JSON.stringify(input.scopes ?? [])}::jsonb, ${encrypted},
+       ${JSON.stringify(normalizeScopes(input.scopes))}::jsonb, ${encrypted},
        ${expiresAt}, 'connected', ${input.connectedBy ?? null}, null)
     on conflict (workspace_id, provider) do update set
       encrypted_tokens = excluded.encrypted_tokens,

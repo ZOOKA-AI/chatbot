@@ -4,6 +4,7 @@ import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
 import { getConnectorSpec } from "@/lib/integrations/connectors/registry";
 import { isProbeable } from "@/lib/integrations/connectors/probeable";
 import { TOKEN_PROVIDERS, isTokenProviderId } from "@/lib/integrations/token-providers";
+import { normalizeScopes } from "@/lib/integrations/scopes";
 import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
 /**
@@ -36,30 +37,7 @@ function toIso(value: Date | null | undefined) {
   return value instanceof Date ? value.toISOString() : null;
 }
 
-/** A stored column can be a JSON string; the card must not call .join on it. */
-function toStringArray(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === "string");
-  }
-  if (typeof value === "string" && value.trim()) {
-    return value.split(/[\s,]+/).filter(Boolean);
-  }
-  return [];
-}
-
 export async function getConnectorDetails(
-  workspaceId: string
-): Promise<Map<string, ConnectorDetail>> {
-  try {
-    return await buildDetails(workspaceId);
-  } catch {
-    // The page is a settings screen, not a report: a failure here costs the
-    // detail lines, never the whole page.
-    return new Map<string, ConnectorDetail>();
-  }
-}
-
-async function buildDetails(
   workspaceId: string
 ): Promise<Map<string, ConnectorDetail>> {
   const details = new Map<string, ConnectorDetail>();
@@ -83,7 +61,7 @@ async function buildDetails(
       account: row.displayName ?? null,
       accountEmail: row.accountEmail ?? null,
       status: row.status,
-      scopes: toStringArray(spec?.scopes ?? tokenDefinition?.scopes ?? row.scopes),
+      scopes: normalizeScopes(spec?.scopes ?? tokenDefinition?.scopes ?? row.scopes),
       expiresAt: toIso(row.expiresAt),
       lastUsedAt: toIso(row.lastUsedAt),
       lastError: row.lastError ?? null,
@@ -116,7 +94,7 @@ async function buildDetails(
       account: null,
       accountEmail: null,
       status: "none",
-      scopes: toStringArray(spec?.scopes ?? tokenDefinition?.scopes),
+      scopes: normalizeScopes(spec?.scopes ?? tokenDefinition?.scopes),
       expiresAt: null,
       lastUsedAt: null,
       lastError: null,
