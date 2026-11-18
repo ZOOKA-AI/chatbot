@@ -3,6 +3,7 @@
 import {
   Bot,
   BriefcaseBusiness,
+  House,
   Cable,
   CreditCard,
   FileText,
@@ -85,6 +86,11 @@ export function AppSidebar({
     {
       label: isArabic ? "الوكلاء" : "Agents",
       items: [
+        {
+          href: "/workspace/home",
+          icon: <House />,
+          label: isArabic ? "الرئيسية" : "Home",
+        },
         {
           href: "/",
           icon: <Bot />,
