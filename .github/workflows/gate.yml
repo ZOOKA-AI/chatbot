@@ -1,0 +1,147 @@
+name: gate
+
+# One workflow, one meaning: if this is green, the tree type-checks, builds, and passes every suite
+# the repository can actually run, including the tenant isolation suites that used to be skipped.
+#
+# Why it is written this way:
+#   - main had no workflow at all, so "CI is green" meant nothing. This file lives on main.
+#   - the previous gate set DATABASE_URL but never ZOOKA_TEST_PG_*, so tenant-real-connection and
+#     agent-health skipped themselves and the run reported success without testing isolation.
+#   - the last step fails the job when a named critical suite reports no tests, so a future change
+#     that silently re-skips one cannot masquerade as a pass.
+#
+# No production secret is used. The database is a throwaway service container, and AUTH_SECRET is a
+# placeholder that only has to be long enough for the build.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  AUTH_SECRET: ci-only-placeholder-not-a-real-secret
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      ADMIN_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      ZOOKA_BUDGET_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: TypeScript
+        run: pnpm exec tsc --noEmit
+
+      - name: Build
+        run: pnpm build
+
+      - name: Apply migrations
+        run: pnpm exec tsx scripts/selfhost/migrate.ts
+
+      - name: Set the runtime role password
+        # The role and every grant come from the migrations themselves: 0031 creates it, 0058 repairs
+        # and asserts the tenant grants. Creating or granting here as well would hide a broken
+        # migration, which is exactly how a missing AgentExecution privilege stayed invisible.
+        run: |
+          PGPASSWORD=ci psql -h 127.0.0.1 -U ci -d ci -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER ROLE zooka_runtime PASSWORD 'ci-runtime-password';
+          SQL
+
+      - name: Prove the grants the migration claims
+        # Fails the job if a fresh database built from the migration files does not give the runtime
+        # role what the application actually needs. This is the check that would have caught the drift.
+        run: |
+          PGPASSWORD=ci psql -h 127.0.0.1 -U ci -d ci -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE violations text[] := ARRAY[]::text[];
+          BEGIN
+            IF NOT has_table_privilege('zooka_runtime', 'public."AgentExecution"', 'SELECT') THEN
+              violations := array_append(violations, 'AgentExecution: runtime cannot read executions');
+            END IF;
+            IF has_table_privilege('zooka_runtime', 'public."AgentExecution"', 'DELETE') THEN
+              violations := array_append(violations, 'AgentExecution: runtime can delete audit rows');
+            END IF;
+            IF NOT has_table_privilege('zooka_runtime', 'public."Chat"', 'SELECT') THEN
+              violations := array_append(violations, 'Chat: runtime cannot read chats');
+            END IF;
+            IF has_table_privilege('zooka_runtime', 'public."User"', 'INSERT') THEN
+              violations := array_append(violations, 'User: runtime can create accounts');
+            END IF;
+            IF (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = 'zooka_runtime') THEN
+              violations := array_append(violations, 'runtime role defeats RLS');
+            END IF;
+            IF cardinality(violations) > 0 THEN
+              RAISE EXCEPTION 'grant proof failed: %', array_to_string(violations, '; ');
+            END IF;
+            RAISE NOTICE 'grant proof holds';
+          END $$;
+          SQL
+
+      - name: Unit and integration suites (with the database suites enabled)
+        env:
+          ZOOKA_TEST_PG_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          ZOOKA_TEST_PG_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
+        run: pnpm exec vitest run --reporter=dot --reporter=json --outputFile=vitest-report.json
+
+      - name: Refuse a green run that skipped the security suites
+        # A skipped critical suite is the failure mode this step exists for. The named files must
+        # report at least one executed test each, or the job fails with the names it is missing.
+        run: |
+          node -e '
+          const fs = require("node:fs");
+          const report = JSON.parse(fs.readFileSync("vitest-report.json", "utf8"));
+          const critical = [
+            "tests/unit/tenant-real-connection.test.ts",
+            "tests/unit/agent-health.test.ts",
+            "tests/unit/outbound-guard.test.ts",
+            "tests/unit/outbound-surfaces.test.ts",
+            "tests/unit/integration-status-fetch.test.ts",
+          ];
+          const results = new Map((report.testResults || []).map((file) => [file.name.replace(process.cwd() + "/", ""), file]));
+          const missing = [];
+          for (const name of critical) {
+            const file = results.get(name);
+            const executed = file ? (file.assertionResults || []).filter((a) => a.status !== "pending").length : 0;
+            if (executed === 0) missing.push(`${name} (executed ${executed})`);
+          }
+          if (missing.length > 0) {
+            console.error("Critical suites did not run:", missing.join(", "));
+            process.exit(1);
+          }
+          if ((report.numFailedTests || 0) > 0) {
+            console.error(`Failed tests: ${report.numFailedTests}`);
+            process.exit(1);
+          }
+          console.log("Gate: all critical suites executed, no failures.");
+          '
