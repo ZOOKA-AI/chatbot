@@ -116,7 +116,7 @@ export function LoginClient({
       router.refresh();
       // A full assign is intentional: the middleware has to see the new cookie on
       // the very next navigation.
-      window.location.assign("/workspace");
+      window.location.assign("/workspace/home");
     });
   };
 
