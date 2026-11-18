@@ -1,0 +1,69 @@
+{
+ "generated_at": "2026-11-18T04:5x+04:00",
+ "engine": "PostgreSQL 17.12, isolated cluster on 127.0.0.1, port 55436",
+ "schema": "repository migration ladder (28 root + pending through 0057) = 62 tables",
+ "data": "production backup, 1921 rows across 14 tables: 279 users, 279 organisations, 66 chats, 319 messages, 23 documents, 372 usage events",
+ "role": {
+  "name": "zooka_runtime",
+  "superuser": false,
+  "bypassrls": false,
+  "createdb": false,
+  "createrole": false,
+  "select_tables": 48,
+  "create_on_public": false
+ },
+ "results": {
+  "no_context_rows": {
+   "Chat": 0,
+   "Document": 0,
+   "UsageEvent": 0,
+   "Message_v2": 0,
+   "Organization": 0,
+   "OrganizationMember": 0
+  },
+  "tenant_A_real_rows": {
+   "Chat": 25,
+   "Document": 16,
+   "UsageEvent": 287,
+   "Message_v2": 167
+  },
+  "tenant_B_real_rows": {
+   "Chat": 8,
+   "Document": 1,
+   "UsageEvent": 12,
+   "Message_v2": 18
+  },
+  "tenant_A_sees_own_rows": {
+   "Chat": 25,
+   "Document": 16,
+   "UsageEvent": 287,
+   "Message_v2": 167
+  },
+  "tenant_A_sees_B_rows": {
+   "Chat": 0,
+   "Document": 0,
+   "UsageEvent": 0,
+   "Message_v2": 0
+  },
+  "own_org_row_visible": 1,
+  "other_org_row_visible": 0,
+  "other_tenant_chat_by_id": 0,
+  "other_tenant_message_by_id": 0,
+  "update_other_tenant_row": "UPDATE 0",
+  "delete_other_tenant_row": "DELETE 0",
+  "other_tenant_row_intact_after": 1,
+  "insert_into_other_tenant": "refused: new row violates row-level security policy for table \"Chat\"",
+  "probe_rows_written": 0,
+  "runtime_disable_rls": "refused",
+  "runtime_create_table": "refused",
+  "runtime_set_role_postgres": "refused",
+  "runtime_reads_Account": "refused",
+  "runtime_reads_Session": "refused",
+  "totals_real": {
+   "Chat": 66,
+   "Document": 23,
+   "UsageEvent": 372,
+   "Message_v2": 319
+  }
+ }
+}
