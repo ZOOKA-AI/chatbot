@@ -2,6 +2,7 @@ import "server-only";
 
 import { getIntegrationTokens, listWorkspaceIntegrations } from "@/lib/integrations/catalog";
 import { verifyConnectorConnection } from "@/lib/integrations/connectors/execute";
+import { isProbeable } from "@/lib/integrations/connectors/probeable";
 import { getConnectorSpec } from "@/lib/integrations/connectors/registry";
 import { getGoogleConnectionHealth } from "@/lib/integrations/google-drive/server";
 import { validateN8nCredentials } from "@/lib/integrations/n8n/server";
@@ -348,22 +349,6 @@ async function probeStripePlatform(providerId: string): Promise<ProbeResult> {
     checkedAt: nowIso(),
     error: null,
   };
-}
-
-/**
- * Providers with a real call path, so the panel can offer a test on every one of
- * them instead of only on the ones that already have a stored row. A provider
- * absent here has no probe and the card says so rather than showing a button
- * that cannot answer.
- */
-const GOOGLE_PROVIDERS = ["google_drive", "gmail", "google_calendar"] as const;
-
-export function isProbeable(providerId: string): boolean {
-  if (getConnectorSpec(providerId)) return true;
-  if ((GOOGLE_PROVIDERS as readonly string[]).includes(providerId)) return true;
-  if (isOAuthProviderId(providerId)) return true;
-  if (isTokenProviderId(providerId)) return true;
-  return providerId === "n8n";
 }
 
 /**

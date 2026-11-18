@@ -48,7 +48,9 @@ async function IntegrationsPage({
   const isArabic = lang === "ar";
   const entitlements = await getWorkspaceEntitlements(context.organizationId);
   // Stored account and declared reads per connector, read once for the whole page.
-  const connectorDetails = await getConnectorDetails(context.organizationId);
+  const connectorDetails = await getConnectorDetails(context.organizationId).catch(
+    () => new Map<string, never>()
+  );
   const { googleDrive, github, vercel, x } = await searchParams;
   const oauthFeedback = (() => {
     const entries: [string, string | undefined][] = [
@@ -98,9 +100,15 @@ async function IntegrationsPage({
   const xConfigured = isOAuthProviderConfigured("x");
   // One source of truth shared with /api/integrations/status: a badge reads
   // "connected" only when the stored credential works right now.
+  // Neither of the two status reads may take the page down. A settings screen
+  // that 500s because one provider probe misbehaved is worse than a card that
+  // honestly shows no measured status.
   const liveStatus = await getLiveIntegrationStatus(context.organizationId, {
     googleConfigured: googleDriveConfigured,
-  });
+  }).catch(() => ({
+    connected: new Set<string>(),
+    needsReconnect: new Set<string>(),
+  }));
   const connectedIds = liveStatus.connected;
   const needsReconnectIds = liveStatus.needsReconnect;
   const googleDriveConnected = connectedIds.has("google_drive");
