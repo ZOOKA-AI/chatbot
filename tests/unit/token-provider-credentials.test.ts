@@ -42,3 +42,11 @@ describe("token provider credentials", () => {
     expect(described.accountId).toBeNull();
   });
 });
+
+describe("settings page resilience", () => {
+  it("never throws from the detail builder, whatever the stored rows look like", async () => {
+    const { getConnectorDetails } = await import("@/lib/integrations/connectors/detail");
+    const map = await getConnectorDetails("not-a-real-workspace");
+    expect(map).toBeInstanceOf(Map);
+  });
+});

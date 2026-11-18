@@ -9,6 +9,10 @@ export const GOOGLE_DRIVE_STATE_COOKIE = "google_drive_oauth_state";
 export const GOOGLE_DRIVE_VERIFIER_COOKIE = "google_drive_oauth_verifier";
 export const GOOGLE_DRIVE_COOKIE_PATH = "/api/integrations/google-drive";
 
+// Not a password hash: this is an HMAC over organizationId:userId:nonce that
+// signs the OAuth state cookie, and it is verified in constant time against the
+// value the browser sent back. CodeQL reads createHmac as password hashing.
+// codeql[js/insufficient-password-hash]
 function signature(
   organizationId: string,
   userId: string,
