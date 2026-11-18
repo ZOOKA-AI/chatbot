@@ -248,18 +248,26 @@ class BrowserRuntime {
       const browser = await chromium.connectOverCDP(endpoint);
       this.browser = browser;
       this.engineName = "remote_cdp";
-      const context = browser.contexts()[0] ?? (await browser.newContext({
+      const openedContexts = browser.contexts();
+      const createdContext = openedContexts[0] ?? null;
+      const baseContext = createdContext ?? (await browser.newContext({
         viewport: { width: 1366, height: 900 },
         acceptDownloads: true,
         locale: "ar-AE",
         timezoneId: "Asia/Dubai",
         serviceWorkers: "block",
       }));
-      const pages = context.pages();
-      const tuned = preferredUrl ? pages.find((candidate) => candidate.url().startsWith(preferredUrl)) : undefined;
-      const page = tuned ?? pages[0];
+      // A remote engine may keep the live tab in any context it opened for this session, so look
+      // across all of them: matching the session's own pages beats the blank tab that a fresh
+      // connection always exposes first.
+      const pages = openedContexts.flatMap((candidate) => candidate.pages());
+      const tuned = preferredUrl
+        ? pages.find((candidate) => candidate.url().startsWith(preferredUrl))
+        : undefined;
+      const page = tuned ?? pages.find((candidate) => candidate.url() !== "about:blank") ?? pages[0];
       const adopted = page ? "existing_tab" : "new_tab";
-      const livePage = page ?? (await context.newPage());
+      const livePage = page ?? (await baseContext.newPage());
+      const context = page ? page.context() : baseContext;
       const handle: SessionHandle = {
         organizationId,
         context,
