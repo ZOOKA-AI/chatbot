@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { withTenantPage } from "@/lib/db/request-tenant";
 import { Suspense } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { BillingProvider } from "@/components/billing-provider";
 import { DataStreamProvider } from "@/components/data-stream-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -83,7 +84,10 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
               : undefined
           }
         />
-        <SidebarInset>{children}</SidebarInset>
+        <SidebarInset>
+          {children}
+          <MobileBottomNav />
+        </SidebarInset>
       </SidebarProvider>
     </BillingProvider>
   );
