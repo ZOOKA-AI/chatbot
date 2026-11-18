@@ -138,6 +138,15 @@
   "pnpm": {
     "patchedDependencies": {
       "ultracite@7.0.11": "patches/ultracite@7.0.11.patch"
+    },
+    "overrides": {
+      "postcss": "8.5.18",
+      "nanoid": "3.3.12",
+      "source-map-js": "1.2.2",
+      "prosemirror-view": "1.42.3",
+      "markdown-it": "14.3.3",
+      "linkify-it": "5.0.2",
+      "prosemirror-model": "1.25.13"
     }
   }
 }
