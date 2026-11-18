@@ -1,0 +1,224 @@
+name: gate
+
+# One workflow, one meaning. Green means: no unlisted credential, no placeholder auth, forward-only
+# migrations, clean types, a real build, migrations applied to a throwaway PostgreSQL, the runtime
+# grant proof holds, and every named security suite actually executed tests.
+#
+# Why: main had no workflow at all, so "CI is green" meant nothing. The previous gate set DATABASE_URL
+# but not ZOOKA_TEST_PG_*, so the isolation suites skipped themselves and the run passed without
+# testing isolation. The last step refuses that outcome.
+#
+# No production credential is used. The database is a throwaway service container and AUTH_SECRET is
+# a placeholder that only has to be long enough for the build.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  AUTH_SECRET: ci-only-placeholder-not-a-real-secret
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      ADMIN_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      ZOOKA_BUDGET_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Placeholder check
+        timeout-minutes: 3
+        run: |
+          node -e '
+          const fs = require("node:fs"), path = require("node:path");
+          const banned = [/changeme/i, /your[_-]?api[_-]?key/i, /<placeholder>/i, /TODO:\s*implement\s+auth/i];
+          const hits = [];
+          const walk = (dir) => {
+            for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, e.name);
+              if (e.isDirectory()) { walk(full); continue; }
+              if (!/\.(ts|tsx|js|mjs)$/.test(e.name)) continue;
+              const text = fs.readFileSync(full, "utf8");
+              for (const rule of banned) if (rule.test(text)) hits.push(full + " matches " + rule);
+            }
+          };
+          ["lib", "app/api", "components"].filter((r) => fs.existsSync(r)).forEach(walk);
+          if (hits.length) { console.error(hits.join("\n")); process.exit(1); }
+          console.log("Placeholder check: clean.");
+          '
+
+      - name: Secret scan
+        timeout-minutes: 3
+        run: |
+          node -e '
+          const fs = require("node:fs"), cp = require("node:child_process");
+          const files = cp.execSync("git ls-files", { encoding: "utf8" }).split("\n").filter(Boolean);
+          const allowFile = ".github/secret-scan-allow.txt";
+          const allow = new Set((fs.existsSync(allowFile) ? fs.readFileSync(allowFile, "utf8") : "")
+            .split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).map((l) => l.trim()));
+          const rules = {
+            mail_relay_key: /zk-mail-[A-Za-z0-9-]{6,}/,
+            stripe_live: /sk_live_[A-Za-z0-9]{10,}/,
+            github_pat: /gh[pousr]_[A-Za-z0-9]{20,}/,
+            google_api_key: /AIza[0-9A-Za-z_-]{30,}/,
+            slack_bot: /xox[baprs]-[0-9A-Za-z-]{10,}/,
+            private_key: /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+          };
+          const findings = [], allowed = [];
+          for (const file of files) {
+            if (/\.(png|jpg|jpeg|gif|webp|woff2?|ttf|ico|pdf|zip|gz)$/.test(file)) continue;
+            let text; try { text = fs.readFileSync(file, "utf8"); } catch { continue; }
+            if (text.length > 2000000) continue;
+            for (const [name, rule] of Object.entries(rules)) {
+              if (!rule.test(text)) continue;
+              const key = file + ":" + name;
+              (allow.has(key) ? allowed : findings).push(key);
+            }
+          }
+          if (allowed.length) console.warn("Allowlisted, documented exposure: " + allowed.join(", "));
+          if (findings.length) { console.error("Secret scan findings: " + findings.join(", ")); process.exit(1); }
+          console.log("Secret scan: no unlisted credential.");
+          '
+
+      - name: Migration safety
+        timeout-minutes: 3
+        run: |
+          node -e '
+          const fs = require("node:fs"), path = require("node:path");
+          const dir = "lib/db/migrations/pending";
+          const problems = [];
+          for (const name of fs.readdirSync(dir)) {
+            if (!name.endsWith(".sql") || name.endsWith(".down.sql")) continue;
+            const text = fs.readFileSync(path.join(dir, name), "utf8");
+            if (/^\s*DROP\s+TABLE/im.test(text)) problems.push(name + ": drops a table");
+            if (/^\s*TRUNCATE/im.test(text)) problems.push(name + ": truncates");
+            const base = name.replace(/\.sql$/, "");
+            const hasDown = fs.existsSync(path.join(dir, base + ".down.sql"));
+            if (!hasDown && !/rollback:\s*none|no-?op rollback/i.test(text)) {
+              console.warn(name + ": additive migration, no rollback file (warning)");
+            }
+          }
+          if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+          console.log("Migration safety: forward-only, no destructive statements.");
+          '
+
+      - name: TypeScript
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint (report only)
+        # ultracite has no clean baseline in this repository yet, so a red lint here would hide the
+        # security signal. It reports its real outcome; making it blocking needs its own baseline commit.
+        continue-on-error: true
+        timeout-minutes: 10
+        run: pnpm run lint
+
+      - name: Build
+        timeout-minutes: 12
+        run: pnpm build
+
+      - name: Apply migrations
+        timeout-minutes: 5
+        run: pnpm exec tsx scripts/selfhost/migrate.ts
+
+      - name: Set the runtime role password
+        run: |
+          PGPASSWORD=ci psql -h 127.0.0.1 -U ci -d ci -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER ROLE zooka_runtime PASSWORD 'ci-runtime-password';
+          SQL
+
+      - name: Prove the grants the migration claims
+        timeout-minutes: 3
+        run: |
+          PGPASSWORD=ci psql -h 127.0.0.1 -U ci -d ci -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE violations text[] := ARRAY[]::text[];
+          BEGIN
+            IF NOT has_table_privilege('zooka_runtime', 'public."AgentExecution"', 'SELECT') THEN
+              violations := array_append(violations, 'AgentExecution: runtime cannot read executions');
+            END IF;
+            IF has_table_privilege('zooka_runtime', 'public."AgentExecution"', 'DELETE') THEN
+              violations := array_append(violations, 'AgentExecution: runtime can delete audit rows');
+            END IF;
+            IF NOT has_table_privilege('zooka_runtime', 'public."Chat"', 'SELECT') THEN
+              violations := array_append(violations, 'Chat: runtime cannot read chats');
+            END IF;
+            IF has_table_privilege('zooka_runtime', 'public."User"', 'INSERT') THEN
+              violations := array_append(violations, 'User: runtime can create accounts');
+            END IF;
+            IF (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = 'zooka_runtime') THEN
+              violations := array_append(violations, 'runtime role defeats RLS');
+            END IF;
+            IF cardinality(violations) > 0 THEN
+              RAISE EXCEPTION 'grant proof failed: %', array_to_string(violations, '; ');
+            END IF;
+            RAISE NOTICE 'grant proof holds';
+          END $$;
+          SQL
+
+      - name: Unit and integration suites
+        timeout-minutes: 15
+        env:
+          ZOOKA_TEST_PG_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          ZOOKA_TEST_PG_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
+        run: pnpm exec vitest run --reporter=dot --reporter=json --outputFile=vitest-report.json --testTimeout=20000 --hookTimeout=20000
+
+      - name: Refuse a green run that skipped the security suites
+        timeout-minutes: 3
+        run: |
+          node -e '
+          const fs = require("node:fs");
+          const report = JSON.parse(fs.readFileSync("vitest-report.json", "utf8"));
+          const critical = [
+            "tests/unit/tenant-real-connection.test.ts",
+            "tests/unit/agent-health.test.ts",
+            "tests/unit/outbound-guard.test.ts",
+            "tests/unit/outbound-surfaces.test.ts",
+            "tests/unit/integration-status-fetch.test.ts",
+            "tests/unit/agent-permission-boundaries.test.ts",
+            "tests/unit/agent-authorization.test.ts",
+            "tests/unit/mcp-catalog.test.ts",
+            "tests/unit/migration-journal.test.ts",
+          ];
+          const results = new Map((report.testResults || []).map((f) => [f.name.replace(process.cwd() + "/", ""), f]));
+          const missing = [];
+          for (const name of critical) {
+            const file = results.get(name);
+            const executed = file ? (file.assertionResults || []).filter((a) => a.status !== "pending").length : 0;
+            if (executed === 0) missing.push(name + " (executed " + executed + ")");
+          }
+          if (missing.length) { console.error("Critical suites did not run: " + missing.join(", ")); process.exit(1); }
+          if ((report.numFailedTests || 0) > 0) { console.error("Failed tests: " + report.numFailedTests); process.exit(1); }
+          console.log("Gate: all critical suites executed, no failures.");
+          '
