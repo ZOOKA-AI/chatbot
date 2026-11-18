@@ -1,0 +1,15 @@
+# TLS terminates at Cloudflare; the gateway stays on loopback.
+#
+# Vercel has no fixed outbound IPs, so the gateway authenticates every WebSocket with a bearer token
+# rather than a source-address allowlist. The tunnel must carry WebSockets, which CDP requires.
+tunnel: <tunnel-uuid>
+credentials-file: /etc/cloudflared/<tunnel-uuid>.json
+
+ingress:
+  - hostname: browser.example.com
+    service: http://127.0.0.1:8787
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 10s
+      tcpKeepAlive: 30s
+  - service: http_status:404

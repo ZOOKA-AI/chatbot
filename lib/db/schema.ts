@@ -659,9 +659,19 @@ export const browserSession = pgTable(
     lastSeenAt: timestamp("lastSeenAt", { withTimezone: true }),
     expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("endedAt", { withTimezone: true }),
+    /**
+     * Ids of a Chromium-owned browser context and its tab (migration 0058). NULL means the session is
+     * not resumable across workers, which is the honest state for every row created before this.
+     * The engine endpoint is deliberately absent: BROWSER_CDP_URL can carry a token.
+     */
+    browserContextId: text("browserContextId"),
+    targetId: text("targetId"),
   },
   (table) => ({
     orgStatusIdx: index("BrowserSession_org_status_idx").on(table.organizationId, table.status, table.createdAt),
+    targetIdx: index("BrowserSession_target_idx")
+      .on(table.targetId)
+      .where(sql`"targetId" IS NOT NULL`),
   })
 );
 

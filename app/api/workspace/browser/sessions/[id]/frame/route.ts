@@ -1,6 +1,7 @@
 import { callerOrganizationId, json, resolveCaller, unauthorized } from "@/lib/agents/auth";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { getSession } from "@/lib/browser/sessions";
+import { hasPersistentHandle, persistentEngine, persistentFrame } from "@/lib/browser/cdp-adapter";
 import { browserRuntime } from "@/lib/browser/runtime";
 import { ensureLiveBrowser } from "@/lib/browser/resume";
 
@@ -21,6 +22,18 @@ async function GETHandler(request: Request, context: { params: Promise<{ id: str
 
   const session = await getSession(organizationId, id);
   if (!session) return json({ error: "not_found" }, 404);
+
+  // A session whose context lives in Chromium is read directly. No adoption, no local browser: the
+  // frame is taken from the same tab a previous worker opened, which is the whole point.
+  if (hasPersistentHandle(session) && persistentEngine()) {
+    const frame = await persistentFrame(session);
+    if (frame.ok === false) return json({ error: "frame_unavailable", reason: frame.code }, 409);
+    return new Response(new Uint8Array(Buffer.from(frame.value.base64, "base64")), {
+      status: 200,
+      headers: { "content-type": "image/png", "cache-control": "no-store" },
+    });
+  }
+
   const resumed = await ensureLiveBrowser({
     sessionId: id,
     organizationId,

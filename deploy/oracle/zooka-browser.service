@@ -1,0 +1,18 @@
+# Docker's restart policy covers process death; this unit covers the host.
+[Unit]
+Description=ZOOKA-AI persistent Chromium + CDP gateway
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/zooka
+EnvironmentFile=/opt/zooka/.env
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

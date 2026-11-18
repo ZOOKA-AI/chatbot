@@ -211,8 +211,10 @@ function httpBase(endpoint: string): string | null {
 /** Chrome's browser-level WebSocket, which survives for as long as the engine process does. */
 export async function browserWebSocketUrl(endpoint: string): Promise<string> {
   if (endpoint.startsWith("ws://") || endpoint.startsWith("wss://")) {
-    // A tab-scoped ws URL cannot create contexts; the browser one can.
-    if (endpoint.includes("/devtools/browser/")) return endpoint;
+    // Two shapes are already a browser socket: the engine's own /devtools/browser/ URL, and the
+    // authenticated gateway (wss://gateway/cdp), which relays to that same socket. A tab-scoped
+    // /devtools/page/ URL can do neither, so it falls through and is rejected by the HTTP probe.
+    if (endpoint.includes("/devtools/browser/") || !endpoint.includes("/devtools/")) return endpoint;
   }
   const base = httpBase(endpoint);
   if (!base) throw new Error("invalid_endpoint");
@@ -591,6 +593,143 @@ export async function clickInSession(input: {
       code: "click_failed",
       message: error instanceof Error ? error.message : String(error),
     };
+  } finally {
+    connection?.close();
+  }
+}
+
+/** A PNG of the adopted tab, as base64, for a caller that must hand the pixels to a <img>. */
+export async function sessionScreenshotPng(input: {
+  handle: PersistentHandle;
+  owner: { organizationId: string };
+  asker: { organizationId: string };
+}): Promise<PersistentResult<{ base64: string }>> {
+  if (!authorizesHandle(input.handle, input.owner, input.asker)) {
+    return { ok: false, code: "forbidden_workspace", message: "handle belongs to another workspace" };
+  }
+  let connection: CdpConnection | null = null;
+  try {
+    connection = await CdpConnection.open(await browserWebSocketUrl(input.handle.endpoint));
+    const sessionId = await attach(connection, input.handle.targetId);
+    // A page in a background tab may never have been painted; asking for one frame first makes the
+    // screenshot deterministic instead of returning an empty white image.
+    await connection.send("Page.bringToFront", {}, sessionId).catch(() => undefined);
+    const shot = await connection.send("Page.captureScreenshot", { format: "png" }, sessionId);
+    const base64 = String(shot.data ?? "");
+    if (!base64) return { ok: false, code: "screenshot_empty", message: "no data" };
+    return { ok: true, value: { base64 } };
+  } catch (error) {
+    return { ok: false, code: "screenshot_failed", message: error instanceof Error ? error.message : String(error) };
+  } finally {
+    connection?.close();
+  }
+}
+
+/** Navigate the adopted tab and report where it actually landed. */
+export async function navigateInSession(input: {
+  handle: PersistentHandle;
+  owner: { organizationId: string };
+  asker: { organizationId: string };
+  url: string;
+}): Promise<PersistentResult<{ url: string; title: string }>> {
+  if (!authorizesHandle(input.handle, input.owner, input.asker)) {
+    return { ok: false, code: "forbidden_workspace", message: "handle belongs to another workspace" };
+  }
+  let connection: CdpConnection | null = null;
+  try {
+    connection = await CdpConnection.open(await browserWebSocketUrl(input.handle.endpoint));
+    const sessionId = await attach(connection, input.handle.targetId);
+    await connection.send("Page.enable", {}, sessionId);
+    const navigation = await connection.send("Page.navigate", { url: input.url }, sessionId);
+    if (navigation.errorText) {
+      return { ok: false, code: "navigation_failed", message: String(navigation.errorText) };
+    }
+    // Navigation is asynchronous: wait for the page's own readiness rather than sleeping a guess.
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const state = await connection.send(
+        "Runtime.evaluate",
+        { expression: "document.readyState", returnByValue: true },
+        sessionId,
+      );
+      const ready = String((state.result as { value?: unknown } | undefined)?.value ?? "");
+      if (ready === "complete" || ready === "interactive") break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const state = await readBrowserState({
+      handle: input.handle,
+      owner: input.owner,
+      asker: input.asker,
+    });
+    if (state.ok === false) return { ok: false, code: state.code, message: state.message };
+    return { ok: true, value: { url: state.value.url, title: state.value.title } };
+  } catch (error) {
+    return { ok: false, code: "navigation_failed", message: error instanceof Error ? error.message : String(error) };
+  } finally {
+    connection?.close();
+  }
+}
+
+/** Insert text as trusted input, optionally pressing Enter. */
+export async function typeInSession(input: {
+  handle: PersistentHandle;
+  owner: { organizationId: string };
+  asker: { organizationId: string };
+  text: string;
+  submit?: boolean;
+}): Promise<PersistentResult<{ typed: true }>> {
+  if (!authorizesHandle(input.handle, input.owner, input.asker)) {
+    return { ok: false, code: "forbidden_workspace", message: "handle belongs to another workspace" };
+  }
+  let connection: CdpConnection | null = null;
+  try {
+    connection = await CdpConnection.open(await browserWebSocketUrl(input.handle.endpoint));
+    const sessionId = await attach(connection, input.handle.targetId);
+    await connection.send("Input.insertText", { text: input.text }, sessionId);
+    if (input.submit) {
+      for (const type of ["keyDown", "keyUp"]) {
+        await connection.send(
+          "Input.dispatchKeyEvent",
+          { type, key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 },
+          sessionId,
+        );
+      }
+    }
+    return { ok: true, value: { typed: true } };
+  } catch (error) {
+    return { ok: false, code: "type_failed", message: error instanceof Error ? error.message : String(error) };
+  } finally {
+    connection?.close();
+  }
+}
+
+/** Scroll the adopted tab with a real wheel event. */
+export async function scrollInSession(input: {
+  handle: PersistentHandle;
+  owner: { organizationId: string };
+  asker: { organizationId: string };
+  deltaY: number;
+}): Promise<PersistentResult<{ scrolledY: number }>> {
+  if (!authorizesHandle(input.handle, input.owner, input.asker)) {
+    return { ok: false, code: "forbidden_workspace", message: "handle belongs to another workspace" };
+  }
+  let connection: CdpConnection | null = null;
+  try {
+    connection = await CdpConnection.open(await browserWebSocketUrl(input.handle.endpoint));
+    const sessionId = await attach(connection, input.handle.targetId);
+    await connection.send(
+      "Input.dispatchMouseEvent",
+      { type: "mouseWheel", x: 10, y: 10, deltaX: 0, deltaY: input.deltaY },
+      sessionId,
+    );
+    const position = await connection.send(
+      "Runtime.evaluate",
+      { expression: "window.scrollY", returnByValue: true },
+      sessionId,
+    );
+    const scrolledY = Number((position.result as { value?: unknown } | undefined)?.value ?? 0);
+    return { ok: true, value: { scrolledY } };
+  } catch (error) {
+    return { ok: false, code: "scroll_failed", message: error instanceof Error ? error.message : String(error) };
   } finally {
     connection?.close();
   }

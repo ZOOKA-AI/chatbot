@@ -27,7 +27,10 @@ async function collect(): Promise<{ name: string; sql: string }[]> {
       out.push({ name: entry.name, sql: await readFile(join(migrationsRoot, entry.name), "utf8") });
     } else if (entry.isDirectory() && entry.name === "pending") {
       const pending = await readdir(join(migrationsRoot, entry.name));
-      for (const file of pending.sort()) {
+      // `*.down.sql` is a rollback, not a migration. Applying it in sort order silently undoes the
+      // pending migration that sorts just before it (measured on an isolated clone: 0058 added two
+      // columns and its own down file removed them in the same run). Never enqueue them.
+      for (const file of pending.filter((name) => !name.endsWith(".down.sql")).sort()) {
         if (!file.endsWith(".sql") || file.endsWith(".down.sql")) continue;
         out.push({ name: `pending/${file}`, sql: await readFile(join(migrationsRoot, entry.name, file), "utf8") });
       }
