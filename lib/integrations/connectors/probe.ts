@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getIntegrationTokens, listWorkspaceIntegrations } from "@/lib/integrations/catalog";
+import { renewProviderToken } from "@/lib/integrations/connectors/token-refresh";
 import { verifyConnectorConnection } from "@/lib/integrations/connectors/execute";
 import { isProbeable } from "@/lib/integrations/connectors/probeable";
 import { getConnectorSpec } from "@/lib/integrations/connectors/registry";
@@ -222,15 +223,32 @@ async function probeToken(providerId: string, workspaceId: string): Promise<Prob
   }
   const url =
     typeof definition.validateUrl === "function" ? definition.validateUrl(raw) : definition.validateUrl;
-  const outcome = await timed(async (signal) => {
-    const response = await fetch(url, {
-      method: definition.validateMethod ?? "GET",
-      headers: { accept: "application/json", "user-agent": "zooka-ai", ...definition.auth(raw) },
-      cache: "no-store",
-      signal,
+
+  const call = (token: string) =>
+    timed(async (signal) => {
+      const response = await fetch(url, {
+        method: definition.validateMethod ?? "GET",
+        headers: { accept: "application/json", "user-agent": "zooka-ai", ...definition.auth(token) },
+        cache: "no-store",
+        signal,
+      });
+      return { status: response.status, payload: await readJson(response) };
     });
-    return { status: response.status, payload: await readJson(response) };
-  });
+
+  let outcome = await call(raw);
+  let renewed = false;
+  if (!("error" in outcome) && (outcome.value.status === 401 || outcome.value.status === 403)) {
+    // A credential pasted as `access|refresh` outlives its short access half, so
+    // an expired token is a renewal, not a broken connection.
+    const fresh = await renewProviderToken(providerId, workspaceId);
+    if (fresh) {
+      const retry = await call(fresh);
+      if (!("error" in retry) && retry.value.status >= 200 && retry.value.status < 300) {
+        outcome = retry;
+        renewed = true;
+      }
+    }
+  }
   if ("error" in outcome) {
     return failure(
       providerId,
@@ -257,7 +275,7 @@ async function probeToken(providerId: string, workspaceId: string): Promise<Prob
     code: "ok",
     ok: true,
     account,
-    detail: { status },
+    detail: { status, ...(renewed ? { renewed: true } : {}) },
     latencyMs: outcome.latencyMs,
     checkedAt: nowIso(),
     error: null,

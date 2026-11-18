@@ -106,6 +106,24 @@ async function refreshAccessToken(
   }
 }
 
+/**
+ * Renews the stored Snapchat access token when the caller has a refresh half.
+ *
+ * Snap Marketing API access tokens live one hour, so a probe that only reads the
+ * stored token reports a healthy connection as 401 an hour after consent. The
+ * connect card accepts `access_token|refresh_token` and this is what makes that
+ * second half worth asking for.
+ */
+export async function renewSnapchatAccessToken(
+  workspaceId: string
+): Promise<string | null> {
+  const credentials = await getSnapchatCredentials(workspaceId);
+  if (!credentials?.refreshToken) {
+    return null;
+  }
+  return refreshAccessToken(workspaceId, credentials.refreshToken);
+}
+
 type SnapResult =
   | { ok: true; data: Record<string, unknown> }
   | { ok: false; error: string };
