@@ -3,13 +3,7 @@ name: gate
 # One workflow, one meaning. Green means: no unlisted credential, no placeholder auth, forward-only
 # migrations, clean types, a real build, migrations applied to a throwaway PostgreSQL, the runtime
 # grant proof holds, and every named security suite actually executed tests.
-#
-# Why: main had no workflow at all, so "CI is green" meant nothing. The previous gate set DATABASE_URL
-# but not ZOOKA_TEST_PG_*, so the isolation suites skipped themselves and the run passed without
-# testing isolation. The last step refuses that outcome.
-#
-# No production credential is used. The database is a throwaway service container and AUTH_SECRET is
-# a placeholder that only has to be long enough for the build.
+# No production credential is used.
 
 on:
   pull_request:
@@ -55,8 +49,11 @@ jobs:
           node-version: 20
 
       - run: corepack enable
-
       - run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium for browser security tests
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Placeholder check
         timeout-minutes: 3
@@ -124,11 +121,6 @@ jobs:
             const text = fs.readFileSync(path.join(dir, name), "utf8");
             if (/^\s*DROP\s+TABLE/im.test(text)) problems.push(name + ": drops a table");
             if (/^\s*TRUNCATE/im.test(text)) problems.push(name + ": truncates");
-            const base = name.replace(/\.sql$/, "");
-            const hasDown = fs.existsSync(path.join(dir, base + ".down.sql"));
-            if (!hasDown && !/rollback:\s*none|no-?op rollback/i.test(text)) {
-              console.warn(name + ": additive migration, no rollback file (warning)");
-            }
           }
           if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
           console.log("Migration safety: forward-only, no destructive statements.");
@@ -186,21 +178,26 @@ jobs:
           SQL
 
       - name: Unit and integration suites
+        id: security_tests
+        continue-on-error: true
         timeout-minutes: 15
         env:
           ZOOKA_TEST_PG_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
           ZOOKA_TEST_PG_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
-          # agent-health owns aggregate fixtures and cleanup. Pin both of its connections explicitly
-          # so no other suite can redirect its cleanup through the restricted runtime role.
           ZOOKA_TEST_PG_HEALTH_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
           ZOOKA_TEST_PG_HEALTH_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
         run: pnpm exec vitest run --reporter=dot --reporter=json --outputFile=vitest-report.json --testTimeout=20000 --hookTimeout=20000
 
-      - name: Refuse a green run that skipped the security suites
+      - name: Evidence guard - critical security suites must execute and pass
+        if: ${{ always() }}
         timeout-minutes: 3
         run: |
           node -e '
           const fs = require("node:fs");
+          if (!fs.existsSync("vitest-report.json")) {
+            console.error("Security evidence missing: vitest-report.json was not produced.");
+            process.exit(1);
+          }
           const report = JSON.parse(fs.readFileSync("vitest-report.json", "utf8"));
           const critical = [
             "tests/unit/tenant-real-connection.test.ts",
@@ -212,6 +209,7 @@ jobs:
             "tests/unit/agent-authorization.test.ts",
             "tests/unit/mcp-catalog.test.ts",
             "tests/unit/migration-journal.test.ts",
+            "tests/unit/browser-runtime-live.test.ts",
           ];
           const results = new Map((report.testResults || []).map((f) => [f.name.replace(process.cwd() + "/", ""), f]));
           const missing = [];
@@ -220,7 +218,19 @@ jobs:
             const executed = file ? (file.assertionResults || []).filter((a) => a.status !== "pending").length : 0;
             if (executed === 0) missing.push(name + " (executed " + executed + ")");
           }
-          if (missing.length) { console.error("Critical suites did not run: " + missing.join(", ")); process.exit(1); }
-          if ((report.numFailedTests || 0) > 0) { console.error("Failed tests: " + report.numFailedTests); process.exit(1); }
+          if (missing.length) {
+            console.error("Critical suites did not run: " + missing.join(", "));
+            process.exit(1);
+          }
+          if ((report.numFailedTests || 0) > 0) {
+            console.error("Failed tests: " + report.numFailedTests);
+            process.exit(1);
+          }
           console.log("Gate: all critical suites executed, no failures.");
           '
+
+      - name: Preserve test failure after evidence guard
+        if: ${{ always() && steps.security_tests.outcome == 'failure' }}
+        run: |
+          echo "Unit/integration tests failed. Evidence guard was still evaluated."
+          exit 1
