@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { accessSync } from "node:fs";
+import { accessSync, openSync } from "node:fs";
 
 import { chromium } from "playwright-core";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -106,8 +106,13 @@ describeIf("browser sessions on a persistent engine", () => {
       { stdio: ["ignore", "ignore", "ignore"] },
     );
 
+    // Keep the child output: without it a load failure inside the gateway is invisible and the test can
+    // only say "runtime_unavailable", which is a symptom, not a cause.
+    const gatewayLog = openSync(join(workDir, "gateway.log"), "a");
+    const engineLog = openSync(join(workDir, "engine.log"), "a");
+    engine?.stderr?.destroy();
     gateway = spawn(process.execPath, ["./gateway/cdp-gateway.mjs"], {
-      stdio: ["ignore", "ignore", "ignore"],
+      stdio: ["ignore", gatewayLog, gatewayLog],
       env: {
         ...process.env,
         GATEWAY_PORT: String(GATEWAY_PORT),

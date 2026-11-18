@@ -137,7 +137,7 @@ class CdpConnection {
   }
 
   static async open(endpoint: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<CdpConnection> {
-    const socket = new WebSocket(endpoint);
+    const socket = new (await webSocketImplementation())(endpoint);
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("cdp_connect_timeout")), timeoutMs);
       socket.addEventListener("open", () => {
@@ -194,6 +194,22 @@ class CdpConnection {
     this.pending.clear();
     this.listeners.clear();
   }
+}
+
+
+/**
+ * Node 22+ exposes WebSocket globally; Node 20 does not, and Vercel builds and CI both still run 20.
+ * Depending on the global alone meant this module worked on the development machine and threw a
+ * ReferenceError inside a function, which the caller could only report as `runtime_unavailable`.
+ * `ws` is a declared dependency, so a Node without the global gets the same object instead of a crash.
+ */
+async function webSocketImplementation(): Promise<typeof WebSocket> {
+  const existing = (globalThis as { WebSocket?: typeof WebSocket }).WebSocket;
+  if (existing) return existing;
+  const imported = (await import("ws")) as unknown as { WebSocket?: typeof WebSocket; default?: typeof WebSocket };
+  const Fallback = imported.WebSocket ?? imported.default;
+  if (!Fallback) throw new Error("no_websocket_implementation");
+  return Fallback;
 }
 
 /** The http endpoint that can mint a fresh DevTools WebSocket, derived from a websocket URL. */
