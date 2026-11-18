@@ -150,6 +150,13 @@ export async function guardedFetch(
       throw new OutboundBlocked(verdict.reason, current, verdict.detail);
     }
 
+    // The target on this line has just passed assessOutbound above, and every hop
+    // after it is assessed the same way before it is requested, which is why fetch
+    // is called with redirect: "manual" instead of letting it follow.
+    // CodeQL cannot see through a hand-written guard, so the flow is marked here
+    // rather than weakening the check: tests/unit/outbound-guard.test.ts fails if
+    // the assessment above is ever removed.
+    // codeql[js/request-forgery]
     const response = await doFetch(current, { ...init, method, body, redirect: "manual" });
 
     if (response.status < 300 || response.status >= 400) return response;
