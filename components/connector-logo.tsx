@@ -5,17 +5,96 @@
  * - Nothing is fetched. No remote image host, no CDN, no next/image domain
  *   allowlist entry: the page must render every mark offline and without a
  *   third-party request.
- * - A mark is drawn only where the shape is simple and unambiguous (Vercel's
- *   triangle, X's cross, Instagram's camera, Telegram's plane). Where the real
- *   logo is a complex illustration, the tile falls back to the provider's
- *   initials in its own brand colour rather than shipping a bad imitation.
+ * - Official glyphs come from simple-icons (bundled, CC0). Hand-drawn marks
+ *   remain only where simple-icons has none (LinkedIn), and providers with no
+ *   published glyph get a neutral pictogram rather than initials.
  *
  * Nominative use only: these marks identify the provider being connected, they
  * are not ours. Official SVG assets can replace any entry here in one place.
  */
+import {
+  type IconType,
+  SiAgora,
+  SiBookingdotcom,
+  SiCloudflare,
+  SiGithub,
+  SiGmail,
+  SiGoogle,
+  SiGoogleads,
+  SiGooglecalendar,
+  SiGoogledrive,
+  SiGooglemaps,
+  SiInstagram,
+  SiMeta,
+  SiN8n,
+  SiNamecheap,
+  SiNotion,
+  SiShopify,
+  SiSlack,
+  SiSnapchat,
+  SiStripe,
+  SiSupabase,
+  SiTelegram,
+  SiTiktok,
+  SiTwilio,
+  SiVercel,
+  SiWhatsapp,
+  SiX,
+} from "@icons-pack/react-simple-icons";
+import { Forward, Landmark, Plane, Video } from "lucide-react";
+
 type Mark =
   | { kind: "monogram"; bg: string; fg: string; label: string }
-  | { kind: "svg"; bg: string; fg: string; paths: string[]; strokes?: boolean };
+  | { kind: "svg"; bg: string; fg: string; paths: string[]; strokes?: boolean }
+  | { kind: "icon"; bg: string; fg: string; Icon: IconType | typeof Forward };
+
+/**
+ * Official brand glyphs from simple-icons (CC0, bundled locally: still no
+ * network request). Tile colour is the brand colour; the glyph is white or
+ * near-black, whichever reads on it. LinkedIn is not in simple-icons any more,
+ * so it keeps the hand-drawn mark below; providers with no published glyph
+ * use a neutral pictogram instead of letters.
+ */
+const ICONS: Record<string, Mark> = {
+  gmail: { kind: "icon", bg: "#ffffff", fg: "#ea4335", Icon: SiGmail },
+  google_drive: { kind: "icon", bg: "#ffffff", fg: "#1fa463", Icon: SiGoogledrive },
+  google_calendar: { kind: "icon", bg: "#ffffff", fg: "#4285f4", Icon: SiGooglecalendar },
+  google_ads: { kind: "icon", bg: "#ffffff", fg: "#4285f4", Icon: SiGoogleads },
+  google_maps: { kind: "icon", bg: "#ffffff", fg: "#34a853", Icon: SiGooglemaps },
+  google_business: { kind: "icon", bg: "#ffffff", fg: "#4285f4", Icon: SiGoogle },
+  telegram_bot: { kind: "icon", bg: "#26a5e4", fg: "#ffffff", Icon: SiTelegram },
+  telegram_ads: { kind: "icon", bg: "#26a5e4", fg: "#ffffff", Icon: SiTelegram },
+  whatsapp: { kind: "icon", bg: "#25d366", fg: "#ffffff", Icon: SiWhatsapp },
+  slack: { kind: "icon", bg: "#4a154b", fg: "#ffffff", Icon: SiSlack },
+  twilio: { kind: "icon", bg: "#f22f46", fg: "#ffffff", Icon: SiTwilio },
+  agora: { kind: "icon", bg: "#099dfd", fg: "#ffffff", Icon: SiAgora },
+  notion: { kind: "icon", bg: "#ffffff", fg: "#111111", Icon: SiNotion },
+  meta: { kind: "icon", bg: "#0467df", fg: "#ffffff", Icon: SiMeta },
+  instagram: {
+    kind: "icon",
+    bg: "linear-gradient(135deg,#f9ce34,#ee2a7b 45%,#6228d7)",
+    fg: "#ffffff",
+    Icon: SiInstagram,
+  },
+  snapchat: { kind: "icon", bg: "#fffc00", fg: "#111111", Icon: SiSnapchat },
+  tiktok: { kind: "icon", bg: "#010101", fg: "#ffffff", Icon: SiTiktok },
+  x: { kind: "icon", bg: "#000000", fg: "#ffffff", Icon: SiX },
+  github: { kind: "icon", bg: "#24292f", fg: "#ffffff", Icon: SiGithub },
+  supabase: { kind: "icon", bg: "#1c1c1c", fg: "#3ecf8e", Icon: SiSupabase },
+  vercel: { kind: "icon", bg: "#000000", fg: "#ffffff", Icon: SiVercel },
+  cloudflare: { kind: "icon", bg: "#ffffff", fg: "#f38020", Icon: SiCloudflare },
+  namecheap: { kind: "icon", bg: "#de3723", fg: "#ffffff", Icon: SiNamecheap },
+  stripe: { kind: "icon", bg: "#635bff", fg: "#ffffff", Icon: SiStripe },
+  n8n: { kind: "icon", bg: "#ea4b71", fg: "#ffffff", Icon: SiN8n },
+  shopify: { kind: "icon", bg: "#95bf47", fg: "#ffffff", Icon: SiShopify },
+  booking: { kind: "icon", bg: "#003580", fg: "#ffffff", Icon: SiBookingdotcom },
+  improvmx: { kind: "icon", bg: "#2b2d42", fg: "#ffffff", Icon: Forward },
+  plaid: { kind: "icon", bg: "#0f766e", fg: "#ffffff", Icon: Landmark },
+  open_banking: { kind: "icon", bg: "#0f766e", fg: "#ffffff", Icon: Landmark },
+  amadeus: { kind: "icon", bg: "#1d4ed8", fg: "#ffffff", Icon: Plane },
+  flights: { kind: "icon", bg: "#1d4ed8", fg: "#ffffff", Icon: Plane },
+  video_calls: { kind: "icon", bg: "#334155", fg: "#ffffff", Icon: Video },
+};
 
 const BRANDS: Record<string, Mark> = {
   vercel: { kind: "svg", bg: "#000000", fg: "#ffffff", paths: ["M12 4.5 22 21H2z"] },
@@ -138,7 +217,7 @@ export function ConnectorLogo({
   providerId: string;
   size?: number;
 }) {
-  const mark: Mark = BRANDS[providerId] ?? {
+  const mark: Mark = ICONS[providerId] ?? BRANDS[providerId] ?? {
     kind: "monogram",
     bg: "#334155",
     fg: "#ffffff",
@@ -151,6 +230,20 @@ export function ConnectorLogo({
     height: size,
     borderRadius: Math.round(size * 0.28),
   } as const;
+
+  if (mark.kind === "icon") {
+    const { Icon } = mark;
+    return (
+      <span
+        aria-hidden="true"
+        className="inline-flex shrink-0 items-center justify-center ring-1 ring-black/10 dark:ring-white/10"
+        data-logo="brand"
+        style={tileStyle}
+      >
+        <Icon color={mark.fg} size={Math.round(size * 0.56)} />
+      </span>
+    );
+  }
 
   if (mark.kind === "monogram") {
     return (
