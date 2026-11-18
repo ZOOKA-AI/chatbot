@@ -11,12 +11,18 @@ import { browserRuntime } from "@/lib/browser/runtime";
  * suite skips instead of pretending to have verified anything.
  */
 const hasChromium = await (async () => {
+  // The module being importable says nothing about a browser being installed: pnpm installs the
+  // playwright package everywhere, while the binary only exists after `playwright install`. CI
+  // proved the difference - the suite ran against a missing executable and failed instead of
+  // skipping, which is a false signal in both directions. The check is the executable itself.
+  const { existsSync } = await import("node:fs");
   for (const candidate of ["playwright", "@playwright/test"]) {
     try {
       const loaded = (await import(/* @vite-ignore */ candidate)) as {
-        chromium?: { launch: unknown };
+        chromium?: { executablePath?: () => string };
       };
-      if (loaded.chromium) return true;
+      const binary = loaded.chromium?.executablePath?.();
+      if (binary && existsSync(binary)) return true;
     } catch {
       // try the next candidate
     }
