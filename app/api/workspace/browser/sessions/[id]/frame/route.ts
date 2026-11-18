@@ -2,6 +2,7 @@ import { callerOrganizationId, json, resolveCaller, unauthorized } from "@/lib/a
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { getSession } from "@/lib/browser/sessions";
 import { browserRuntime } from "@/lib/browser/runtime";
+import { ensureLiveBrowser } from "@/lib/browser/resume";
 
 /**
  * A fresh frame of the live session.
@@ -20,7 +21,14 @@ async function GETHandler(request: Request, context: { params: Promise<{ id: str
 
   const session = await getSession(organizationId, id);
   if (!session) return json({ error: "not_found" }, 404);
-  if (!browserRuntime().has(id, organizationId)) return json({ error: "no_live_browser" }, 409);
+  const resumed = await ensureLiveBrowser({
+    sessionId: id,
+    organizationId,
+    preferredUrl: session.currentUrl ?? undefined,
+  });
+  if (resumed.ok === false) {
+    return json({ error: "no_live_browser", reason: resumed.code }, 409);
+  }
 
   const frame = await browserRuntime().screenshot(id, organizationId, "live");
   if (frame.ok === false) return json({ error: "frame_unavailable", reason: frame.code }, 409);

@@ -222,6 +222,66 @@ class BrowserRuntime {
     return Boolean(handle && handle.organizationId === organizationId);
   }
 
+  /**
+   * Bind an already-running browser back to a session.
+   *
+   * A serverless function keeps its memory for one request only, so the live tab created by
+   * "start" does not exist in the process that serves the next frame. Instead of pretending the
+   * session ended, the runtime reconnects to the same DevTools endpoint and adopts the tab that is
+   * already there. This only makes sense for an endpoint that outlives a connection (a persistent
+   * Chromium), which is exactly why it is opt-in through BROWSER_CDP_URL.
+   */
+  async reattach(
+    sessionId: string,
+    organizationId: string,
+    endpoint: string,
+    preferredUrl?: string,
+  ): Promise<{ ok: true; adopted: "existing_tab" | "new_tab" } | BrowserFailure> {
+    const existing = this.sessions.get(sessionId);
+    if (existing) {
+      return existing.organizationId === organizationId
+        ? { ok: true, adopted: "existing_tab" }
+        : { ok: false, code: "session_owned_by_another_workspace", message: "refused" };
+    }
+    try {
+      const chromium = await loadChromium();
+      const browser = await chromium.connectOverCDP(endpoint);
+      this.browser = browser;
+      this.engineName = "remote_cdp";
+      const context = browser.contexts()[0] ?? (await browser.newContext({
+        viewport: { width: 1366, height: 900 },
+        acceptDownloads: true,
+        locale: "ar-AE",
+        timezoneId: "Asia/Dubai",
+        serviceWorkers: "block",
+      }));
+      const pages = context.pages();
+      const tuned = preferredUrl ? pages.find((candidate) => candidate.url().startsWith(preferredUrl)) : undefined;
+      const page = tuned ?? pages[0];
+      const adopted = page ? "existing_tab" : "new_tab";
+      const livePage = page ?? (await context.newPage());
+      const handle: SessionHandle = {
+        organizationId,
+        context,
+        page: livePage,
+        steps: 0,
+        crashed: null,
+      };
+      livePage.on("crash", () => {
+        handle.crashed = "page_crashed";
+      });
+      livePage.on("close", () => {
+        if (handle.crashed === null) handle.crashed = "page_closed";
+      });
+      this.sessions.set(sessionId, handle);
+      return { ok: true, adopted };
+    } catch (error) {
+      const message = describe(error);
+      console.error("[browser] reattach failed:", message);
+      return { ok: false, code: "reattach_failed", message };
+    }
+  }
+
   private handle(
     sessionId: string,
     organizationId: string,

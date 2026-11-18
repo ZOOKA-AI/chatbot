@@ -2,6 +2,7 @@ import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/queries";
 import * as schema from "@/lib/db/schema";
+import { ensureLiveBrowser } from "./resume";
 import { browserRuntime } from "@/lib/browser/runtime";
 
 /**
@@ -368,6 +369,13 @@ export async function applyInput(input: {
   if (isTerminal(session.status)) throw new BrowserControlError("session_ended");
   if (new Date(session.expiresAt).getTime() < Date.now()) throw new BrowserControlError("session_expired");
   if (session.controlHolder !== "human") throw new BrowserControlError("agent_has_control");
+  // The browser may be alive in another process; adopt it before declaring the session dead.
+  const resumed = await ensureLiveBrowser({
+    sessionId: input.sessionId,
+    organizationId: input.caller.organizationId,
+    preferredUrl: session.currentUrl ?? undefined,
+  });
+  if (resumed.ok === false) throw new BrowserControlError(resumed.code);
   const health = browserRuntime().health(input.sessionId, input.caller.organizationId);
   if (!health.live) throw new BrowserControlError(health.crashed ?? "session_not_running");
 
