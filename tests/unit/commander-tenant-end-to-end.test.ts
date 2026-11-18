@@ -62,6 +62,7 @@ async function applyMigrations() {
       "pending/0039_launch_plan.sql",
       "pending/0040_agent_tools_and_instructions.sql",
       "pending/0041_workspace_projects.sql",
+      "pending/0034_agent_execution.sql",
   ];
   for (const name of files) {
     const body = readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8");
