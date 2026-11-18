@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { loadIntegrationStatus } from "@/lib/integrations/status-fetch";
 
 interface Status {
   configured: boolean;
@@ -39,16 +40,13 @@ export function TokenConnectionControl({
 
   const load = useCallback(async () => {
     setStatusFailed(false);
-    try {
-      const response = await fetch(`/api/integrations/${provider}`);
-      if (!response.ok) {
-        setStatusFailed(true);
-        return;
-      }
-      setStatus((await response.json()) as Status);
-    } catch {
+    // Same bound as the OAuth card: never leave the panel waiting on a request that may not settle.
+    const outcome = await loadIntegrationStatus<Status>(provider);
+    if (!outcome.ok) {
       setStatusFailed(true);
+      return;
     }
+    setStatus(outcome.status);
   }, [provider]);
 
   useEffect(() => {

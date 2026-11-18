@@ -221,4 +221,52 @@ describe.skipIf(!ready)("real PostgreSQL: tenant isolation over independent conn
       "the admin connection must ignore policies; that is why the runtime role check exists"
     );
   });
+  test("a cross-tenant DELETE removes nothing, it does not merely fail to be seen", async () => {
+    // SELECT scoping can hide a row and still let a delete through when the policy only guards reads.
+    const before = await admin`select count(*)::int as n from "AgentTask" where "organizationId" = ${ORG_A}`;
+    await runtime.begin(async (tx) => {
+      await tx`select set_config('app.organization_id', ${ORG_B}, true)`;
+      const deleted = await tx`delete from "AgentTask" where "organizationId" = ${ORG_A} returning id`;
+      assert.equal(deleted.length, 0, "tenant B must not be able to delete tenant A's rows");
+    });
+
+    const after = await admin`select count(*)::int as n from "AgentTask" where "organizationId" = ${ORG_A}`;
+    assert.equal(after[0].n, before[0].n, "the seeded rows must still be there");
+  });
+
+  test("the runtime role cannot turn the protection off", async () => {
+    // The one privilege that would make every other assertion meaningless: DDL on a protected table.
+    for (const statement of [
+      'alter table "AgentTask" disable row level security',
+      'alter table "AgentTask" no force row level security',
+      'drop policy "AgentTask_tenant_isolation" on "AgentTask"',
+      'truncate "AgentTask"',
+    ]) {
+      await expect(runtime.unsafe(statement)).rejects.toThrow();
+    }
+
+    const [owner] = await admin`select count(*)::int as n from pg_tables where tablename = 'AgentTask' and tableowner = 'zooka_runtime'`;
+    assert.equal(owner.n, 0, "the runtime role must not own a protected table");
+
+    const [attrs] = await admin`select rolsuper, rolbypassrls, rolcreatedb, rolcreaterole, rolinherit from pg_roles where rolname = 'zooka_runtime'`;
+    assert.deepEqual(
+      [attrs.rolsuper, attrs.rolbypassrls, attrs.rolcreatedb, attrs.rolcreaterole, attrs.rolinherit],
+      [false, false, false, false, false]
+    );
+  });
+
+  test("RLS is both enabled and forced on the protected tables", async () => {
+    // ENABLE alone leaves the table owner unrestricted. FORCE is what stops an owner connection from
+    // reading across tenants by accident after a future migration hands ownership to the app role.
+    const rows = await admin`
+      select c.relname, c.relrowsecurity as enabled, c.relforcerowsecurity as forced
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname in ('AgentTask','AgentApproval','AgentIdentity')
+      order by c.relname`;
+    expect(rows.length).toBe(3);
+    for (const row of rows) {
+      assert.equal(row.enabled, true, `${row.relname}: RLS must be enabled`);
+      assert.equal(row.forced, true, `${row.relname}: RLS must be forced`);
+    }
+  });
 });
