@@ -6,6 +6,7 @@ import { decideSpend } from "@/lib/studio/cloud-cost";
 import { routeGeneration } from "@/lib/studio/gateway/router";
 import { providerById } from "@/lib/studio/gateway/providers";
 import { StudioError, store } from "@/lib/studio/media";
+import { OutboundBlocked, guardedFetch } from "@/lib/studio/outbound-guard";
 import { RunComfyError, cancelRequest, getBalance, runcomfyToken } from "@/lib/studio/runcomfy";
 import type { WorkerTool } from "../worker-types";
 import { bindProviderJob, consumeApproval } from "@/lib/studio/spend-approvals";
@@ -268,7 +269,24 @@ export const studioAiGenerate: WorkerTool = {
 
         // The bytes are pulled and stored in the tenant's own library, so the result is not a link that
         // expires on someone else's server.
-        const download = await fetch(url, { cache: "no-store" });
+        // The provider hands back a URL and we fetch it. That second request is a fresh
+        // outbound destination chosen outside our configuration, so it goes through the
+        // same per-hop assessment as the provider endpoint itself: a returned
+        // http://169.254.169.254/… or a redirect to loopback is refused, not fetched.
+        let download: Response;
+        try {
+          download = await guardedFetch(url, { cache: "no-store" });
+        } catch (error) {
+          if (error instanceof OutboundBlocked) {
+            return {
+              ok: false,
+              summary: "The provider returned an output URL this workspace is not allowed to fetch.",
+              error: "unsafe_output_url",
+              evidence: { requestId: job.jobId, reason: error.reason },
+            };
+          }
+          throw error;
+        }
         if (!download.ok) {
           return { ok: false, summary: `The output could not be downloaded (${download.status}).`, error: "download_failed", evidence: { requestId: job.jobId, url } };
         }

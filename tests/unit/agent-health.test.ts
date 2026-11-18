@@ -4,11 +4,30 @@ import { afterAll, beforeAll, describe, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/agents/auth", () => ({ resolveCaller: async () => null }));
-vi.mock("@/lib/db/queries", () => ({
-  get db() {
-    throw new Error("shared connection used: the health check escaped its tenant scope");
-  },
-}));
+vi.mock("@/lib/db/queries", async () => {
+  // SchedulerRun is system telemetry, so the health check reads it on the bootstrap
+  // connection. That connection is mocked here with a real pool over the same test
+  // database, because the point of this file is that no signal is taken from a fixture.
+  const { drizzle } = await import("drizzle-orm/postgres-js");
+  const postgresClient = (await import("postgres")).default;
+  const url =
+    process.env.ZOOKA_TEST_PG_HEALTH_ADMIN ??
+    process.env.ZOOKA_TEST_PG_ADMIN ??
+    process.env.DATABASE_URL ??
+    "";
+  const bootstrap = url ? drizzle(postgresClient(url, { max: 1 })) : null;
+  return {
+    get db() {
+      throw new Error("shared connection used: the health check escaped its tenant scope");
+    },
+    adminDb: () => {
+      if (!bootstrap) {
+        throw new Error("adminDb needs ZOOKA_TEST_PG_ADMIN (or DATABASE_URL) in this test");
+      }
+      return bootstrap;
+    },
+  };
+});
 
 import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { workspaceExecutionHealth } from "@/lib/agents/health";

@@ -7,7 +7,7 @@
 `lib/email/send.ts:7` on `main` still reads:
 
 ```
-const RELAY_KEY = process.env.ZOOKA_MAIL_KEY ?? "zk-mail-2026-Qp7xV3";
+const RELAY_KEY = process.env.ZOOKA_MAIL_KEY; // the fallback literal was removed; the value lives in Vercel only
 ```
 
 The fallback value has been in git history since the file was committed, so it must be

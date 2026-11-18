@@ -1,5 +1,6 @@
 import { embedVerdict } from "@/lib/browser/embed-policy";
 import { assessUrl } from "@/lib/browser/url-policy";
+import { OutboundBlocked, guardedFetch } from "@/lib/studio/outbound-guard";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 
 /**
@@ -41,8 +42,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const response = await fetch(policy.url, {
-      redirect: "follow",
+    // The typed URL was assessed above, but where the request lands is decided by the response. A public
+    // host answering 302 to 169.254.169.254 or to loopback must be a refusal, not a request made from
+    // inside the network, so every hop is assessed (guardedFetch uses redirect: manual internally).
+    const response = await guardedFetch(policy.url, {
       method: "GET",
       headers: {
         "user-agent": "Mozilla/5.0 (compatible; ZookaBrowser/1.0)",
@@ -65,6 +68,15 @@ export async function GET(request: Request) {
     };
     return Response.json(verdict, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    if (error instanceof OutboundBlocked) {
+      const blocked: Verdict = {
+        embeddable: false,
+        reason: "unsafe_url",
+        finalUrl: null,
+        detail: error.reason,
+      };
+      return Response.json(blocked, { headers: { "cache-control": "no-store" } });
+    }
     const verdict: Verdict = {
       embeddable: false,
       reason: "unreachable",

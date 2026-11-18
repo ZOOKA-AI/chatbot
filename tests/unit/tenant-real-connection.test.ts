@@ -36,6 +36,11 @@ const MIGRATIONS = [
       "pending/0039_launch_plan.sql",
       "pending/0040_agent_tools_and_instructions.sql",
       "pending/0041_workspace_projects.sql",
+      "pending/0034_agent_execution.sql",
+    // Ends with the catalogue assertions that the runtime role holds exactly the grants the
+    // deployment expects, so a suite that touches 0031 leaves the shared database in the state
+    // every other suite reads from, and says so out loud if it cannot.
+    "pending/0058_runtime_grants_repair.sql",
 ];
 
 let admin: ReturnType<typeof postgres>;
@@ -49,6 +54,14 @@ async function applyMigrations() {
     for (const part of body.split("--> statement-breakpoint")) {
       const statement = part.trim();
       if (!statement) continue;
+      // 0031 opens with `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM zooka_runtime`,
+      // a blanket statement written for a database that has never been repaired. Re-applying
+      // it here strips every runtime grant that 0051 and 0058 put back, and with four workers
+      // the strip is visible to any suite reading through the runtime role at that moment:
+      // that is the "permission denied for table AgentExecution" seen in CI while the same
+      // suite passes on a quiet database. The role and its policies already exist; skip the
+      // blanket revoke and let the repair below restore the intended grant state.
+      if (/REVOKE\s+ALL\s+ON\s+ALL\s+TABLES\s+IN\s+SCHEMA\s+public/i.test(statement)) continue;
       try {
         await admin.unsafe(statement);
       } catch (error) {
@@ -220,5 +233,53 @@ describe.skipIf(!ready)("real PostgreSQL: tenant isolation over independent conn
       privileged.rolsuper || privileged.rolbypassrls,
       "the admin connection must ignore policies; that is why the runtime role check exists"
     );
+  });
+  test("a cross-tenant DELETE removes nothing, it does not merely fail to be seen", async () => {
+    // SELECT scoping can hide a row and still let a delete through when the policy only guards reads.
+    const before = await admin`select count(*)::int as n from "AgentTask" where "organizationId" = ${ORG_A}`;
+    await runtime.begin(async (tx) => {
+      await tx`select set_config('app.organization_id', ${ORG_B}, true)`;
+      const deleted = await tx`delete from "AgentTask" where "organizationId" = ${ORG_A} returning id`;
+      assert.equal(deleted.length, 0, "tenant B must not be able to delete tenant A's rows");
+    });
+
+    const after = await admin`select count(*)::int as n from "AgentTask" where "organizationId" = ${ORG_A}`;
+    assert.equal(after[0].n, before[0].n, "the seeded rows must still be there");
+  });
+
+  test("the runtime role cannot turn the protection off", async () => {
+    // The one privilege that would make every other assertion meaningless: DDL on a protected table.
+    for (const statement of [
+      'alter table "AgentTask" disable row level security',
+      'alter table "AgentTask" no force row level security',
+      'drop policy "AgentTask_tenant_isolation" on "AgentTask"',
+      'truncate "AgentTask"',
+    ]) {
+      await expect(runtime.unsafe(statement)).rejects.toThrow();
+    }
+
+    const [owner] = await admin`select count(*)::int as n from pg_tables where tablename = 'AgentTask' and tableowner = 'zooka_runtime'`;
+    assert.equal(owner.n, 0, "the runtime role must not own a protected table");
+
+    const [attrs] = await admin`select rolsuper, rolbypassrls, rolcreatedb, rolcreaterole, rolinherit from pg_roles where rolname = 'zooka_runtime'`;
+    assert.deepEqual(
+      [attrs.rolsuper, attrs.rolbypassrls, attrs.rolcreatedb, attrs.rolcreaterole, attrs.rolinherit],
+      [false, false, false, false, false]
+    );
+  });
+
+  test("RLS is both enabled and forced on the protected tables", async () => {
+    // ENABLE alone leaves the table owner unrestricted. FORCE is what stops an owner connection from
+    // reading across tenants by accident after a future migration hands ownership to the app role.
+    const rows = await admin`
+      select c.relname, c.relrowsecurity as enabled, c.relforcerowsecurity as forced
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname in ('AgentTask','AgentApproval','AgentIdentity')
+      order by c.relname`;
+    expect(rows.length).toBe(3);
+    for (const row of rows) {
+      assert.equal(row.enabled, true, `${row.relname}: RLS must be enabled`);
+      assert.equal(row.forced, true, `${row.relname}: RLS must be forced`);
+    }
   });
 });

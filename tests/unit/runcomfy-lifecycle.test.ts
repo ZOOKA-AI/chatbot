@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, test, vi } from "vitest";
 
+// The outbound guard resolves every hostname before it fetches, because a DNS answer is what an
+// operator does not control. These suites use reserved .test names that cannot resolve, so the
+// resolver is stubbed to a public address: the guard's checks still run, only DNS becomes
+// deterministic and offline.
+vi.mock("node:dns/promises", () => ({
+  lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+}));
+
+
 vi.mock("server-only", () => ({}));
 
 /** Storage is mocked so the lifecycle can be proven without a filesystem or a database. */

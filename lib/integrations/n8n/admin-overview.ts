@@ -1,5 +1,6 @@
 import "server-only";
 
+import { OutboundBlocked, guardedFetch } from "@/lib/studio/outbound-guard";
 import { getN8nCredentials, type N8nCredentials } from "./store";
 
 /**
@@ -66,7 +67,7 @@ export type N8nAdminOverview = {
   errors: N8nExecutionSummary[];
   lastSuccessAt: string | null;
   probedAt: string;
-  probeError: "unreachable" | "unauthorized" | "bad_response" | null;
+  probeError: "unreachable" | "unauthorized" | "bad_response" | "blocked_destination" | null;
 };
 
 /**
@@ -101,11 +102,13 @@ export function classifyN8nStage(input: N8nStageInput): { stage: N8nStage; reaso
 
 type FetchOutcome =
   | { ok: true; payload: unknown }
-  | { ok: false; error: "unreachable" | "unauthorized" | "bad_response" };
+  | { ok: false; error: "unreachable" | "unauthorized" | "bad_response" | "blocked_destination" };
 
 async function getJson(url: string, apiKey: string): Promise<FetchOutcome> {
   try {
-    const response = await fetch(url, {
+    // The instance address is configuration, but the answer chooses where the next request goes, so
+    // every hop is assessed: a redirect into loopback or a metadata address is refused, not followed.
+    const response = await guardedFetch(url, {
       method: "GET",
       headers: { "X-N8N-API-KEY": apiKey, accept: "application/json" },
       cache: "no-store",
@@ -118,7 +121,19 @@ async function getJson(url: string, apiKey: string): Promise<FetchOutcome> {
       return { ok: false, error: "bad_response" };
     }
     return { ok: true, payload: await response.json() };
-  } catch {
+  } catch (error) {
+    if (error instanceof OutboundBlocked) {
+      // A refusal by policy and a name that does not resolve are different failures: the first is a
+      // destination we will never reach, the second is a network or configuration problem to fix.
+      const refusals = new Set([
+        "metadata_endpoint",
+        "private_address",
+        "host_not_allowed",
+        "protocol_not_allowed",
+        "credentials_in_url",
+      ]);
+      return { ok: false, error: refusals.has(error.reason) ? "blocked_destination" : "unreachable" };
+    }
     return { ok: false, error: "unreachable" };
   }
 }

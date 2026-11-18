@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { loadIntegrationStatus } from "@/lib/integrations/status-fetch";
 
 interface Status {
   configured: boolean;
@@ -35,16 +36,14 @@ export function OAuthConnectionControl({
 
   const load = useCallback(async () => {
     setStatusFailed(false);
-    try {
-      const response = await fetch(`/api/integrations/${provider}`);
-      if (!response.ok) {
-        setStatusFailed(true);
-        return;
-      }
-      setStatus((await response.json()) as Status);
-    } catch {
+    // Bounded on purpose: a request that never settles has no error branch, so the card would sit on
+    // "Checking…" forever with no way to retry. A timeout is rendered as a failed read instead.
+    const outcome = await loadIntegrationStatus<Status>(provider);
+    if (!outcome.ok) {
       setStatusFailed(true);
+      return;
     }
+    setStatus(outcome.status);
   }, [provider]);
 
   useEffect(() => {
