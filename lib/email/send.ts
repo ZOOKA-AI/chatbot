@@ -9,6 +9,12 @@ const RELAY_URL =
 // The value lives only in the environment now; without it the sender refuses
 // loudly instead of quietly using a known key.
 const RELAY_KEY = process.env.ZOOKA_MAIL_KEY?.trim() ?? "";
+// The relay holds exactly one key at a time, so a rotation has an unavoidable
+// overlap problem: whichever side changes first, mail breaks until the other
+// side follows. A second, optional candidate removes the gap - the client keeps
+// offering the outgoing key while the relay is switched over. Neither value has
+// a fallback in source: both live only in the environment.
+const RELAY_KEY_NEXT = process.env.ZOOKA_MAIL_KEY_NEXT?.trim() ?? "";
 // The canonical origin unless an isolated run explicitly overrides it; see
 // resolveEmailBase for why a deployment host must never leak into a mail.
 const BASE = resolveEmailBase();
@@ -35,25 +41,47 @@ function button(href: string, label: string) {
   return `<p style="text-align:center;margin:24px 0"><a href="${href}" style="display:inline-block;background:#6366f1;color:#fff;text-decoration:none;font-weight:600;padding:12px 28px;border-radius:10px">${label}</a></p>`;
 }
 
+function relayKeys(): string[] {
+  // De-duplicated and empty-free, so an unset secondary never costs a request.
+  return [...new Set([RELAY_KEY, RELAY_KEY_NEXT].filter((key) => key.length > 0))];
+}
+
 export async function sendMail(to: string, subject: string, html: string) {
-  if (!RELAY_KEY) {
+  const keys = relayKeys();
+  if (keys.length === 0) {
     // Loud and safe: a mail we cannot authenticate is a mail we must not send.
-    console.error("email relay key missing: ZOOKA_MAIL_KEY is not set");
+    console.error(
+      "email relay key missing: neither ZOOKA_MAIL_KEY nor ZOOKA_MAIL_KEY_NEXT is set"
+    );
     return false;
   }
 
-  try {
-    const response = await fetch(RELAY_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key: RELAY_KEY, to, subject, html }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(15_000),
-    });
-    return response.ok;
-  } catch {
-    return false;
+  for (const key of keys) {
+    try {
+      const response = await fetch(RELAY_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key, to, subject, html }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (response.ok) return true;
+      // 401/403 means the relay does not hold this key right now, not that the
+      // mail is undeliverable: the other candidate may still be the live one.
+      if (response.status !== 401 && response.status !== 403) return false;
+      if (keys.length > 1) {
+        console.warn(
+          "email relay rejected a candidate key, trying the next one",
+          response.status
+        );
+      }
+    } catch {
+      // Network failure or timeout: a second key would hit the same wall.
+      return false;
+    }
   }
+
+  return false;
 }
 
 export function sendWelcomeEmail(to: string, lang: "ar" | "en" = "ar") {
