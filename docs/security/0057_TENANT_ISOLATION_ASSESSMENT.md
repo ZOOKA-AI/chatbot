@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-18
 **Scope:** production database `krzfrsaquvmwctsajhlm` (Supabase, Singapore), migration `0057_runtime_least_privilege_guard`
-**Status:** migration **not applied**, `DATABASE_URL` **unchanged**, no permission modified, no row deleted.
+**Status:** migration **applied 2026-11-18 04:2x** through the runner (key `runtime_least_privilege_guard_0057`, `failed = {}`, twice, idempotent). `DATABASE_URL` **unchanged**, no permission widened, no row deleted.
 **Verdict:** see [§13](#13-go--no-go).
 
 Every number below was read from the production catalog on 2026-11-18 with the read-only
@@ -408,3 +408,33 @@ the guard in a reviewed change, provision `DATABASE_URL_SERVICE` and the runtime
 schedule a monitored window) or keep production on the owner connection and say plainly that
 isolation is partial. Until that is chosen, the honest status is: **isolation proven on the
 policy set, not enforced in production.**
+
+---
+
+## 15. Applied (2026-11-18)
+
+Owner approval: *«الهجرة 0057 طبق»*. Applied through `POST /api/admin/migrate` after the guard was
+inlined into the runner as one `DO` block (the runner executes one statement per entry) and the
+production deployment reached READY on `458d8bd`.
+
+Result, measured in the same response:
+
+| key | value | reading |
+| --- | --- | --- |
+| `applied` | includes `runtime_least_privilege_guard_0057` | the guard ran |
+| `failed` | `{}` | no invariant was broken |
+| `runtime_select_tables` | 48 | **unchanged**: the migration widened nothing |
+| `runtime_grants` | 185 | the 48/45/47/45 table privileges it had before, no additions |
+| `runtime_bypassrls` | false | the runtime role still cannot bypass RLS |
+| `runtime_create_on_public` | false | it still cannot create objects |
+| `rls_on` / `rls_off` | 72 / 0 | RLS coverage unchanged |
+| routes | `/` `/login` `/register` `/api/auth/providers` `/blog` = 200, `/workspace` = 307 | no regression |
+
+A second run returned the same numbers with `failed = {}`, so the guard is idempotent in production
+and not only on the isolated engine.
+
+**What this does and does not mean.** The boundary is now explicit and self-checking: any future
+migration that grants the runtime role a table without RLS or without a policy will fail loudly
+instead of shipping. Isolation itself is **still not enforced**, because the application connects
+as the owner role and `tenant-client.ts` refuses production hosts (B4). The verdict for the cutover
+is unchanged: NO-GO until B4 is decided by the owner.
