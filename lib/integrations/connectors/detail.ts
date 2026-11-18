@@ -2,7 +2,9 @@ import "server-only";
 
 import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
 import { getConnectorSpec } from "@/lib/integrations/connectors/registry";
+import { isProbeable } from "@/lib/integrations/connectors/probe";
 import { TOKEN_PROVIDERS, isTokenProviderId } from "@/lib/integrations/token-providers";
+import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
 /**
  * What the settings page may honestly say about one integration.
@@ -62,6 +64,39 @@ export async function getConnectorDetails(
       expiresAt: toIso(row.expiresAt),
       lastUsedAt: toIso(row.lastUsedAt),
       lastError: row.lastError ?? null,
+      operations: (spec?.operations ?? [])
+        .filter((operation) => operation.kind === "read")
+        .map((operation) => ({
+          id: operation.id,
+          titleAr: operation.titleAr,
+          titleEn: operation.titleEn,
+        })),
+      docsUrl: spec?.docsUrl ?? tokenDefinition?.docsUrl ?? null,
+      blockers: spec?.blockers ?? [],
+      writeStatus: spec?.writeStatus ?? null,
+    });
+  }
+
+  // A card for a provider that has a real call path but nothing stored still
+  // needs its block: it is the only place the user can see "no account stored"
+  // and press a test that answers not_connected instead of a blank card.
+  for (const provider of INTEGRATION_PROVIDERS) {
+    if (details.has(provider.id) || !isProbeable(provider.id)) {
+      continue;
+    }
+    const spec = getConnectorSpec(provider.id);
+    const tokenDefinition = isTokenProviderId(provider.id)
+      ? TOKEN_PROVIDERS[provider.id]
+      : null;
+    details.set(provider.id, {
+      providerId: provider.id,
+      account: null,
+      accountEmail: null,
+      status: "none",
+      scopes: spec?.scopes ?? tokenDefinition?.scopes ?? [],
+      expiresAt: null,
+      lastUsedAt: null,
+      lastError: null,
       operations: (spec?.operations ?? [])
         .filter((operation) => operation.kind === "read")
         .map((operation) => ({

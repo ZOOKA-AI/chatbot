@@ -559,6 +559,32 @@ async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                    {provider.id === "stripe" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Stripe"
+                        lang={lang}
+                        provider="stripe"
+                        tokenHint={
+                          isArabic
+                            ? "مفتاح سترايب مقيّد للقراءة فقط (rk_… أو sk_…)"
+                            : "Stripe read-only restricted key (rk_… or sk_…)"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "supabase" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Supabase"
+                        lang={lang}
+                        provider="supabase"
+                        tokenHint={
+                          isArabic
+                            ? "رمز وصول شخصي من Supabase (sbp_…)"
+                            : "Supabase personal access token (sbp_…)"
+                        }
+                      />
+                    ) : null}
                     {provider.id === "improvmx" ? (
                       <TokenConnectionControl
                         canManage={canManage}

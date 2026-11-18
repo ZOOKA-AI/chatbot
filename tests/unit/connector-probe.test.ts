@@ -32,9 +32,63 @@ beforeEach(() => {
 
 describe("integration probe", () => {
   it("reports a provider with no read path as no_probe instead of a success", async () => {
-    const result = await probeIntegration({ workspaceId: "ws", providerId: "supabase" });
+    const result = await probeIntegration({ workspaceId: "ws", providerId: "plaid" });
     expect(result.ok).toBe(false);
     expect(result.code).toBe("no_probe");
+  });
+
+  it("measures a workspace's own Stripe key, not the platform account", async () => {
+    getIntegrationTokens.mockResolvedValue({ accessToken: "rk_live_tenant" });
+    const fetchMock = vi.fn(async (url: string) =>
+      new Response(
+        JSON.stringify({ id: "acct_tenant", settings: { dashboard: { display_name: "Tenant Co" } } }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await probeIntegration({ workspaceId: "ws", providerId: "stripe" });
+    expect(result.ok).toBe(true);
+    expect(result.account).toBe("Tenant Co");
+    expect(result.detail.credential).toBeUndefined();
+    expect(String(fetchMock.mock.calls[0][0])).toContain("api.stripe.com");
+    vi.unstubAllGlobals();
+  });
+
+  it("labels the platform Stripe account when the workspace has no key of its own", async () => {
+    getIntegrationTokens.mockResolvedValue(null);
+    process.env.STRIPE_SECRET_KEY = "sk_test_platform";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ id: "acct_platform", charges_enabled: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      )
+    );
+    const result = await probeIntegration({ workspaceId: "ws", providerId: "stripe" });
+    expect(result.ok).toBe(true);
+    // The caller can tell the tenant's account from the platform's.
+    expect(result.detail.credential).toBe("platform");
+    vi.unstubAllGlobals();
+    delete process.env.STRIPE_SECRET_KEY;
+  });
+
+  it("probes Supabase with the workspace token and reads the project count", async () => {
+    getIntegrationTokens.mockResolvedValue({ accessToken: "sbp_tenant" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify([{ id: "ref1", region: "eu-central-1" }, { id: "ref2" }]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      )
+    );
+    const result = await probeIntegration({ workspaceId: "ws", providerId: "supabase" });
+    expect(result.ok).toBe(true);
+    expect(result.account).toBe("Supabase (2 projects)");
+    vi.unstubAllGlobals();
   });
 
   it("refuses to claim a connection when nothing is stored", async () => {

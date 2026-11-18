@@ -301,6 +301,72 @@ async function probeN8n(providerId: string, workspaceId: string): Promise<ProbeR
 }
 
 /**
+ * The platform billing account, used only when a workspace has not connected
+ * its own Stripe key. `detail.credential` says which key answered, so the panel
+ * cannot present the platform account as the tenant's.
+ */
+async function probeStripePlatform(providerId: string): Promise<ProbeResult> {
+  const outcome = await timed(async (signal) => {
+    const response = await fetch("https://api.stripe.com/v1/account", {
+      headers: {
+        authorization: `Bearer ${process.env.STRIPE_SECRET_KEY ?? ""}`,
+        "user-agent": "zooka-ai",
+      },
+      cache: "no-store",
+      signal,
+    });
+    return { status: response.status, payload: await readJson(response) };
+  });
+  if ("error" in outcome) {
+    return failure(
+      providerId,
+      outcome.timedOut ? "timeout" : "network_error",
+      outcome.error,
+      outcome.latencyMs
+    );
+  }
+  const { status, payload } = outcome.value;
+  if (status < 200 || status >= 300) {
+    return failure(
+      providerId,
+      status === 401 ? "unauthorized" : "provider_error",
+      `stripe returned ${status}`,
+      outcome.latencyMs
+    );
+  }
+  return {
+    providerId,
+    code: "ok",
+    ok: true,
+    account: pick(payload, ["settings.dashboard.display_name", "id", "email"]),
+    detail: {
+      status,
+      credential: "platform",
+      chargesEnabled: Boolean(payload.charges_enabled),
+    },
+    latencyMs: outcome.latencyMs,
+    checkedAt: nowIso(),
+    error: null,
+  };
+}
+
+/**
+ * Providers with a real call path, so the panel can offer a test on every one of
+ * them instead of only on the ones that already have a stored row. A provider
+ * absent here has no probe and the card says so rather than showing a button
+ * that cannot answer.
+ */
+const GOOGLE_PROVIDERS = ["google_drive", "gmail", "google_calendar"] as const;
+
+export function isProbeable(providerId: string): boolean {
+  if (getConnectorSpec(providerId)) return true;
+  if ((GOOGLE_PROVIDERS as readonly string[]).includes(providerId)) return true;
+  if (isOAuthProviderId(providerId)) return true;
+  if (isTokenProviderId(providerId)) return true;
+  return providerId === "n8n";
+}
+
+/**
  * Probe one integration for one workspace.
  *
  * Dispatch order matters: a provider that ships a declarative connector spec is
@@ -355,54 +421,22 @@ export async function probeIntegration(input: {
   if (isOAuthProviderId(providerId)) {
     return probeOAuth(providerId, workspaceId);
   }
+  if (providerId === "stripe") {
+    // A workspace that connected its own Stripe key is measured with that key.
+    // Otherwise fall through to the platform account the billing code charges
+    // with, labelled as such so a green tick never implies "your account".
+    const own = await getIntegrationTokens(workspaceId, "stripe").catch(() => null);
+    const ownToken = typeof own?.accessToken === "string" ? own.accessToken : "";
+    if (ownToken) {
+      return probeToken(providerId, workspaceId);
+    }
+    return probeStripePlatform(providerId);
+  }
   if (isTokenProviderId(providerId)) {
     return probeToken(providerId, workspaceId);
   }
   if (providerId === "n8n") {
     return probeN8n(providerId, workspaceId);
   }
-  if (providerId === "stripe") {
-    // The Stripe key is platform-wide, so this proves the platform account the
-    // billing code actually charges with. It answers "does billing work".
-    const outcome = await timed(async (signal) => {
-      const response = await fetch("https://api.stripe.com/v1/account", {
-        headers: {
-          authorization: `Bearer ${process.env.STRIPE_SECRET_KEY ?? ""}`,
-          "user-agent": "zooka-ai",
-        },
-        cache: "no-store",
-        signal,
-      });
-      return { status: response.status, payload: await readJson(response) };
-    });
-    if ("error" in outcome) {
-      return failure(
-        providerId,
-        outcome.timedOut ? "timeout" : "network_error",
-        outcome.error,
-        outcome.latencyMs
-      );
-    }
-    const { status, payload } = outcome.value;
-    if (status < 200 || status >= 300) {
-      return failure(
-        providerId,
-        status === 401 ? "unauthorized" : "provider_error",
-        `stripe returned ${status}`,
-        outcome.latencyMs
-      );
-    }
-    return {
-      providerId,
-      code: "ok",
-      ok: true,
-      account: pick(payload, ["settings.dashboard.display_name", "id", "email"]),
-      detail: { status, chargesEnabled: Boolean(payload.charges_enabled) },
-      latencyMs: outcome.latencyMs,
-      checkedAt: nowIso(),
-      error: null,
-    };
-  }
-
   return failure(providerId, "no_probe", "no read path is implemented for this provider yet", 0);
 }
