@@ -3,7 +3,11 @@ import { z } from "zod";
 import { listAgentMemories, saveAgentMemory } from "@/lib/db/agent-memory";
 import { generateBrandDna, readBrandDna } from "@/lib/brand/dna";
 import { listLeads, updateLeadStatus } from "@/lib/db/leads";
-import { readWallet } from "@/lib/db/token-wallets";
+import {
+  ensureWalletForCurrentPeriod,
+  readWallet,
+} from "@/lib/db/token-wallets";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { chargeWallet } from "@/lib/db/wallet-charge";
 import { LEAD_STATUSES } from "@/lib/leads/status";
 
@@ -31,11 +35,25 @@ function textResult(payload: unknown) {
   };
 }
 
+/**
+ * يضمن وجود محفظة الشهر الحالي قبل أي خصم. المساحة التي دفعت أو التي في
+ * برنامج الإطلاق لها خطة تمنح توكنز، لكن المنحة كانت تُنشأ من فاتورة Stripe
+ * وحدها، فبقيت مساحات كثيرة بلا محفظة فتعطّلت أدوات MCP المدفوعة.
+ */
+async function ensureWallet(context: ToolContext) {
+  const entitlements = await getWorkspaceEntitlements(context.organizationId);
+  return await ensureWalletForCurrentPeriod(
+    context.organizationId,
+    entitlements.plan
+  );
+}
+
 async function charge(
   context: ToolContext,
   weighted: number,
   tool: string
 ): Promise<{ ok: true; remaining: number | null } | { ok: false; message: string }> {
+  await ensureWallet(context);
   const result = await chargeWallet({
     organizationId: context.organizationId,
     weighted,
@@ -237,7 +255,9 @@ export function buildZookaMcpServer(context: ToolContext): McpServer {
       title: "رصيد المحفظة",
     },
     async () => {
-      const wallet = await readWallet(context.organizationId);
+      const wallet = await ensureWallet(context).catch(() =>
+        readWallet(context.organizationId)
+      );
       if (!wallet) {
         return textResult({ plan: null, wallet: null });
       }

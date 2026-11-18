@@ -30,7 +30,10 @@ import {
 import { listProjects } from "@/lib/db/projects";
 import { getChatsByOrganizationId } from "@/lib/db/queries";
 import { withTenantPage } from "@/lib/db/request-tenant";
-import { readWallet } from "@/lib/db/token-wallets";
+import {
+  ensureWalletForCurrentPeriod,
+  readWallet,
+} from "@/lib/db/token-wallets";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
@@ -67,7 +70,7 @@ async function Dashboard() {
 
   const [agents, projects, chats, schedules, integrations, plan, wallet] = await Promise.all([
     section(async () => summarizeAgents(await withCommanderScope(org, () => listAgents(org)))),
-    section(async () => (await listProjects(org)).slice(0, 4)),
+    section(async () => await listProjects(org)),
     section(
       async () =>
         (
@@ -85,6 +88,13 @@ async function Dashboard() {
     section(() => getWorkspaceEntitlements(org)),
     section(() => readWallet(org)),
   ]);
+
+  // A paid or launch-program workspace is entitled to tokens for the current
+  // period even before the first Stripe invoice exists. Provision idempotently
+  // so the dashboard shows the real allowance instead of "no wallet".
+  const fundedWallet = plan.ok
+    ? await section(() => ensureWalletForCurrentPeriod(org, plan.data.plan))
+    : wallet;
 
   const email = context.user.email ?? "";
   const firstName = email.includes("@") ? email.split("@")[0] : "";
@@ -244,7 +254,11 @@ async function Dashboard() {
           <SectionBody
             empty={t("لا توجد مشاريع بعد.", "No projects yet.")}
             lang={lang}
-            section={projects}
+            section={
+              projects.ok
+                ? { ok: true, data: projects.data.slice(0, 4) }
+                : projects
+            }
           >
             {(rows) => (
               <ul className="flex flex-col divide-y">
@@ -336,9 +350,9 @@ async function Dashboard() {
               <div className="col-span-2">
                 <dt className="text-muted-foreground text-xs">{t("محفظة التوكنز", "Token wallet")}</dt>
                 <dd className="font-semibold">
-                  {wallet.ok
-                    ? wallet.data
-                      ? Number(wallet.data.weighted_remaining).toLocaleString(ar ? "ar" : "en")
+                  {fundedWallet.ok
+                    ? fundedWallet.data
+                      ? Number(fundedWallet.data.weighted_remaining).toLocaleString(ar ? "ar" : "en")
                       : t("لا توجد محفظة لهذه المساحة", "No wallet for this workspace")
                     : t("غير متاح الآن", "Unavailable right now")}
                 </dd>
