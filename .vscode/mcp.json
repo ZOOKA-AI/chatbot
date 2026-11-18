@@ -1,0 +1,12 @@
+{
+  // Workspace MCP servers for GitHub Copilot in VS Code.
+  // Vercel MCP authenticates with OAuth on first start: no token is stored
+  // here, in the repo, or in any tracked file. Start it from
+  // "MCP: List Servers" and approve the Vercel consent screen.
+  "servers": {
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
+    }
+  }
+}
