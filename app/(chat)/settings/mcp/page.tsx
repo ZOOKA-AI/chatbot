@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { McpKeysManager } from "@/components/mcp-keys-manager";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { listMcpKeys } from "@/lib/db/mcp-keys";
+import { MCP_TOOL_CATALOG } from "@/lib/mcp/catalog";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
 export const metadata: Metadata = {
@@ -51,15 +52,16 @@ async function McpSettingsContent() {
       <McpKeysManager initialKeys={keys} lang={lang} />
 
       <section className="flex flex-col gap-2 rounded-2xl border bg-muted/30 p-5 text-sm">
-        <h2 className="font-semibold">{ar ? "الأدوات المتاحة" : "Available tools"}</h2>
+        <h2 className="font-semibold">
+          {ar ? "الأدوات المتاحة" : "Available tools"} ({MCP_TOOL_CATALOG.length})
+        </h2>
         <ul className="flex flex-col gap-1 text-muted-foreground">
-          <li>• list_leads — {ar ? "قراءة الليدز" : "read leads"} (1x)</li>
-          <li>
-            • update_lead_status — {ar ? "تحديث حالة ليد" : "update a lead status"} (5x)
-          </li>
-          <li>• remember — {ar ? "حفظ حقيقة دائمة" : "save a durable fact"} (5x)</li>
-          <li>• recall — {ar ? "استرجاع الذاكرة" : "recall memory"} (1x)</li>
-          <li>• wallet_balance — {ar ? "رصيد المحفظة" : "wallet balance"} ({ar ? "مجاني" : "free"})</li>
+          {MCP_TOOL_CATALOG.map((tool) => (
+            <li key={tool.name}>
+              • <code dir="ltr">{tool.name}</code> — {ar ? tool.ar : tool.en} (
+              {tool.cost === 0 ? (ar ? "مجاني" : "free") : `${tool.cost}x`})
+            </li>
+          ))}
         </ul>
       </section>
     </main>
