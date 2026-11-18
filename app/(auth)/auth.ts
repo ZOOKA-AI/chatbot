@@ -12,7 +12,9 @@ import {
   createUser,
   ensureUserWorkspace,
   getUser,
+  getUserCredentialById,
 } from "@/lib/db/queries";
+import { checkSessionVersion } from "@/lib/auth/session-version";
 import { sendWelcomeEmail } from "@/lib/email/send";
 import { emailForPhone, readLoginTicket } from "@/lib/auth/phone-otp";
 import { phoneLoginEnabled } from "@/lib/auth/sms";
@@ -63,6 +65,8 @@ declare module "next-auth/jwt" {
     type: UserType;
     organizationId: string;
     organizationRole: OrganizationRole;
+    /** Digest of the password hash the session was opened with. */
+    credentialVersion?: string;
   }
 }
 
@@ -208,6 +212,25 @@ export const {
       }
 
       if (token.id) {
+        // End the session if the password changed since it was opened (reset on
+        // another device). A fresh sign-in always re-stamps.
+        try {
+          const stored = await getUserCredentialById(token.id);
+          const check = checkSessionVersion(
+            user ? undefined : token.credentialVersion,
+            stored
+          );
+          if (check.action === "revoke") {
+            return null;
+          }
+          if (check.action === "stamp") {
+            token.credentialVersion = check.version;
+          }
+        } catch (error) {
+          // A database blip must not sign everyone out; the next read retries.
+          console.error("session version check skipped", (error as Error)?.message);
+        }
+
         const workspace = await ensureUserWorkspace({
           userId: token.id,
           email: user?.email ?? token.email ?? "My workspace",

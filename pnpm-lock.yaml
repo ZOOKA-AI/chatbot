@@ -4,11 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  ultracite@7.0.11:
-    hash: dsz4dg2qdkac2wvr7fympmuwmm
-    path: patches/ultracite@7.0.11.patch
-
 importers:
 
   .:
@@ -331,7 +326,7 @@ importers:
         version: 5.8.2
       ultracite:
         specifier: ^7.0.11
-        version: 7.0.11(patch_hash=dsz4dg2qdkac2wvr7fympmuwmm)(typescript@5.8.2)
+        version: 7.0.11(typescript@5.8.2)
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@22.13.10)(vite@8.3.5(@types/node@22.13.10)(esbuild@0.19.12)(jiti@2.6.1)(tsx@4.19.3)(yaml@2.9.1))
@@ -10189,7 +10184,7 @@ snapshots:
 
   uc.micro@2.1.0: {}
 
-  ultracite@7.0.11(patch_hash=dsz4dg2qdkac2wvr7fympmuwmm)(typescript@5.8.2):
+  ultracite@7.0.11(typescript@5.8.2):
     dependencies:
       '@clack/prompts': 0.11.0
       '@trpc/server': 11.22.1(typescript@5.8.2)

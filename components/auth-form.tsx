@@ -10,6 +10,10 @@ export function AuthForm({
   labels,
   emailPlaceholder = "user@acme.com",
   passwordAutoComplete = "current-password",
+  passwordMinLength,
+  passwordHint,
+  passwordHintId,
+  onPasswordChange,
 }: {
   action: NonNullable<
     string | ((formData: FormData) => void | Promise<void>) | undefined
@@ -19,6 +23,12 @@ export function AuthForm({
   labels?: { email: string; password: string };
   emailPlaceholder?: string;
   passwordAutoComplete?: "current-password" | "new-password";
+  /** Only for choosing a new password; sign-in accepts older, shorter ones. */
+  passwordMinLength?: number;
+  /** Rendered under the password field (e.g. a strength meter). */
+  passwordHint?: React.ReactNode;
+  passwordHintId?: string;
+  onPasswordChange?: (value: string) => void;
 }) {
   const emailLabel = labels?.email ?? "Email Address";
   const passwordLabel = labels?.password ?? "Password";
@@ -58,13 +68,19 @@ export function AuthForm({
 
         <Input
           className="h-12 bg-muted text-base md:h-11 md:text-sm"
+          aria-describedby={passwordHintId}
           autoComplete={passwordAutoComplete}
           dir="ltr"
           id="password"
+          minLength={passwordMinLength}
           name="password"
+          onChange={
+            onPasswordChange ? (event) => onPasswordChange(event.target.value) : undefined
+          }
           required
           type="password"
         />
+        {passwordHint}
       </div>
 
       {children}

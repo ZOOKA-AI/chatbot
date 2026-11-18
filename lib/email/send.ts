@@ -4,7 +4,12 @@ import { resolveEmailBase } from "./base";
 
 const RELAY_URL =
   "https://solas-89d18e3d.base44.app/functions/zookaMail";
-const RELAY_KEY = process.env.ZOOKA_MAIL_KEY ?? "zk-mail-2026-Qp7xV3";
+// No fallback: a key committed to a public repository is a key anyone can use
+// to send mail as Zooka. Without ZOOKA_MAIL_KEY, mail is refused loudly instead.
+function relayKey(): string | null {
+  const key = process.env.ZOOKA_MAIL_KEY?.trim();
+  return key ? key : null;
+}
 // The canonical origin unless an isolated run explicitly overrides it; see
 // resolveEmailBase for why a deployment host must never leak into a mail.
 const BASE = resolveEmailBase();
@@ -32,11 +37,16 @@ function button(href: string, label: string) {
 }
 
 export async function sendMail(to: string, subject: string, html: string) {
+  const key = relayKey();
+  if (!key) {
+    console.error("mail not sent: ZOOKA_MAIL_KEY is not configured");
+    return false;
+  }
   try {
     const response = await fetch(RELAY_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key: RELAY_KEY, to, subject, html }),
+      body: JSON.stringify({ key, to, subject, html }),
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),
     });
