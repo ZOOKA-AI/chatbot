@@ -104,3 +104,63 @@ export async function readWallet(organizationId: string) {
     FROM token_wallets WHERE organization_id = ${organizationId} LIMIT 1`;
   return rows[0] ?? null;
 }
+
+/**
+ * بداية ونهاية الفترة الشهرية الحالية (تقويم UTC).
+ * تُستخدم حين لا يوجد فاتورة Stripe بعد، مثل مساحات الإطلاق أو الحسابات
+ * المجانية الترويجية، كي لا تبقى المحفظة غائبة فتفشل أدوات MCP.
+ */
+export function currentBillingPeriod(now: Date = new Date()) {
+  const periodStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
+  );
+  const periodEnd = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0)
+  );
+  return { periodEnd, periodStart };
+}
+
+/**
+ * يضمن وجود محفظة للفترة الحالية بحسب خطة المساحة.
+ * آمن للتكرار: قفل استشاري على المساحة + مفتاح منحة واحد لكل (خطة، شهر).
+ * لا يجمّد ولا يجمع: المنحة تُنشئ أو تستبدل رصيد الفترة، والتجديد الشهري
+ * التالي يستبدله لا يُضيفه. الخطة المجانية لا منحة لها فتبقى بلا محفظة.
+ */
+export async function ensureWalletForCurrentPeriod(
+  organizationId: string,
+  plan: string
+): Promise<Awaited<ReturnType<typeof readWallet>>> {
+  const allowance = PLAN_TOKEN_ALLOWANCE[plan] ?? 0;
+  if (allowance <= 0) {
+    return await readWallet(organizationId);
+  }
+
+  const { periodEnd, periodStart } = currentBillingPeriod();
+  const grantKey = `plan:${plan}:${periodStart.toISOString().slice(0, 7)}`;
+  const q = sql();
+
+  await q.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtextextended(${organizationId}, 0))`;
+    const existing = await tx`
+      SELECT 1 FROM token_grants WHERE grant_key = ${grantKey} LIMIT 1`;
+    if (existing.length > 0) {
+      return;
+    }
+    await tx`
+      INSERT INTO token_grants (organization_id, grant_key, plan, weighted)
+      VALUES (${organizationId}, ${grantKey}, ${plan}, ${allowance})`;
+    await tx`
+      INSERT INTO token_wallets
+        (organization_id, plan, weighted_remaining, period_start, period_end, updated_at)
+      VALUES
+        (${organizationId}, ${plan}, ${allowance}, ${periodStart}, ${periodEnd}, now())
+      ON CONFLICT (organization_id) DO UPDATE SET
+        plan = EXCLUDED.plan,
+        weighted_remaining = EXCLUDED.weighted_remaining,
+        period_start = EXCLUDED.period_start,
+        period_end = EXCLUDED.period_end,
+        updated_at = now()`;
+  });
+
+  return await readWallet(organizationId);
+}

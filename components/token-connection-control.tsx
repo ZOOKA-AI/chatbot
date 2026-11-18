@@ -30,6 +30,7 @@ export function TokenConnectionControl({
 }) {
   const isArabic = lang === "ar";
   const [status, setStatus] = useState<Status | null>(null);
+  const [statusFailed, setStatusFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -37,11 +38,17 @@ export function TokenConnectionControl({
   const [token, setToken] = useState("");
 
   const load = useCallback(async () => {
-    const response = await fetch(`/api/integrations/${provider}`);
-    if (!response.ok) {
-      return;
+    setStatusFailed(false);
+    try {
+      const response = await fetch(`/api/integrations/${provider}`);
+      if (!response.ok) {
+        setStatusFailed(true);
+        return;
+      }
+      setStatus((await response.json()) as Status);
+    } catch {
+      setStatusFailed(true);
     }
-    setStatus((await response.json()) as Status);
   }, [provider]);
 
   useEffect(() => {
@@ -123,6 +130,21 @@ export function TokenConnectionControl({
           ? "مالك المساحة أو المسؤول فقط يمكنه الربط."
           : "Only a workspace owner or admin can connect."}
       </p>
+    );
+  }
+
+  if (!status && statusFailed) {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <p className="text-destructive text-xs">
+          {isArabic
+            ? "تعذّر قراءة حالة هذا التكامل من الخادم."
+            : "Could not read this integration's status."}
+        </p>
+        <Button onClick={() => void load()} size="sm" variant="outline">
+          {isArabic ? "إعادة المحاولة" : "Retry"}
+        </Button>
+      </div>
     );
   }
 

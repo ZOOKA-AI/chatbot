@@ -90,3 +90,48 @@ test("missing billing dates fail before any schema or wallet access", async () =
   ).rejects.toThrow("billing period");
   expect(state.connect).not.toHaveBeenCalled();
 });
+
+test("currentBillingPeriod covers exactly one UTC calendar month", async () => {
+  const { currentBillingPeriod } = await import("@/lib/db/token-wallets");
+  const { periodStart, periodEnd } = currentBillingPeriod(
+    new Date("2026-11-18T11:26:00.000Z")
+  );
+  expect(periodStart.toISOString()).toBe("2026-11-01T00:00:00.000Z");
+  expect(periodEnd.toISOString()).toBe("2026-12-01T00:00:00.000Z");
+});
+
+test("a plan with no token allowance is never given an empty wallet", async () => {
+  const { ensureWalletForCurrentPeriod } = await import(
+    "@/lib/db/token-wallets"
+  );
+  expect(await ensureWalletForCurrentPeriod("org_one", "free")).toBeNull();
+  // The free plan is still read (so a downgraded workspace sees its real
+  // balance), but it is never granted a new allowance.
+  expect(state.queries.some((q) => q.includes("INSERT INTO"))).toBe(false);
+});
+
+test("an entitled plan gets the current month's allowance, once per plan and month", async () => {
+  const { currentBillingPeriod, ensureWalletForCurrentPeriod } = await import(
+    "@/lib/db/token-wallets"
+  );
+  const month = currentBillingPeriod().periodStart.toISOString().slice(0, 7);
+  await ensureWalletForCurrentPeriod("org_one", "pro");
+  expect(
+    state.queries.findIndex((q) => q.includes("pg_advisory_xact_lock"))
+  ).toBeLessThan(
+    state.queries.findIndex((q) => q.includes("SELECT 1 FROM token_grants"))
+  );
+  expect(
+    state.queries.some((q) => q.includes("INSERT INTO token_grants"))
+  ).toBe(true);
+  expect(
+    state.queries.some((q) => q.includes("INSERT INTO token_wallets"))
+  ).toBe(true);
+
+  // Same month, second visit: the grant key already exists, nothing is written.
+  state.queries = [];
+  state.existing = true;
+  await ensureWalletForCurrentPeriod("org_one", "pro");
+  expect(state.queries.some((q) => q.includes("INSERT INTO"))).toBe(false);
+  expect(month).toMatch(/^\d{4}-\d{2}$/);
+});

@@ -176,6 +176,7 @@ export function LiveBrowser({
           <input
             value={address}
             onChange={(event) => setAddress(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
             dir="ltr"
             spellCheck={false}
             aria-label="عنوان الموقع"
