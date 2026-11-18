@@ -1,0 +1,79 @@
+import "server-only";
+
+import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
+import { getConnectorSpec } from "@/lib/integrations/connectors/registry";
+import { TOKEN_PROVIDERS, isTokenProviderId } from "@/lib/integrations/token-providers";
+
+/**
+ * What the settings page may honestly say about one integration.
+ *
+ * Three separate things were being conflated before: what we stored, what the
+ * provider allows, and what the provider actually answered. This module collects
+ * the first two (a read-only database row plus the connector's declared
+ * operations and scopes) and leaves the third to probe.ts, which makes the call.
+ */
+export type ConnectorDetail = {
+  providerId: string;
+  /** Label the provider gave this account, or null when nothing is stored. */
+  account: string | null;
+  accountEmail: string | null;
+  status: "connected" | "expired" | "error" | "revoked" | "none";
+  scopes: string[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  lastError: string | null;
+  /** The reads this connector can really perform today. Writes are never listed. */
+  operations: { id: string; titleAr: string; titleEn: string }[];
+  docsUrl: string | null;
+  blockers: string[];
+  /** Why writes are absent, in the connector's own words. */
+  writeStatus: string | null;
+};
+
+function toIso(value: Date | null | undefined) {
+  return value instanceof Date ? value.toISOString() : null;
+}
+
+export async function getConnectorDetails(
+  workspaceId: string
+): Promise<Map<string, ConnectorDetail>> {
+  const details = new Map<string, ConnectorDetail>();
+
+  let rows: Awaited<ReturnType<typeof listWorkspaceIntegrations>> = [];
+  try {
+    rows = await listWorkspaceIntegrations(workspaceId);
+  } catch {
+    // A failed read must not take the page down; the cards simply show no account.
+    rows = [];
+  }
+
+  for (const row of rows) {
+    const spec = getConnectorSpec(row.providerId);
+    const tokenDefinition = isTokenProviderId(row.providerId)
+      ? TOKEN_PROVIDERS[row.providerId]
+      : null;
+
+    details.set(row.providerId, {
+      providerId: row.providerId,
+      account: row.displayName ?? null,
+      accountEmail: row.accountEmail ?? null,
+      status: row.status,
+      scopes: spec?.scopes ?? tokenDefinition?.scopes ?? row.scopes ?? [],
+      expiresAt: toIso(row.expiresAt),
+      lastUsedAt: toIso(row.lastUsedAt),
+      lastError: row.lastError ?? null,
+      operations: (spec?.operations ?? [])
+        .filter((operation) => operation.kind === "read")
+        .map((operation) => ({
+          id: operation.id,
+          titleAr: operation.titleAr,
+          titleEn: operation.titleEn,
+        })),
+      docsUrl: spec?.docsUrl ?? tokenDefinition?.docsUrl ?? null,
+      blockers: spec?.blockers ?? [],
+      writeStatus: spec?.writeStatus ?? null,
+    });
+  }
+
+  return details;
+}
