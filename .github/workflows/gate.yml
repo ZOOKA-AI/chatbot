@@ -138,8 +138,6 @@ jobs:
         run: pnpm exec tsc --noEmit
 
       - name: Lint (report only)
-        # ultracite has no clean baseline in this repository yet, so a red lint here would hide the
-        # security signal. It reports its real outcome; making it blocking needs its own baseline commit.
         continue-on-error: true
         timeout-minutes: 10
         run: pnpm run lint
@@ -192,6 +190,10 @@ jobs:
         env:
           ZOOKA_TEST_PG_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
           ZOOKA_TEST_PG_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
+          # agent-health owns aggregate fixtures and cleanup. Pin both of its connections explicitly
+          # so no other suite can redirect its cleanup through the restricted runtime role.
+          ZOOKA_TEST_PG_HEALTH_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          ZOOKA_TEST_PG_HEALTH_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
         run: pnpm exec vitest run --reporter=dot --reporter=json --outputFile=vitest-report.json --testTimeout=20000 --hookTimeout=20000
 
       - name: Refuse a green run that skipped the security suites
