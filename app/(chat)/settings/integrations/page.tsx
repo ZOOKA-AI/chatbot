@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ExternalLink, Settings2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ConnectorLogo } from "@/components/connector-logo";
 import { ConnectorProbeButton } from "@/components/connector-probe-button";
@@ -431,6 +432,69 @@ async function IntegrationsPage({
                     </p>
                     {(() => {
                       const detail = connectorDetails.get(provider.id);
+                      const playbook = INTEGRATION_PLAYBOOKS.find(
+                        (entry) => entry.providerId === provider.id
+                      );
+                      const attention = needsReconnect || Boolean(detail?.lastError);
+                      if (!detail && !playbook && !available) {
+                        return null;
+                      }
+                      return (
+                        <details
+                          className="group mt-1 rounded-md border bg-muted/20 [&_summary::-webkit-details-marker]:hidden"
+                          data-settings={provider.id}
+                          open={attention}
+                        >
+                          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-xs font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <Settings2 aria-hidden="true" className="size-4" />
+                              {isArabic ? "الإعدادات" : "Settings"}
+                            </span>
+                            <span className="text-muted-foreground text-[11px] font-normal">
+                              {detail?.account ??
+                                (connected
+                                  ? isArabic
+                                    ? "متصل"
+                                    : "Connected"
+                                  : isArabic
+                                    ? "غير مربوط"
+                                    : "Not connected")}
+                            </span>
+                          </summary>
+                          <div className="flex flex-col gap-3 border-t p-3">
+                            {playbook ? (
+                              <div className="flex flex-col gap-1.5 text-[11px]">
+                                <p className="font-medium text-xs">
+                                  {playbook.connection === "oauth"
+                                    ? isArabic
+                                      ? "طريقة الربط: موافقة بضغطة (OAuth)"
+                                      : "How to connect: one-click consent (OAuth)"
+                                    : isArabic
+                                      ? "طريقة الحصول على التوكن"
+                                      : "How to get the token"}
+                                </p>
+                                <p className="text-muted-foreground">
+                                  {isArabic ? playbook.credentialAr : playbook.credentialEn}
+                                </p>
+                                <ol className="text-muted-foreground list-decimal ps-4">
+                                  {playbook.steps.map((step) => (
+                                    <li key={step.en}>{isArabic ? step.ar : step.en}</li>
+                                  ))}
+                                </ol>
+                                {playbook.docsUrl ? (
+                                  <a
+                                    className="inline-flex min-h-11 w-fit items-center gap-1 text-violet-600 underline dark:text-violet-300"
+                                    href={playbook.docsUrl}
+                                    rel="noopener noreferrer"
+                                    target="_blank"
+                                  >
+                                    {isArabic ? "فتح صفحة المزوّد" : "Open provider page"}
+                                    <ExternalLink aria-hidden="true" className="size-3" />
+                                  </a>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {(() => {
                       if (!detail) {
                         return null;
                       }
@@ -656,6 +720,10 @@ async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                          </div>
+                        </details>
+                      );
+                    })()}
                     {available &&
                     (provider.id === "google_drive" ||
                       provider.id === "gmail") ? (
