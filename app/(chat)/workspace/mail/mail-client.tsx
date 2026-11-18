@@ -60,7 +60,9 @@ const COPY = {
     availableNow: "متاح",
     readOnly: "قراءة فقط",
     sendBlocked: "الإرسال غير مُفعّل",
-    notReady: "قاعدة بيانات البريد لم تُهيّأ بعد في هذه البيئة (الهجرة 0059 غير مطبّقة). الواجهة جاهزة، والبيانات فارغة.",
+    notReadyTables: "جداول البريد غير موجودة في هذه البيئة بعد (الهجرة 0060 غير مطبّقة). الواجهة جاهزة، والبيانات فارغة.",
+    notReadyService: "هذه البيئة لا تملك اتصال خدمة بقاعدة البيانات (DATABASE_URL_SERVICE)، فتعذّر قراءة البريد.",
+    notReadyUnknown: "تعذّر قراءة البريد في هذه البيئة. السبب غير مصنّف، والتفاصيل في سجل الخادم.",
     compose: "مسودة جديدة",
     intent: "اكتب ما تريد قوله باختصار",
     suggest: "اقترح صياغة",
@@ -91,7 +93,9 @@ const COPY = {
     availableNow: "Available",
     readOnly: "Read only",
     sendBlocked: "Sending is not activated",
-    notReady: "The mail tables are not in this environment yet (migration 0059 is unapplied). The interface is ready; the data is empty.",
+    notReadyTables: "The mail tables are not in this environment yet (migration 0060 is unapplied). The interface is ready; the data is empty.",
+    notReadyService: "This environment has no service connection to the database (DATABASE_URL_SERVICE), so mail cannot be read.",
+    notReadyUnknown: "Mail could not be read in this environment. The cause is unclassified; details are in the server log.",
     compose: "New draft",
     intent: "Say what you want in one line",
     suggest: "Suggest wording",
@@ -103,7 +107,7 @@ const COPY = {
 
 export function MailClient(props: {
   lang: "ar" | "en";
-  ready: boolean;
+  failure: "tables_missing" | "service_connection" | "unknown" | null;
   activeFolder: string;
   mailboxes: Mailbox[];
   activeMailboxId: string | null;
@@ -213,9 +217,13 @@ export function MailClient(props: {
         <p className="text-sm text-neutral-400">{t.subtitle}</p>
       </header>
 
-      {!props.ready && (
+      {props.failure && (
         <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-          {t.notReady}
+          {props.failure === "tables_missing"
+            ? t.notReadyTables
+            : props.failure === "service_connection"
+              ? t.notReadyService
+              : t.notReadyUnknown}
         </p>
       )}
 

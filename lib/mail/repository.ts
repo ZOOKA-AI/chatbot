@@ -4,7 +4,7 @@
  * Every statement names its organizationId in the WHERE clause, and the
  * insert of an address relies on ON CONFLICT DO NOTHING so the database, not a
  * prior SELECT, decides whether a name was free. Raw SQL is used rather than the
- * query builder because the tables are introduced by migration 0059 and the
+ * query builder because the tables are introduced by migration 0060 and the
  * builder's snapshot would otherwise have to be regenerated for a build that is
  * not allowed to touch production.
  */

@@ -11,6 +11,20 @@ import { isMailFolder, type MailFolder } from "@/lib/mail/types";
 import { MailClient } from "./mail-client";
 
 /**
+ * Names the failure so the panel can say something true.
+ *
+ * "Migration not applied" and "this environment has no service connection" look
+ * identical from the outside and need different fixes, so the message must not
+ * guess.
+ */
+function classifyFailure(error: unknown): "tables_missing" | "service_connection" | "unknown" {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("DATABASE_URL_SERVICE")) return "service_connection";
+  if (/relation .* does not exist|undefined_table|42P01/i.test(message)) return "tables_missing";
+  return "unknown";
+}
+
+/**
  * ZOOKA Mail.
  *
  * A server component: the workspace comes from the session, the folders are read
@@ -18,9 +32,9 @@ import { MailClient } from "./mail-client";
  * again on the way out even though it was sanitised on the way in. Two lines of
  * defence is the right number for markup written by a stranger.
  *
- * The reads are wrapped because migration 0059 has not been applied to this
- * environment. A missing table must show an honest "not activated" panel, not a
- * 500 that looks like the product is broken.
+ * The reads are wrapped so a missing table, or a missing service connection,
+ * shows an honest "not available here" panel with the actual reason rather than
+ * a 500 that looks like the product is broken.
  */
 export default async function MailPage({
   searchParams,
@@ -37,15 +51,15 @@ export default async function MailPage({
   const lang = await getLang();
 
   const repo = createMailRepository();
-  let ready = true;
+  let failure: "tables_missing" | "service_connection" | "unknown" | null = null;
   let addresses: Awaited<ReturnType<typeof repo.listAddresses>> = [];
   let drafts: Awaited<ReturnType<typeof repo.listDrafts>> = [];
 
   try {
     addresses = await repo.listAddresses(organizationId, userId);
     drafts = await repo.listDrafts(organizationId, userId);
-  } catch {
-    ready = false;
+  } catch (error) {
+    failure = classifyFailure(error);
   }
 
   const active = addresses.find((entry) => entry.id === box) ?? addresses[0] ?? null;
@@ -62,7 +76,7 @@ export default async function MailPage({
     aiSummary: string | null;
   }> = [];
 
-  if (ready && active) {
+  if (failure === null && active) {
     try {
       const result = await listFolder({
         repo,
@@ -84,15 +98,16 @@ export default async function MailPage({
           aiSummary: message.aiSummary,
         }));
       }
-    } catch {
-      ready = false;
+    } catch (error) {
+      failure = classifyFailure(error);
+      messages = [];
     }
   }
 
   return (
     <MailClient
       lang={lang === "ar" ? "ar" : "en"}
-      ready={ready}
+      failure={failure}
       activeFolder={activeFolder}
       mailboxes={addresses.map((entry) => ({
         id: entry.id,

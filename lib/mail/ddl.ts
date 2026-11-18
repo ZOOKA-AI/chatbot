@@ -1,8 +1,8 @@
 /**
- * The exact statements of migration 0059, in the order they must run.
+ * The exact statements of migration 0060, in the order they must run.
  *
  * The admin migration route applies a named list of statements, so the DDL has to
- * exist as code. Keeping a second copy in lib/db/migrations/pending/0059_zooka_mail.sql
+ * exist as code. Keeping a second copy in lib/db/migrations/pending/0060_zooka_mail.sql
  * is what makes it reviewable in a pull request, and tests/unit/mail-migration.test.ts
  * fails if the two ever disagree. Nothing here runs automatically: applying it needs
  * the owner-approved migration call.

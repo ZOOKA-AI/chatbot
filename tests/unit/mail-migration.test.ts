@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -6,11 +6,11 @@ import { describe, expect, it } from "vitest";
 import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const SQL = readFileSync(
-  join(process.cwd(), "lib/db/migrations/pending/0059_zooka_mail.sql"),
+  join(process.cwd(), "lib/db/migrations/pending/0060_zooka_mail.sql"),
   "utf8"
 );
 const DOWN = readFileSync(
-  join(process.cwd(), "lib/db/migrations/pending/0059_zooka_mail.down.sql"),
+  join(process.cwd(), "lib/db/migrations/pending/0060_zooka_mail.down.sql"),
   "utf8"
 );
 
@@ -26,7 +26,7 @@ const normalise = (value: string) =>
 
 const TABLES = ["MailAddress", "MailMessage", "MailDraft", "MailAttachment", "MailAudit"];
 
-describe("migration 0059", () => {
+describe("migration 0060", () => {
   it("keeps the code copy and the reviewable SQL identical", () => {
     const flat = normalise(SQL);
     for (const statement of MAIL_DDL) {
@@ -57,6 +57,22 @@ describe("migration 0059", () => {
     for (const table of TABLES) {
       expect(normalise(DOWN)).toContain(`DROP TABLE IF EXISTS "${table}"`);
     }
+  });
+
+  it("does not share a number with another pending migration", () => {
+    // A number clash is silent until two branches merge, and then one migration
+    // is never applied. Checking the directory is cheap; discovering it later is not.
+    // A file and its .down.sql twin legitimately share a number, so compare stems.
+    const stems = readdirSync(join(process.cwd(), "lib/db/migrations/pending"))
+      .filter((name) => name.endsWith(".sql") && !name.endsWith(".down.sql"))
+      .map((name) => name.replace(/\.sql$/, ""));
+    const seen = new Map<string, number>();
+    for (const stem of stems) {
+      const number = stem.match(/^(\d{4})_/)?.[1];
+      if (number) seen.set(number, (seen.get(number) ?? 0) + 1);
+    }
+    const duplicates = [...seen.entries()].filter(([, count]) => count > 1).map(([number]) => number);
+    expect(duplicates).toEqual([]);
   });
 
   it("never touches an existing table", () => {

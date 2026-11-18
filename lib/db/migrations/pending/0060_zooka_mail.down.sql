@@ -1,4 +1,4 @@
--- 0059_zooka_mail (down)
+-- 0060_zooka_mail (down)
 --
 -- Forward-only guards, one per table, for the same reason as 0034: a rollback
 -- that drops a table holding rows is data loss with a zero exit code, and mail

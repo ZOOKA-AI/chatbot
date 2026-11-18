@@ -1012,9 +1012,9 @@ export const agentDeployment = pgTable(
 );
 
 /**
- * ZOOKA Mail (migration 0059).
+ * ZOOKA Mail (migration 0060).
  *
- * These definitions mirror lib/db/migrations/pending/0059_zooka_mail.sql, which
+ * These definitions mirror lib/db/migrations/pending/0060_zooka_mail.sql, which
  * is the authority: the SQL is what runs, and tests/unit/mail-migration.test.ts
  * keeps the two in step. RLS is enabled with no policies on every table, so the
  * restricted runtime role cannot read them; all access goes through

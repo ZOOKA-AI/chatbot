@@ -5,9 +5,9 @@ import { db } from "@/lib/db/queries";
 import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
-  // ZOOKA Mail (migration 0059). Same statements as
-  // lib/db/migrations/pending/0059_zooka_mail.sql; a unit test keeps them equal.
-  zooka_mail_0059: MAIL_DDL,
+  // ZOOKA Mail (migration 0060). Same statements as
+  // lib/db/migrations/pending/0060_zooka_mail.sql; a unit test keeps them equal.
+  zooka_mail_0060: MAIL_DDL,
   WebhookEvent: [
     'CREATE TABLE IF NOT EXISTS "WebhookEvent" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "provider" varchar(32) NOT NULL, "externalId" text NOT NULL, "receivedAt" timestamp DEFAULT now() NOT NULL)',
     'CREATE UNIQUE INDEX IF NOT EXISTS "WebhookEvent_provider_externalId_idx" ON "WebhookEvent" ("provider", "externalId")',
