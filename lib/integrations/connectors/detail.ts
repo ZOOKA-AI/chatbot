@@ -4,6 +4,7 @@ import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
 import { getConnectorSpec } from "@/lib/integrations/connectors/registry";
 import { isProbeable } from "@/lib/integrations/connectors/probe";
 import { TOKEN_PROVIDERS, isTokenProviderId } from "@/lib/integrations/token-providers";
+import { normalizeScopes } from "@/lib/integrations/scopes";
 import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
 /**
@@ -60,7 +61,7 @@ export async function getConnectorDetails(
       account: row.displayName ?? null,
       accountEmail: row.accountEmail ?? null,
       status: row.status,
-      scopes: spec?.scopes ?? tokenDefinition?.scopes ?? row.scopes ?? [],
+      scopes: normalizeScopes(spec?.scopes ?? tokenDefinition?.scopes ?? row.scopes),
       expiresAt: toIso(row.expiresAt),
       lastUsedAt: toIso(row.lastUsedAt),
       lastError: row.lastError ?? null,
@@ -93,7 +94,7 @@ export async function getConnectorDetails(
       account: null,
       accountEmail: null,
       status: "none",
-      scopes: spec?.scopes ?? tokenDefinition?.scopes ?? [],
+      scopes: normalizeScopes(spec?.scopes ?? tokenDefinition?.scopes),
       expiresAt: null,
       lastUsedAt: null,
       lastError: null,
