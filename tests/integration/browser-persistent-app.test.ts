@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import { accessSync } from "node:fs";
+
+import { chromium } from "playwright-core";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,11 +27,28 @@ const ENGINE_PORT = 19331;
 const GATEWAY_PORT = 19791;
 const PAGE_PORT = 18083;
 
-// Explicit opt-in, not "a variable happens to be set". CI defines DATABASE_URL for other suites and
-// has a Chromium it cannot execute from this path; guessing from the environment ran the suite there
-// and failed on `spawn ... EACCES`, which proves nothing about the code.
-const chromCandidate = process.env.CHROME_PATH ?? "/root/.cache/ms-playwright/chromium-1161/chrome-linux/chrome";
+/**
+ * Which Chromium to drive.
+ *
+ * This used to be a hardcoded build path (`/root/.cache/ms-playwright/chromium-1161/...`). On the
+ * CI runner that path is inside root's home, which is mode 0700 and owned by root, so spawning it
+ * returned EACCES even though `playwright install chromium` had succeeded: the browser was installed
+ * under /home/runner/.cache with a different build number. Asserting a path is not asserting a
+ * browser.
+ *
+ * Playwright already knows which binary it installed, so ask it. If the answer is not executable,
+ * the suite skips and says why instead of pretending to test the engine.
+ */
+const chromCandidate = (() => {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+  try {
+    return chromium.executablePath();
+  } catch {
+    return null;
+  }
+})();
 const chromUsable = (() => {
+  if (!chromCandidate) return false;
   try {
     accessSync(chromCandidate, constants.X_OK);
     return true;
@@ -37,7 +56,10 @@ const chromUsable = (() => {
     return false;
   }
 })();
-const runnable = process.env.ZOOKA_CDP_ENGINE === "1" && Boolean(process.env.DATABASE_URL?.trim()) && chromUsable;
+// Runs wherever a real browser and a real database exist, which is the point: a browser test that
+// only runs when someone remembers an environment variable is not a gate. ZOOKA_CDP_ENGINE=0 opts out.
+const runnable =
+  process.env.ZOOKA_CDP_ENGINE !== "0" && Boolean(process.env.DATABASE_URL?.trim()) && chromUsable;
 const describeIf = runnable ? describe : describe.skip;
 
 type Row = {
@@ -70,7 +92,7 @@ describeIf("browser sessions on a persistent engine", () => {
     await new Promise<void>((resolve) => pageServer!.listen(PAGE_PORT, "127.0.0.1", () => resolve()));
 
     engine = spawn(
-      chromCandidate,
+      chromCandidate as string,
       [
         "--headless=new",
         "--no-sandbox",
