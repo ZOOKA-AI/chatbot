@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   foreignKey,
   index,
@@ -659,9 +660,58 @@ export const browserSession = pgTable(
     lastSeenAt: timestamp("lastSeenAt", { withTimezone: true }),
     expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("endedAt", { withTimezone: true }),
+    /**
+     * Ids of a Chromium-owned browser context and its tab (migration 0058). NULL means the session is
+     * not resumable across workers, which is the honest state for every row created before this.
+     * The engine endpoint is deliberately absent: BROWSER_CDP_URL can carry a token.
+     */
+    browserContextId: text("browserContextId"),
+    targetId: text("targetId"),
   },
   (table) => ({
     orgStatusIdx: index("BrowserSession_org_status_idx").on(table.organizationId, table.status, table.createdAt),
+    targetIdx: index("BrowserSession_target_idx")
+      .on(table.targetId)
+      .where(sql`"targetId" IS NOT NULL`),
+  })
+);
+
+/**
+ * The spend book (migration 0059). Append-only: a reservation, its settlement and any correction are
+ * separate rows, so history is never rewritten. Money is numeric(18,9) and handled as integer
+ * micro-dollars in code; no float ever touches a bill.
+ *
+ * Deliberately absent: prompt text, raw cache keys, credentials, payloads. An identifier, a version
+ * and a hash are enough to reproduce a decision without putting customer content in accounting.
+ */
+export const usageLedger = pgTable(
+  "UsageLedger",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    userId: varchar("userId", { length: 64 }),
+    taskId: uuid("taskId"),
+    stepId: uuid("stepId"),
+    kind: varchar("kind", { length: 16 }).notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("pending"),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    model: varchar("model", { length: 128 }).notNull(),
+    promptId: varchar("promptId", { length: 128 }),
+    promptVersion: varchar("promptVersion", { length: 32 }),
+    promptHash: varchar("promptHash", { length: 64 }),
+    inputTokens: bigint("inputTokens", { mode: "number" }).notNull().default(0),
+    outputTokens: bigint("outputTokens", { mode: "number" }).notNull().default(0),
+    cached: boolean("cached").notNull().default(false),
+    cacheKeyHash: varchar("cacheKeyHash", { length: 64 }),
+    costUsd: numeric("costUsd", { precision: 18, scale: 9 }).notNull().default("0"),
+    latencyMs: integer("latencyMs"),
+    requestId: varchar("requestId", { length: 128 }).notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    orgTimeIdx: index("UsageLedger_org_time_idx").on(table.organizationId, table.createdAt),
+    taskIdx: index("UsageLedger_task_idx").on(table.taskId),
+    requestUnique: unique("UsageLedger_request_unique").on(table.organizationId, table.requestId, table.kind),
   })
 );
 

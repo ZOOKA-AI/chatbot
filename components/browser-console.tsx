@@ -190,7 +190,11 @@ export function BrowserConsole() {
   const live = Boolean(detail?.runtime.live);
 
   return (
-    <div dir="rtl" className="flex flex-col gap-4 p-4 text-sm" style={{ color: "#F8F9FA" }}>
+    <div
+      dir="rtl"
+      className="flex flex-col gap-4 p-4 text-sm [&_button]:min-h-[44px] [&_button]:min-w-[44px] [&_a]:min-h-[36px]"
+      style={{ color: "#F8F9FA" }}
+    >
       <header className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold">متصفح الوكيل</h1>
         <p className="text-xs opacity-70">

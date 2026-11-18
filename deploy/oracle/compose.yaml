@@ -1,0 +1,61 @@
+# Two containers, one host: the browser, and the authenticated gateway that is the only way in.
+#
+# Resources are capped deliberately. An Always Free A1 instance has 12 GB of RAM on the current
+# allowance, and an uncapped Chromium on a shared VM is how a free tier becomes an incident.
+services:
+  browser:
+    build: { context: ., dockerfile: Dockerfile }
+    image: zooka-browser:arm64
+    restart: unless-stopped
+    volumes:
+      - browser-profile:/var/lib/zooka-browser
+    # No published ports: reachable only from the gateway on the internal network.
+    networks: [internal]
+    mem_limit: 3g
+    memswap_limit: 3g
+    shm_size: 1g
+    pids_limit: 512
+    cpus: "1.5"
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  gateway:
+    image: node:22-bookworm-slim
+    restart: unless-stopped
+    working_dir: /opt/zooka
+    command: ["node", "/opt/zooka/cdp-gateway.mjs"]
+    volumes:
+      - ./cdp-gateway.mjs:/opt/zooka/cdp-gateway.mjs:ro
+      - ./ws:/opt/zooka/node_modules/ws:ro
+    environment:
+      GATEWAY_PORT: "8787"
+      GATEWAY_BIND: "0.0.0.0"
+      UPSTREAM_CDP: "http://browser:9222"
+      GATEWAY_TENANTS: "${GATEWAY_TENANTS:?per-workspace tokens are required}"
+      GATEWAY_MAX_CONNS: "${GATEWAY_MAX_CONNS:-8}"
+      GATEWAY_MAX_PER_TENANT: "${GATEWAY_MAX_PER_TENANT:-2}"
+      GATEWAY_RATE_LIMIT_PER_MIN: "${GATEWAY_RATE_LIMIT_PER_MIN:-120}"
+      GATEWAY_IDLE_MS: "${GATEWAY_IDLE_MS:-120000}"
+      # Bound inside the compose bridge and published only to loopback on the host, where the TLS
+      # terminator connects. This flag is what allows a non-loopback bind; the host still never
+      # exposes the port to the internet.
+      GATEWAY_ALLOW_PUBLIC: "true"
+    ports:
+      - "127.0.0.1:8787:8787"
+    depends_on: [browser]
+    networks: [internal]
+    mem_limit: 256m
+    pids_limit: 128
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  browser-profile:

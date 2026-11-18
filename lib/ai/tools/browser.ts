@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { browserRuntime } from "@/lib/browser/runtime";
+import { ensureLiveBrowser } from "@/lib/browser/resume";
 import {
   agentMayAct,
   appendEvent,
@@ -42,14 +43,20 @@ export function createBrowserTools({ organizationId, userId }: BrowserToolContex
    */
   async function ensureSession() {
     const recent = await listSessions(organizationId, 5);
-    const reusable = recent.find(
-      (row) =>
-        row.ownerId === userId &&
-        (row.status === "ready" || row.status === "running") &&
-        new Date(row.expiresAt).getTime() > Date.now() &&
-        browserRuntime().has(row.id, organizationId)
-    );
-    if (reusable) return reusable;
+    // A live tab may belong to another process: every tool call in production lands on a different
+    // function instance. Adopting it keeps the agent in one page instead of opening a second
+    // browser and losing what it just did.
+    for (const row of recent) {
+      if (row.ownerId !== userId) continue;
+      if (row.status !== "ready" && row.status !== "running") continue;
+      if (new Date(row.expiresAt).getTime() <= Date.now()) continue;
+      const resumed = await ensureLiveBrowser({
+        sessionId: row.id,
+        organizationId,
+        preferredUrl: row.currentUrl ?? undefined,
+      });
+      if (resumed.ok) return row;
+    }
 
     const created = await createSession({
       organizationId,

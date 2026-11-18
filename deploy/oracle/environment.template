@@ -1,0 +1,15 @@
+# Engine host environment. Copy to .env on the host, fill in, never commit the filled copy.
+# Generate each token with: openssl rand -hex 32
+GATEWAY_TENANTS={"<workspace-id>":"<token>"}
+GATEWAY_MAX_CONNS=8
+GATEWAY_MAX_PER_TENANT=2
+GATEWAY_RATE_LIMIT_PER_MIN=120
+GATEWAY_IDLE_MS=120000
+CDP_PORT=9222
+CHROME_USER_DATA=/var/lib/zooka-browser
+RENDERER_PROCESS_LIMIT=4
+JS_HEAP_MB=512
+# On Vercel (preview first):
+#   BROWSER_CDP_URL=wss://browser.example.com/cdp?tenant=<workspace-id>&token=<token>
+#   BROWSER_HANDLE_KEY=<openssl rand -hex 32>
+# Both are secrets. Never in Git, never in a database row, never in a log.

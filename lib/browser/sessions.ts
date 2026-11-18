@@ -2,7 +2,15 @@ import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db/queries";
 import * as schema from "@/lib/db/schema";
+import { ensureLiveBrowser } from "./resume";
 import { browserRuntime } from "@/lib/browser/runtime";
+import {
+  hasPersistentHandle,
+  persistentEngine,
+  persistentInput,
+  releasePersistentSession,
+  startPersistentSession,
+} from "./cdp-adapter";
 
 /**
  * Browser session lifecycle and control authorization.
@@ -247,6 +255,47 @@ export async function controlSession(input: {
   const events: string[] = [input.action];
 
   if (input.action === "start") {
+    // A configured persistent engine is preferred over an in-process Playwright browser: its context
+    // belongs to Chromium, so the tab survives the worker that opened it. Playwright remains the
+    // fallback for environments where no engine is configured.
+    if (persistentEngine()) {
+      const opened = await startPersistentSession({
+        organizationId: input.caller.organizationId,
+        startUrl: session.startUrl,
+      });
+      if (opened.ok === false) {
+        await update(input.caller.organizationId, input.sessionId, {
+          status: "failed",
+          lastError: `${opened.code}: ${opened.message}`.trim(),
+        });
+        await appendEvent({
+          organizationId: input.caller.organizationId,
+          sessionId: input.sessionId,
+          kind: "session_failed",
+          actor: "system",
+          detail: { reason: opened.code, engine: "persistent" },
+        });
+        throw new BrowserControlError("runtime_unavailable");
+      }
+      const started = await update(input.caller.organizationId, input.sessionId, {
+        status: target,
+        startedAt: new Date(),
+        currentUrl: opened.value.url,
+        currentTitle: opened.value.title,
+        lastError: null,
+        browserContextId: opened.value.browserContextId,
+        targetId: opened.value.targetId,
+      });
+      await appendEvent({
+        organizationId: input.caller.organizationId,
+        sessionId: input.sessionId,
+        kind: "session_started",
+        actor: "human",
+        detail: { url: opened.value.url, engine: "persistent" },
+      });
+      return { session: started ?? session, events };
+    }
+
     const opened = await browserRuntime().open(input.sessionId, input.caller.organizationId);
     if (!("ok" in opened) || opened.ok !== true) {
       await update(input.caller.organizationId, input.sessionId, {
@@ -307,6 +356,7 @@ export async function controlSession(input: {
 
   if (input.action === "stop") {
     await browserRuntime().close(input.sessionId);
+    if (hasPersistentHandle(session)) await releasePersistentSession(session).catch(() => false);
     const stopped = await update(input.caller.organizationId, input.sessionId, {
       status: "stopped",
       endedAt: new Date(),
@@ -368,6 +418,56 @@ export async function applyInput(input: {
   if (isTerminal(session.status)) throw new BrowserControlError("session_ended");
   if (new Date(session.expiresAt).getTime() < Date.now()) throw new BrowserControlError("session_expired");
   if (session.controlHolder !== "human") throw new BrowserControlError("agent_has_control");
+
+  if (input.command.kind === "key") throw new BrowserControlError("unsupported_key");
+
+  // An adopted persistent tab is driven directly, with no in-process browser and no adoption step:
+  // the context is already Chromium's, so nothing here depends on this worker staying alive.
+  if (hasPersistentHandle(session) && persistentEngine()) {
+    const applied = await persistentInput({
+      row: {
+        id: session.id,
+        organizationId: session.organizationId,
+        browserContextId: session.browserContextId,
+        targetId: session.targetId,
+      },
+      command: input.command,
+    });
+    if (applied.ok === false) {
+      const code = applied.code === "forbidden_workspace" ? "not_session_owner" : applied.code;
+      throw new BrowserControlError(code);
+    }
+    const updated = await update(input.caller.organizationId, input.sessionId, {
+      currentUrl: applied.value.url || session.currentUrl,
+      currentTitle: applied.value.title || session.currentTitle,
+      status: session.status === "ready" ? "running" : session.status,
+      lastSeenAt: new Date(),
+    });
+    await appendEvent({
+      organizationId: input.caller.organizationId,
+      sessionId: input.sessionId,
+      kind: `human_${input.command.kind}`,
+      actor: "human",
+      // Never the typed text: a person may be typing a password.
+      detail:
+        input.command.kind === "type"
+          ? { characters: input.command.text.length, submit: Boolean(input.command.submit), engine: "persistent" }
+          : input.command.kind === "click"
+            ? { x: input.command.x, y: input.command.y, engine: "persistent" }
+            : input.command.kind === "navigate"
+              ? { url: applied.value.url, engine: "persistent" }
+              : { engine: "persistent" },
+    });
+    return { session: updated ?? session, executed: input.command.kind };
+  }
+
+  // The browser may be alive in another process; adopt it before declaring the session dead.
+  const resumed = await ensureLiveBrowser({
+    sessionId: input.sessionId,
+    organizationId: input.caller.organizationId,
+    preferredUrl: session.currentUrl ?? undefined,
+  });
+  if (resumed.ok === false) throw new BrowserControlError(resumed.code);
   const health = browserRuntime().health(input.sessionId, input.caller.organizationId);
   if (!health.live) throw new BrowserControlError(health.crashed ?? "session_not_running");
 
@@ -388,10 +488,6 @@ export async function applyInput(input: {
   } else if (input.command.kind === "scroll") {
     const result = await runtime.scroll(input.sessionId, input.caller.organizationId, input.command.deltaY);
     if (result.ok === false) throw new BrowserControlError(result.code);
-  } else if (input.command.kind === "key") {
-    const page = runtime as unknown as { pressKey?: unknown };
-    void page;
-    throw new BrowserControlError("unsupported_key");
   } else {
     const result = await runtime.navigate(input.sessionId, input.caller.organizationId, input.command.url);
     if (result.ok === false) throw new BrowserControlError(result.code);
@@ -534,6 +630,8 @@ export async function markBroken(organizationId: string, sessionId: string, reas
 
 export async function expireSession(organizationId: string, sessionId: string) {
   await browserRuntime().close(sessionId);
+  const row = await getSession(organizationId, sessionId);
+  if (row && hasPersistentHandle(row)) await releasePersistentSession(row).catch(() => false);
   const expired = await update(organizationId, sessionId, { status: "expired", endedAt: new Date() });
   await appendEvent({ organizationId, sessionId, kind: "session_expired", actor: "system" });
   return expired;

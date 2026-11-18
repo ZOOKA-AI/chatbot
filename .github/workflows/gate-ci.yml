@@ -1,0 +1,38 @@
+name: gate-ci
+on: [pull_request, workflow_dispatch]
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  AUTH_SECRET: ci-only-placeholder-not-a-real-secret
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      ZOOKA_BUDGET_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Apply migrations to the CI database
+        run: pnpm exec tsx scripts/selfhost/migrate.ts
+      - run: pnpm exec vitest run

@@ -99,6 +99,10 @@ beforeEach(async () => {
     "pending/0041_workspace_projects.sql",
     "pending/0042_project_documents.sql",
     "pending/0043_browser_sessions.sql",
+    // The lifecycle writes browserContextId/targetId now, so the harness must build the schema the
+    // application actually has. Without this the insert fails with "column browserContextId does not
+    // exist" and the failure looks like a code bug rather than a stale fixture.
+    "pending/0058_browser_persistent_handle.sql",
   ]) {
     for (const part of readFileSync(join(process.cwd(), "lib/db/migrations", file), "utf8").split("--> statement-breakpoint")) {
       if (part.trim()) await pg.exec(part);

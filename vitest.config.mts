@@ -11,7 +11,10 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/unit/**/*.test.ts"],
+    // `tests/integration` holds suites that need a real Chromium and a disposable database. They
+    // self-skip (and say why) when DATABASE_URL is absent, so a CI runner without either still gets
+    // an honest "skipped" rather than a red build or a fake pass.
+    include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     // One PostgreSQL database, many suites, and several of them deliberately mutate
     // global state: `execution-worker.test.ts` revokes grants to prove the tenant role
     // is denied, and the scheduler and approval suites delete rows from `SchedulerRun`.
