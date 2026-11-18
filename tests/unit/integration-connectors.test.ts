@@ -215,7 +215,9 @@ test("matrix names come from the provider catalogue, never from inference", () =
     assert.ok(row.name.length > 0, `${row.providerId}: missing name`);
     assert.ok(row.nameAr.length > 0, `${row.providerId}: missing Arabic name`);
     assert.ok(
-      ["available", "beta", "coming_soon"].includes(row.catalogStatus),
+      // "unavailable" is a real catalogue state, not a loophole: it marks a provider whose API exists but
+      // whose third-party use is unverified (Base44 Superagent). The guard still rejects anything unknown.
+      ["available", "beta", "coming_soon", "unavailable"].includes(row.catalogStatus),
       `${row.providerId}: unexpected catalogue status ${row.catalogStatus}`
     );
   }

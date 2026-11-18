@@ -113,7 +113,11 @@ export function buildIntegrationMatrix(): MatrixRow[] {
       multiTenantIsolationVerified: ISOLATED.has(playbook.providerId),
       readOperations: spec ? spec.operations.filter((op) => op.kind === "read").map((op) => op.id) : [],
       writeStatus: spec ? spec.writeStatus : null,
-      blockers: spec ? spec.blockers : [],
+      blockers: spec
+        ? spec.blockers
+        : catalogEntry.status === "unavailable"
+          ? ["provider_api_unverified"]
+          : [],
     });
   }
 

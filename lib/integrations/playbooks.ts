@@ -885,6 +885,45 @@ export const INTEGRATION_PLAYBOOKS: IntegrationPlaybook[] = [
     limitsEn: "Works through the agent, not a per-tenant card.",
     limitsAr: "يعمل عبر الوكيل لا بكارت لكل مساحة عمل.",
   },
+  {
+    // Deliberately "blocked": the provider documents an external agent API, but nothing here has
+    // verified that a third party may use it, and no authenticated call exists to point at. A playbook
+    // that pretended otherwise would be an invented integration.
+    providerId: "base44_superagent",
+    selfServe: false,
+    connection: "blocked",
+    credentialEn:
+      "None yet. Base44 documents an agent API key sent as an api_key header against the agent's own base URL; no key has been issued for ZOOKA-AI and no call has been verified.",
+    credentialAr:
+      "لا يوجد بعد. توثّق Base44 مفتاح واجهة يُرسل في ترويسة api_key إلى العنوان الأساسي الخاص بالوكيل؛ لم يُصدر مفتاح لـ ZOOKA-AI ولم يُتحقق أي استدعاء.",
+    prerequisites: [
+      {
+        en: "Written confirmation that Base44's terms allow a third-party product to call a Superagent's API.",
+        ar: "تأكيد مكتوب بأن شروط Base44 تسمح لمنتج طرف ثالث باستدعاء واجهة الوكيل.",
+      },
+      {
+        en: "An owner-issued API key for a Superagent this workspace controls.",
+        ar: "مفتاح واجهة يصدره المالك لوكيل تملكه هذه المساحة.",
+      },
+    ],
+    steps: [
+      {
+        en: "Read the official Agent API documentation in the Superagent's Developer panel before writing any client code.",
+        ar: "اقرأ توثيق واجهة الوكيل الرسمي في لوحة المطوّر داخل الوكيل قبل كتابة أي كود.",
+      },
+      {
+        en: "Prove one authenticated call (create or fetch a conversation) from a non-production environment and record the response shape.",
+        ar: "أثبت استدعاءً موثّقًا واحدًا (إنشاء أو جلب محادثة) من بيئة غير إنتاجية وسجّل شكل الاستجابة.",
+      },
+    ],
+    verifyEn:
+      "A verified connection means one real authenticated call returned a conversation id. Until that exists the card stays 'Not available — API unverified'.",
+    verifyAr:
+      "الاتصال الموثّق يعني استدعاءً موثّقًا حقيقيًا أعاد معرّف محادثة. وإلى أن يحدث ذلك تبقى البطاقة «غير متاح — الواجهة البرمجية غير موثّقة».",
+    limitsEn: "Not documented for third-party use: do not assume rate limits, quotas or a support commitment.",
+    limitsAr: "غير موثّق للاستخدام من طرف ثالث: لا تفترض حدودًا أو حصصًا أو التزام دعم.",
+    docsUrl: "https://docs.base44.com/Getting-Started/ai-agent",
+  },
 ];
 
 const PLAYBOOK_INDEX = new Map(

@@ -15,7 +15,7 @@ import { db } from "@/lib/db/queries";
  * and every action is appended to `integration_audit`.
  */
 
-export type ProviderStatus = "available" | "beta" | "coming_soon";
+export type ProviderStatus = "available" | "beta" | "coming_soon" | "unavailable";
 
 export type IntegrationProvider = {
   id: string;

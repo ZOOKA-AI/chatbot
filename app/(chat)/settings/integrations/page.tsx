@@ -397,17 +397,21 @@ async function IntegrationsPage({
                                 : isArabic
                                   ? "ربط ذاتي"
                                   : "Self-serve"
-                            : provider.id === "x"
+                            : provider.status === "unavailable"
                               ? isArabic
-                                ? "غير مُعدّ"
-                                : "Not configured"
-                              : provider.status === "beta"
+                                ? "غير متاح — واجهة غير موثّقة"
+                                : "Not available — API unverified"
+                              : provider.id === "x"
                                 ? isArabic
-                                  ? "عبر الوكيل"
-                                  : "Via agent"
-                                : isArabic
-                                  ? "قريبًا"
-                                  : "Coming soon"}
+                                  ? "غير مُعدّ"
+                                  : "Not configured"
+                                : provider.status === "beta"
+                                  ? isArabic
+                                    ? "عبر الوكيل"
+                                    : "Via agent"
+                                  : isArabic
+                                    ? "قريبًا"
+                                    : "Coming soon"}
                       </span>
                     </div>
                     <p className="text-muted-foreground text-xs">

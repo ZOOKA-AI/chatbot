@@ -1,4 +1,4 @@
-export type ProviderStatus = "available" | "beta" | "coming_soon";
+export type ProviderStatus = "available" | "beta" | "coming_soon" | "unavailable";
 
 export type IntegrationProvider = {
   id: string;
@@ -24,6 +24,7 @@ export const PROVIDER_CATEGORIES: Record<string, { ar: string; en: string }> = {
   geo: { ar: "الخرائط", en: "Maps" },
   listing: { ar: "الملف التجاري", en: "Business listing" },
   commerce: { ar: "المتاجر", en: "Commerce" },
+  ai_agents: { ar: "وكلاء الذكاء الاصطناعي والأتمتة", en: "AI Agents & Automation" },
 };
 
 /** Mirrors the integration_provider rows in Supabase (kept static so the
@@ -70,7 +71,23 @@ export const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   { id: "shopify", name: "Shopify", nameAr: "شوبيفاي", category: "commerce", description: "Read products and count orders from the connected store. Product and order changes are not implemented.", descriptionAr: "قراءة المنتجات وعدّ الطلبات من المتجر المتصل. تعديل المنتجات والطلبات غير منفّذ.", status: "available", managed: false },
   { id: "twilio", name: "Twilio", nameAr: "تويلو", category: "communication", description: "Read the account and its phone numbers. Sending SMS or placing calls is not implemented.", descriptionAr: "قراءة الحساب وأرقام الهاتف. إرسال الرسائل أو إجراء المكالمات غير منفّذ.", status: "available", managed: false },
   { id: "agora", name: "Agora / Daily", nameAr: "مكالمات الفيديو", category: "communication", description: "Live voice and video meeting rooms.", descriptionAr: "غرف الاجتماعات الصوتية والمرئية.", status: "coming_soon", managed: false },
+  {
+    id: "base44_superagent",
+    name: "Base44 Superagent",
+    nameAr: "وكيل Base44 الخارق",
+    category: "ai_agents",
+    // The wording is the status: an official external API is documented, but nobody has verified that a
+    // third party may integrate with it under the provider's terms, and no authenticated call has been
+    // made. Saying anything softer would turn an unknown into a feature.
+    description:
+      "Not available — API unverified. Base44 documents an external Superagent API (agent-scoped base URL, api_key header), but third-party integration permission and a live authenticated call are unverified, so there is no connect button.",
+    descriptionAr:
+      "غير متاح — الواجهة البرمجية غير موثّقة. توثّق Base44 واجهة خارجية للوكيل (عنوان أساسي بحسب الوكيل، ومصادقة عبر api_key)، لكن إذن التكامل من طرف ثالث والاتصال الموثّق لم يُتحققا بعد، ولذلك لا يوجد زر ربط.",
+    status: "unavailable",
+    managed: false,
+  },
 ];
+
 
 export function getIntegrationProviders(whatsappConfigured: boolean) {
   return INTEGRATION_PROVIDERS.map((provider) =>
