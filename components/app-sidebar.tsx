@@ -5,6 +5,7 @@ import {
   BriefcaseBusiness,
   House,
   Cable,
+  Mail,
   CreditCard,
   FileText,
   Settings,
@@ -106,6 +107,11 @@ export function AppSidebar({
           href: "/workspace/live-browser",
           icon: <Cable />,
           label: isArabic ? "المتصفح المباشر" : "Live browser",
+        },
+        {
+          href: "/workspace/mail",
+          icon: <Mail />,
+          label: isArabic ? "بريد ZOOKA · معاينة" : "ZOOKA Mail · Review",
         },
         {
           href: "/workspace/agent",

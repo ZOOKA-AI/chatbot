@@ -1010,3 +1010,146 @@ export const agentDeployment = pgTable(
     envIdx: index("AgentDeployment_environment_idx").on(table.environment),
   })
 );
+
+/**
+ * ZOOKA Mail (migration 0059).
+ *
+ * These definitions mirror lib/db/migrations/pending/0059_zooka_mail.sql, which
+ * is the authority: the SQL is what runs, and tests/unit/mail-migration.test.ts
+ * keeps the two in step. RLS is enabled with no policies on every table, so the
+ * restricted runtime role cannot read them; all access goes through
+ * lib/mail/repository.ts with an organizationId in every statement.
+ */
+export const mailAddress = pgTable(
+  "MailAddress",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    localPart: varchar("localPart", { length: 64 }).notNull(),
+    address: varchar("address", { length: 254 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("reserved"),
+    provider: varchar("provider", { length: 16 }).notNull().default("hosted"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    localPartKey: unique("MailAddress_localPart_key").on(table.localPart),
+    addressKey: unique("MailAddress_address_key").on(table.address),
+    organizationIndex: index("MailAddress_organizationId_idx").on(table.organizationId),
+    userIndex: index("MailAddress_userId_idx").on(table.userId),
+  })
+);
+
+export const mailMessage = pgTable(
+  "MailMessage",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    mailAddressId: uuid("mailAddressId")
+      .notNull()
+      .references(() => mailAddress.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 16 }).notNull().default("hosted"),
+    providerMessageId: text("providerMessageId"),
+    threadId: text("threadId"),
+    direction: varchar("direction", { length: 8 }).notNull().default("inbound"),
+    folder: varchar("folder", { length: 12 }).notNull().default("inbox"),
+    fromAddress: varchar("fromAddress", { length: 254 }).notNull(),
+    fromName: text("fromName"),
+    toAddresses: jsonb("toAddresses").notNull().default([]),
+    subject: text("subject"),
+    snippet: text("snippet"),
+    bodyHtml: text("bodyHtml"),
+    bodyText: text("bodyText"),
+    receivedAt: timestamp("receivedAt").notNull().defaultNow(),
+    isRead: boolean("isRead").notNull().default(false),
+    hasAttachments: boolean("hasAttachments").notNull().default(false),
+    aiSummary: text("aiSummary"),
+    aiSummaryAt: timestamp("aiSummaryAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    folderIndex: index("MailMessage_folder_idx").on(
+      table.organizationId,
+      table.mailAddressId,
+      table.folder,
+      table.receivedAt
+    ),
+  })
+);
+
+export const mailDraft = pgTable(
+  "MailDraft",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    mailAddressId: uuid("mailAddressId")
+      .notNull()
+      .references(() => mailAddress.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    toAddresses: jsonb("toAddresses").notNull().default([]),
+    subject: text("subject"),
+    bodyText: text("bodyText"),
+    aiGenerated: boolean("aiGenerated").notNull().default(false),
+    status: varchar("status", { length: 12 }).notNull().default("draft"),
+    sentMessageId: uuid("sentMessageId"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    ownerIndex: index("MailDraft_owner_idx").on(table.organizationId, table.userId, table.status),
+  })
+);
+
+export const mailAttachment = pgTable(
+  "MailAttachment",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    messageId: uuid("messageId")
+      .notNull()
+      .references(() => mailMessage.id, { onDelete: "cascade" }),
+    filename: varchar("filename", { length: 255 }).notNull(),
+    contentType: varchar("contentType", { length: 128 }).notNull(),
+    sizeBytes: integer("sizeBytes").notNull(),
+    storageKey: text("storageKey"),
+    status: varchar("status", { length: 12 }).notNull().default("pending"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    messageIndex: index("MailAttachment_message_idx").on(table.messageId),
+  })
+);
+
+export const mailAudit = pgTable(
+  "MailAudit",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId"),
+    action: varchar("action", { length: 48 }).notNull(),
+    targetId: uuid("targetId"),
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationIndex: index("MailAudit_organization_created_idx").on(
+      table.organizationId,
+      table.createdAt
+    ),
+  })
+);
