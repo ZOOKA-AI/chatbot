@@ -16,6 +16,7 @@ const { buildN8nAdminOverview, classifyN8nStage } = await import(
   "@/lib/integrations/n8n/admin-overview"
 );
 const { decideN8nAdminAccess } = await import("@/lib/integrations/n8n/admin-access");
+const { adminNavItems, adminNavSectionLabel } = await import("@/lib/navigation/admin-nav");
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -189,5 +190,74 @@ describe("n8n admin surface is read-only", () => {
     const source = readFileSync("app/api/integrations/n8n/admin/overview/route.ts", "utf8");
     const handlers = [...source.matchAll(/export const (GET|POST|PUT|PATCH|DELETE)/g)].map((match) => match[1]);
     assert.deepEqual(handlers, ["GET"]);
+  });
+});
+describe("n8n admin navigation", () => {
+  test("the entry exists for owners and admins and for nobody else", () => {
+    assert.deepEqual(adminNavItems("owner").map((item) => item.href), ["/workspace/admin/n8n"]);
+    assert.deepEqual(adminNavItems("admin").map((item) => item.href), ["/workspace/admin/n8n"]);
+    assert.deepEqual(adminNavItems("member"), []);
+    assert.deepEqual(adminNavItems(null), []);
+    assert.deepEqual(adminNavItems(undefined), []);
+    assert.equal(adminNavSectionLabel(true), "الإدارة");
+    assert.equal(adminNavSectionLabel(false), "Admin");
+  });
+
+  test("the sidebar cannot render the item outside that gate", () => {
+    const source = readFileSync("components/app-sidebar.tsx", "utf8");
+    // The only source of admin items is the tested helper, and it is used behind a length check.
+    assert.match(source, /adminNavItems\(role\)/);
+    assert.match(source, /if \(adminItems\.length > 0\)/);
+    assert.ok(!source.includes('"/workspace/admin/n8n"'), "the href must not be hardcoded in the component");
+  });
+});
+
+describe("n8n workspace isolation", () => {
+  test("two workspaces never see each other's instance or workflows", async () => {
+    const perOrg: Record<string, { baseUrl: string; apiKey: string }> = {
+      "org-a": { baseUrl: "https://a.n8n.test", apiKey: "key-for-a" },
+      "org-b": { baseUrl: "https://b.n8n.test", apiKey: "key-for-b" },
+    };
+    vi.mocked(store.getN8nCredentials).mockImplementation(async (orgId: string) => perOrg[orgId] ?? null);
+
+    const seen: Array<{ url: string; key: string }> = [];
+    vi.stubGlobal("fetch", async (url: string, init: { headers?: Record<string, string> }) => {
+      const key = String(init?.headers?.["X-N8N-API-KEY"] ?? "");
+      seen.push({ url: String(url), key });
+      const host = new URL(String(url)).host;
+      if (String(url).includes("/workflows")) {
+        return jsonResponse({
+          data: [{ id: `wf-${host}`, name: `workflow on ${host}`, active: true, updatedAt: null }],
+        });
+      }
+      return jsonResponse({ data: [] });
+    });
+
+    const a = await buildN8nAdminOverview("org-a");
+    const b = await buildN8nAdminOverview("org-b");
+
+    assert.deepEqual(a.workflows.map((row) => row.name), ["workflow on a.n8n.test"]);
+    assert.deepEqual(b.workflows.map((row) => row.name), ["workflow on b.n8n.test"]);
+    assert.ok(a.workflows.every((row) => row.deepLink.startsWith("https://a.n8n.test/")));
+    assert.ok(b.workflows.every((row) => row.deepLink.startsWith("https://b.n8n.test/")));
+    // No request ever mixed one tenant's host with the other tenant's key.
+    for (const call of seen) {
+      const expected = call.url.startsWith("https://a.n8n.test") ? "key-for-a" : "key-for-b";
+      assert.equal(call.key, expected, `key/host mismatch on ${call.url}`);
+    }
+  });
+
+  test("a workspace with no credential cannot borrow another", async () => {
+    vi.mocked(store.getN8nCredentials).mockImplementation(async (orgId: string) =>
+      orgId === "org-a" ? { baseUrl: "https://a.n8n.test", apiKey: "key-for-a" } : null
+    );
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      calls.push(String(url));
+      return jsonResponse({ data: [] });
+    });
+    const empty = await buildN8nAdminOverview("org-c");
+    assert.equal(empty.stage, "not_configured");
+    assert.equal(calls.length, 0);
   });
 });

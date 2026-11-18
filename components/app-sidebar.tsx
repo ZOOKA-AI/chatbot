@@ -55,6 +55,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { adminNavItems, adminNavSectionLabel } from "@/lib/navigation/admin-nav";
 
 export function AppSidebar({
   user,
@@ -222,6 +223,19 @@ export function AppSidebar({
       ],
     },
   ];
+  // Admin-only entries are appended rather than inlined in the list above, so nothing renders for a
+  // member even if a future edit forgets a role check: the items simply do not exist for them.
+  const adminItems = adminNavItems(role);
+  if (adminItems.length > 0) {
+    navigationSections.push({
+      label: adminNavSectionLabel(isArabic),
+      items: adminItems.map((item) => ({
+        href: item.href,
+        icon: <Cable />,
+        label: isArabic ? item.labelAr : item.labelEn,
+      })),
+    });
+  }
 
   const handleDeleteAll = () => {
     const deletePromise = fetch("/api/history", {
