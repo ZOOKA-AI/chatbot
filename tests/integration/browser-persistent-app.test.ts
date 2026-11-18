@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
+import { constants } from "node:fs";
+import { accessSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,12 +21,23 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * real rows. In CI (no engine, no database) it skips instead of failing, and it says so.
  */
 
-const CHROME = process.env.CHROME_PATH ?? "/root/.cache/ms-playwright/chromium-1161/chrome-linux/chrome";
 const ENGINE_PORT = 19331;
 const GATEWAY_PORT = 19791;
 const PAGE_PORT = 18083;
 
-const runnable = Boolean(process.env.DATABASE_URL?.trim());
+// Explicit opt-in, not "a variable happens to be set". CI defines DATABASE_URL for other suites and
+// has a Chromium it cannot execute from this path; guessing from the environment ran the suite there
+// and failed on `spawn ... EACCES`, which proves nothing about the code.
+const chromCandidate = process.env.CHROME_PATH ?? "/root/.cache/ms-playwright/chromium-1161/chrome-linux/chrome";
+const chromUsable = (() => {
+  try {
+    accessSync(chromCandidate, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+})();
+const runnable = process.env.ZOOKA_CDP_ENGINE === "1" && Boolean(process.env.DATABASE_URL?.trim()) && chromUsable;
 const describeIf = runnable ? describe : describe.skip;
 
 type Row = {
@@ -57,7 +70,7 @@ describeIf("browser sessions on a persistent engine", () => {
     await new Promise<void>((resolve) => pageServer!.listen(PAGE_PORT, "127.0.0.1", () => resolve()));
 
     engine = spawn(
-      CHROME,
+      chromCandidate,
       [
         "--headless=new",
         "--no-sandbox",
