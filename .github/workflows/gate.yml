@@ -52,8 +52,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Install Chromium for browser security tests
-        timeout-minutes: 5
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 15
+        run: |
+          for attempt in 1 2 3; do
+            timeout 300 pnpm exec playwright install --with-deps chromium && exit 0
+            echo "Attempt $attempt failed; retrying"
+          done
+          exit 1
 
       - name: Placeholder check
         timeout-minutes: 3
