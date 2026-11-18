@@ -4,6 +4,7 @@ import { generateText } from "ai";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { listAgentMemories, saveAgentMemory } from "@/lib/db/agent-memory";
+import { guardedFetch, OutboundBlocked } from "@/lib/studio/outbound-guard";
 
 /**
  * Brand DNA: هوية العلامة مستخرجة من موقعها الفعلي، محفوظة في ذاكرة المساحة،
@@ -43,10 +44,21 @@ function isPublicUrl(value: string): boolean {
 }
 
 async function fetchSiteText(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; ZookaBrandDna/1.0)" },
-    signal: AbortSignal.timeout(20_000),
-  });
+  // The typed host is checked above, but the response decides where the request actually lands: a
+  // public host answering 302 to 169.254.169.254 or to loopback must be a refusal, not a request
+  // made from inside the network. guardedFetch assesses every hop (CodeQL js/request-forgery).
+  let response: Response;
+  try {
+    response = await guardedFetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; ZookaBrandDna/1.0)" },
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch (error) {
+    if (error instanceof OutboundBlocked) {
+      throw new Error(`site_blocked:${error.reason}`);
+    }
+    throw error;
+  }
   if (!response.ok) {
     throw new Error(`site_${response.status}`);
   }
