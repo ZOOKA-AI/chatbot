@@ -114,7 +114,8 @@ describeIf("browser sessions on a persistent engine", () => {
         GATEWAY_BIND: "127.0.0.1",
         UPSTREAM_CDP: `http://127.0.0.1:${ENGINE_PORT}`,
         GATEWAY_TENANTS: JSON.stringify({ [orgA]: token }),
-        WS_MODULE_PATH: `${process.cwd()}/node_modules/.pnpm/ws@8.23.0_bufferutil@4.2.0/node_modules/ws`,
+        // No WS_MODULE_PATH: the gateway resolves "ws" as its own declared dependency. Pinning a
+        // pnpm store path here is how the gateway failed to load on CI, where the layout differs.
       },
     });
 

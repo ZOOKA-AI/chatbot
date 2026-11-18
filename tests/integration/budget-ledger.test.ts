@@ -26,6 +26,17 @@ const LIMITS = {
   maxTaskDurationMs: 120_000,
 };
 
+/**
+ * db.execute answers in two shapes depending on the driver: postgres-js gives an array-like RowList,
+ * node-postgres gives { rows }. Reading one shape only is how this file failed on CI while passing
+ * locally, so both are accepted explicitly instead of casting and hoping.
+ */
+function firstRow<T>(result: unknown): T | undefined {
+  if (Array.isArray(result)) return result[0] as T | undefined;
+  const rows = (result as { rows?: T[] } | null)?.rows;
+  return rows?.[0];
+}
+
 describeIf("budget admission and the usage ledger", () => {
   let admit: typeof import("@/lib/billing/budget-guard").admit;
   let settle: typeof import("@/lib/billing/budget-guard").settle;
@@ -211,7 +222,7 @@ describeIf("budget admission and the usage ledger", () => {
     const beforeRows = await db.execute<{ count: string }>(
       sql`select count(*)::text as count from "UsageLedger" where "organizationId" = ${ORG_A}`,
     );
-    const before = Number((beforeRows as unknown as { rows: { count: string }[] }).rows[0]?.count ?? 0);
+    const before = Number(firstRow<{ count: string }>(beforeRows)?.count ?? 0);
 
     await adjust({
       organizationId: ORG_A,
@@ -232,7 +243,7 @@ describeIf("budget admission and the usage ledger", () => {
     const afterRows = await db.execute<{ count: string }>(
       sql`select count(*)::text as count from "UsageLedger" where "organizationId" = ${ORG_A}`,
     );
-    const after = Number((afterRows as unknown as { rows: { count: string }[] }).rows[0]?.count ?? 0);
+    const after = Number(firstRow<{ count: string }>(afterRows)?.count ?? 0);
     expect(after).toBe(before + 2);
 
     // The original settlement is untouched: history is append-only.
@@ -240,7 +251,7 @@ describeIf("budget admission and the usage ledger", () => {
       sql`select "costUsd"::text as cost, status from "UsageLedger"
           where "organizationId" = ${ORG_A} and "requestId" = 'late-difference' and kind = 'settle'`,
     );
-    const row = (original as unknown as { rows: { cost: string; status: string }[] }).rows[0];
+    const row = firstRow<{ cost: string; status: string }>(original);
     expect(Number(row?.cost)).toBeCloseTo(0.05, 9);
     expect(row?.status).toBe("settled");
   }, 60_000);
