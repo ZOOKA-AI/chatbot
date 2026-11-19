@@ -13,7 +13,7 @@ vi.mock("@/lib/integrations/catalog", () => ({
   getIntegrationTokens: async (workspaceId: string, providerId: string) => {
     credentials.asked.push(`${workspaceId}:${providerId}`);
     return credentials.connected.has(providerId)
-      ? { accessToken: "xoxb-tenant-secret", status: "connected" }
+      ? { accessToken: "test-credential-not-real", status: "connected" }
       : null;
   },
   getIntegrationUsage: async () => 0,
