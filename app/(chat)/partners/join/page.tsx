@@ -89,7 +89,7 @@ Contact number:`,
       <section className="flex flex-col items-center gap-4 rounded-2xl border bg-muted/30 p-6">
         <a
           className="w-full rounded-lg bg-primary px-6 py-3 text-center font-medium text-primary-foreground"
-          href={`https://wa.me/${WHATSAPP}?text=${message}`}
+          href="/wa"
           rel="noreferrer"
           target="_blank"
         >
@@ -97,8 +97,8 @@ Contact number:`,
         </a>
         <p className="text-xs text-muted-foreground">
           {isAr
-            ? "الدعم عبر واتساب فقط، ولا نستقبل مكالمات على هذا الرقم."
-            : "Support is WhatsApp only; no calls are received on this number."}
+            ? "نستقبل الطلبات على واتساب أو البريد."
+            : "Requests are accepted on WhatsApp or by email."}
         </p>
       </section>
 

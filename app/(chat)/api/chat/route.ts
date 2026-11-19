@@ -89,11 +89,7 @@ import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 import { uuidSchema as idSchema } from "@/lib/validation/chat";
 
-/** Hard ceiling for one assistant turn (Vercel Pro allows 300s). */
-// Must stay below `maxDuration` on the line above, or the platform kills the
-// function before this timer can fire and the client gets a bare disconnect with
-// no explanation. At 240s inside a 60s route the graceful "this ran long, say
-// continue" message could never be sent.
+/** Keep the graceful timeout below the route's 60-second platform limit. */
 const RESPONSE_TIMEOUT_MS = 55_000;
 
 export const maxDuration = 60;
@@ -669,7 +665,7 @@ async function POSTImpl(request: Request) {
           (error.name === "TimeoutError" || error.name === "AbortError")
         ) {
           return lang === "ar"
-            ? 'المهمة خدت وقت أطول من الحد المسموح لرد واحد. الجزء اللي وصل محفوظ — اطلب "كمّل" وأنا أكمل من نفس النقطة.'
+            ? "المهمة خدت وقت أطول من الحد المسموح لرد واحد. الجزء اللي وصل محفوظ — اطلب \"كمّل\" وأنا أكمل من نفس النقطة."
             : 'The task ran past the time allowed for a single reply. The part that arrived is kept — say "continue" and I will pick up from there.';
         }
         return describeModelProviderFailure(error, lang);

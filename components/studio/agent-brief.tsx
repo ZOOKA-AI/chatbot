@@ -10,7 +10,6 @@ export function AgentBrief() {
   const [output, setOutput] = useState("خطة عملية ثم مسودة قابلة للمراجعة");
   const [brief, setBrief] = useState("");
   const [message, setMessage] = useState("");
-
   // Arriving from the workspace composer: prefill the goal instead of losing it.
   useEffect(() => {
     try {

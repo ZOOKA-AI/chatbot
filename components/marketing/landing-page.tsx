@@ -1,7 +1,8 @@
 import { PRODUCT_NAME_AR, PRODUCT_NAME, SITE_URL } from "@/lib/brand";
 import Link from "next/link";
 import {
-  INTEGRATION_PROVIDERS,
+  getIntegrationProviders,
+  isWhatsAppConfigured,
   PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
 import {
@@ -179,8 +180,8 @@ const faqs = [
       en: "Is my data shared across workspaces?",
     },
     a: {
-      ar: "لا. كل جدول مرتبط بمساحة عمل، وسياسات الأمان على مستوى الصف (RLS) تمنع أي عضو من رؤية بيانات مساحة أخرى.",
-      en: "No. Every table is scoped to a workspace, and Row Level Security stops any member from seeing another workspace's data.",
+      ar: "لا. كل جدول مرتبط بمساحة عمل، وكل طلب يُفلتر حسب مساحة العمل في الخادم بعد التحقق من الصلاحية، فلا يرى أي عضو بيانات مساحة أخرى.",
+      en: "No. Every table is scoped to a workspace, and every request is filtered by workspace on the server after an access check, so a member cannot see another workspace's data.",
     },
   },
   {
@@ -219,12 +220,23 @@ const faqs = [
 export const SELF_SERVE = new Set([
   "google_drive",
   "gmail",
+  "instagram",
+  "meta",
+  "linkedin",
+  "snapchat",
+  "telegram_ads",
+  "telegram_bot",
+  "improvmx",
+  "google_ads",
   "github",
   "vercel",
   "n8n",
 ]);
 
 export function LandingPage({ lang }: { lang: Lang }) {
+  const INTEGRATION_PROVIDERS = getIntegrationProviders(
+    isWhatsAppConfigured(process.env)
+  );
   const isArabic = lang === "ar";
   const t = (ar: string, en: string) => (isArabic ? ar : en);
   const available = INTEGRATION_PROVIDERS.filter(
@@ -270,14 +282,14 @@ export function LandingPage({ lang }: { lang: Lang }) {
               </span>
               <h1 className="max-w-3xl font-semibold text-4xl leading-tight md:text-6xl">
                 {t(
-                  `${PRODUCT_NAME_AR} يربط أدواتك وينفّذ المهمة حتى النهاية`,
-                  `${PRODUCT_NAME} connects your tools and finishes the job`,
+                  "ردود عملائك وفواتيرك ومتابعة طلباتك — من محادثة واحدة",
+                  "Customer replies, invoices and follow-ups — from one chat",
                 )}
               </h1>
               <p className="max-w-xl text-lg text-muted-foreground">
                 {t(
-                  "بريدك وملفاتك وكودك وبياناتك — في محادثة واحدة، والوكيل ينفّذ الخطوات بنفسه.",
-                  "Your email, files, code and data in one conversation, and the agent runs the steps itself.",
+                  "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
+                  "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it.",
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -459,12 +471,12 @@ export function LandingPage({ lang }: { lang: Lang }) {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h2 className="font-semibold text-3xl">
-                  {t("تكاملات جاهزة الآن", "Integrations live today")}
+                  {t("التكاملات اللي تربطها بنفسك", "Integrations you connect yourself")}
                 </h2>
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
-                    `الربط الذاتي من داخل التطبيق جاهز لجوجل درايف وجيميل وجيت هب وفيرسل وn8n. وباقي الكتالوج (${available.length} من ${INTEGRATION_PROVIDERS.length}) يعمل عبر جسر الوكيل أو ينتظر موافقة المزوّد — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
-                    `Self-serve connection is live for Google Drive, Gmail, GitHub, Vercel and n8n. The rest of the catalog (${available.length} of ${INTEGRATION_PROVIDERS.length}) runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`,
+                    `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لثلاثة عشر: جوجل درايف، جيميل، إنستغرام، فيسبوك، لينكدإن، سناب شات، تيليجرام أدز، بوت تيليجرام، توجيه البريد، إعلانات جوجل، جيت هب، فيرسل، وn8n (جيت هب: الوكيل يقرأ ويكتب بعد موافقتك. فيرسل: ربط الحساب الآن، وإجراءات الوكيل قادمة). وباقي الكتالوج (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} من ${INTEGRATION_PROVIDERS.length}) ينتظر موافقة المزوّد أو يعمل عبر جسر الوكيل — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
+                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for thirteen: Google Drive, Gmail, Instagram, Facebook, LinkedIn, Snapchat, Telegram Ads, Telegram Bot, ImprovMX email routing, Google Ads, GitHub, Vercel and n8n (GitHub: the agent reads and writes after your approval. Vercel: account connection today, agent actions coming). The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge — stated plainly instead of promising one-click for everything.`,
                   )}
                 </p>
               </div>
@@ -491,7 +503,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
                         </span>
                         <span className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
                           {SELF_SERVE.has(provider.id)
-                            ? t("ربط ذاتي", "self-serve")
+                            ? t("تربطه بنفسك", "you connect it")
                             : t("عبر الوكيل", "via agent")}
                         </span>
                       </li>
@@ -534,10 +546,14 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   ),
                 },
                 {
-                  value: String(INTEGRATION_PROVIDERS.length),
+                  value: String(
+                    INTEGRATION_PROVIDERS.filter(
+                      (provider) => provider.status === "available"
+                    ).length,
+                  ),
                   label: t(
-                    "تكامل في الكتالوج، واللي جاهز متعلّم صريح",
-                    "integrations in the catalog, live ones labelled plainly",
+                    `تكامل جاهز فعلاً من ${INTEGRATION_PROVIDERS.length} في الكتالوج، والباقي معلّم «قريباً» أو «تجريبي»`,
+                    `integrations live today, out of ${INTEGRATION_PROVIDERS.length} in the catalog; the rest are labelled coming soon or beta`,
                   ),
                 },
                 {
@@ -659,8 +675,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   "AES-256-GCM encryption with key versioning",
                 ),
                 t(
-                  "عزل صفوف (RLS) لكل مساحة عمل",
-                  "Row Level Security per workspace",
+                  "عزل بيانات مفروض على الخادم مع سياسات صفوف لكل مساحة عمل",
+                  "Server-enforced data isolation with row-level policies per workspace",
                 ),
                 t(
                   "سجل تدقيق لكل ربط وفصل واستخدام",
@@ -747,7 +763,8 @@ export function LandingPage({ lang }: { lang: Lang }) {
             name: `${PRODUCT_NAME}`,
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web",
-            url: `${SITE_URL}`,
+            url: SITE_URL,
+            publisher: { "@id": `${SITE_URL}/#organization` },
             inLanguage: ["ar", "en"],
             description: `${PRODUCT_NAME}: an AI business agent that connects your tools, executes multi-step tasks and keeps your data isolated per workspace.`,
             offers: plans

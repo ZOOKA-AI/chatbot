@@ -527,7 +527,7 @@ export function Studio({ section }: { section: StudioSection }) {
                 </form>
                 <div className={styles.commandButtons}>
                   <button
-                    className={styles.secondary}
+                    className={styles.primary}
                     onClick={() => navigate("templates")}
                     type="button"
                   >
@@ -986,7 +986,7 @@ export function Studio({ section }: { section: StudioSection }) {
                                   : styles.plannedBadge
                               }
                             >
-                              {implemented ? "ربط حقيقي متاح" : "قريبًا"}
+                              {implemented ? "مسار ربط متاح" : "غير مفعّل"}
                             </span>
                           )}
                         </div>

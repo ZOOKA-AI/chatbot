@@ -4,7 +4,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import Link from "next/link";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon, Volume2 } from "lucide-react";
+import { AudioLines, Bot, CheckIcon, Volume2 } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -103,6 +103,7 @@ function PureMultimodalInput({
   const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang, isGuest } =
     useBilling();
   const { voiceMode, toggleVoiceMode } = useVoiceMode();
+
   const agentModeAllowed =
     canUseAgentMode && modelSupportsTools(selectedModelId);
   let agentModeUnavailableMessage: string;
@@ -438,6 +439,7 @@ function PureMultimodalInput({
         )}
 
       <input
+        accept="image/png,image/jpeg"
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}
@@ -447,7 +449,7 @@ function PureMultimodalInput({
       />
 
       <PromptInput
-        className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
+        className="zk-composer rounded-2xl border border-border/70 bg-background/90 px-3 pt-2 pb-2 backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out"
         onSubmit={(event) => {
           event.preventDefault();
           if (!input.trim() && attachments.length === 0) {
@@ -559,23 +561,36 @@ function PureMultimodalInput({
         )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
-            className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
+            className="grow resize-none border-0! border-none! bg-transparent p-2 text-base font-medium leading-relaxed text-foreground outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
             maxHeight={200}
-            minHeight={44}
+            minHeight={40}
             onChange={handleInput}
-            placeholder="Send a message..."
+            placeholder={
+              agentMode
+                ? lang === "ar"
+                  ? "اكتب المهمة للوكيل…"
+                  : "Describe the task for the Agent…"
+                : lang === "ar"
+                  ? "اكتب رسالتك…"
+                  : "Send a message…"
+            }
             ref={textareaRef}
             rows={1}
             value={input}
           />
         </div>
-        <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
-          <PromptInputTools className="gap-0 sm:gap-0.5">
+        <PromptInputToolbar className="min-w-0 items-end gap-2 border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
+          <PromptInputTools className="min-w-0 flex-1 flex-wrap gap-0 sm:gap-0.5">
             <Button
               aria-pressed={agentMode}
-              className="h-8 px-2"
+              className={cn(
+                "h-8 gap-1.5 rounded-full px-3 font-semibold text-sm transition-all duration-200",
+                agentMode
+                  ? "shadow-md shadow-primary/30"
+                  : "border border-primary/40 text-primary hover:bg-primary/10"
+              )}
               data-testid="agent-mode-toggle"
               disabled={!agentModeAllowed}
               onClick={() => onAgentModeChange(!agentMode)}
@@ -583,7 +598,14 @@ function PureMultimodalInput({
               type="button"
               variant={agentMode ? "default" : "ghost"}
             >
-              {lang === "ar" ? "الوكيل" : "Agent"}
+              <Bot className="size-4" />
+              {agentMode
+                ? lang === "ar"
+                  ? "الوكيل: مفعّل"
+                  : "Agent: on"
+                : lang === "ar"
+                  ? "الوكيل"
+                  : "Agent"}
             </Button>
             {!(canUseAgentMode || hasAgentPlan) && (
               <Link
@@ -593,6 +615,10 @@ function PureMultimodalInput({
                 {lang === "ar" ? "رقّي للوكيل" : "Unlock agent"}
               </Link>
             )}
+            {/* Classic voice row: tap the mic to dictate (tap again to stop
+                and the text lands in the box), tap the speaker to hear the
+                last reply, and the wave toggles hands-free voice chat. The
+                microphone is only requested when the mic is tapped. */}
             <VoiceInputButton
               disabled={uploadQueue.length > 0}
               lang={lang}
@@ -602,7 +628,7 @@ function PureMultimodalInput({
               aria-label={
                 lang === "ar" ? "اسمع آخر رد" : "Listen to the last reply"
               }
-              className="h-8 px-2"
+              className="size-8 rounded-full p-0"
               data-testid="speak-reply-button"
               disabled={!lastReplyText}
               onClick={handleSpeakLastReply}
@@ -617,8 +643,9 @@ function PureMultimodalInput({
               <Volume2 className="size-4" />
             </Button>
             <Button
+              aria-label={lang === "ar" ? "محادثة صوتية" : "Voice chat"}
               aria-pressed={voiceMode}
-              className="h-8 px-2 text-xs"
+              className="size-8 rounded-full p-0"
               data-testid="voice-mode-toggle"
               onClick={() => {
                 if (!voiceMode) {
@@ -640,7 +667,7 @@ function PureMultimodalInput({
               type="button"
               variant={voiceMode ? "default" : "ghost"}
             >
-              {lang === "ar" ? "صوتي" : "Voice"}
+              <AudioLines className="size-4" />
             </Button>
             <AttachmentsButton
               fileInputRef={fileInputRef}
@@ -686,7 +713,16 @@ function PureMultimodalInput({
                 ? `يستخدم هذا الطلب تشغيلاً من حصة مساحة العمل الشهرية. المتبقي: ${agentRunsRemaining.toLocaleString(lang)}.`
                 : `This request uses one workspace agent run. ${agentRunsRemaining.toLocaleString(lang)} remain this month.`}
             </p>
-          ) : null
+          ) : (
+            <p
+              className="px-2 pt-2 text-xs text-muted-foreground"
+              data-testid="agent-mode-hint"
+            >
+              {lang === "ar"
+                ? "المحادثة العادية لا تستخدم أدواتك. فعّل «الوكيل» ليقرأ Gmail وDrive والتقويم ويبحث في الويب."
+                : "Plain chat does not use your tools. Turn on “Agent” to read Gmail, Drive and Calendar and search the web."}
+            </p>
+          )
         ) : (
           <p className="px-2 pt-2 text-xs text-muted-foreground">
             {agentModeUnavailableMessage}
@@ -768,8 +804,10 @@ function PureAttachmentsButton({
 
   return (
     <Button
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+      className="size-8 rounded-full p-0 transition-colors hover:bg-accent"
+      aria-label="Attach image"
       data-testid="attachments-button"
+      title="PNG · JPEG"
       disabled={status !== "ready" || isReasoningModel}
       onClick={(event) => {
         event.preventDefault();
@@ -811,7 +849,10 @@ function PureModelSelectorCompact({
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
-        <Button className="h-8 w-[200px] justify-between px-2" variant="ghost">
+        <Button
+          className="h-8 w-auto max-w-[120px] justify-between px-2 sm:max-w-[160px] md:w-[200px]"
+          variant="ghost"
+        >
           {provider && <ModelSelectorLogo provider={provider} />}
           <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
         </Button>
