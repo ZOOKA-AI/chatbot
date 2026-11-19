@@ -26,6 +26,9 @@ test("agent memory can be saved and retrieved from the workspace", async () => {
   });
 
   try {
+    // The table this test exercises is created by 0056, and PGlite starts empty.
+    // Without applying the migration the query fails on a missing relation, which
+    // reads as a product defect when it is only a missing fixture step.
     await client.exec(
       readFileSync(
         join(process.cwd(), "lib/db/migrations/pending/0056_runtime_own_tables.sql"),
