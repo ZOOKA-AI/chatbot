@@ -30,6 +30,14 @@ const DESCRIPTIONS: Record<string, Omit<ToolCatalogEntry, "id">> = {
     summary: "Reads a project's latest deployment status and build result.",
     writes: false,
   },
+  connector_catalog: {
+    summary: "Lists the connectors this workspace can use, and their read operation ids.",
+    writes: false,
+  },
+  connector_read: {
+    summary: "Runs one read operation on a connected connector and returns the rows.",
+    writes: false,
+  },
 };
 
 export function toolCatalog(): ToolCatalogEntry[] {
