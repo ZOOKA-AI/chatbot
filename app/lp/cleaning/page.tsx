@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 
-const WA_LINK = "/wa"; const _unused = (encodeURIComponent(
-  "مرحبا، أبغى أعرف أكثر عن ZOOKA AI لشركة التنظيف عندي"
-)}`;
+const WA_LINK = "/wa";
 
 export const metadata: Metadata = {
   title: "ZOOKA AI لشركات التنظيف | مساعد يرد على العملاء ويكتب المحتوى",
