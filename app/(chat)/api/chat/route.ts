@@ -90,7 +90,11 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 import { uuidSchema as idSchema } from "@/lib/validation/chat";
 
 /** Hard ceiling for one assistant turn (Vercel Pro allows 300s). */
-const RESPONSE_TIMEOUT_MS = 240_000;
+// Must stay below `maxDuration` on the line above, or the platform kills the
+// function before this timer can fire and the client gets a bare disconnect with
+// no explanation. At 240s inside a 60s route the graceful "this ran long, say
+// continue" message could never be sent.
+const RESPONSE_TIMEOUT_MS = 55_000;
 
 export const maxDuration = 60;
 
@@ -149,12 +153,32 @@ async function POSTImpl(request: Request) {
     } = requestBody;
 
     const [botResult, workspaceContext] = await Promise.all([
-      checkBotId(),
+      checkBotId().catch(() => null),
       getWorkspaceContext(),
     ]);
 
-    if (botResult.isBot) {
-      return new ChatbotError("unauthorized:chat").toResponse();
+    /*
+     * BotID is advisory unless BOTID_ENFORCE is "true".
+     *
+     * On 2026-11-19 production answered every chat POST with 401 — the owner's own
+     * phone and desktop Chrome included — while the same session read
+     * /api/billing/agent-usage, which calls the same getWorkspaceContext, with 200.
+     * That left `botResult.isBot` as the only 401 branch left in POST, i.e. the bot
+     * check was flagging signed-in people and locking them out of the product.
+     * A false positive here costs a paying user every message, so the verdict is
+     * logged and enforcement is opt-in. The session requirement and the per-IP rate
+     * limit below still stand, and they are what actually stops anonymous abuse.
+     */
+    if (botResult?.isBot) {
+      console.warn("BotID flagged a chat request", {
+        enforced: process.env.BOTID_ENFORCE === "true",
+        isHuman: botResult.isHuman,
+        isVerifiedBot: botResult.isVerifiedBot,
+        bypassed: botResult.bypassed,
+      });
+      if (process.env.BOTID_ENFORCE === "true") {
+        return new ChatbotError("unauthorized:chat").toResponse();
+      }
     }
 
     if (!allowedModelIds.has(selectedChatModel)) {
