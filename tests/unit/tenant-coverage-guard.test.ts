@@ -44,7 +44,6 @@ const EXEMPT: Record<string, string> = {
   "app/(auth)/actions.ts":
     "registration and sign-in run before any session or organisation exists",
   "app/(auth)/auth.ts": "Auth.js configuration; reads users by email pre-session",
-  "app/(chat)/admin/page.tsx": "owner-gated administration, intentionally cross-tenant",
   "app/(chat)/workspace/admin/growth/page.tsx":
     "owner-only growth console; reads the rewards ledger across tenants and never writes",
   "app/(chat)/workspace/admin/growth/actions.ts":
