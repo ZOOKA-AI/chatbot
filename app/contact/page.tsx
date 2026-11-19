@@ -66,9 +66,7 @@ export default function ContactPage() {
         </p>
         <a
           className="rounded-md bg-primary px-5 py-2.5 font-medium text-primary-foreground"
-          href="/wa" data-cta="whatsapp" aria-label="WhatsApp" data-x={encodeURIComponent(
-            "مرحبًا، عايز أعرف باقات زوكا AI للشركات (B2B) والتسعير."
-          )}`}
+          href="/wa"
           rel="noopener noreferrer"
           target="_blank"
         >
@@ -82,6 +80,9 @@ export default function ContactPage() {
           <Link className="underline" href="/pricing">
             اطّلع على الباقات والأسعار
           </Link>
+          <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>
+            {CONTACT_EMAIL}
+          </a>
         </div>
       </section>
 
