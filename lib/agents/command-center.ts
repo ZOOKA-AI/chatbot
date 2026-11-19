@@ -172,6 +172,35 @@ export async function registerAgent(input: RegisterInput) {
   return { agent: row as AgentIdentity, key };
 }
 
+/**
+ * A new key for an agent that already exists.
+ *
+ * The key is shown once, at creation, and never again. That is right for storage and wrong for
+ * operations: a key that is not copied is lost, and until now the only recovery was to register
+ * a second identity, which splits one agent's history across two rows. Rotating replaces the
+ * hash in place, so the agent keeps its tasks, its evidence and its configuration, and the old
+ * key stops authenticating the moment this returns.
+ */
+export async function rotateAgentKey(input: { organizationId: string; agentId: string }) {
+  const key = generateAgentKey();
+  const [row] = await db
+    .update(agentIdentity)
+    .set({ keyHash: hashKey(key) })
+    .where(
+      and(
+        eq(agentIdentity.id, input.agentId),
+        eq(agentIdentity.organizationId, input.organizationId)
+      )
+    )
+    .returning({
+      id: agentIdentity.id,
+      slug: agentIdentity.slug,
+      displayName: agentIdentity.displayName,
+    });
+  if (!row) return null;
+  return { agent: row, key };
+}
+
 export async function listAgents(organizationId: string) {
   return db
     .select({
