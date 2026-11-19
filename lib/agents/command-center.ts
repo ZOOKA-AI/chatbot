@@ -183,6 +183,13 @@ export async function listAgents(organizationId: string) {
       scopes: agentIdentity.scopes,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
+      // The console reads its own state from this list. Without the assignment here the
+      // editor always opened as "legacy, all tools" and the card could never show what an
+      // agent actually holds, so a saved restriction looked like it had been lost.
+      allowedTools: agentIdentity.allowedTools,
+      modelProvider: agentIdentity.modelProvider,
+      modelId: agentIdentity.modelId,
+      instructions: agentIdentity.instructions,
       lastSeenAt: agentIdentity.lastSeenAt,
       createdAt: agentIdentity.createdAt,
     })
