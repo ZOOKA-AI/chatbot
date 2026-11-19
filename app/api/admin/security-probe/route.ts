@@ -16,7 +16,6 @@ import type { AdminSection } from "@/lib/admin/types";
  *
  * Read-only, and gated by the same token as the migration route.
  */
-export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 type Step = {
