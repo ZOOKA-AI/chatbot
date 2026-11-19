@@ -33,7 +33,7 @@ export async function fetchWithErrorHandlers(
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(new DOMException("Chat request timed out", "TimeoutError")),
-    45_000,
+    58_000,
   );
   const signal = init?.signal
     ? AbortSignal.any([controller.signal, init.signal])
@@ -45,10 +45,16 @@ export async function fetchWithErrorHandlers(
 
       if (!response.ok) {
         clearTimeout(timeout);
-        const { code, cause } = await response
+        // `message` is the human sentence the route already chose for this code.
+        // Dropping it left the UI with nothing to say but "the reply was
+        // interrupted", which is exactly how a plain 401 looked like a crash.
+        const { code, cause, message } = await response
           .json()
-          .catch(() => ({ code: "offline:chat", cause: undefined }));
-        throw new ChatbotError(code as ErrorCode, cause);
+          .catch(() => ({ code: "offline:chat", cause: undefined, message: undefined }));
+        throw new ChatbotError(
+          code as ErrorCode,
+          cause ?? (typeof message === "string" ? message : undefined),
+        );
       }
 
       if (!response.body) {
