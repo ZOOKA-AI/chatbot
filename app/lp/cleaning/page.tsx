@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-const WHATSAPP = "971566047579";
-const WA_LINK = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
+const WA_LINK = `mailto:info@zooka-ai.com?body=${encodeURIComponent(
   "مرحبا، أبغى أعرف أكثر عن ZOOKA AI لشركة التنظيف عندي"
 )}`;
 

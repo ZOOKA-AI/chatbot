@@ -16,10 +16,7 @@ export const LEGAL_ADDRESS: Record<"ar" | "en", string> = {
 };
 
 /** Monitored inbox for legal and billing requests (env override allowed). */
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "helmyharoon8@gmail.com";
-
-/** WhatsApp support line shown on /contact; calls are not answered. */
-export const SUPPORT_PHONE = "+971566047579";
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "info@zooka-ai.com";
 
 /** Governing law for the terms and refund policy. */
 export const GOVERNING_LAW: Record<"ar" | "en", string> = {
