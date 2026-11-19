@@ -1,5 +1,6 @@
 import "server-only";
 
+import { AD_CONNECTOR_SPECS } from "@/lib/integrations/connectors/ads-registry";
 import {
   type ConnectorSpec,
   requireFields,
@@ -26,7 +27,7 @@ function nested(payload: Record<string, unknown>, key: string) {
     : {};
 }
 
-export const CONNECTOR_SPECS: ConnectorSpec[] = [
+const CORE_CONNECTOR_SPECS: ConnectorSpec[] = [
   {
     providerId: "slack",
     label: "Slack",
@@ -510,6 +511,16 @@ export const CONNECTOR_SPECS: ConnectorSpec[] = [
     writeStatus:
       "DNS changes are excluded from this release; reads only, and only after the IP allowlist step.",
   },
+];
+
+/**
+ * The registry is the union of the core connectors and the advertising/CRM set.
+ * Both are declared as data, so the executor, the matrix and the agent read the
+ * same list and a new provider never needs its own network code.
+ */
+export const CONNECTOR_SPECS: ConnectorSpec[] = [
+  ...CORE_CONNECTOR_SPECS,
+  ...AD_CONNECTOR_SPECS,
 ];
 
 const INDEX = new Map(CONNECTOR_SPECS.map((spec) => [spec.providerId, spec]));

@@ -4,7 +4,7 @@ import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { materialiseDueSchedules } from "./schedule";
 import { toolPayloadFor } from "./tool-payload";
 import { reclaimExpiredLeases } from "@/lib/agents/worker-lease";
-import { runTask } from "@/lib/agents/worker";
+import { runTask, WORKER_TOOLS } from "@/lib/agents/worker";
 
 /**
  * The scheduler: chooses what runs next, then hands each task to its own
@@ -22,7 +22,15 @@ export type SchedulerConfig = {
   perOrganizationLimit: number;
   globalLimit: number;
   batchSize: number;
+  /** The fallback tool, used only for a task that names none of its own. */
   tool: string;
+  /**
+   * One workspace's queue, run on the owner's request.
+   *
+   * The platform pass selects across tenants; this one never leaves the workspace that asked,
+   * so an owner pressing "run" cannot execute another tenant's work.
+   */
+  organizationId?: string;
   /** Injected in tests so a scheduling pass never reaches the network. */
   fetchImpl?: typeof fetch;
 };
@@ -36,7 +44,7 @@ export type SchedulerResult = {
   succeeded: number;
   failed: number;
   skipped: number;
-  outcomes: Array<{ taskId: string; organizationId: string; status: string; error?: string }>;
+  outcomes: Array<{ taskId: string; organizationId: string; status: string; tool?: string; error?: string }>;
 };
 
 export function schedulerConfig(overrides: Partial<SchedulerConfig> = {}): SchedulerConfig {
@@ -49,7 +57,25 @@ export function schedulerConfig(overrides: Partial<SchedulerConfig> = {}): Sched
   };
 }
 
-type Candidate = { id: string; organizationId: string; createdAt: Date };
+type Candidate = {
+  id: string;
+  organizationId: string;
+  createdAt: Date;
+  payload: Record<string, unknown> | null;
+};
+
+/**
+ * The tool a task asks for.
+ *
+ * A task carries the tool the action declared (`payload.tool`). The pass used to run every task
+ * with one configured tool instead, so a readiness report executed the repository inspector:
+ * the task said one thing and the worker did another. A task naming a tool the worker does not
+ * implement falls back rather than silently running the wrong one.
+ */
+function toolForTask(task: Candidate, config: SchedulerConfig) {
+  const declared = task.payload && typeof task.payload.tool === "string" ? task.payload.tool : null;
+  return declared && WORKER_TOOLS[declared] ? declared : config.tool;
+}
 
 /**
  * Fair selection: one task per workspace per pass, oldest first, so a workspace
@@ -156,9 +182,15 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
       }
 
       // 3. Candidates, oldest first, then fair selection.
-      const candidates = await sql<Candidate[]>`
-        select id, "organizationId", "createdAt" from "AgentTask"
-        where status = 'pending' order by "createdAt" asc limit ${Math.max(20, config.batchSize * 20)}`;
+      const candidateLimit = Math.max(20, config.batchSize * 20);
+      const candidates = config.organizationId
+        ? await sql<Candidate[]>`
+            select id, "organizationId", "createdAt", payload from "AgentTask"
+            where status = 'pending' and "organizationId" = ${config.organizationId}
+            order by "createdAt" asc limit ${candidateLimit}`
+        : await sql<Candidate[]>`
+            select id, "organizationId", "createdAt", payload from "AgentTask"
+            where status = 'pending' order by "createdAt" asc limit ${candidateLimit}`;
       const chosen = selectFairly(candidates, runningByOrg, config, capacity);
 
       // 4. Each task runs inside its own workspace's transaction.
@@ -169,18 +201,20 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
           outcomes.push({ taskId: task.id, organizationId: task.organizationId, status: "rejected", error: "no_agent_identity" });
           continue;
         }
+        const tool = toolForTask(task, config);
         const outcome = await withCommanderScope(task.organizationId, () =>
           runTask(agent as never, {
             taskId: task.id,
-            tool: config.tool,
+            tool,
             fetchImpl: config.fetchImpl,
-            payload: toolPayloadFor(config.tool),
+            payload: toolPayloadFor(tool, task.payload),
           })
         );
         outcomes.push({
           taskId: outcome.taskId,
           organizationId: task.organizationId,
           status: outcome.status,
+          tool,
           error: outcome.error,
         });
       }

@@ -18,11 +18,16 @@ export default async function SecurityPage() {
   if (!admin) return <AdminDenied />;
   const lang = admin.lang;
 
-  const [overview, development, browser] = await Promise.all([
-    getCommandOverview(admin.organizationId),
-    getDevelopment(admin.organizationId),
-    getBrowserSessions(admin.organizationId),
-  ]);
+  // These three loaders are awaited one after another, not together.
+  //
+  // Each one fans out its own batch of queries (the overview alone runs thirteen probes in parallel), so
+  // running all three at once pushed more concurrent statements at the shared pool than the other admin
+  // pages ever do. On production this page was the only one that never finished rendering: the shell and
+  // its title streamed, then the body stalled. Sequential awaits cost a few hundred milliseconds here and
+  // remove that starvation entirely.
+  const overview = await getCommandOverview(admin.organizationId);
+  const development = await getDevelopment(admin.organizationId);
+  const browser = await getBrowserSessions(admin.organizationId);
 
   const pick = (metrics: Metric[], key: string) => metrics.find((metric) => metric.key === key);
   const failed = pick(overview.metrics, "executions_failed");

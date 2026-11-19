@@ -42,6 +42,7 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
   const [newRole, setNewRole] = useState("");
   const [issuedKey, setIssuedKey] = useState<{ slug: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [queueNote, setQueueNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,6 +123,69 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
     setHistory((current) => ({ ...current, [agent.id]: body.tasks ?? [] }));
   }
 
+  /**
+   * Runs this workspace's queued tasks and reports what the worker did.
+   *
+   * Without this the console could create a task and then only watch it sit in `pending`: the
+   * queue's only executor was an agent holding a key, and nothing called the scheduling pass.
+   */
+  const runQueue = useCallback(async () => {
+    setBusy(true);
+    setQueueNote(null);
+    try {
+      const response = await fetch("/api/agents/queue/run", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ limit: 3 }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setQueueNote(body?.error === "forbidden" ? "Owner or admin required." : `Could not run (${response.status}).`);
+        return;
+      }
+      const result = body.result ?? {};
+      if (result.ran === false) {
+        setQueueNote(result.reason === "overlapping_run" ? "A pass is already running." : "Nothing to run right now.");
+      } else if (!result.attempted) {
+        setQueueNote("Queue is empty.");
+      } else {
+        setQueueNote(
+          `Ran ${result.attempted}: ${result.succeeded} completed, ${result.failed} failed, ${result.skipped} skipped.`
+        );
+      }
+      await load();
+      setHistory({});
+      setOpenHistory(null);
+    } catch (cause) {
+      setQueueNote(cause instanceof Error ? cause.message : "could not run the queue");
+    } finally {
+      setBusy(false);
+    }
+  }, [load]);
+
+  /** Replaces an agent's key in place, so the identity keeps its tasks and its tools. */
+  const rotateKey = useCallback(async (agent: Agent) => {
+    setBusy(true);
+    try {
+      const response = await fetch("/api/agents/rotate-key", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentId: agent.id }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(body?.error === "agent_not_found" ? "That agent is not in this workspace." : `Could not rotate (${response.status}).`);
+        return;
+      }
+      setIssuedKey({ slug: `${agent.slug} (new key)`, key: typeof body.key === "string" ? body.key : "" });
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "could not rotate the key");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       {canManage ? (
@@ -161,7 +225,20 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold">Agents ({agents.length})</h2>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Agents ({agents.length})</h2>
+          {canManage ? (
+            <button
+              type="button"
+              onClick={runQueue}
+              disabled={busy}
+              className="rounded border px-3 py-1 text-xs disabled:opacity-40"
+            >
+              Run queued work
+            </button>
+          ) : null}
+        </div>
+        {queueNote ? <p className="mb-2 text-xs opacity-80">{queueNote}</p> : null}
         {loading ? <p className="text-sm">Loading…</p> : null}
         <ul className="flex flex-col gap-2">
           {agents.map((agent) => (
@@ -198,6 +275,14 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
                         className="rounded border px-2 py-1 text-xs"
                       >
                         {agent.status === "active" ? "Disable" : "Enable"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rotateKey(agent)}
+                        disabled={busy}
+                        className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+                      >
+                        New key
                       </button>
                       <button
                         type="button"

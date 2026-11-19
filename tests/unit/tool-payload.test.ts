@@ -3,7 +3,7 @@ import { describe, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { defaultToolPayload, toolPayloadFor } from "@/lib/agents/tool-payload";
+import { acceptedPayloadKeys, defaultToolPayload, toolPayloadFor } from "@/lib/agents/tool-payload";
 
 /**
  * The regression this file exists for: the scheduler passed `{ repo }` to the GitHub tool
@@ -28,6 +28,27 @@ describe("tool payloads have one source", () => {
     assert.deepEqual(toolPayloadFor("github_repo_inspect", { repo: "owner/other", token: "x" }), {
       repo: "owner/other",
     });
+  });
+
+  test("a key the tool reads survives even when the tool has no default", () => {
+    // The readiness report's only input is the customer's label. It used to be dropped here,
+    // because the merge kept only keys that existed in the defaults, and the tool then failed
+    // with invalid_label while the value sat in the task row.
+    assert.deepEqual(toolPayloadFor("workspace_readiness_inspect", { label: "Launch readiness", tool: "x" }), {
+      label: "Launch readiness",
+    });
+  });
+
+  test("a document brief reaches the tool that writes it", () => {
+    assert.deepEqual(
+      toolPayloadFor("project_document_create", { title: "Scope", brief: "What we agreed", projectId: "p1" }),
+      { title: "Scope", brief: "What we agreed", projectId: "p1" }
+    );
+  });
+
+  test("the accepted list is the defaults plus what the tool reads", () => {
+    assert.deepEqual(acceptedPayloadKeys("github_repo_inspect"), ["repo", "paths"]);
+    assert.deepEqual(acceptedPayloadKeys("workspace_readiness_inspect"), ["label"]);
   });
 
   test("the defaults are copied, so a caller mutating one does not poison the next", () => {
