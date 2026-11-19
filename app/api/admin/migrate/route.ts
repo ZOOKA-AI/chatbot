@@ -12,6 +12,70 @@ const TABLES: Record<string, string[]> = {
   // lib/db/migrations/pending/0061_mail_ledger_tenant_policies.sql; a unit test
   // keeps them equal. 0058 could not grant these tables because 0060 creates
   // them afterwards, so as zooka_runtime every read and write failed 42501.
+  // Tenant policies require a real membership for the authenticated subject
+  // (migration 0062). Same statements as
+  // lib/db/migrations/pending/0062_policy_subject_membership.sql; a unit test
+  // keeps them equal. Without the guard, a forged app.organization_id reads
+  // another workspace: measured 1 row before, 0 after.
+  policy_subject_membership_0062: [
+    `create or replace function public.app_tenant_subject() returns text
+language sql stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub',
+    nullif(current_setting('request.jwt.claim.sub', true), '')
+  )
+$$`,
+    `create or replace function public.app_is_org_member(org text) returns boolean
+language sql stable security definer
+set search_path = public, pg_temp
+as $$
+  select case
+    when org is null or org = '' then false
+    when public.app_tenant_subject() is null then true
+    else exists (
+      select 1
+      from public."OrganizationMember" m
+      where m."organizationId"::text = org
+        and m."userId"::text = public.app_tenant_subject()
+    )
+  end
+$$`,
+    `do $$
+declare
+  p record;
+  guard text := 'public.app_is_org_member(current_setting(''app.organization_id''::text, true))';
+  new_qual text;
+  new_check text;
+begin
+  for p in
+    select schemaname, tablename, policyname, cmd, roles, qual, with_check
+    from pg_policies
+    where schemaname = 'public'
+      and qual like '%app.organization_id%'
+  loop
+    new_qual := format('(%s) and %s', p.qual, guard);
+    new_check := case when p.with_check is null then null else format('(%s) and %s', p.with_check, guard) end;
+    execute format('drop policy if exists %I on %I.%I', p.policyname, p.schemaname, p.tablename);
+    if p.cmd = 'ALL' then
+      execute format('create policy %I on %I.%I for all to %s using (%s) with check (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual, coalesce(new_check, new_qual));
+    elsif p.cmd = 'SELECT' then
+      execute format('create policy %I on %I.%I for select to %s using (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual);
+    elsif p.cmd = 'INSERT' then
+      execute format('create policy %I on %I.%I for insert to %s with check (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), coalesce(new_check, new_qual));
+    elsif p.cmd = 'UPDATE' then
+      execute format('create policy %I on %I.%I for update to %s using (%s) with check (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual, coalesce(new_check, new_qual));
+    elsif p.cmd = 'DELETE' then
+      execute format('create policy %I on %I.%I for delete to %s using (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual);
+    end if;
+  end loop;
+end $$`,
+  ],
   mail_ledger_tenant_policies_0061: [
     `DO $$
 DECLARE
