@@ -18,18 +18,33 @@ create table if not exists integration_provider (
 );
 
 -- 2) Connection health + attribution on the existing connection table.
-alter table integration_connection
-  add column if not exists provider_id text,
-  add column if not exists display_name text,
-  add column if not exists status text not null default 'connected',
-  add column if not exists last_used_at timestamptz,
-  add column if not exists last_error text,
-  add column if not exists connected_by uuid;
+--
+-- Guarded, because this file runs in two very different places. On production the tables
+-- already exist and this adds the columns. On a Supabase preview branch the database starts
+-- empty and gets the real schema from lib/db/migrations (applied by /api/admin/migrate), so
+-- this file's job there is only to seed the provider catalog below; an unguarded ALTER failed
+-- the preview check with "relation integration_connection does not exist" (SQLSTATE 42P01) and
+-- the whole migration stopped before the seed.
+do $$
+begin
+  if to_regclass('public.integration_connection') is not null then
+    alter table integration_connection
+      add column if not exists provider_id text,
+      add column if not exists display_name text,
+      add column if not exists status text not null default 'connected',
+      add column if not exists last_used_at timestamptz,
+      add column if not exists last_error text,
+      add column if not exists connected_by uuid;
 
-create index if not exists integration_connection_status_idx
-  on integration_connection (workspace_id, status);
-create index if not exists usage_counter_metric_idx
-  on usage_counter (workspace_id, metric, period_start desc);
+    create index if not exists integration_connection_status_idx
+      on integration_connection (workspace_id, status);
+  end if;
+
+  if to_regclass('public.usage_counter') is not null then
+    create index if not exists usage_counter_metric_idx
+      on usage_counter (workspace_id, metric, period_start desc);
+  end if;
+end $$;
 
 alter table integration_provider enable row level security;
 drop policy if exists provider_read_all on integration_provider;
