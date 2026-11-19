@@ -24,7 +24,7 @@ export type EmbedVerdict = {
 };
 
 export function frameAncestors(
-  policy: string | null | undefined,
+  policy: string | null | undefined
 ): string | null {
   if (!policy) return null;
   const match = policy.match(/frame-ancestors([^;]*)/i);
@@ -36,7 +36,9 @@ function originOf(value: string | null | undefined): string | null {
   const raw = value.trim();
   if (!raw || raw === "null") return null;
   try {
-    const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const url = new URL(
+      /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
+    );
     return url.origin.toLowerCase();
   } catch {
     return null;
@@ -53,7 +55,7 @@ export function embedVerdict(
     embedderOrigin?: string | null;
     /** The URL that is about to be framed, after redirects. */
     targetUrl?: string | null;
-  } = {},
+  } = {}
 ): EmbedVerdict {
   const embedder = originOf(context.embedderOrigin);
   const target = originOf(context.targetUrl);
@@ -139,7 +141,9 @@ export function embedVerdict(
     }
 
     const listedOrigins = tokens
-      .filter((token) => token.startsWith("http://") || token.startsWith("https://"))
+      .filter(
+        (token) => token.startsWith("http://") || token.startsWith("https://")
+      )
       .map((token) => originOf(token));
     if (embedder && listedOrigins.includes(embedder)) {
       return {

@@ -76,7 +76,7 @@ export function LiveBrowser({
     try {
       const response = await fetch(
         `/api/workspace/browser/embed-check?url=${encodeURIComponent(url)}`,
-        { cache: "no-store" },
+        { cache: "no-store" }
       );
       if (!response.ok) {
         setVerdict({
@@ -115,7 +115,7 @@ export function LiveBrowser({
       setCursor(next.length - 1);
       setReloadKey((value) => value + 1);
     },
-    [cursor, history],
+    [cursor, history]
   );
 
   const step = useCallback(
@@ -128,7 +128,7 @@ export function LiveBrowser({
       setTarget(url);
       setReloadKey((value) => value + 1);
     },
-    [cursor, history],
+    [cursor, history]
   );
 
   const https = target.startsWith("https://");
@@ -150,34 +150,34 @@ export function LiveBrowser({
     >
       <div className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-2.5">
         <div className="flex gap-2">
-          <span className="size-3 rounded-full bg-[#ff5f57]" aria-hidden />
-          <span className="size-3 rounded-full bg-[#febc2e]" aria-hidden />
-          <span className="size-3 rounded-full bg-[#28c840]" aria-hidden />
+          <span aria-hidden className="size-3 rounded-full bg-[#ff5f57]" />
+          <span aria-hidden className="size-3 rounded-full bg-[#febc2e]" />
+          <span aria-hidden className="size-3 rounded-full bg-[#28c840]" />
         </div>
         <div className="flex items-center gap-1">
           <button
-            type="button"
-            onClick={() => step(-1)}
-            disabled={cursor === 0}
             aria-label="رجوع"
             className="rounded-md px-2 py-1 text-lg leading-none text-white/80 disabled:opacity-30"
+            disabled={cursor === 0}
+            onClick={() => step(-1)}
+            type="button"
           >
             ‹
           </button>
           <button
-            type="button"
-            onClick={() => step(1)}
-            disabled={cursor >= history.length - 1}
             aria-label="تقدّم"
             className="rounded-md px-2 py-1 text-lg leading-none text-white/80 disabled:opacity-30"
+            disabled={cursor >= history.length - 1}
+            onClick={() => step(1)}
+            type="button"
           >
             ›
           </button>
           <button
-            type="button"
-            onClick={() => setReloadKey((value) => value + 1)}
             aria-label="إعادة تحميل"
             className="rounded-md px-2 py-1 text-sm text-white/80"
+            onClick={() => setReloadKey((value) => value + 1)}
+            type="button"
           >
             ⟳
           </button>
@@ -189,35 +189,35 @@ export function LiveBrowser({
             go(address);
           }}
         >
-          <span className="text-xs" aria-hidden>
+          <span aria-hidden className="text-xs">
             {https ? "🔒" : "⚠️"}
           </span>
           <input
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-            onFocus={(event) => event.currentTarget.select()}
-            dir="ltr"
-            spellCheck={false}
             aria-label="عنوان الموقع"
             className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
+            dir="ltr"
+            onChange={(event) => setAddress(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
             placeholder="zooka-ai.com"
+            spellCheck={false}
+            value={address}
           />
         </form>
         <a
-          href={target}
-          target="_blank"
-          rel="noreferrer noopener"
           aria-label="فتح في نافذة جديدة"
           className="rounded-md px-2 py-1 text-sm text-white/80"
+          href={target}
+          rel="noreferrer noopener"
+          target="_blank"
         >
           ↗
         </a>
         {onClose ? (
           <button
-            type="button"
-            onClick={onClose}
             aria-label="إغلاق المتصفح"
             className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+            onClick={onClose}
+            type="button"
           >
             ✕
           </button>
@@ -231,13 +231,13 @@ export function LiveBrowser({
           </div>
         ) : verdict?.embeddable ? (
           <iframe
+            className="h-full w-full border-0"
             key={`${target}#${reloadKey}`}
             ref={frameRef}
+            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
             src={target}
             title={`متصفح — ${host}`}
-            className="h-full w-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
-            referrerPolicy="no-referrer"
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#0b1220] px-6 text-center">
@@ -245,12 +245,12 @@ export function LiveBrowser({
               {REFUSAL_TEXT[verdict?.reason ?? "unreachable"]}
             </p>
             {verdict?.detail ? (
-              <p dir="ltr" className="font-mono text-[11px] text-white/40">
+              <p className="font-mono text-[11px] text-white/40" dir="ltr">
                 {verdict.detail}
               </p>
             ) : null}
             {verdict?.embedderOrigin ? (
-              <p dir="ltr" className="font-mono text-[11px] text-white/30">
+              <p className="font-mono text-[11px] text-white/30" dir="ltr">
                 framer: {verdict.embedderOrigin}
               </p>
             ) : null}
@@ -261,17 +261,17 @@ export function LiveBrowser({
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2">
               <a
-                href={agentBrowserHref}
                 className="rounded-lg px-4 py-2 text-sm text-white"
+                href={agentBrowserHref}
                 style={{ background: "#2E86AB" }}
               >
                 افتح {host} في متصفح الوكيل
               </a>
               <a
-                href={target}
-                target="_blank"
-                rel="noreferrer noopener"
                 className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+                href={target}
+                rel="noreferrer noopener"
+                target="_blank"
               >
                 نافذة مستقلة
               </a>

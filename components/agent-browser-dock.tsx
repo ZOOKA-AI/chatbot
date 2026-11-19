@@ -14,7 +14,11 @@ import { LiveBrowser } from "@/components/live-browser";
  */
 const STORAGE_KEY = "zooka.agent.browser.open";
 
-export function AgentBrowserDock({ initialUrl = "https://zooka-ai.com" }: { initialUrl?: string }) {
+export function AgentBrowserDock({
+  initialUrl = "https://zooka-ai.com",
+}: {
+  initialUrl?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -51,24 +55,28 @@ export function AgentBrowserDock({ initialUrl = "https://zooka-ai.com" }: { init
     <>
       {open ? (
         <div
-          className="fixed inset-x-2 bottom-2 top-16 z-50 flex flex-col rounded-2xl bg-[#070d18]/95 p-2 shadow-2xl backdrop-blur"
-          role="dialog"
-          aria-modal="false"
           aria-label="المتصفح المباشر"
+          aria-modal="false"
+          className="fixed inset-x-2 top-16 bottom-2 z-50 flex flex-col rounded-2xl bg-[#070d18]/95 p-2 shadow-2xl backdrop-blur"
           id="agent-browser-panel"
+          role="dialog"
         >
           <div className="min-h-0 flex-1">
-            <LiveBrowser initialUrl={initialUrl} fillHeight onClose={() => toggle(false)} />
+            <LiveBrowser
+              fillHeight
+              initialUrl={initialUrl}
+              onClose={() => toggle(false)}
+            />
           </div>
         </div>
       ) : (
         <button
-          type="button"
-          onClick={() => toggle(true)}
-          aria-expanded={false}
           aria-controls="agent-browser-panel"
+          aria-expanded={false}
           className="fixed bottom-24 left-4 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-medium text-white shadow-xl transition hover:brightness-110"
+          onClick={() => toggle(true)}
           style={{ background: "linear-gradient(135deg, #2E86AB, #A23B72)" }}
+          type="button"
         >
           <span aria-hidden>🌐</span>
           المتصفح
