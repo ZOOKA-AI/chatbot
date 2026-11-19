@@ -15,6 +15,24 @@ import { isNavigation, requestIdFrom } from "./lib/http/request-id";
  */
 const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
 
+/**
+ * The refusal a signed-in member receives from the admin command center.
+ *
+ * It is a real 403 from the proxy, not a rendered page with a 200, because a streamed
+ * server render commits its status before a layout can stop it: the layout's own check
+ * would arrive too late to mean anything to a client, a log line or a monitor.
+ */
+const ADMIN_FORBIDDEN_HTML = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>403 — لوحة الإدارة</title>
+<style>html,body{margin:0;height:100%;background:#050a14;color:#e8eefc;font-family:system-ui,"Segoe UI",Tahoma,sans-serif}
+main{display:grid;place-items:center;height:100%;padding:24px;text-align:center}
+h1{margin:0 0 8px;font-size:20px;font-weight:600}p{margin:4px 0;color:#93a4c4;font-size:14px}
+a{color:#2E86AB;text-decoration:none}code{color:#A23B72}</style></head>
+<body><main><div><h1>هذه اللوحة للأدمن فقط</h1>
+<p>This command center is admin-only.</p>
+<p><code>403</code></p>
+<p><a href="/workspace/home">العودة إلى مساحة العمل</a></p></div></main></body></html>`;
+
 const PROTECTED_PREFIXES = [
   "/chat",
   "/settings",
@@ -227,6 +245,28 @@ async function route(request: NextRequest, requestId: string) {
   }
 
   const isGuest = guestRegex.test(token?.email ?? "");
+
+
+  // A signed-in member asking for the command center gets a real 403 here, before the
+  // render starts. The role travels inside the session token, so this costs no query;
+  // the admin layout still re-checks against the database and refuses the content.
+  // When the visitor has explicitly switched workspace the token role describes a
+  // different workspace, so the decision is left to that database check rather than
+  // guessing from a stale claim.
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  if (token && isAdminRoute) {
+    const role = (token as { organizationRole?: string }).organizationRole;
+    const switchedWorkspace = request.cookies.get("active-workspace")?.value;
+    if (role !== "admin" && role !== "owner" && !switchedWorkspace) {
+      return new NextResponse(ADMIN_FORBIDDEN_HTML, {
+        status: 403,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "private, no-store",
+        },
+      });
+    }
+  }
 
   if (token && !isGuest && ["/login", "/register"].includes(pathname)) {
     return NextResponse.redirect(new URL("/", request.url));

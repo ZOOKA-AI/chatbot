@@ -43,3 +43,6 @@ yarn-error.log*
 /blob-report/
 /playwright/*
 acceptance-rc/
+
+# TypeScript incremental build output
+*.tsbuildinfo

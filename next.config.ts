@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Lets a server component refuse with a real status instead of a rendered
+  // message: the admin gate answers 403 to a signed-in non-admin rather than
+  // 200 with a "not allowed" paragraph, so the refusal is visible to clients
+  // and logs and not only to a human reading the page.
+  experimental: { authInterrupts: true },
   // The browser runtime loads a Chromium driver at request time through a computed import, which
   // the bundler cannot trace. Keeping it external makes the package part of the deployed function;
   // without this the import resolves to nothing inside the lambda.

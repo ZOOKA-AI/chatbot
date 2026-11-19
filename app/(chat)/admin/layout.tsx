@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { forbidden, redirect } from "next/navigation";
 
 import { AdminNav } from "@/components/admin/admin-nav";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
@@ -21,20 +21,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const allowed = context.role === "admin" || context.role === "owner";
 
   if (!allowed) {
-    return (
-      <main className="mx-auto w-full max-w-2xl p-6">
-        <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
-          <p className="font-medium">
-            {lang === "ar" ? "هذه اللوحة للأدمن فقط." : "This command center is admin-only."}
-          </p>
-          <p className="mt-1 text-xs text-rose-200/80">
-            {lang === "ar"
-              ? "دورك الحالي لا يمنح الوصول. لم يُقرأ أي بيانات إدارية."
-              : "Your current role does not grant access. No admin data was read."}
-          </p>
-        </div>
-      </main>
-    );
+    // A real 403, not a 200 page that happens to say "no". Nothing below this
+    // line runs, so no admin query is issued for a non-admin request.
+    forbidden();
   }
 
   return (
