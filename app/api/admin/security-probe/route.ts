@@ -87,16 +87,21 @@ export async function GET(request: Request) {
   const steps: Step[] = [];
 
   let organizationId: string | null = null;
+  let shape = "unknown";
   try {
-    const rows = await db.execute<{ id: string }>(
+    const result = (await db.execute(
       sql.raw(`select "organizationId"::text as id from "OrganizationMember" limit 1`)
-    );
-    const first = (rows as unknown as { rows?: { id: string }[] }).rows?.[0];
-    organizationId = first?.id ?? null;
+    )) as unknown;
+    const rows = Array.isArray(result)
+      ? (result as { id: string }[])
+      : ((result as { rows?: { id: string }[] }).rows ?? []);
+    shape = `${Array.isArray(result) ? "array" : typeof result}:${rows.length}`;
+    organizationId = rows[0]?.id ?? null;
   } catch (error) {
     return NextResponse.json(
       {
         error: "organization_lookup_failed",
+        shape,
         detail: error instanceof Error ? error.message.slice(0, 200) : "unknown",
       },
       { status: 500 }
@@ -104,7 +109,7 @@ export async function GET(request: Request) {
   }
 
   if (!organizationId) {
-    return NextResponse.json({ error: "no_organization" }, { status: 409 });
+    return NextResponse.json({ error: "no_organization", shape }, { status: 409 });
   }
 
   // Same order the page awaits them in, so a stall shows up on the same step.
