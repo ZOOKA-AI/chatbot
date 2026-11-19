@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-// The number stays inside the link only: visitors start a WhatsApp chat with
-// one tap, but the digits are never rendered on the page.
-const WHATSAPP_NUMBER = "971566047579";
+const CONTACT_EMAIL = "info@zooka-ai.com";
 
 export const metadata: Metadata = {
   title: "تواصل معنا — خدمة الشركات B2B",
@@ -64,17 +62,17 @@ export default function ContactPage() {
       <section className="flex flex-col items-center gap-4 rounded-xl border bg-muted/30 p-6 text-center">
         <p className="text-muted-foreground text-sm">
           للاستفسار عن الباقات، أو عرض سعر لفريق كامل، أو عقد سنوي وفاتورة
-          رسمية — كلّمنا على واتساب وسنرد في أوقات العمل (الأحد إلى الخميس).
+          رسمية — راسلنا على البريد وسنرد في أوقات العمل (الأحد إلى الخميس).
         </p>
         <a
           className="rounded-md bg-primary px-5 py-2.5 font-medium text-primary-foreground"
-          href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+          href={`mailto:${CONTACT_EMAIL}?body=${encodeURIComponent(
             "مرحبًا، عايز أعرف باقات زوكا AI للشركات (B2B) والتسعير."
           )}`}
           rel="noopener noreferrer"
           target="_blank"
         >
-          ابدأ محادثة واتساب
+          راسلنا على البريد
         </a>
         <p className="text-muted-foreground text-xs">
           النموذج مجاني؟ لا. الاشتراك مطلوب للاستخدام التجاري. / Is it free? No.
