@@ -182,6 +182,13 @@ jobs:
           END $$;
           SQL
 
+      - name: Unit and integration suites (with the database suites enabled)
+        if: false
+        env:
+          ZOOKA_TEST_PG_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          ZOOKA_TEST_PG_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
+        run: pnpm exec vitest run --reporter=dot --reporter=json --outputFile=vitest-report.json
+
       - name: Unit and integration suites
         id: security_tests
         continue-on-error: true
