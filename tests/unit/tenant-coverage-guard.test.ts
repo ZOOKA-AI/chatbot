@@ -48,7 +48,11 @@ const EXEMPT: Record<string, string> = {
     "owner-only growth console; reads the rewards ledger across tenants and never writes",
   "app/(chat)/workspace/admin/growth/actions.ts":
     "owner-only growth writes behind requireWorkspaceRole(owner); every change is audited",
-  "app/admin/referrals/page.tsx": "owner-gated administration, intentionally cross-tenant",
+  // Platform-wide affiliate and referral report: audited in
+  // docs/security/ADMIN_REFERRALS_AUDIT.md, gate tested in
+  // tests/unit/admin-referrals-access.test.ts.
+  "app/admin/referrals/page.tsx":
+    "platform-wide affiliate report; administrator gate, no organisation to scope to",
   "app/api/admin/migrate/route.ts": "token-gated schema migration, no tenant scope",
   "app/api/admin/overview/route.ts": "owner-gated platform overview across all tenants",
   "app/api/admin/users/route.ts": "owner-gated user administration across all tenants",

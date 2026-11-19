@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
 import { affiliate } from "@/lib/db/schema";
 import { getReferralReport, normalizeCode } from "@/lib/affiliate";
+import { referralsAccess } from "@/lib/admin/referrals-access";
 import { referralEvent } from "@/lib/db/schema";
 
 type PageProps = {
@@ -63,21 +64,15 @@ export default function AdminReferralsPage({ searchParams }: PageProps) {
 
 async function AdminReferralsContent({ searchParams }: PageProps) {
   const params = await searchParams;
-  const adminEmails = (
-    process.env.ADMIN_EMAILS ??
-    "zookaalmrzwq@gmail.com,solas.test@zooka-ai.com,helmyharoon8@gmail.com"
-  )
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
   const session = await auth();
-  const sessionEmail = session?.user?.email?.toLowerCase();
-  const tokenOk = Boolean(params.k) && params.k === process.env.BACKUP_TOKEN;
-  const sessionOk =
-    Boolean(sessionEmail) && adminEmails.includes(sessionEmail as string);
+  const access = referralsAccess({
+    sessionEmail: session?.user?.email,
+    key: params.k,
+    adminEmailsEnv: process.env.ADMIN_EMAILS,
+    backupToken: process.env.BACKUP_TOKEN,
+  });
 
-  if (!tokenOk && !sessionOk) {
+  if (!access.allowed) {
     return (
       <main className="mx-auto max-w-xl p-8">
         <h1 className="font-semibold text-xl">Not authorized</h1>
