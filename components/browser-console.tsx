@@ -67,7 +67,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; 
   return { ok: response.ok, data };
 }
 
-export function BrowserConsole() {
+export function BrowserConsole({ initialUrl = "" }: { initialUrl?: string }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [detail, setDetail] = useState<{
@@ -78,7 +78,7 @@ export function BrowserConsole() {
   } | null>(null);
   const [approvals, setApprovals] = useState<ApprovalRow[]>([]);
   const [typed, setTyped] = useState("");
-  const [startUrl, setStartUrl] = useState("");
+  const [startUrl, setStartUrl] = useState(initialUrl);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const frameKey = useRef(0);

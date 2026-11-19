@@ -13,6 +13,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * such with the header that refused it, never hidden behind a blank frame; a navigation that fails
  * shows the reason the server gave; and the panel never claims to be a browser we control when it is
  * the customer's own.
+ *
+ * SAMEORIGIN is not a refusal for our own domain. zooka-ai.com sends it, and a panel served from
+ * zooka-ai.com is exactly the framer that header allows, so the server decides per request who is
+ * asking and this panel reports that decision instead of guessing from the header text.
  */
 
 type Verdict = {
@@ -25,12 +29,15 @@ type Verdict = {
     | "unsafe_url";
   finalUrl: string | null;
   detail: string | null;
+  embedderOrigin?: string | null;
+  sameOrigin?: boolean;
+  via?: "none" | "same_origin" | "wildcard" | "listed" | "denied" | null;
 };
 
 const REFUSAL_TEXT: Record<Verdict["reason"], string> = {
   allowed: "",
   x_frame_options:
-    "الموقع يمنع عرضه داخل إطار (X-Frame-Options)، فلا يمكن عرضه هنا.",
+    "الموقع يمنع عرضه داخل إطار من هذا النطاق (X-Frame-Options)، فلا يمكن عرضه هنا.",
   frame_ancestors:
     "سياسة المحتوى للموقع (frame-ancestors) تمنع إطاره داخل تطبيق آخر.",
   unreachable: "تعذّر الوصول إلى الموقع من الخادم الآن، فلم أستطع فحصه.",
@@ -46,8 +53,14 @@ function normalise(input: string): string {
 
 export function LiveBrowser({
   initialUrl = "https://zooka-ai.com",
+  onClose,
+  fillHeight = false,
 }: {
   initialUrl?: string;
+  /** When provided, a close control appears so the panel can be dismissed in place. */
+  onClose?: () => void;
+  /** Use the parent's height instead of the page's viewport, for docked layouts. */
+  fillHeight?: boolean;
 }) {
   const [address, setAddress] = useState(initialUrl);
   const [target, setTarget] = useState(initialUrl);
@@ -126,9 +139,15 @@ export function LiveBrowser({
       return target;
     }
   })();
+  const agentBrowserHref = `/workspace/browser?url=${encodeURIComponent(target)}`;
+  const sameOrigin = Boolean(verdict?.sameOrigin);
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-9rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] shadow-2xl">
+    <div
+      className={`mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] shadow-2xl ${
+        fillHeight ? "h-full" : "h-[calc(100dvh-9rem)]"
+      }`}
+    >
       <div className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-2.5">
         <div className="flex gap-2">
           <span className="size-3 rounded-full bg-[#ff5f57]" aria-hidden />
@@ -193,6 +212,16 @@ export function LiveBrowser({
         >
           ↗
         </a>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق المتصفح"
+            className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+          >
+            ✕
+          </button>
+        ) : null}
       </div>
 
       <div className="relative flex-1 bg-white">
@@ -220,19 +249,33 @@ export function LiveBrowser({
                 {verdict.detail}
               </p>
             ) : null}
+            {verdict?.embedderOrigin ? (
+              <p dir="ltr" className="font-mono text-[11px] text-white/30">
+                framer: {verdict.embedderOrigin}
+              </p>
+            ) : null}
             <p className="max-w-md text-xs text-white/50">
               العرض المباشر يتم داخل متصفحك أنت. المواقع التي تمنع الإطار تُفتح
-              في نافذة مستقلة، أو تُعرض لقطات من متصفح يعمل على الخادم عند
-              تفعيله.
+              في نافذة مستقلة، أو تُعرض داخل متصفح الوكيل الذي يلتقط الصفحة من
+              الخادم.
             </p>
-            <a
-              href={target}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
-            >
-              افتح {host} في نافذة جديدة
-            </a>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <a
+                href={agentBrowserHref}
+                className="rounded-lg px-4 py-2 text-sm text-white"
+                style={{ background: "#2E86AB" }}
+              >
+                افتح {host} في متصفح الوكيل
+              </a>
+              <a
+                href={target}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+              >
+                نافذة مستقلة
+              </a>
+            </div>
           </div>
         )}
       </div>
@@ -241,7 +284,9 @@ export function LiveBrowser({
         <span dir="ltr">{host}</span>
         <span>
           {verdict?.embeddable
-            ? "عرض مباشر داخل التطبيق"
+            ? sameOrigin
+              ? "عرض مباشر داخل التطبيق · نفس الأصل"
+              : "عرض مباشر داخل التطبيق"
             : "غير معروض داخل الإطار"}
         </span>
       </div>
