@@ -42,6 +42,19 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Most capable Google model",
   },
+  // Groq (optional self-contained provider; used when no gateway or Google key exists)
+  {
+    id: "groq/gpt-oss-120b",
+    name: "GPT-OSS 120B (Groq)",
+    provider: "groq",
+    description: "Open model served by Groq, free tier available",
+  },
+  {
+    id: "groq/gpt-oss-20b",
+    name: "GPT-OSS 20B (Groq)",
+    provider: "groq",
+    description: "Smaller Groq model for short answers",
+  },
   // xAI
   {
     id: "xai/grok-4.1-fast-non-reasoning",

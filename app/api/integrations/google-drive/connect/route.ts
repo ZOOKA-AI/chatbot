@@ -9,9 +9,17 @@ import {
   GOOGLE_DRIVE_VERIFIER_COOKIE,
 } from "@/lib/integrations/google-drive/oauth-state";
 import { getGoogleDriveOAuthConfig } from "@/lib/integrations/google-drive/server";
-import { GOOGLE_DRIVE_SCOPE } from "@/lib/integrations/google-drive/token-response";
+import {
+  GOOGLE_CALENDAR_SCOPE,
+  GOOGLE_DRIVE_SCOPE,
+  GOOGLE_GMAIL_SCOPE,
+  GOOGLE_GMAIL_SEND_SCOPE,
+} from "@/lib/integrations/google-drive/token-response";
+import { assertCanConnect } from "@/lib/billing/assert-entitlement";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 
-export async function GET() {
+async function GETImpl(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -19,6 +27,23 @@ export async function GET() {
       {
         status: 403,
       }
+    );
+  }
+
+  const entitlements = await getWorkspaceEntitlements(context.organizationId);
+  /*
+   * The billing status and the plan contract must agree before a connector is
+   * opened; assertCanConnect is the same rule the marketing page promises.
+   */
+  let allowedToConnect = entitlements.canConnectIntegrations;
+  try {
+    assertCanConnect(entitlements.plan, "drive");
+  } catch {
+    allowedToConnect = false;
+  }
+  if (!allowedToConnect) {
+    return NextResponse.redirect(
+      new URL("/settings/integrations?googleDrive=upgrade", request.url)
     );
   }
 
@@ -43,7 +68,7 @@ export async function GET() {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: "code",
-    scope: GOOGLE_DRIVE_SCOPE,
+    scope: `${GOOGLE_DRIVE_SCOPE} ${GOOGLE_GMAIL_SCOPE} ${GOOGLE_GMAIL_SEND_SCOPE} ${GOOGLE_CALENDAR_SCOPE}`,
     access_type: "offline",
     prompt: "consent",
     state: nonce,
@@ -63,3 +88,7 @@ export async function GET() {
   response.cookies.set(GOOGLE_DRIVE_VERIFIER_COOKIE, verifier, cookieOptions);
   return response;
 }
+
+// Tenant-scoped exports: every query runs inside the caller's tenant
+// transaction, so row level security is evaluated for this workspace.
+export const GET = withRequestTenantHandler(GETImpl);

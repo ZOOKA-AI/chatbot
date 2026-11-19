@@ -16,12 +16,17 @@ const strings = {
   ar: {
     eyebrow: "باقات بسيطة وواضحة",
     title: "اختر الباقة المناسبة لعملك",
-    subtitle: "ابدأ مجاناً وارتقِ وقت ما تحتاج فريقك.",
+    subtitle:
+      "زوكا AI خدمة أعمال مدفوعة. التجربة التعريفية محدودة، والتشغيل التجاري يتم بباقة اشتراك.",
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
       free: {
         name: "المجانية",
-        features: ["1,000 رسالة شهرياً", "نماذج قياسية"],
+        features: [
+          "1,000 رسالة شهرياً",
+          "نماذج قياسية",
+          "بدون حساب: 10 رسائل يومياً في التجربة",
+        ],
       },
       pro: {
         name: "الاحترافية",
@@ -44,9 +49,12 @@ const strings = {
       },
     },
     perMonth: " / شهرياً",
+    b2bNote:
+      "للشركات: عقود سنوية، فاتورة رسمية، وصلاحيات فرق — اطلب عرض سعر من صفحة التواصل.",
+    b2bNoteHref: "/contact",
     messagesPerMonth: "رسالة شهرياً",
     upgradeTo: "الترقية إلى",
-    startFree: "ابدأ مجاناً",
+    startFree: "أنشئ حساباً مجانياً",
     privacy: "سياسة الخصوصية",
     terms: "شروط الخدمة",
     support: "ادعم العمل المفتوح ❤️",
@@ -55,12 +63,17 @@ const strings = {
   en: {
     eyebrow: "Simple, transparent plans",
     title: "Choose the right workspace plan",
-    subtitle: "Start for free and upgrade whenever your team needs more.",
+    subtitle:
+      "ZOOKA AI is a paid business service. The preview is limited; commercial use runs on a paid plan.",
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
       free: {
         name: "Free",
-        features: ["1,000 messages per month", "Standard models"],
+        features: [
+          "1,000 messages per month",
+          "Standard models",
+          "No account needed: 10 messages a day in the preview",
+        ],
       },
       pro: {
         name: "Pro",
@@ -85,7 +98,10 @@ const strings = {
     perMonth: " / month",
     messagesPerMonth: "messages per month",
     upgradeTo: "Upgrade to",
-    startFree: "Start for free",
+    startFree: "Create a free account",
+    b2bNote:
+      "For companies: annual agreements, official invoicing and team permissions — request a quote on the contact page.",
+    b2bNoteHref: "/contact",
     privacy: "Privacy Policy",
     terms: "Terms of Service",
     support: "Support Open Source ❤️",
@@ -116,6 +132,12 @@ export default async function PricingPage({
         <p className="text-muted-foreground text-sm">{t.eyebrow}</p>
         <h1 className="font-semibold text-4xl">{t.title}</h1>
         <p className="text-muted-foreground">{t.subtitle}</p>
+        <Link
+          className="rounded-full border px-4 py-1.5 text-sm hover:bg-muted"
+          href={t.b2bNoteHref}
+        >
+          {t.b2bNote}
+        </Link>
       </header>
 
       {canceled && (
@@ -169,7 +191,7 @@ export default async function PricingPage({
               ) : (
                 <Link
                   className="w-full rounded-md border px-4 py-2 text-center font-medium"
-                  href="/"
+                  href="/register"
                 >
                   {t.startFree}
                 </Link>
@@ -180,6 +202,9 @@ export default async function PricingPage({
       </section>
 
       <footer className="text-muted-foreground mx-auto flex gap-4 text-sm">
+        <Link className="hover:underline" href="/blog">
+          {lang === "ar" ? "المدونة" : "Blog"}
+        </Link>
         <Link className="hover:underline" href="/contact">
           {lang === "ar" ? "تواصل معنا (واتساب)" : "Contact (WhatsApp)"}
         </Link>

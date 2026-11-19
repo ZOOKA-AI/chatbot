@@ -3,11 +3,14 @@
 import {
   Bot,
   BriefcaseBusiness,
+  House,
   Cable,
+  Mail,
   CreditCard,
   FileText,
   Settings,
   UserRound,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -53,6 +56,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { adminNavItems, adminNavSectionLabel } from "@/lib/navigation/admin-nav";
 
 export function AppSidebar({
   user,
@@ -85,6 +89,11 @@ export function AppSidebar({
       label: isArabic ? "الوكلاء" : "Agents",
       items: [
         {
+          href: "/workspace/home",
+          icon: <House />,
+          label: isArabic ? "الرئيسية" : "Home",
+        },
+        {
           href: "/",
           icon: <Bot />,
           label: isArabic ? "الدردشة والنماذج" : "Chat and models",
@@ -94,6 +103,63 @@ export function AppSidebar({
     {
       label: isArabic ? "العمل" : "Work",
       items: [
+        {
+          href: "/workspace/live-browser",
+          icon: <Cable />,
+          label: isArabic ? "المتصفح المباشر" : "Live browser",
+        },
+        {
+          href: "/workspace/mail",
+          icon: <Mail />,
+          label: isArabic ? "بريد ZOOKA · معاينة" : "ZOOKA Mail · Review",
+        },
+        {
+          href: "/workspace/agent",
+          icon: <Bot />,
+          label: isArabic ? "الوكيل التنفيذي" : "Operations agent",
+        },
+        {
+          href: "/workspace/commander",
+          icon: <Bot />,
+          label: isArabic ? "القائد" : "Commander",
+        },
+        {
+          href: "/workspace/agents",
+          icon: <Bot />,
+          label: isArabic ? "الوكلاء" : "Agents",
+        },
+        {
+          href: "/workspace/schedules",
+          icon: <Bot />,
+          label: isArabic ? "المهام المجدولة" : "Scheduled tasks",
+        },
+        {
+          href: "/workspace/projects",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "المشاريع" : "Projects",
+        },
+        {
+          href: "/workspace/actions",
+          icon: <Bot />,
+          label: isArabic ? "الإجراءات الجاهزة" : "Action catalog",
+        },
+        {
+          href: "/workspace/launch",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "إطلاق النشاط" : "Business launch",
+        },
+        {
+          href: "/studio",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "Zooka Studio · معاينة" : "Zooka Studio · Review",
+        },
+        {
+          href: "/dashboard/studio",
+          icon: <FileText />,
+          label: isArabic
+            ? "استوديو الوسائط · تجريبي"
+            : "Media studio · Preview",
+        },
         {
           href: workAssistantHref,
           icon: <BriefcaseBusiness />,
@@ -121,6 +187,16 @@ export function AppSidebar({
       label: isArabic ? "مساحة العمل" : "Workspace",
       items: [
         {
+          href: "/explore",
+          icon: <BriefcaseBusiness />,
+          label: isArabic ? "اكتشف المنصة" : "Explore platform",
+        },
+        {
+          href: "/platform-readiness",
+          icon: <Settings />,
+          label: isArabic ? "الجاهزية والحدود" : "Readiness and limits",
+        },
+        {
           href: "/",
           icon: <FileText />,
           label: isArabic ? "المحادثات والمحتوى" : "Chats and content",
@@ -136,6 +212,16 @@ export function AppSidebar({
           label: isArabic ? "الباقة والاستخدام" : "Plan and usage",
         },
         {
+          href: "/settings/usage",
+          icon: <CreditCard />,
+          label: isArabic ? "الاستخدام والحدود" : "Usage and limits",
+        },
+        {
+          href: "/settings/leads",
+          icon: <Users />,
+          label: isArabic ? "الليدز" : "Leads",
+        },
+        {
           href: "/settings/account",
           icon: <UserRound />,
           label: isArabic ? "الحساب" : "Account",
@@ -143,6 +229,19 @@ export function AppSidebar({
       ],
     },
   ];
+  // Admin-only entries are appended rather than inlined in the list above, so nothing renders for a
+  // member even if a future edit forgets a role check: the items simply do not exist for them.
+  const adminItems = adminNavItems(role);
+  if (adminItems.length > 0) {
+    navigationSections.push({
+      label: adminNavSectionLabel(isArabic),
+      items: adminItems.map((item) => ({
+        href: item.href,
+        icon: <Cable />,
+        label: isArabic ? item.labelAr : item.labelEn,
+      })),
+    });
+  }
 
   const handleDeleteAll = () => {
     const deletePromise = fetch("/api/history", {
@@ -164,7 +263,10 @@ export function AppSidebar({
 
   return (
     <>
-      <Sidebar className="group-data-[side=left]:border-r-0">
+      <Sidebar
+        className="group-data-[side=left]:border-r-0 group-data-[side=right]:border-l-0"
+        side={lang === "ar" ? "right" : "left"}
+      >
         <SidebarHeader>
           <SidebarMenu>
             <div className="flex flex-row items-center justify-between">
@@ -184,6 +286,7 @@ export function AppSidebar({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
+                        aria-label="Delete all chats"
                         className="h-8 p-1 md:h-fit md:p-2"
                         onClick={() => setShowDeleteAllDialog(true)}
                         type="button"
@@ -200,6 +303,7 @@ export function AppSidebar({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
+                      aria-label="New chat"
                       className="h-8 p-1 md:h-fit md:p-2"
                       onClick={() => {
                         setOpenMobile(false);

@@ -1,6 +1,9 @@
 import * as React from "react"
 
-const MOBILE_BREAKPOINT = 768
+// Below this width the sidebar opens as an overlay sheet instead of pushing
+// the chat aside: on tablets and small laptops a docked 256px sidebar
+// squeezed the conversation and composer.
+export const MOBILE_BREAKPOINT = 1024
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)

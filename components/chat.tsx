@@ -27,10 +27,13 @@ import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { localizeAgentModeErrorCause } from "@/lib/ai/agent-mode-errors";
 import { refreshAgentQuotaIfNeeded } from "@/lib/ai/agent-quota-refresh";
 import { modelSupportsTools } from "@/lib/ai/models";
+import { templateChatPrompt } from "@/lib/studio";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import { speakText, useVoiceMode } from "@/hooks/use-voice-mode";
+import { AgentActivity } from "./agent-activity";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
@@ -38,6 +41,7 @@ import { MultimodalInput } from "./multimodal-input";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
+import { NeuralBackground } from "@/components/neural-background";
 
 export function Chat({
   id,
@@ -80,20 +84,8 @@ export function Chat({
   const [showPaywall, setShowPaywall] = useState(false);
   const [responseStopped, setResponseStopped] = useState(false);
   const { isGuest, lang, canUseAgentMode, refreshAgentUsage } = useBilling();
-  const refreshAgentUsageSafely = useCallback(async () => {
-    try {
-      await refreshAgentUsage();
-    } catch (error: unknown) {
-      captureException(error, { tags: { area: "agent-usage-refresh" } });
-      toast({
-        type: "error",
-        description:
-          lang === "ar"
-            ? "تعذّر تحديث رصيد تشغيلات الوكيل. أعد تحميل الصفحة للتحقق من الاستخدام."
-            : "Could not refresh Agent usage. Reload the page to verify your current quota.",
-      });
-    }
-  }, [lang, refreshAgentUsage]);
+  const { voiceMode } = useVoiceMode();
+  const lastSpokenRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const guestQuota = useGuestQuota();
   const isWorkAssistant = searchParams.get("mode") === "work";
@@ -102,7 +94,7 @@ export function Chat({
     () =>
       searchParams.get("mode") === "work" &&
       canUseAgentMode &&
-      modelSupportsTools(initialChatModel)
+      modelSupportsTools(initialChatModel),
   );
   const currentModelIdRef = useRef(currentModelId);
   const agentModeRef = useRef(agentMode);
@@ -141,7 +133,7 @@ export function Chat({
             "state" in part &&
             part.state === "approval-responded" &&
             "approval" in part &&
-            (part.approval as { approved?: boolean })?.approved === true
+            (part.approval as { approved?: boolean })?.approved === true,
         ) ?? false;
       return shouldContinue;
     },
@@ -158,7 +150,7 @@ export function Chat({
               return (
                 state === "approval-responded" || state === "output-denied"
               );
-            })
+            }),
           );
 
         return {
@@ -188,7 +180,9 @@ export function Chat({
         agentRunPendingRef.current || agentModeRef.current;
       agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
-        refresh: refreshAgentUsageSafely,
+        refresh: () => {
+          void refreshAgentUsage().catch(() => undefined);
+        },
         agentMode: completedAgentRun,
         completed: !interrupted,
         interrupted,
@@ -206,7 +200,9 @@ export function Chat({
       const failedAgentRun = agentRunPendingRef.current || agentModeRef.current;
       agentRunPendingRef.current = false;
       refreshAgentQuotaIfNeeded({
-        refresh: refreshAgentUsageSafely,
+        refresh: () => {
+          void refreshAgentUsage().catch(() => undefined);
+        },
         agentMode: failedAgentRun,
         error,
       });
@@ -258,10 +254,37 @@ export function Chat({
       }
       return rawSendMessage(...args);
     },
-    [isGuest, guestQuota, rawSendMessage]
+    [isGuest, guestQuota, rawSendMessage],
   );
 
-  const query = searchParams.get("query");
+  const urlQuery = searchParams.get("query");
+  // A studio template card hands the whole template over as chat context.
+  const urlTemplate = searchParams.get("template");
+  const templateQuery = urlTemplate ? templateChatPrompt(urlTemplate) : null;
+
+  // A visitor who tried the landing-page demo and then signed up should land
+  // in the app with that first request already running.
+  const [demoHandoff, setDemoHandoff] = useState<string | null>(null);
+  useEffect(() => {
+    if (isGuest || urlQuery || initialMessages.length > 0) {
+      return;
+    }
+    try {
+      const raw = window.sessionStorage.getItem("zooka-demo-handoff");
+      if (!raw) {
+        return;
+      }
+      window.sessionStorage.removeItem("zooka-demo-handoff");
+      const parsed = JSON.parse(raw) as { prompt?: string; at?: number };
+      if (parsed.prompt && Date.now() - (parsed.at ?? 0) < 6 * 60 * 60 * 1000) {
+        setDemoHandoff(parsed.prompt.slice(0, 1900));
+      }
+    } catch {
+      // ignore unreadable storage
+    }
+  }, [isGuest, urlQuery, initialMessages.length]);
+
+  const query = urlQuery ?? templateQuery ?? demoHandoff;
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
@@ -279,7 +302,7 @@ export function Chat({
 
   const { data: votes } = useSWR<Vote[]>(
     messages.length >= 2 && !isGuest ? `/api/vote?chatId=${id}` : null,
-    fetcher
+    fetcher,
   );
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -292,9 +315,44 @@ export function Chat({
     setMessages,
   });
 
+  // Voice chat: read a finished assistant reply out loud when voice mode is on.
+  useEffect(() => {
+    if (!voiceMode || status !== "ready") {
+      return;
+    }
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    if (!lastAssistant) {
+      return;
+    }
+    const parts = (lastAssistant.parts ?? []) as {
+      type: string;
+      text?: string;
+    }[];
+    const text = parts
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text as string)
+      .join(" ")
+      .trim();
+    if (!text) {
+      return;
+    }
+    const key = `${lastAssistant.id}:${text.length}`;
+    if (lastSpokenRef.current === key) {
+      return;
+    }
+    lastSpokenRef.current = key;
+    speakText(text, lang);
+  }, [voiceMode, status, messages, lang]);
+
   return (
     <>
-      <div className="overscroll-behavior-contain bg-background flex h-dvh min-w-0 touch-pan-y flex-col">
+      <div
+        className="overscroll-behavior-contain relative isolate flex h-dvh min-w-0 touch-pan-y flex-col bg-background"
+        data-app-shell
+      >
+        <NeuralBackground />
         <ChatHeader
           chatId={id}
           isReadonly={isReadonly}
@@ -312,15 +370,15 @@ export function Chat({
           lang={lang}
           messages={messages}
           onSelectWorkPrompt={setInput}
-          regenerate={regenerate}
           responseStopped={responseStopped}
+          regenerate={regenerate}
           selectedModelId={initialChatModel}
           setMessages={setMessages}
           status={status}
           votes={votes}
         />
 
-        <div className="bg-background sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 px-2 pb-3 md:px-4 md:pb-4">
+        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl shrink-0 gap-2 border-t-0 bg-transparent px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-4 md:pb-4">
           {!isReadonly && (
             <MultimodalInput
               agentMode={agentMode}
@@ -377,6 +435,8 @@ export function Chat({
         votes={votes}
       />
 
+      <AgentActivity lang={lang} messages={messages} status={status} />
+
       <GuestPaywallDialog onOpenChange={setShowPaywall} open={showPaywall} />
 
       <AlertDialog
@@ -398,7 +458,7 @@ export function Chat({
               onClick={() => {
                 window.open(
                   "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card",
-                  "_blank"
+                  "_blank",
                 );
                 window.location.href = "/";
               }}

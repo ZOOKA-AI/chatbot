@@ -1,13 +1,15 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
+import Link from "next/link";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon } from "lucide-react";
+import { AudioLines, Bot, CheckIcon, Volume2 } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
   memo,
+  useMemo,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -28,6 +30,8 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
+import { VoiceInputButton } from "@/components/voice-input-button";
+import { speakText, useVoiceMode } from "@/hooks/use-voice-mode";
 import { agentPresets } from "@/lib/ai/agent-presets";
 import {
   chatModels,
@@ -35,6 +39,7 @@ import {
   modelSupportsTools,
   modelsByProvider,
 } from "@/lib/ai/models";
+import { AGENT_DRAFT_KEY, parseAgentDraft } from "@/lib/studio-media";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -95,8 +100,10 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
-  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang } =
+  const { canUseAgentMode, hasAgentPlan, agentRunsRemaining, lang, isGuest } =
     useBilling();
+  const { voiceMode, toggleVoiceMode } = useVoiceMode();
+
   const agentModeAllowed =
     canUseAgentMode && modelSupportsTools(selectedModelId);
   let agentModeUnavailableMessage: string;
@@ -155,20 +162,33 @@ function PureMultimodalInput({
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
-    ""
+    "",
   );
 
   useEffect(() => {
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
       // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || localStorageInput || "";
+      let finalValue = domValue || localStorageInput || "";
+      if (!isGuest && !finalValue && messages.length === 0) {
+        try {
+          const draft = parseAgentDraft(
+            sessionStorage.getItem(AGENT_DRAFT_KEY),
+          );
+          if (draft) {
+            finalValue = draft;
+            sessionStorage.removeItem(AGENT_DRAFT_KEY);
+          }
+        } catch {
+          /* Keep the normal composer when storage is unavailable. */
+        }
+      }
       setInput(finalValue);
       adjustHeight();
     }
     // Only run once after hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adjustHeight, localStorageInput, setInput]);
+  }, [adjustHeight, localStorageInput, setInput, isGuest, messages.length]);
 
   useEffect(() => {
     setLocalStorageInput(input);
@@ -224,6 +244,75 @@ function PureMultimodalInput({
     resetHeight,
   ]);
 
+  const submitText = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+      sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: trimmed }],
+      });
+      setAttachments([]);
+      setLocalStorageInput("");
+      resetHeight();
+      setInput("");
+    },
+    [sendMessage, setAttachments, setLocalStorageInput, resetHeight, setInput],
+  );
+
+  const handleVoiceTranscript = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+      if (voiceMode && status !== "streaming" && status !== "submitted") {
+        submitText(trimmed);
+        return;
+      }
+      setInput((previous) =>
+        previous.trim() ? `${previous.trim()} ${trimmed}` : trimmed,
+      );
+      if (width && width > 768) {
+        textareaRef.current?.focus();
+      }
+    },
+    [voiceMode, status, submitText, setInput, width],
+  );
+
+  const lastReplyText = useMemo(() => {
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    if (!lastAssistant?.parts) {
+      return "";
+    }
+    return (lastAssistant.parts as { type: string; text?: string }[])
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text as string)
+      .join(" ")
+      .trim();
+  }, [messages]);
+
+  const handleSpeakLastReply = useCallback(() => {
+    if (!lastReplyText) {
+      toast.error(
+        lang === "ar" ? "مفيش رد أقرأه لسه." : "There is no reply to read yet.",
+      );
+      return;
+    }
+    const started = speakText(lastReplyText, lang);
+    if (!started) {
+      toast.error(
+        lang === "ar"
+          ? "المتصفح لا يدعم القراءة الصوتية."
+          : "This browser cannot read text aloud.",
+      );
+    }
+  }, [lang, lastReplyText]);
+
   const uploadFile = useCallback(async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -261,7 +350,7 @@ function PureMultimodalInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
+          (attachment) => attachment !== undefined,
         );
 
         setAttachments((currentAttachments) => [
@@ -274,7 +363,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   const handlePaste = useCallback(
@@ -285,7 +374,7 @@ function PureMultimodalInput({
       }
 
       const imageItems = Array.from(items).filter((item) =>
-        item.type.startsWith("image/")
+        item.type.startsWith("image/"),
       );
 
       if (imageItems.length === 0) {
@@ -308,7 +397,7 @@ function PureMultimodalInput({
           (attachment) =>
             attachment !== undefined &&
             attachment.url !== undefined &&
-            attachment.contentType !== undefined
+            attachment.contentType !== undefined,
         );
 
         setAttachments((curr) => [
@@ -322,7 +411,7 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [setAttachments, uploadFile],
   );
 
   // Add paste event listener to textarea
@@ -350,6 +439,7 @@ function PureMultimodalInput({
         )}
 
       <input
+        accept="image/png,image/jpeg"
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}
@@ -359,7 +449,7 @@ function PureMultimodalInput({
       />
 
       <PromptInput
-        className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
+        className="zk-composer rounded-2xl border border-border/70 bg-background/90 px-3 pt-2 pb-2 backdrop-blur-md transition-[border-color,box-shadow] duration-300 ease-out"
         onSubmit={(event) => {
           event.preventDefault();
           if (!input.trim() && attachments.length === 0) {
@@ -387,7 +477,7 @@ function PureMultimodalInput({
             >
               {agentPresets.map((preset) => {
                 const modelName = chatModels.find(
-                  (model) => model.id === preset.modelId
+                  (model) => model.id === preset.modelId,
                 )?.name;
 
                 return (
@@ -426,7 +516,7 @@ function PureMultimodalInput({
                 key={attachment.url}
                 onRemove={() => {
                   setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url)
+                    currentAttachments.filter((a) => a.url !== attachment.url),
                   );
                   if (fileInputRef.current) {
                     fileInputRef.current.value = "";
@@ -471,23 +561,36 @@ function PureMultimodalInput({
         )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
-            className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
+            className="grow resize-none border-0! border-none! bg-transparent p-2 text-base font-medium leading-relaxed text-foreground outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
             maxHeight={200}
-            minHeight={44}
+            minHeight={40}
             onChange={handleInput}
-            placeholder="Send a message..."
+            placeholder={
+              agentMode
+                ? lang === "ar"
+                  ? "اكتب المهمة للوكيل…"
+                  : "Describe the task for the Agent…"
+                : lang === "ar"
+                  ? "اكتب رسالتك…"
+                  : "Send a message…"
+            }
             ref={textareaRef}
             rows={1}
             value={input}
           />
         </div>
-        <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
-          <PromptInputTools className="gap-0 sm:gap-0.5">
+        <PromptInputToolbar className="min-w-0 items-end gap-2 border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
+          <PromptInputTools className="min-w-0 flex-1 flex-wrap gap-0 sm:gap-0.5">
             <Button
               aria-pressed={agentMode}
-              className="h-8 px-2"
+              className={cn(
+                "h-8 gap-1.5 rounded-full px-3 font-semibold text-sm transition-all duration-200",
+                agentMode
+                  ? "shadow-md shadow-primary/30"
+                  : "border border-primary/40 text-primary hover:bg-primary/10"
+              )}
               data-testid="agent-mode-toggle"
               disabled={!agentModeAllowed}
               onClick={() => onAgentModeChange(!agentMode)}
@@ -495,7 +598,76 @@ function PureMultimodalInput({
               type="button"
               variant={agentMode ? "default" : "ghost"}
             >
-              {lang === "ar" ? "الوكيل" : "Agent"}
+              <Bot className="size-4" />
+              {agentMode
+                ? lang === "ar"
+                  ? "الوكيل: مفعّل"
+                  : "Agent: on"
+                : lang === "ar"
+                  ? "الوكيل"
+                  : "Agent"}
+            </Button>
+            {!(canUseAgentMode || hasAgentPlan) && (
+              <Link
+                className="px-1 text-muted-foreground text-xs underline underline-offset-2 hover:text-foreground"
+                href="/pricing"
+              >
+                {lang === "ar" ? "رقّي للوكيل" : "Unlock agent"}
+              </Link>
+            )}
+            {/* Classic voice row: tap the mic to dictate (tap again to stop
+                and the text lands in the box), tap the speaker to hear the
+                last reply, and the wave toggles hands-free voice chat. The
+                microphone is only requested when the mic is tapped. */}
+            <VoiceInputButton
+              disabled={uploadQueue.length > 0}
+              lang={lang}
+              onTranscript={handleVoiceTranscript}
+            />
+            <Button
+              aria-label={
+                lang === "ar" ? "اسمع آخر رد" : "Listen to the last reply"
+              }
+              className="size-8 rounded-full p-0"
+              data-testid="speak-reply-button"
+              disabled={!lastReplyText}
+              onClick={handleSpeakLastReply}
+              title={
+                lang === "ar"
+                  ? "اقرأ لي آخر رد بصوت عالٍ"
+                  : "Read the last reply aloud"
+              }
+              type="button"
+              variant="ghost"
+            >
+              <Volume2 className="size-4" />
+            </Button>
+            <Button
+              aria-label={lang === "ar" ? "محادثة صوتية" : "Voice chat"}
+              aria-pressed={voiceMode}
+              className="size-8 rounded-full p-0"
+              data-testid="voice-mode-toggle"
+              onClick={() => {
+                if (!voiceMode) {
+                  // This click is the gesture that unlocks audio playback.
+                  speakText(
+                    lang === "ar"
+                      ? "الوضع الصوتي مفعّل. تكلّم وسأرد عليك بصوت عالٍ."
+                      : "Voice mode is on. Speak and I will answer out loud.",
+                    lang,
+                  );
+                }
+                toggleVoiceMode();
+              }}
+              title={
+                lang === "ar"
+                  ? "المحادثة الصوتية: إرسال تلقائي بعد التسجيل وقراءة الرد بصوت عالٍ"
+                  : "Voice chat: auto-send recordings and read replies aloud"
+              }
+              type="button"
+              variant={voiceMode ? "default" : "ghost"}
+            >
+              <AudioLines className="size-4" />
             </Button>
             <AttachmentsButton
               fileInputRef={fileInputRef}
@@ -508,18 +680,24 @@ function PureMultimodalInput({
             />
           </PromptInputTools>
 
-          {status === "submitted" ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <PromptInputSubmit
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
-              data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-            >
-              <ArrowUpIcon size={14} />
-            </PromptInputSubmit>
-          )}
+          <div
+            className="flex shrink-0 items-center self-end"
+            data-testid="composer-submit-slot"
+          >
+            {status === "submitted" ? (
+              <StopButton setMessages={setMessages} stop={stop} />
+            ) : (
+              <PromptInputSubmit
+                aria-label={lang === "ar" ? "إرسال الرسالة" : "Send message"}
+                className="size-9 shrink-0 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 transition-all duration-200 hover:scale-105 hover:bg-primary/90 active:scale-95 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+                data-testid="send-button"
+                disabled={!input.trim() || uploadQueue.length > 0}
+                status={status}
+              >
+                <ArrowUpIcon size={16} />
+              </PromptInputSubmit>
+            )}
+          </div>
         </PromptInputToolbar>
         {agentModeAllowed ? (
           agentMode ? (
@@ -531,7 +709,16 @@ function PureMultimodalInput({
                 ? `يستخدم هذا الطلب تشغيلاً من حصة مساحة العمل الشهرية. المتبقي: ${agentRunsRemaining.toLocaleString(lang)}.`
                 : `This request uses one workspace agent run. ${agentRunsRemaining.toLocaleString(lang)} remain this month.`}
             </p>
-          ) : null
+          ) : (
+            <p
+              className="px-2 pt-2 text-xs text-muted-foreground"
+              data-testid="agent-mode-hint"
+            >
+              {lang === "ar"
+                ? "المحادثة العادية لا تستخدم أدواتك. فعّل «الوكيل» ليقرأ Gmail وDrive والتقويم ويبحث في الويب."
+                : "Plain chat does not use your tools. Turn on “Agent” to read Gmail, Drive and Calendar and search the web."}
+            </p>
+          )
         ) : (
           <p className="px-2 pt-2 text-xs text-muted-foreground">
             {agentModeUnavailableMessage}
@@ -591,9 +778,12 @@ export const MultimodalInput = memo(
     if (prevProps.status !== nextProps.status) {
       return false;
     }
+    if (prevProps.messages !== nextProps.messages) {
+      return false;
+    }
 
     return true;
-  }
+  },
 );
 
 function PureAttachmentsButton({
@@ -610,8 +800,10 @@ function PureAttachmentsButton({
 
   return (
     <Button
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+      className="size-8 rounded-full p-0 transition-colors hover:bg-accent"
+      aria-label="Attach image"
       data-testid="attachments-button"
+      title="PNG · JPEG"
       disabled={status !== "ready" || isReasoningModel}
       onClick={(event) => {
         event.preventDefault();
@@ -653,7 +845,10 @@ function PureModelSelectorCompact({
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
-        <Button className="h-8 w-[200px] justify-between px-2" variant="ghost">
+        <Button
+          className="h-8 w-auto max-w-[120px] justify-between px-2 sm:max-w-[160px] md:w-[200px]"
+          variant="ghost"
+        >
           {provider && <ModelSelectorLogo provider={provider} />}
           <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
         </Button>
@@ -688,7 +883,7 @@ function PureModelSelectorCompact({
                   );
                 })}
               </ModelSelectorGroup>
-            )
+            ),
           )}
         </ModelSelectorList>
       </ModelSelectorContent>

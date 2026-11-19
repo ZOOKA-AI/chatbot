@@ -2,12 +2,37 @@ import { compare } from "bcrypt-ts";
 import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import FacebookProvider from "next-auth/providers/facebook";
+import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
+import { randomBytes } from "node:crypto";
 import { DUMMY_PASSWORD } from "@/lib/constants";
 import {
   createGuestUser,
+  createUser,
   ensureUserWorkspace,
   getUser,
 } from "@/lib/db/queries";
+import { sendWelcomeEmail } from "@/lib/email/send";
+import { emailForPhone, readLoginTicket } from "@/lib/auth/phone-otp";
+import { phoneLoginEnabled } from "@/lib/auth/sms";
+import { googleLoginChecks } from "@/lib/auth/google-transaction";
+
+/** Google sign-in uses its own non-sensitive client (openid/email/profile). */
+export const googleLoginEnabled = Boolean(
+  process.env.GOOGLE_LOGIN_CLIENT_ID && process.env.GOOGLE_LOGIN_CLIENT_SECRET
+);
+
+/** Facebook / Microsoft sign-in stay off until their credentials exist. */
+export const facebookLoginEnabled = Boolean(
+  process.env.FACEBOOK_LOGIN_CLIENT_ID && process.env.FACEBOOK_LOGIN_CLIENT_SECRET
+);
+export const microsoftLoginEnabled = Boolean(
+  process.env.MICROSOFT_LOGIN_CLIENT_ID && process.env.MICROSOFT_LOGIN_CLIENT_SECRET
+);
+
+/** OAuth providers that open (or create) a regular local account. */
+const OAUTH_PROVIDERS = new Set(["google", "facebook", "microsoft-entra-id"]);
 import { authConfig } from "./auth.config";
 
 export type UserType = "guest" | "regular";
@@ -49,6 +74,43 @@ export const {
 } = NextAuth({
   ...authConfig,
   providers: [
+    ...(googleLoginEnabled
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_LOGIN_CLIENT_ID as string,
+            clientSecret: process.env.GOOGLE_LOGIN_CLIENT_SECRET as string,
+            checks: googleLoginChecks,
+            authorization: {
+              params: { prompt: "select_account", scope: "openid email profile" },
+            },
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
+    ...(facebookLoginEnabled
+      ? [
+          FacebookProvider({
+            clientId: process.env.FACEBOOK_LOGIN_CLIENT_ID as string,
+            clientSecret: process.env.FACEBOOK_LOGIN_CLIENT_SECRET as string,
+            authorization: {
+              params: { scope: "email,public_profile" },
+            },
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
+    ...(microsoftLoginEnabled
+      ? [
+          MicrosoftEntraIDProvider({
+            clientId: process.env.MICROSOFT_LOGIN_CLIENT_ID as string,
+            clientSecret: process.env.MICROSOFT_LOGIN_CLIENT_SECRET as string,
+            authorization: {
+              params: { scope: "openid profile email" },
+            },
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
     Credentials({
       credentials: {},
       async authorize({ email, password }: any) {
@@ -75,6 +137,31 @@ export const {
         return { ...user, type: "regular" };
       },
     }),
+    ...(phoneLoginEnabled
+      ? [
+          Credentials({
+            id: "phone-otp",
+            credentials: { ticket: {} },
+            async authorize({ ticket }: any) {
+              const phone = readLoginTicket(String(ticket ?? ""));
+              if (!phone) {
+                return null;
+              }
+              // رقم مُتحقَّق منه فقط يصل إلى هنا عبر تذكرة موقّعة قصيرة العمر.
+              const email = emailForPhone(phone);
+              let [existing] = await getUser(email);
+              if (!existing) {
+                await createUser(email, randomBytes(24).toString("hex"));
+                [existing] = await getUser(email);
+              }
+              if (!existing) {
+                return null;
+              }
+              return { ...existing, type: "regular" };
+            },
+          }),
+        ]
+      : []),
     Credentials({
       id: "guest",
       credentials: {},
@@ -85,10 +172,39 @@ export const {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account, profile }) {
+      if (!account || !OAUTH_PROVIDERS.has(account.provider)) {
+        return true;
+      }
+      const email = (profile?.email ?? user.email ?? "").toLowerCase();
+      // Google يُرسل حالة تحقّق صريحة؛ فيسبوك ومايكروسوفت قد لا يُرسلانها.
+      if (
+        !email ||
+        (account.provider === "google" && profile?.email_verified === false)
+      ) {
+        return false;
+      }
+      let [existing] = await getUser(email);
+      if (!existing) {
+        // First Google login: create the local account with an unguessable
+        // password so the email/password path stays closed until a reset.
+        await createUser(email, randomBytes(24).toString("hex"));
+        [existing] = await getUser(email);
+        void sendWelcomeEmail(email, "ar");
+      }
+      // Replace Google's subject id with our own user id for the JWT below.
+      user.id = existing.id;
+      user.email = existing.email;
+      user.type = "regular";
+      return true;
+    },
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id as string;
-        token.type = user.type;
+        token.type =
+          account && OAUTH_PROVIDERS.has(account.provider)
+            ? "regular"
+            : user.type;
       }
 
       if (token.id) {
@@ -96,8 +212,11 @@ export const {
           userId: token.id,
           email: user?.email ?? token.email ?? "My workspace",
         });
-        token.organizationId = workspace.id;
-        token.organizationRole = workspace.role as OrganizationRole;
+        // A token can outlive its account. An empty organisation is falsy, so
+        // every workspace route answers 401 and the visitor signs in again,
+        // instead of the session pointing at a workspace nobody owns.
+        token.organizationId = workspace?.id ?? "";
+        token.organizationRole = (workspace?.role ?? "member") as OrganizationRole;
       }
 
       return token;

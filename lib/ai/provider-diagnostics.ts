@@ -3,6 +3,7 @@ import type { Lang } from "@/lib/i18n";
 type ProviderEnvironment = {
   aiGatewayApiKey?: string;
   geminiApiKey?: string;
+  groqApiKey?: string;
   vercel?: string;
   isTest?: boolean;
 };
@@ -15,14 +16,15 @@ export function getMissingModelProviderMessage(
     environment.isTest ||
     environment.aiGatewayApiKey?.trim() ||
     environment.geminiApiKey?.trim() ||
+    environment.groqApiKey?.trim() ||
     environment.vercel === "1"
   ) {
     return null;
   }
 
   return lang === "ar"
-    ? "خدمة النماذج غير مهيأة. أضف AI_GATEWAY_API_KEY خارج Vercel، أو انشر عبر Vercel AI Gateway، أو أضف GEMINI_API_KEY."
-    : "The model service is not configured. Set AI_GATEWAY_API_KEY outside Vercel, deploy with Vercel AI Gateway, or set GEMINI_API_KEY.";
+    ? "خدمة النماذج غير مهيأة. أضف AI_GATEWAY_API_KEY خارج Vercel، أو انشر عبر Vercel AI Gateway، أو أضف GEMINI_API_KEY أو GROQ_API_KEY."
+    : "The model service is not configured. Set AI_GATEWAY_API_KEY outside Vercel, deploy with Vercel AI Gateway, or set GEMINI_API_KEY or GROQ_API_KEY.";
 }
 
 function getStatusCode(error: unknown) {

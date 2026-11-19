@@ -1,4 +1,5 @@
 import { captureException } from "@sentry/nextjs";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { ipAddress } from "@vercel/functions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -12,7 +13,7 @@ const confirmationSchema = z
   .object({ confirmation: z.literal("DELETE") })
   .strict();
 
-export async function DELETE(request: Request) {
+async function DELETEImpl(request: Request) {
   const isArabic = (await getLang()) === "ar";
   try {
     await checkIpRateLimit(ipAddress(request));
@@ -81,3 +82,6 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const DELETE = withRequestTenantHandler(DELETEImpl);

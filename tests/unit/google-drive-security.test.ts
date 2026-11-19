@@ -18,3 +18,27 @@ test("Google Drive callback feedback is localized and ignores unknown values", (
   );
   assert.equal(getGoogleDriveCallbackFeedback("unexpected", "en"), null);
 });
+
+test("Google badges reflect each granted scope rather than inheriting Drive access", async () => {
+  const {
+    googleProvidersForScopes,
+    GOOGLE_DRIVE_SCOPE,
+    GOOGLE_GMAIL_SCOPE,
+    GOOGLE_GMAIL_SEND_SCOPE,
+    GOOGLE_CALENDAR_SCOPE,
+  } = await import("@/lib/integrations/google-drive/token-response");
+  assert.deepEqual(googleProvidersForScopes(GOOGLE_DRIVE_SCOPE), [
+    "google_drive",
+  ]);
+  assert.deepEqual(
+    googleProvidersForScopes(`${GOOGLE_DRIVE_SCOPE} ${GOOGLE_GMAIL_SCOPE}`),
+    ["google_drive"]
+  );
+  assert.deepEqual(
+    googleProvidersForScopes(
+      `${GOOGLE_DRIVE_SCOPE} ${GOOGLE_GMAIL_SCOPE} ${GOOGLE_GMAIL_SEND_SCOPE} ${GOOGLE_CALENDAR_SCOPE}`
+    ),
+    ["google_drive", "gmail", "google_calendar"]
+  );
+  assert.deepEqual(googleProvidersForScopes(""), []);
+});

@@ -2,11 +2,16 @@ import { captureException } from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { recordReferralEvent } from "@/lib/affiliate";
+import {
+  claimWebhookEvent,
+  releaseWebhookEvent,
+} from "@/lib/webhooks/events";
 import { syncWorkspaceSubscription } from "@/lib/db/queries";
+import { grantPaidInvoiceTokens } from "@/lib/saas/invoice-tokens";
 import {
   getPlanFromStripePriceId,
-  workspacePlans,
   type WorkspacePlan,
+  workspacePlans,
 } from "@/lib/saas/plans";
 import { getStripe, getStripeId, mapStripeStatus } from "@/lib/saas/stripe";
 
@@ -121,6 +126,15 @@ export async function POST(request: Request) {
     );
   }
 
+  const isFirstDelivery = await claimWebhookEvent({
+    provider: "stripe",
+    externalId: event.id,
+    payload: { type: event.type },
+  });
+  if (!isFirstDelivery) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
@@ -128,10 +142,7 @@ export async function POST(request: Request) {
 
       const affiliateCode = session.metadata?.affiliateCode;
       const paidPlan = session.metadata?.plan;
-      if (
-        affiliateCode &&
-        (paidPlan === "pro" || paidPlan === "business")
-      ) {
+      if (affiliateCode && (paidPlan === "pro" || paidPlan === "business")) {
         await recordReferralEvent({
           code: affiliateCode,
           event: "subscribe",
@@ -156,12 +167,16 @@ export async function POST(request: Request) {
         const subscription =
           await getStripe().subscriptions.retrieve(subscriptionId);
         await syncFromSubscription(subscription);
+        // Grant failures must reach the outer retry path (which releases the
+        // event claim); acknowledging 200 would permanently suppress retries.
+        await grantPaidInvoiceTokens(event.data.object, subscription);
       }
     }
   } catch {
     captureException(new Error("Stripe subscription synchronization failed"), {
       tags: { area: "stripe-webhook" },
     });
+    await releaseWebhookEvent({ provider: "stripe", externalId: event.id });
     return NextResponse.json(
       { error: "Subscription synchronization failed" },
       { status: 500 }

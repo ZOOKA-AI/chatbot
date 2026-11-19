@@ -316,3 +316,97 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ───────────── Zooka "living" layer: soft neon, glass, 3D sponsor tiles ─────────────
+ * Calm by design: slow loops, low alpha, and everything stops for
+ * prefers-reduced-motion. Neon tones are fixed (cyan/violet) so they read
+ * on both light and dark themes.
+ */
+:root {
+  --zk-neon-a: 34 211 238; /* cyan */
+  --zk-neon-b: 167 139 250; /* violet */
+}
+
+@keyframes zk-breathe {
+  0%, 100% { box-shadow: 0 0 0 1px rgb(var(--zk-neon-a) / 0.18), 0 8px 30px -12px rgb(var(--zk-neon-b) / 0.25); }
+  50% { box-shadow: 0 0 0 1px rgb(var(--zk-neon-b) / 0.28), 0 8px 34px -10px rgb(var(--zk-neon-a) / 0.35); }
+}
+
+@keyframes zk-float {
+  0%, 100% { transform: translateY(0) rotateX(6deg) rotateY(-6deg); }
+  50% { transform: translateY(-8px) rotateX(-4deg) rotateY(6deg); }
+}
+
+@keyframes zk-glow-text {
+  0%, 100% { text-shadow: 0 0 0 transparent; }
+  50% { text-shadow: 0 0 18px rgb(var(--zk-neon-a) / 0.35), 0 0 32px rgb(var(--zk-neon-b) / 0.2); }
+}
+
+.zk-composer {
+  animation: zk-breathe 6s ease-in-out infinite;
+}
+.zk-composer:focus-within {
+  box-shadow: 0 0 0 1px rgb(var(--zk-neon-a) / 0.45), 0 10px 40px -12px rgb(var(--zk-neon-b) / 0.45);
+}
+
+.zk-neon-text {
+  animation: zk-glow-text 5s ease-in-out infinite;
+}
+
+.zk-neon-orb {
+  filter: drop-shadow(0 0 22px rgb(var(--zk-neon-a) / 0.25));
+}
+
+.zk-neon-hover {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+.zk-neon-hover:hover {
+  border-color: rgb(var(--zk-neon-a) / 0.6);
+  box-shadow: 0 0 16px -2px rgb(var(--zk-neon-a) / 0.45);
+}
+
+.zk-glass {
+  background: color-mix(in oklab, var(--background) 72%, transparent);
+  backdrop-filter: blur(14px);
+  border-color: rgb(var(--zk-neon-b) / 0.25);
+}
+
+.zk-search:focus {
+  border-color: rgb(var(--zk-neon-a) / 0.6);
+  box-shadow: 0 0 0 3px rgb(var(--zk-neon-a) / 0.15);
+}
+
+.zk-ad-stage {
+  perspective: 900px;
+}
+.zk-ad-tile {
+  animation: zk-float 7s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+.zk-ad-card {
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgb(var(--zk-neon-a) / 0.14), transparent 55%),
+    radial-gradient(120% 120% at 100% 100%, rgb(var(--zk-neon-b) / 0.16), transparent 55%),
+    color-mix(in oklab, var(--background) 85%, transparent);
+  border-color: rgb(var(--zk-neon-b) / 0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.zk-ad-card:hover {
+  transform: translateZ(24px) scale(1.04);
+  border-color: rgb(var(--zk-neon-a) / 0.7);
+  box-shadow: 0 0 24px -4px rgb(var(--zk-neon-a) / 0.55);
+}
+
+/* The chat is a full-height app: the site footer lives at the end of the
+ * home scroll there, not under the composer. */
+body:has([data-app-shell]) [data-site-footer="global"] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zk-composer,
+  .zk-neon-text,
+  .zk-ad-tile {
+    animation: none;
+  }
+}

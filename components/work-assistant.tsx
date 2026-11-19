@@ -49,6 +49,7 @@ const presets = {
   ],
 } as const;
 
+
 export function WorkAssistantOverview({
   canUseAgentMode,
   agentModeEnabled,

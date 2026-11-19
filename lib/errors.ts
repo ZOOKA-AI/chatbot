@@ -1,3 +1,5 @@
+import { GUEST_FREE_MESSAGES } from "@/lib/copy";
+
 export type ErrorType =
   | "bad_request"
   | "unauthorized"
@@ -94,7 +96,7 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "Your account does not have access to this feature.";
 
     case "payment_required:chat":
-      return "You've used your 3 free messages. Sign up or upgrade to continue chatting and save your conversations.";
+      return `You've used your ${GUEST_FREE_MESSAGES} free messages. Sign up to keep this conversation and continue.`;
     case "rate_limit:chat":
       return "You have exceeded your maximum number of messages for the day. Please try again later.";
     case "not_found:chat":

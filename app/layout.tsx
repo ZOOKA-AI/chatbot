@@ -2,11 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { Cairo, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { GlobalSiteComponents } from "@/components/global-site-components";
+import { PwaRegister } from "@/components/pwa-register";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
+import { SITE_YEAR } from "@/lib/site-year";
 
 import "./globals.css";
+import "@/styles/zooka-tokens-v2.css";
 import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
@@ -15,7 +18,7 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   alternates: { canonical: "./" },
-  icons: { icon: "/favicon.ico", apple: "/apple-icon" },
+  icons: { icon: [{ url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" }, { url: "/icon.svg", type: "image/svg+xml" }], apple: "/brand/apple-touch-icon-180.png" },
   openGraph: {
     type: "website",
     url: "./",
@@ -24,16 +27,26 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     locale: "ar_AR",
     alternateLocale: ["en_US"],
+    images: [
+      {
+        url: "/brand/og-1200x630.png",
+        width: 1200,
+        height: 630,
+        alt: SITE_TITLE,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
+    images: ["/brand/og-1200x630.png"],
   },
 };
 
 export const viewport: Viewport = {
-  maximumScale: 1, // Disable auto-zoom on mobile Safari
+  width: "device-width",
+  initialScale: 1,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
@@ -108,17 +121,40 @@ export default function RootLayout({
             __html: THEME_COLOR_SCRIPT,
           }}
         />
+        <script
+          // Sitewide entity so every page references one Organization node.
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "@id": `${SITE_URL}/#organization`,
+              name: SITE_NAME,
+              url: SITE_URL,
+              logo: `${SITE_URL}/brand/app-icon-512.png`,
+              description: SITE_DESCRIPTION,
+              sameAs: [
+                "https://github.com/ZOOKA-AI",
+                "https://g.dev/zooka-ai",
+                "https://developers.google.com/profile/u/zooka-ai",
+              ],
+            }),
+          }}
+          type="application/ld+json"
+        />
       </head>
       <body className="antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          // The approved identity is the dark neural canvas with breathing
+          // cyan/plum neon, so it is the default rather than an option.
+          defaultTheme="dark"
           disableTransitionOnChange
           enableSystem
         >
           <Toaster position="top-center" />
           <SessionProvider>{children}</SessionProvider>
-          <GlobalSiteComponents />
+          <PwaRegister />
+          <GlobalSiteComponents year={SITE_YEAR} />
         </ThemeProvider>
       </body>
     </html>

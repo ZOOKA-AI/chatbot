@@ -1,8 +1,10 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
 import { gateway } from "@ai-sdk/gateway";
 import {
   customProvider,
   extractReasoningMiddleware,
+  type LanguageModelMiddleware,
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
@@ -15,8 +17,122 @@ const THINKING_SUFFIX_REGEX = /-thinking$/;
 const USE_DIRECT_GOOGLE =
   !process.env.AI_GATEWAY_API_KEY && !!process.env.GEMINI_API_KEY;
 
+// Groq fallback. The gateway is the first choice and Google the second; Groq is the
+// third so that a deployment with a Groq key and nothing else can still answer. It is
+// also selectable per request by asking for one of GROQ_MODELS, which keeps the existing
+// providers untouched and reachable.
+const GROQ_API_KEY = process.env.GROQ_API_KEY?.trim();
+export const USE_GROQ =
+  !process.env.AI_GATEWAY_API_KEY && !process.env.GEMINI_API_KEY?.trim() && !!GROQ_API_KEY;
+
+export const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
+
+// Groq's own catalogue ids do not follow the registry's provider/model convention, so the
+// mapping is explicit. A wrong id must fail loudly instead of silently answering with a
+// different model, which is why nothing here is derived from the model id at runtime.
+export const GROQ_MODELS: Record<string, string> = {
+  "groq/gpt-oss-120b": "openai/gpt-oss-120b",
+  "groq/gpt-oss-20b": "openai/gpt-oss-20b",
+  "groq/qwen3-27b": "qwen/qwen3.6-27b",
+};
+
+const groqWithKey = GROQ_API_KEY ? createGroq({ apiKey: GROQ_API_KEY }) : null;
+
+export function isGroqConfigured() {
+  return !!GROQ_API_KEY;
+}
+
 const DIRECT_MODEL = "gemini-flash-lite-latest";
 const DIRECT_MODEL_REASONING = "gemini-pro-latest";
+
+// Model the gateway always serves on the free credit tier. When a user picks a
+// model the gateway refuses (RestrictedModelsError, HTTP 403 "Free tier users
+// do not have access to this model"), we transparently answer with this one
+// instead of failing the whole request.
+export const GATEWAY_FALLBACK_MODEL = "openai/gpt-4.1-mini";
+
+/**
+ * True for the errors that mean "this model id cannot serve the request right
+ * now": the free tier restriction the gateway returns as 403, and the 404/410 a
+ * retired or renamed model returns. Both are model problems, not user problems,
+ * so the request is retried once against GATEWAY_FALLBACK_MODEL.
+ */
+function isUnavailableModelError(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    const text = `${String(record.message ?? "")} ${String(
+      record.responseBody ?? ""
+    )}`;
+    if (
+      record.name === "RestrictedModelsError" ||
+      text.includes("RestrictedModelsError") ||
+      text.includes("Free tier users do not have access")
+    ) {
+      return true;
+    }
+    const lower = text.toLowerCase();
+    if (
+      record.name === "GatewayModelNotFoundError" ||
+      lower.includes("model not found") ||
+      lower.includes("no such model") ||
+      lower.includes("model_not_found") ||
+      lower.includes("unknown model") ||
+      record.statusCode === 404 ||
+      record.statusCode === 410
+    ) {
+      return true;
+    }
+    current = record.cause;
+  }
+  return false;
+}
+
+function restrictedModelFallbackMiddleware(
+  modelId: string
+): LanguageModelMiddleware {
+  const fallback = () => gateway.languageModel(GATEWAY_FALLBACK_MODEL);
+  const warn = (mode: string) =>
+    console.warn("AI Gateway model unavailable, falling back", {
+      requested: modelId,
+      fallback: GATEWAY_FALLBACK_MODEL,
+      mode,
+    });
+  return {
+    specificationVersion: "v3",
+    wrapStream: async ({ doStream, params }) => {
+      try {
+        return await doStream();
+      } catch (error) {
+        if (modelId === GATEWAY_FALLBACK_MODEL || !isUnavailableModelError(error)) {
+          throw error;
+        }
+        warn("stream");
+        return await fallback().doStream(params);
+      }
+    },
+    wrapGenerate: async ({ doGenerate, params }) => {
+      try {
+        return await doGenerate();
+      } catch (error) {
+        if (modelId === GATEWAY_FALLBACK_MODEL || !isUnavailableModelError(error)) {
+          throw error;
+        }
+        warn("generate");
+        return await fallback().doGenerate(params);
+      }
+    },
+  };
+}
+
+function gatewayModel(modelId: string) {
+  return wrapLanguageModel({
+    model: gateway.languageModel(modelId),
+    middleware: restrictedModelFallbackMiddleware(modelId),
+  });
+}
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -55,6 +171,28 @@ export function getLanguageModel(modelId: string) {
     return myProvider.languageModel(modelId);
   }
 
+  const groqModelId = GROQ_MODELS[modelId];
+  if (groqModelId) {
+    if (!groqWithKey) {
+      throw new Error(
+        `Model ${modelId} needs GROQ_API_KEY, which is not configured`
+      );
+    }
+    return groqWithKey(groqModelId);
+  }
+  // A "groq/..." id that is not in the map must fail loudly. Falling back here would let a
+  // typo answer with a different model while the UI still claims the requested one.
+  if (modelId.startsWith("groq/")) {
+    throw new Error(`Unknown Groq model: ${modelId}`);
+  }
+
+  // Nothing else configured: answer through Groq rather than reporting the model service
+  // as unavailable. If Groq is not configured either, fall through and let the existing
+  // gateway path raise its own error.
+  if (USE_GROQ && groqWithKey) {
+    return groqWithKey(GROQ_DEFAULT_MODEL);
+  }
+
   const isReasoningModel =
     modelId.endsWith("-thinking") ||
     (modelId.includes("reasoning") && !modelId.includes("non-reasoning"));
@@ -75,30 +213,36 @@ export function getLanguageModel(modelId: string) {
     const gatewayModelId = modelId.replace(THINKING_SUFFIX_REGEX, "");
 
     return wrapLanguageModel({
-      model: gateway.languageModel(gatewayModelId),
+      model: gatewayModel(gatewayModelId),
       middleware: extractReasoningMiddleware({ tagName: "thinking" }),
     });
   }
 
-  return gateway.languageModel(modelId);
+  return gatewayModel(modelId);
 }
 
 export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
+  if (USE_GROQ && groqWithKey) {
+    return groqWithKey(GROQ_DEFAULT_MODEL);
+  }
   if (USE_DIRECT_GOOGLE) {
     return googleWithKey("gemini-flash-lite-latest");
   }
-  return gateway.languageModel("google/gemini-2.5-flash-lite");
+  return gatewayModel("google/gemini-2.5-flash-lite");
 }
 
 export function getArtifactModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("artifact-model");
   }
+  if (USE_GROQ && groqWithKey) {
+    return groqWithKey(GROQ_DEFAULT_MODEL);
+  }
   if (USE_DIRECT_GOOGLE) {
     return googleWithKey(DIRECT_MODEL);
   }
-  return gateway.languageModel("anthropic/claude-haiku-4.5");
+  return gatewayModel("anthropic/claude-haiku-4.5");
 }

@@ -9,6 +9,7 @@ export function AuthForm({
   defaultEmail = "",
   labels,
   emailPlaceholder = "user@acme.com",
+  passwordAutoComplete = "current-password",
 }: {
   action: NonNullable<
     string | ((formData: FormData) => void | Promise<void>) | undefined
@@ -17,12 +18,13 @@ export function AuthForm({
   defaultEmail?: string;
   labels?: { email: string; password: string };
   emailPlaceholder?: string;
+  passwordAutoComplete?: "current-password" | "new-password";
 }) {
   const emailLabel = labels?.email ?? "Email Address";
   const passwordLabel = labels?.password ?? "Password";
 
   return (
-    <Form action={action} className="flex flex-col gap-4 px-4 sm:px-16">
+    <Form action={action} className="flex flex-col gap-4 px-5 sm:px-16">
       <div className="flex flex-col gap-2">
         <Label
           className="font-normal text-zinc-600 dark:text-zinc-400"
@@ -34,9 +36,11 @@ export function AuthForm({
         <Input
           autoComplete="email"
           autoFocus
-          className="bg-muted text-md md:text-sm"
+          className="h-12 bg-muted text-base md:h-11 md:text-sm"
           defaultValue={defaultEmail}
+          dir="ltr"
           id="email"
+          inputMode="email"
           name="email"
           placeholder={emailPlaceholder}
           required
@@ -53,7 +57,9 @@ export function AuthForm({
         </Label>
 
         <Input
-          className="bg-muted text-md md:text-sm"
+          className="h-12 bg-muted text-base md:h-11 md:text-sm"
+          autoComplete={passwordAutoComplete}
+          dir="ltr"
           id="password"
           name="password"
           required

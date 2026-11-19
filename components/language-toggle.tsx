@@ -15,7 +15,7 @@ export function LanguageToggle({
       type="button"
       className={
         className ??
-        "border-border bg-background hover:bg-muted absolute top-4 end-4 z-10 rounded-lg border px-3 py-1.5 font-medium text-sm transition-colors"
+        "border-border bg-background hover:bg-muted absolute top-4 end-4 z-10 inline-flex min-h-11 items-center rounded-lg border px-4 py-2 font-medium text-sm transition-colors"
       }
       onClick={() => {
         document.cookie = `zooka_lang=${target}; path=/; max-age=31536000; samesite=lax`;

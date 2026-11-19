@@ -1,23 +1,21 @@
 import { cookies } from "next/headers";
-import Script from "next/script";
+import { withTenantPage } from "@/lib/db/request-tenant";
 import { Suspense } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { BillingProvider } from "@/components/billing-provider";
 import { DataStreamProvider } from "@/components/data-stream-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { getLang } from "@/lib/i18n";
 import { workspacePlans } from "@/lib/saas/plans";
 import { displayWorkspaceName } from "@/lib/workspace-name";
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+async function LayoutImpl({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <Script
-        src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
-        strategy="beforeInteractive"
-      />
       <DataStreamProvider>
         <Suspense fallback={<div className="flex h-dvh" />}>
           <SidebarWrapper>{children}</SidebarWrapper>
@@ -44,20 +42,23 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
     !!subscription &&
     subscription.plan !== "free" &&
     ["active", "trialing", "past_due"].includes(subscription.status);
-  const isAgentPlan =
-    !!subscription &&
-    subscription.plan !== "free" &&
-    ["active", "trialing"].includes(subscription.status);
-  const planKey = isAgentPlan && subscription ? subscription.plan : "free";
-  const plan = workspacePlans[planKey];
-  const agentRunsRemaining = Math.max(
-    0,
-    plan.monthlyAgentRuns - (billing?.usage.agentRuns ?? 0)
-  );
+  // One source of truth for agent access, shared with the API routes: a paid
+  // subscription, or a live launch-testing claim, which is what makes the
+  // toggle available to the first registered testers without any charge.
+  const entitlements = context
+    ? await getWorkspaceEntitlements(context.organizationId)
+    : null;
+  const isAgentPlan = entitlements?.isPaid ?? false;
+  const agentRunsRemaining = entitlements?.agentRunsRemaining ?? 0;
   const canManageBilling =
     hasPaidPlan &&
     !!subscription?.externalCustomerId &&
     (context?.role === "owner" || context?.role === "admin");
+
+  // Anonymous visitors get the public marketing page with no app chrome.
+  if (!context) {
+    return <>{children}</>;
+  }
 
   return (
     <BillingProvider
@@ -66,7 +67,7 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
         isGuest,
         organizationId: context?.organizationId ?? null,
         isSubscribed: hasPaidPlan,
-        canUseAgentMode: isAgentPlan && agentRunsRemaining > 0,
+        canUseAgentMode: entitlements?.canUseAgentMode ?? false,
         hasAgentPlan: isAgentPlan,
         agentRunsRemaining,
         canManageBilling,
@@ -83,8 +84,14 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
               : undefined
           }
         />
-        <SidebarInset>{children}</SidebarInset>
+        <SidebarInset>
+          {children}
+          <MobileBottomNav />
+        </SidebarInset>
       </SidebarProvider>
     </BillingProvider>
   );
 }
+
+// Tenant-scoped render: data read during this page runs inside the caller's tenant.
+export default withTenantPage(LayoutImpl);

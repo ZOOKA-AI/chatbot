@@ -3,6 +3,28 @@ import { z } from "zod";
 export const GOOGLE_DRIVE_SCOPE =
   "https://www.googleapis.com/auth/drive.readonly";
 
+export const GOOGLE_GMAIL_SCOPE =
+  "https://www.googleapis.com/auth/gmail.readonly";
+
+/** Send-only Gmail scope: lets the workspace agent compose mail as the user. */
+export const GOOGLE_GMAIL_SEND_SCOPE =
+  "https://www.googleapis.com/auth/gmail.send";
+
+/**
+ * Calendar events only, not the whole calendar list: enough for the agent to
+ * read the day and create an appointment without touching sharing settings.
+ */
+export const GOOGLE_CALENDAR_SCOPE =
+  "https://www.googleapis.com/auth/calendar.events";
+
+/** Scopes the workspace Google connection may request. */
+export const GOOGLE_READ_SCOPES = [
+  GOOGLE_DRIVE_SCOPE,
+  GOOGLE_GMAIL_SCOPE,
+  GOOGLE_GMAIL_SEND_SCOPE,
+  GOOGLE_CALENDAR_SCOPE,
+];
+
 const tokensSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),
@@ -30,12 +52,16 @@ export function parseGoogleDriveTokens(
     })
     .parse(value);
   const scopes = (parsed.scope ?? GOOGLE_DRIVE_SCOPE).split(/\s+/);
+  const unauthorizedScope = scopes.find(
+    (scope) => !GOOGLE_READ_SCOPES.includes(scope)
+  );
   if (
-    scopes.length !== 1 ||
-    scopes[0] !== GOOGLE_DRIVE_SCOPE ||
+    scopes.length === 0 ||
+    unauthorizedScope ||
+    !scopes.includes(GOOGLE_DRIVE_SCOPE) ||
     (parsed.token_type && parsed.token_type.toLowerCase() !== "bearer")
   ) {
-    throw new Error("Google Drive read-only access was not granted");
+    throw new Error("Google read-only access was not granted");
   }
   const refreshToken = parsed.refresh_token ?? previousRefreshToken;
   if (!refreshToken) {
@@ -47,4 +73,20 @@ export function parseGoogleDriveTokens(
     expiresAt: Date.now() + parsed.expires_in * 1000,
     scope: scopes.join(" "),
   });
+}
+
+/** Granted scopes are authorization evidence, not a live provider health check. */
+export function googleProvidersForScopes(scope: string): string[] {
+  const scopes = new Set(scope.split(/\s+/).filter(Boolean));
+  const providers: string[] = [];
+  if (scopes.has(GOOGLE_DRIVE_SCOPE)) {
+    providers.push("google_drive");
+  }
+  if (scopes.has(GOOGLE_GMAIL_SCOPE) && scopes.has(GOOGLE_GMAIL_SEND_SCOPE)) {
+    providers.push("gmail");
+  }
+  if (scopes.has(GOOGLE_CALENDAR_SCOPE)) {
+    providers.push("google_calendar");
+  }
+  return providers;
 }
