@@ -51,6 +51,7 @@ type WorkerAgent = {
 };
 
 import { browserTaskRun } from "./worker-tools/browser-task";
+import { connectorCatalog, connectorRead } from "./worker-tools/connector-run";
 import {
   studioAssetList,
   studioAudioEdit,
@@ -66,6 +67,8 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
   [projectDocumentCreate.name]: projectDocumentCreate,
   browser_task_run: browserTaskRun,
+  [connectorCatalog.name]: connectorCatalog,
+  [connectorRead.name]: connectorRead,
   studio_asset_list: studioAssetList,
   studio_image_edit: studioImageEdit,
   studio_background_remove: studioBackgroundRemove,
