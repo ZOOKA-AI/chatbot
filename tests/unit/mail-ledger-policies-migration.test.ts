@@ -52,7 +52,7 @@ describe("migration 0061", () => {
 
   it("withholds DELETE on the audit table", () => {
     expect(normalise(ROUTE).toUpperCase()).toContain(
-      "REVOKE DELETE ON TABLE public.%I FROM ZOOKA_RUNTIME"
+      "REVOKE DELETE ON TABLE PUBLIC.%I FROM ZOOKA_RUNTIME"
     );
     expect(normalise(SQL).toLowerCase()).toContain(
       "revoke delete on table public.%i from zooka_runtime"
