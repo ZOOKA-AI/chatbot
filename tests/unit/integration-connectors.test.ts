@@ -53,9 +53,20 @@ const REQUESTED = [
   "x",
   "cloudflare",
   "namecheap",
+  // Advertising and CRM set added on the owner's request for breadth.
+  "meta_ads",
+  "tiktok_ads",
+  "snapchat_ads",
+  "linkedin_ads",
+  "pinterest_ads",
+  "reddit_ads",
+  "amazon_ads",
+  "x_ads",
+  "hubspot",
+  "airtable",
 ];
 
-test("all nine requested connectors exist and expose only reads", () => {
+test("every requested connector exists and exposes only reads", () => {
   assert.deepEqual([...connectorProviderIds()].sort(), [...REQUESTED].sort());
   for (const spec of CONNECTOR_SPECS) {
     assert.ok(spec.operations.length >= 1, `${spec.providerId} has no operations`);
@@ -160,14 +171,24 @@ test("every connector is documented and wired into the secure card", () => {
   }
   const tokenCapable = Object.keys(CONNECTOR_TOKEN_PROVIDERS).sort();
   assert.deepEqual(tokenCapable, [
+    "airtable",
+    "amazon_ads",
     "cloudflare",
+    "hubspot",
+    "linkedin_ads",
+    "meta_ads",
     "notion",
+    "pinterest_ads",
+    "reddit_ads",
     "shopify",
     "slack",
+    "snapchat_ads",
     "tiktok",
+    "tiktok_ads",
     "twilio",
     "whatsapp",
     "x",
+    "x_ads",
   ]);
   for (const id of tokenCapable) {
     const definition = TOKEN_PROVIDERS[id as keyof typeof TOKEN_PROVIDERS];
