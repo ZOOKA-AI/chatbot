@@ -103,6 +103,24 @@ export function Studio({ section }: { section: StudioSection }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [notice, setNotice] = useState("");
+  const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/integrations/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (alive && Array.isArray(data?.connected)) {
+          setConnectedIds(new Set<string>(data.connected));
+        }
+      })
+      .catch(() => {
+        // Guests and offline visitors keep the neutral badge.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [guideProvider, setGuideProvider] = useState<{
     id: string;
     name: string;
@@ -120,14 +138,35 @@ export function Studio({ section }: { section: StudioSection }) {
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    try {
-      setProjects(
-        parseLocalProjects(localStorage.getItem(PROJECT_STORAGE_KEY)),
-      );
-    } catch {
-      setNotice("التخزين المحلي غير متاح. يمكنك تنزيل الكود لحفظه.");
-    }
-    setLoaded(true);
+    const load = async () => {
+      let local: LocalProject[] = [];
+      try {
+        local = parseLocalProjects(localStorage.getItem(PROJECT_STORAGE_KEY));
+      } catch {
+        setNotice("التخزين المحلي غير متاح.");
+      }
+      try {
+        const res = await fetch("/api/studio/projects");
+        if (res.ok) {
+          const data = await res.json();
+          const cloud = (data.projects || []).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            html: p.html,
+            updatedAt: p.updatedAt,
+          }));
+          // Merge: cloud first, then local not in cloud
+          const cloudIds = new Set(cloud.map((c: any) => c.id));
+          setProjects([...cloud, ...local.filter((l) => !cloudIds.has(l.id))]);
+        } else {
+          setProjects(local);
+        }
+      } catch {
+        setProjects(local);
+      }
+      setLoaded(true);
+    };
+    load();
     const params = new URLSearchParams(window.location.search);
     const templateId = params.get("template");
     const projectId = params.get("project");
@@ -197,6 +236,36 @@ export function Studio({ section }: { section: StudioSection }) {
       return false;
     }
   };
+
+  const saveToCloud = async () => {
+    if (!projectName.trim() || !code) return;
+    try {
+      const res = await fetch("/api/studio/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: projectName, html: code }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.project) {
+        setActiveProjectId(data.project.id);
+        setDirty(false);
+        setNotice("تم حفظ المشروع في السحابة.");
+        return;
+      }
+      if (res.status === 401) {
+        setNotice(
+          "سجّل الدخول أولاً لحفظ المشروع في السحابة. الحفظ المحلي يعمل بدون حساب.",
+        );
+      } else {
+        setNotice(
+          `تعذّر الحفظ في السحابة${data?.error ? `: ${data.error}` : ""}.`,
+        );
+      }
+    } catch {
+      setNotice("خطأ في الاتصال بالسحابة.");
+    }
+  };
+
   const saveProject = () => {
     const trimmedName = projectName.trim();
     if (!trimmedName) {
@@ -212,7 +281,7 @@ export function Studio({ section }: { section: StudioSection }) {
     if (persist([project, ...projects.filter((p) => p.id !== project.id)])) {
       setActiveProjectId(project.id);
       setDirty(false);
-      setNotice("حُفظ المشروع على هذا المتصفح فقط. نزّل نسخة احتياطية من الكود.");
+      setNotice("حُفظ محليًا. اضغط «حفظ في السحابة» للمزامنة.");
     }
   };
   const download = () => {
@@ -533,8 +602,8 @@ export function Studio({ section }: { section: StudioSection }) {
                 <div>
                   <strong>مصممة للعمل الحقيقي، لا للوعود</strong>
                   <p>
-                    المشاريع تُحفظ محلياً. المحادثة والربط يتطلبان تسجيل الدخول
-                    والإعداد، وقد رُصدت أخطاء تشغيل لم تعالجها نسخة الواجهة.
+                    المشاريع تُحفظ محلياً على متصفحك. المحادثة وربط الأدوات
+                    يتطلبان تسجيل الدخول، وحالة كل تكامل تظهر في صفحة التكاملات.
                   </p>
                 </div>
                 <span>01</span>
@@ -667,9 +736,9 @@ export function Studio({ section }: { section: StudioSection }) {
               <div className={styles.releaseNote}>
                 <ShieldCheck size={22} />
                 <p>
-                  تُضاف الصفحات إلى سجل التنقّل ويظهر البحث عنها تلقائياً. التنفيذ
-                  والإصدار ما زالا يحتاجان تحديث كود واختبارات؛ هذه المساحة لا
-                  تنشئ خدمات آلياً.
+                  تُضاف الصفحات إلى سجل التنقّل ويظهر البحث عنها تلقائياً.
+                  التنفيذ والإصدار ما زالا يحتاجان تحديث كود واختبارات؛ هذه
+                  المساحة لا تنشئ خدمات آلياً.
                 </p>
               </div>
             </>
@@ -743,6 +812,14 @@ export function Studio({ section }: { section: StudioSection }) {
                     type="button"
                   >
                     <Check size={16} /> حفظ محلي
+                  </button>
+                  <button
+                    className={styles.secondary}
+                    disabled={!loaded}
+                    onClick={saveToCloud}
+                    type="button"
+                  >
+                    <CheckCheck size={16} /> حفظ في السحابة
                   </button>
                 </div>
               </div>
@@ -850,11 +927,8 @@ export function Studio({ section }: { section: StudioSection }) {
                     توكنات أو أسرار في نسخة المراجعة.
                   </p>
                 </div>
-                <Link
-                  className={styles.secondary}
-                  href="/settings/integrations"
-                >
-                  إدارة الربط <ExternalLink size={16} />
+                <Link className={styles.primary} href="/settings/integrations">
+                  افتح مركز الربط الحقيقي <ExternalLink size={16} />
                 </Link>
               </div>
               <div className={styles.toolbar}>
@@ -902,15 +976,19 @@ export function Studio({ section }: { section: StudioSection }) {
                           >
                             <ProviderIcon id={p.id} />
                           </span>
-                          <span
-                            className={
-                              implemented
-                                ? styles.availableBadge
-                                : styles.plannedBadge
-                            }
-                          >
-                            {implemented ? "مسار ربط متاح" : "غير مفعّل"}
-                          </span>
+                          {connectedIds.has(p.id) ? (
+                            <span className={styles.connectedBadge}>متصل</span>
+                          ) : (
+                            <span
+                              className={
+                                implemented
+                                  ? styles.availableBadge
+                                  : styles.plannedBadge
+                              }
+                            >
+                              {implemented ? "ربط حقيقي متاح" : "قريبًا"}
+                            </span>
+                          )}
                         </div>
                         <h2>{p.name}</h2>
                         <p>{p.descriptionAr}</p>
@@ -928,7 +1006,7 @@ export function Studio({ section }: { section: StudioSection }) {
                             دليل الربط والصلاحيات
                           </button>
                         )}
-                        {implemented ? (
+                        {implemented || connectedIds.has(p.id) ? (
                           <Link
                             className={styles.integrationAction}
                             href="/settings/integrations"
@@ -1273,47 +1351,64 @@ function TemplateGrid({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className={styles.templateGrid}>
       {starterTemplates.map((template, index) => (
-        <button
-          className={styles.templateCard}
-          key={template.id}
-          onClick={() => onOpen(template.id)}
-          type="button"
-        >
-          <div
-            className={styles.templateArtwork}
-            style={{ background: template.color }}
+        <div className={styles.templateCard} key={template.id}>
+          <button
+            className={styles.templateCardMain}
+            onClick={() => onOpen(template.id)}
+            type="button"
           >
-            <span>0{index + 1} / ZOOKA TEMPLATE</span>
-            <strong>
-              {
-                [
-                  "فكرتك،\nبصوت أوضح.",
-                  "أعمال تتحدث\nعن نفسها.",
-                  "انطلق نحو\nشيء أكبر.",
-                  "تعلّم،\nثم جرّب.",
-                  "أفكار تلتقي،\nومشاريع تبدأ.",
-                  "استراحة،\nبمذاق مختلف.",
-                ][index]
-              }
-            </strong>
-            <div className={styles.artworkLines}>
-              <i />
-              <i />
-              <i />
+            <div
+              className={styles.templateArtwork}
+              style={{ background: template.color }}
+            >
+              <span>0{index + 1} / ZOOKA TEMPLATE</span>
+              <strong>
+                {
+                  [
+                    "فكرتك،\nبصوت أوضح.",
+                    "أعمال تتحدث\nعن نفسها.",
+                    "انطلق نحو\nشيء أكبر.",
+                    "تعلّم،\nثم جرّب.",
+                    "أفكار تلتقي،\nومشاريع تبدأ.",
+                    "استراحة،\nبمذاق مختلف.",
+                  ][index]
+                }
+              </strong>
+              <div className={styles.artworkLines}>
+                <i />
+                <i />
+                <i />
+              </div>
+              <span className={styles.artworkArrow}>
+                <ArrowUpLeft size={24} />
+              </span>
             </div>
-            <span className={styles.artworkArrow}>
-              <ArrowUpLeft size={24} />
-            </span>
+            <div className={styles.templateInfo}>
+              <span>{template.category} / HTML + CSS</span>
+              <h3>{template.title}</h3>
+              <p>{template.description}</p>
+              <strong>
+                استخدم القالب <ArrowUpLeft size={16} />
+              </strong>
+            </div>
+          </button>
+          <div className={styles.templateActions}>
+            <a
+              className={styles.templateChatAction}
+              href={`/?template=${encodeURIComponent(template.id)}`}
+            >
+              <Sparkles size={14} />
+              عدّل في الشات
+            </a>
+            <a
+              className={styles.templateActionsLink}
+              href="/settings/integrations"
+            >
+              <ExternalLink size={14} />
+              التكاملات
+            </a>
           </div>
-          <div className={styles.templateInfo}>
-            <span>{template.category} / HTML + CSS</span>
-            <h3>{template.title}</h3>
-            <p>{template.description}</p>
-            <strong>
-              استخدم القالب <ArrowUpLeft size={16} />
-            </strong>
-          </div>
-        </button>
+        </div>
       ))}
     </div>
   );

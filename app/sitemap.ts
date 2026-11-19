@@ -4,12 +4,15 @@ import { SITE_URL } from "@/lib/site";
 
 const PUBLIC_PAGES = [
   { changeFrequency: "weekly", path: "/", priority: 1 },
+  { changeFrequency: "weekly", path: "/ar", priority: 0.9 },
   { changeFrequency: "weekly", path: "/blog", priority: 0.8 },
   { changeFrequency: "weekly", path: "/pricing", priority: 0.8 },
   { changeFrequency: "monthly", path: "/about", priority: 0.6 },
+  { changeFrequency: "monthly", path: "/developer", priority: 0.7 },
   { changeFrequency: "monthly", path: "/partners", priority: 0.7 },
   { changeFrequency: "monthly", path: "/partners/join", priority: 0.7 },
   { changeFrequency: "monthly", path: "/contact", priority: 0.6 },
+  { changeFrequency: "monthly", path: "/videos/zooka-demo", priority: 0.6 },
   { changeFrequency: "monthly", path: "/compare/chatgpt", priority: 0.8 },
   { changeFrequency: "yearly", path: "/privacy", priority: 0.4 },
   { changeFrequency: "yearly", path: "/terms", priority: 0.4 },

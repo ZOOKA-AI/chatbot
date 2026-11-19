@@ -1,4 +1,10 @@
 import "server-only";
+import { accountDatabaseError } from "./diagnostics";
+import { commanderActiveDb } from "./tenant-context";
+import { serviceConnectionAvailable, serviceDb } from "./service-client";
+import { tenantScopeEnabled } from "./tenant";
+
+import { agentMessage } from "./schema";
 
 import { del as deleteBlob, list as listBlobs } from "@vercel/blob";
 import {
@@ -10,6 +16,7 @@ import {
   gt,
   gte,
   inArray,
+  isNull,
   like,
   lt,
   ne,
@@ -31,6 +38,7 @@ import {
   type DBMessage,
   document,
   googleDriveConnection,
+  oauthConnection,
   passwordResetToken,
   guestUsage,
   invitation,
@@ -47,8 +55,11 @@ import {
   user,
   vote,
   voteDeprecated,
+  mediaJob,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
+import { claimPasswordResetToken } from "@/lib/auth/verification";
+import { mediaJobUpdateQuery, type MediaJobUpdate } from "./media-job-state";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -59,8 +70,58 @@ import { generateHashedPassword } from "./utils";
 // حذف DATABASE_URL من Vercel يعيد التطبيق للقاعدة القديمة فورًا (rollback بمتغير واحد).
 const connectionString =
   process.env.DATABASE_URL ?? (process.env.POSTGRES_URL as string);
-const client = postgres(connectionString, { prepare: false, max: 1 });
-export const db = drizzle(client);
+// Fluid compute serves many requests per instance; a single connection made
+// concurrent chat requests queue behind each other (seen as 300s timeouts).
+// The Supabase transaction pooler handles a small per-instance pool safely.
+const client = postgres(connectionString, {
+  prepare: false,
+  max: 5,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
+const sharedDb = drizzle(client);
+
+/**
+ * Handle for writes that legitimately happen before, or outside, a tenant scope:
+ * the first organisation and membership at onboarding, administrator membership
+ * changes, and subscription lifecycle from a signature-verified webhook.
+ *
+ * Falls back to the request handle while enforcement is off, so behaviour is
+ * unchanged until the flag flips.
+ */
+export function adminDb() {
+  if (!tenantScopeEnabled()) {
+    return db;
+  }
+  if (!serviceConnectionAvailable()) {
+    // Fail loudly rather than letting an onboarding write die inside a policy
+    // error that reads like a bug in the policy.
+    throw new Error(
+      "DATABASE_URL_SERVICE is required when tenant RLS is enabled: administrative writes (onboarding, membership, subscription) have no tenant scope"
+    );
+  }
+  return serviceDb();
+}
+
+/**
+ * The database handle the application uses.
+ *
+ * When a request has published its tenant transaction (see request-tenant.ts),
+ * this resolves to that transaction, so every query issued by the handler is
+ * evaluated against the caller's tenant policies without changing the forty-odd
+ * call sites that import `db`.
+ *
+ * When nothing is published it resolves to the shared connection, which is the
+ * unchanged behaviour while enforcement is off.
+ */
+export const db = new Proxy(sharedDb as unknown as object, {
+  get(target, property) {
+    const active = commanderActiveDb() as Record<string | symbol, unknown> | null;
+    const resolved = (active ?? target) as Record<string | symbol, unknown>;
+    const value = Reflect.get(resolved, property, resolved);
+    return typeof value === "function" ? value.bind(resolved) : value;
+  },
+}) as typeof sharedDb;
 
 async function retryBlobRequest<T>(
   operation: (signal: AbortSignal) => Promise<T>
@@ -263,7 +324,10 @@ export async function getWorkspaceForUser(
   userId: string,
   organizationId?: string
 ) {
-  const [workspace] = await db
+  // Discovering which workspace a user belongs to happens before any tenant is
+  // known, so it cannot run on the runtime role under RLS: it uses the bootstrap
+  // connection (which is the shared handle while enforcement is off).
+  const [workspace] = await adminDb()
     .select({
       id: organization.id,
       name: organization.name,
@@ -304,42 +368,62 @@ export function getWorkspacesForUser(userId: string) {
     .orderBy(asc(organizationMember.createdAt));
 }
 
+/**
+ * Creates the first organisation for an account.
+ *
+ * Onboarding runs inside one transaction and only for an account that exists.
+ * Both rules are load bearing: a session token can outlive its user row (the
+ * account is deleted, the cookie is still valid), and the earlier code inserted
+ * the organisation first, so a failing membership insert left an empty
+ * organisation behind on every attempt. Under tenant enforcement those orphans
+ * accumulate silently: the workspace is never reachable, and nothing reports it.
+ *
+ * Returns null when there is no such user, which unsets the organisation on the
+ * caller's token instead of inventing one.
+ */
 export async function ensureUserWorkspace({
   userId,
   email,
 }: {
   userId: string;
   email: string;
-}) {
+}): Promise<{ id: string; name: string; role: string } | null> {
   const existingWorkspace = await getWorkspaceForUser(userId);
   if (existingWorkspace) {
     return existingWorkspace;
   }
 
-  const [createdWorkspace] = await db
-    .insert(organization)
-    .values({ name: defaultWorkspaceNameForEmail(email) })
-    .returning({ id: organization.id, name: organization.name });
+  return adminDb().transaction(async (tx) => {
+    const [account] = await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
 
-  await db
-    .insert(organizationMember)
-    .values({
-      organizationId: createdWorkspace.id,
-      userId,
-      role: "owner",
-    })
-    .onConflictDoNothing();
-  await db
-    .insert(subscription)
-    .values({ organizationId: createdWorkspace.id })
-    .onConflictDoNothing();
-
-  return (
-    (await getWorkspaceForUser(userId)) ?? {
-      ...createdWorkspace,
-      role: "owner" as const,
+    if (!account) {
+      return null;
     }
-  );
+
+    const [createdWorkspace] = await tx
+      .insert(organization)
+      .values({ name: defaultWorkspaceNameForEmail(email) })
+      .returning({ id: organization.id, name: organization.name });
+
+    await tx
+      .insert(organizationMember)
+      .values({
+        organizationId: createdWorkspace.id,
+        userId,
+        role: "owner",
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(subscription)
+      .values({ organizationId: createdWorkspace.id })
+      .onConflictDoNothing();
+
+    return { ...createdWorkspace, role: "owner" };
+  });
 }
 
 export function getWorkspaceMembers(organizationId: string) {
@@ -386,7 +470,7 @@ export function addWorkspaceMember({
   userId: string;
   role: "admin" | "member";
 }) {
-  return db
+  return adminDb()
     .insert(organizationMember)
     .values({ organizationId, userId, role })
     .onConflictDoNothing();
@@ -529,7 +613,7 @@ export function syncWorkspaceSubscription({
   externalSubscriptionId: string | null;
   periodEnd: Date | null;
 }) {
-  return db
+  return adminDb()
     .insert(subscription)
     .values({
       organizationId,
@@ -556,7 +640,7 @@ export async function incrementGuestUsage(key: string) {
   // once their date suffix has passed and would otherwise accumulate forever.
   const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   try {
-    await db
+    await adminDb()
       .delete(guestUsage)
       .where(
         and(like(guestUsage.key, "ip:%"), lt(guestUsage.updatedAt, cutoff))
@@ -565,7 +649,7 @@ export async function incrementGuestUsage(key: string) {
     // Pruning is best-effort; never block the request on it.
   }
 
-  const [row] = await db
+  const [row] = await adminDb()
     .insert(guestUsage)
     .values({ key, count: 1 })
     .onConflictDoUpdate({
@@ -582,7 +666,7 @@ export async function incrementGuestUsage(key: string) {
  * limit the conditional update matches nothing and no row is returned.
  */
 export async function tryClaimGuestUsage(key: string, limit: number) {
-  const rows = (await db.execute(sql`
+  const rows = (await adminDb().execute(sql`
     INSERT INTO "GuestUsage" ("key", "count", "updatedAt")
     VALUES (${key}, 1, now())
     ON CONFLICT ("key") DO UPDATE
@@ -597,7 +681,7 @@ export async function tryClaimGuestUsage(key: string, limit: number) {
 /* Hand a claimed unit back, e.g. when the reply failed before its first token. */
 export async function releaseGuestUsage(key: string) {
   try {
-    await db.execute(sql`
+    await adminDb().execute(sql`
       UPDATE "GuestUsage"
       SET "count" = GREATEST("count" - 1, 0), "updatedAt" = now()
       WHERE "key" = ${key}
@@ -609,7 +693,7 @@ export async function releaseGuestUsage(key: string) {
 
 export async function getGuestUsage(key: string) {
   try {
-    const [row] = await db
+    const [row] = await adminDb()
       .select({ count: guestUsage.count })
       .from(guestUsage)
       .where(eq(guestUsage.key, key))
@@ -641,12 +725,13 @@ export function trackWorkspaceUsage({
 
 export async function getUser(email: string): Promise<User[]> {
   try {
-    return await db.select().from(user).where(eq(user.email, email));
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get user by email"
-    );
+    // Identity lookup is pre-tenant: it runs during login, before any session
+    // exists, so there is no organisation to scope by. With tenant RLS on, the
+    // runtime role cannot read "User" without app.user_id, so this uses the
+    // bootstrap connection (flag off: that is still the shared handle).
+    return await adminDb().select().from(user).where(eq(user.email, email));
+  } catch (error) {
+    throw accountDatabaseError("lookup", error);
   }
 }
 
@@ -654,9 +739,9 @@ export async function createUser(email: string, password: string) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await db.insert(user).values({ email, password: hashedPassword });
-  } catch (_error) {
-    throw new ChatbotError("bad_request:database", "Failed to create user");
+    return await adminDb().insert(user).values({ email, password: hashedPassword });
+  } catch (error) {
+    throw accountDatabaseError("create", error);
   }
 }
 
@@ -721,13 +806,17 @@ export async function deleteChatById({
       return undefined;
     }
 
-    await db.delete(vote).where(eq(vote.chatId, id));
-    await db.delete(message).where(eq(message.chatId, id));
-    await db.delete(stream).where(eq(stream.chatId, id));
-
+    // Soft delete: the row and its messages stay, so a mistake is reversible.
     const [chatsDeleted] = await db
-      .delete(chat)
-      .where(and(eq(chat.id, id), eq(chat.organizationId, organizationId)))
+      .update(chat)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(chat.id, id),
+          eq(chat.organizationId, organizationId),
+          isNull(chat.deletedAt)
+        )
+      )
       .returning();
     return chatsDeleted;
   } catch (_error) {
@@ -788,9 +877,9 @@ export async function getChatsByOrganizationId({
 }) {
   try {
     const extendedLimit = limit + 1;
-    const visibleToUser = or(
-      eq(chat.userId, userId),
-      eq(chat.visibility, "public")
+    const visibleToUser = and(
+      or(eq(chat.userId, userId), eq(chat.visibility, "public")),
+      isNull(chat.deletedAt)
     );
 
     const query = (whereCondition?: SQL<any>) =>
@@ -900,24 +989,77 @@ export async function saveMessages({
   messages: DBMessage[];
   organizationId: string;
 }) {
-  try {
-    const chatIds = [...new Set(messages.map(({ chatId }) => chatId))];
-    if (chatIds.length === 0) {
-      return;
-    }
+  if (messages.length === 0) {
+    return;
+  }
 
-    const tenantChats = await db
-      .select({ id: chat.id })
-      .from(chat)
-      .where(
-        and(inArray(chat.id, chatIds), eq(chat.organizationId, organizationId))
-      );
-    if (tenantChats.length !== chatIds.length) {
+  const chatIds = [...new Set(messages.map(({ chatId }) => chatId))];
+  const tenantChats = await db
+    .select({ id: chat.id })
+    .from(chat)
+    .where(
+      and(inArray(chat.id, chatIds), eq(chat.organizationId, organizationId))
+    );
+  if (tenantChats.length !== chatIds.length) {
+    throw new ChatbotError("forbidden:chat");
+  }
+
+  // نفس المعرّف قد يصل مرة أخرى عند التعديل أو إعادة التوليد: نُحدّث النص بدل رفضه،
+  // أو من onFinish بعد أن حُفظت في بداية الطلب، ولا يجوز أن تُسقط الحفظ كله.
+  const uniqueMessages = [...new Map(messages.map((m) => [m.id, m])).values()];
+  const traceId = `save_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+  // حارس الملكية: معرّف الرسالة وحده ليس مفتاح ثقة. التحديث عند التعارض مسموح
+  // فقط إذا كانت الرسالة القائمة في نفس المحادثة وبنفس الدور، وإلا يُرفض الطلب
+  // بدل الكتابة فوق رسالة تنتمي إلى محادثة أو مساحة عمل أخرى.
+  const incomingIds = [...new Set(messages.map(({ id }) => id))];
+  const existingRows = await db
+    .select({ id: message.id, chatId: message.chatId, role: message.role })
+    .from(message)
+    .where(inArray(message.id, incomingIds));
+  const existingById = new Map(existingRows.map((row) => [row.id, row]));
+  for (const incoming of messages) {
+    const existing = existingById.get(incoming.id);
+    if (
+      existing &&
+      (existing.chatId !== incoming.chatId || existing.role !== incoming.role)
+    ) {
+      console.error("[db] saveMessages rejected mismatched message id", {
+        traceId,
+        incomingChatId: incoming.chatId,
+      });
       throw new ChatbotError("forbidden:chat");
     }
+  }
 
-    return await db.insert(message).values(messages);
-  } catch (_error) {
+  try {
+    for (let index = 0; index < uniqueMessages.length; index += 50) {
+      await db
+        .insert(message)
+        .values(uniqueMessages.slice(index, index + 50))
+        .onConflictDoUpdate({
+          target: message.id,
+          set: { parts: sql`excluded.parts` },
+          // حماية ثانية على مستوى القاعدة: لا تحديث إن اختلفت المحادثة أو الدور.
+          setWhere: sql`${message.chatId} = excluded."chatId" and ${message.role} = excluded."role"`,
+        });
+    }
+  } catch (error) {
+    const details = error as {
+      code?: string;
+      constraint?: string;
+    };
+    // لا نُسجّل detail الخام لأنه قد يحوي قيماً من صفوف المستخدم.
+    console.error("[db] saveMessages failed", {
+      code: details.code,
+      constraint: details.constraint,
+      traceId,
+      chatIds,
+      messageCount: uniqueMessages.length,
+    });
+    if (details.code === "23503") {
+      throw new ChatbotError("bad_request:database", "Chat not found");
+    }
     throw new ChatbotError("bad_request:database", "Failed to save messages");
   }
 }
@@ -1627,31 +1769,324 @@ export async function deleteGoogleDriveConnectionIfUnchanged({
   return deleted.length > 0;
 }
 
+/*
+ * Growth traffic connector (GA4 + Search Console).
+ *
+ * Uses the multi-provider OAuthConnection table so a workspace can hold the
+ * Google Drive grant and the growth grant side by side: the primary key is
+ * (organizationId, provider), and Google Drive keeps its own legacy table.
+ * Only ciphertext is ever written by callers; nothing here knows how to decrypt.
+ */
+export async function getGrowthOAuthConnection(organizationId: string) {
+  const [row] = await db
+    .select({
+      encryptedTokens: oauthConnection.encryptedTokens,
+      scopes: oauthConnection.scopes,
+      accountName: oauthConnection.accountName,
+      tokenExpiresAt: oauthConnection.tokenExpiresAt,
+      updatedAt: oauthConnection.updatedAt,
+    })
+    .from(oauthConnection)
+    .where(
+      and(
+        eq(oauthConnection.organizationId, organizationId),
+        eq(oauthConnection.provider, "google_growth")
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+export function saveGrowthOAuthConnection({
+  organizationId,
+  encryptedTokens,
+  scopes,
+  accountName,
+  tokenExpiresAt,
+}: {
+  organizationId: string;
+  encryptedTokens: string;
+  scopes: string;
+  accountName: string | null;
+  tokenExpiresAt: Date;
+}) {
+  return db
+    .insert(oauthConnection)
+    .values({
+      organizationId,
+      provider: "google_growth",
+      encryptedTokens,
+      scopes,
+      accountName,
+      tokenExpiresAt,
+    })
+    .onConflictDoUpdate({
+      target: [oauthConnection.organizationId, oauthConnection.provider],
+      set: {
+        encryptedTokens,
+        scopes,
+        accountName,
+        tokenExpiresAt,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/**
+ * Compare-and-set so two concurrent refreshes cannot leave the row holding a
+ * token that was already replaced. Returns false when the caller lost the race.
+ */
+export async function updateGrowthOAuthConnectionIfUnchanged({
+  organizationId,
+  previousEncryptedTokens,
+  encryptedTokens,
+  tokenExpiresAt,
+}: {
+  organizationId: string;
+  previousEncryptedTokens: string;
+  encryptedTokens: string;
+  tokenExpiresAt: Date;
+}) {
+  const updated = await db
+    .update(oauthConnection)
+    .set({ encryptedTokens, tokenExpiresAt, updatedAt: new Date() })
+    .where(
+      and(
+        eq(oauthConnection.organizationId, organizationId),
+        eq(oauthConnection.provider, "google_growth"),
+        eq(oauthConnection.encryptedTokens, previousEncryptedTokens)
+      )
+    )
+    .returning({ organizationId: oauthConnection.organizationId });
+  return updated.length > 0;
+}
+
+export async function deleteGrowthOAuthConnection({
+  organizationId,
+  previousEncryptedTokens,
+}: {
+  organizationId: string;
+  /** When given, only delete if the stored ciphertext is still the one we read. */
+  previousEncryptedTokens?: string;
+}) {
+  const conditions = [
+    eq(oauthConnection.organizationId, organizationId),
+    eq(oauthConnection.provider, "google_growth"),
+  ];
+  if (previousEncryptedTokens) {
+    conditions.push(eq(oauthConnection.encryptedTokens, previousEncryptedTokens));
+  }
+  const deleted = await db
+    .delete(oauthConnection)
+    .where(and(...conditions))
+    .returning({ organizationId: oauthConnection.organizationId });
+  return deleted.length > 0;
+}
+
+
 
 export async function createPasswordResetToken(userId: string, tokenHash: string) {
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-  await db.insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
+  // Bootstrap-only table (0052): issued before any session exists.
+  await adminDb().insert(passwordResetToken).values({ tokenHash, userId, expiresAt });
 }
 
+/**
+ * Consumes a reset token exactly once.
+ *
+ * The old version read the row, checked it, then wrote: two submissions arriving
+ * together both passed the check, so one token could reset the password twice.
+ * The claim is now a single conditional UPDATE (claimPasswordResetToken) that
+ * returns the userId only to the caller that won, and the password is written for
+ * that winner alone.
+ */
 export async function consumePasswordResetToken(
   tokenHash: string,
   newPassword: string
 ): Promise<boolean> {
-  const [row] = await db
-    .select()
-    .from(passwordResetToken)
-    .where(eq(passwordResetToken.tokenHash, tokenHash))
-    .limit(1);
-  if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+  const userId = await claimPasswordResetToken(tokenHash, { db });
+  if (!userId) {
     return false;
   }
+
   await db
     .update(user)
     .set({ password: generateHashedPassword(newPassword) })
-    .where(eq(user.id, row.userId));
-  await db
+    .where(eq(user.id, userId));
+
+  // Any other unused link for this account dies with the password it was meant
+  // to replace, so an older email cannot be replayed after a successful reset.
+  await adminDb()
     .update(passwordResetToken)
     .set({ usedAt: new Date() })
-    .where(eq(passwordResetToken.tokenHash, tokenHash));
+    .where(
+      and(eq(passwordResetToken.userId, userId), isNull(passwordResetToken.usedAt))
+    );
+
   return true;
+}
+
+export async function getWorkspaceUsageDetail(
+  organizationId: string,
+  limit = 25
+) {
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+  const breakdown = await db
+    .select({
+      event: usageEvent.event,
+      total: sum(usageEvent.quantity),
+      entries: count(),
+    })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        gte(usageEvent.createdAt, monthStart)
+      )
+    )
+    .groupBy(usageEvent.event)
+    .orderBy(desc(sum(usageEvent.quantity)));
+
+  const recent = await db
+    .select({
+      id: usageEvent.id,
+      event: usageEvent.event,
+      quantity: usageEvent.quantity,
+      createdAt: usageEvent.createdAt,
+    })
+    .from(usageEvent)
+    .where(
+      and(
+        eq(usageEvent.organizationId, organizationId),
+        gte(usageEvent.createdAt, monthStart)
+      )
+    )
+    .orderBy(desc(usageEvent.createdAt))
+    .limit(limit);
+
+  return {
+    monthStart,
+    breakdown: breakdown.map((row) => ({
+      event: row.event,
+      total: Number(row.total ?? 0),
+      entries: Number(row.entries ?? 0),
+    })),
+    recent,
+  };
+}
+
+export async function createMediaJob({
+  organizationId,
+  actionType,
+  prompt,
+}: {
+  organizationId: string;
+  actionType: string;
+  prompt: string;
+}) {
+  const [row] = await db
+    .insert(mediaJob)
+    .values({ organizationId, actionType, prompt })
+    .returning();
+  return row;
+}
+
+export async function getMediaJob(id: string, organizationId: string) {
+  const [row] = await db
+    .select()
+    .from(mediaJob)
+    .where(and(eq(mediaJob.id, id), eq(mediaJob.organizationId, organizationId)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function finishMediaJob(input: MediaJobUpdate) {
+  const [row] = await db.execute(mediaJobUpdateQuery(input));
+  return row ?? null;
+}
+
+/** Owner-only image pilot: failures count toward the daily attempt cap. */
+export async function reserveGatewayImage(input: {
+  organizationId: string;
+  actionType: "IMAGE" | "CARTOON";
+  prompt: string;
+}) {
+  return db.transaction(async (tx) => {
+    // Serialize admission across instances before counting or creating jobs.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`gateway-image:${input.organizationId}`}))`
+    );
+    const [usage] = await tx
+      .select({ total: count() })
+      .from(mediaJob)
+      .where(
+        and(
+          eq(mediaJob.organizationId, input.organizationId),
+          inArray(mediaJob.actionType, ["IMAGE", "CARTOON"]),
+          sql`${mediaJob.createdAt} >= (now() at time zone 'UTC')::date`
+        )
+      );
+    if (Number(usage?.total ?? 0) >= 3) {
+      return null;
+    }
+    const [job] = await tx.insert(mediaJob).values(input).returning();
+    return job;
+  });
+}
+
+export async function getAgentHistory(
+  organizationId: string,
+  conversationKey: string,
+  limit = 10
+) {
+  const rows = await db
+    .select({
+      role: agentMessage.role,
+      content: agentMessage.content,
+    })
+    .from(agentMessage)
+    .where(
+      and(
+        eq(agentMessage.organizationId, organizationId),
+        eq(agentMessage.conversationKey, conversationKey)
+      )
+    )
+    .orderBy(desc(agentMessage.createdAt))
+    .limit(limit);
+
+  return rows.reverse();
+}
+
+export async function appendAgentMessage({
+  organizationId,
+  userId,
+  conversationKey,
+  role,
+  content,
+}: {
+  organizationId: string;
+  userId: string;
+  conversationKey: string;
+  role: "user" | "assistant";
+  content: string;
+}) {
+  await db.insert(agentMessage).values({
+    organizationId,
+    userId,
+    conversationKey,
+    role,
+    content: content.slice(0, 8000),
+  });
+}
+
+/** Owner of a workspace, used by the launch testing program to resolve a claim. */
+export async function getWorkspaceOwnerId(organizationId: string) {
+  const [row] = await adminDb()
+    .select({ userId: organizationMember.userId })
+    .from(organizationMember)
+    .where(eq(organizationMember.organizationId, organizationId))
+    .limit(1);
+  return row?.userId ?? null;
 }

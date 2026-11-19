@@ -514,8 +514,8 @@ export function VoiceInputButton({
     <>
       {errorPanel}
       <Button
-        aria-label={isArabic ? "التحدث إلى الوكيل" : "Talk to the agent"}
-        className="h-8 px-2"
+        aria-label={isArabic ? "الكتابة بالصوت" : "Dictate"}
+        className="size-8 rounded-full p-0"
         data-testid="voice-record-button"
         disabled={disabled}
         onClick={() => {
@@ -524,8 +524,8 @@ export function VoiceInputButton({
         size="sm"
         title={
           isArabic
-            ? "اضغط وتكلّم، واضغط المربع الأحمر للإرسال"
-            : "Tap, speak, then tap the red square to send"
+            ? "اضغط وتكلّم، ثم اضغط المربع الأحمر ليظهر الكلام مكتوبًا"
+            : "Tap, speak, then tap the red square to turn it into text"
         }
         type="button"
         variant="ghost"

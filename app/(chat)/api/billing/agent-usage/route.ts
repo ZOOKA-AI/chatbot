@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { getWorkspaceBilling } from "@/lib/db/queries";
-import { workspacePlans } from "@/lib/saas/plans";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
-export async function GET() {
+async function GETImpl() {
   const context = await getWorkspaceContext();
   if (!context) {
     return NextResponse.json(
@@ -12,28 +12,20 @@ export async function GET() {
     );
   }
 
-  const billing = await getWorkspaceBilling(context.organizationId);
-  const subscription = billing.subscription;
-  const hasAgentPlan =
-    context.user.type === "regular" &&
-    !!subscription &&
-    subscription.plan !== "free" &&
-    ["active", "trialing"].includes(subscription.status);
-  const plan =
-    hasAgentPlan && subscription
-      ? workspacePlans[subscription.plan]
-      : workspacePlans.free;
-  const agentRunsRemaining = Math.max(
-    0,
-    plan.monthlyAgentRuns - billing.usage.agentRuns
-  );
+  // Same decision the chat route and the sidebar read: paid plan OR a live
+  // launch-testing claim. Usage stays metered, nothing is deducted.
+  const entitlements = await getWorkspaceEntitlements(context.organizationId);
 
   return NextResponse.json(
     {
-      canUseAgentMode: hasAgentPlan && agentRunsRemaining > 0,
-      hasAgentPlan,
-      agentRunsRemaining,
+      canUseAgentMode:
+        context.user.type === "regular" && entitlements.canUseAgentMode,
+      hasAgentPlan: context.user.type === "regular" && entitlements.isPaid,
+      agentRunsRemaining: entitlements.agentRunsRemaining,
     },
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);

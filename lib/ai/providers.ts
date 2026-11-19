@@ -1,4 +1,5 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
 import { gateway } from "@ai-sdk/gateway";
 import {
   customProvider,
@@ -15,6 +16,31 @@ const THINKING_SUFFIX_REGEX = /-thinking$/;
 // present, route every request straight to Google's Generative Language API.
 const USE_DIRECT_GOOGLE =
   !process.env.AI_GATEWAY_API_KEY && !!process.env.GEMINI_API_KEY;
+
+// Groq fallback. The gateway is the first choice and Google the second; Groq is the
+// third so that a deployment with a Groq key and nothing else can still answer. It is
+// also selectable per request by asking for one of GROQ_MODELS, which keeps the existing
+// providers untouched and reachable.
+const GROQ_API_KEY = process.env.GROQ_API_KEY?.trim();
+export const USE_GROQ =
+  !process.env.AI_GATEWAY_API_KEY && !process.env.GEMINI_API_KEY?.trim() && !!GROQ_API_KEY;
+
+export const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
+
+// Groq's own catalogue ids do not follow the registry's provider/model convention, so the
+// mapping is explicit. A wrong id must fail loudly instead of silently answering with a
+// different model, which is why nothing here is derived from the model id at runtime.
+export const GROQ_MODELS: Record<string, string> = {
+  "groq/gpt-oss-120b": "openai/gpt-oss-120b",
+  "groq/gpt-oss-20b": "openai/gpt-oss-20b",
+  "groq/qwen3-27b": "qwen/qwen3.6-27b",
+};
+
+const groqWithKey = GROQ_API_KEY ? createGroq({ apiKey: GROQ_API_KEY }) : null;
+
+export function isGroqConfigured() {
+  return !!GROQ_API_KEY;
+}
 
 const DIRECT_MODEL = "gemini-flash-lite-latest";
 const DIRECT_MODEL_REASONING = "gemini-pro-latest";
@@ -145,6 +171,28 @@ export function getLanguageModel(modelId: string) {
     return myProvider.languageModel(modelId);
   }
 
+  const groqModelId = GROQ_MODELS[modelId];
+  if (groqModelId) {
+    if (!groqWithKey) {
+      throw new Error(
+        `Model ${modelId} needs GROQ_API_KEY, which is not configured`
+      );
+    }
+    return groqWithKey(groqModelId);
+  }
+  // A "groq/..." id that is not in the map must fail loudly. Falling back here would let a
+  // typo answer with a different model while the UI still claims the requested one.
+  if (modelId.startsWith("groq/")) {
+    throw new Error(`Unknown Groq model: ${modelId}`);
+  }
+
+  // Nothing else configured: answer through Groq rather than reporting the model service
+  // as unavailable. If Groq is not configured either, fall through and let the existing
+  // gateway path raise its own error.
+  if (USE_GROQ && groqWithKey) {
+    return groqWithKey(GROQ_DEFAULT_MODEL);
+  }
+
   const isReasoningModel =
     modelId.endsWith("-thinking") ||
     (modelId.includes("reasoning") && !modelId.includes("non-reasoning"));
@@ -177,6 +225,9 @@ export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
+  if (USE_GROQ && groqWithKey) {
+    return groqWithKey(GROQ_DEFAULT_MODEL);
+  }
   if (USE_DIRECT_GOOGLE) {
     return googleWithKey("gemini-flash-lite-latest");
   }
@@ -186,6 +237,9 @@ export function getTitleModel() {
 export function getArtifactModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("artifact-model");
+  }
+  if (USE_GROQ && groqWithKey) {
+    return groqWithKey(GROQ_DEFAULT_MODEL);
   }
   if (USE_DIRECT_GOOGLE) {
     return googleWithKey(DIRECT_MODEL);

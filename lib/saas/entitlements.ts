@@ -1,4 +1,5 @@
-import { getWorkspaceBilling } from "@/lib/db/queries";
+import { getWorkspaceBilling, getWorkspaceOwnerId } from "@/lib/db/queries";
+import { hasLaunchSlot, isLaunchProgramOpen } from "@/lib/billing/launch-program";
 import { type WorkspacePlan, workspacePlans } from "@/lib/saas/plans";
 
 /**
@@ -36,6 +37,24 @@ export async function getWorkspaceEntitlements(
 ): Promise<WorkspaceEntitlements> {
   if (!organizationId) {
     return freeEntitlements;
+  }
+
+  // Launch testing program: the first twenty registered accounts keep full
+  // features until the owner ends the program. Checked before billing so a
+  // missing Subscription row cannot block them.
+  if (isLaunchProgramOpen()) {
+    const ownerId = await getWorkspaceOwnerId(organizationId).catch(() => null);
+    if (await hasLaunchSlot(ownerId)) {
+      const launchPlan = workspacePlans.business;
+      return {
+        plan: "business",
+        isPaid: true,
+        canConnectIntegrations: true,
+        canUseAgentMode: true,
+        agentRunsRemaining: launchPlan.monthlyAgentRuns,
+        messagesLimit: launchPlan.monthlyMessages,
+      };
+    }
   }
 
   const billing = await getWorkspaceBilling(organizationId);

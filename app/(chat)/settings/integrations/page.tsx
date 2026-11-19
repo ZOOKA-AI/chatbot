@@ -1,32 +1,44 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ExternalLink, Settings2 } from "lucide-react";
 import { redirect } from "next/navigation";
+import { ConnectorLogo } from "@/components/connector-logo";
+import { ConnectorProbeButton } from "@/components/connector-probe-button";
 import { GoogleDriveConnectionControl } from "@/components/google-drive-connection-control";
 import { N8nConnectionControl } from "@/components/n8n-connection-control";
 import { OAuthConnectionControl } from "@/components/oauth-connection-control";
+import { TokenConnectionControl } from "@/components/token-connection-control";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
-import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
-import {
-  isGoogleDriveConfigured,
-  isGoogleDriveConnected,
-} from "@/lib/integrations/google-drive/server";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
+import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
+import { getConnectorDetails } from "@/lib/integrations/connectors/detail";
+import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
+import { INTEGRATION_PLAYBOOKS } from "@/lib/integrations/playbooks";
+import { CONNECTOR_SPECS } from "@/lib/integrations/connectors/registry";
+import { isOAuthProviderConfigured } from "@/lib/integrations/oauth/config";
 import {
-  INTEGRATION_PROVIDERS,
-  PROVIDER_CATEGORIES,
+  getIntegrationProviders,
+  isWhatsAppConfigured,
   type IntegrationProvider,
+  PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
-import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { withTenantPage } from "@/lib/db/request-tenant";
 
 export const metadata: Metadata = {
   title: "Integrations",
 };
 
-export default async function IntegrationsPage({
+async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ googleDrive?: string; github?: string; vercel?: string }>;
+  searchParams: Promise<{
+    googleDrive?: string;
+    github?: string;
+    vercel?: string;
+    x?: string;
+  }>;
 }) {
   const context = await getWorkspaceContext();
   if (!context) {
@@ -36,11 +48,16 @@ export default async function IntegrationsPage({
   const lang = await getLang();
   const isArabic = lang === "ar";
   const entitlements = await getWorkspaceEntitlements(context.organizationId);
-  const { googleDrive, github, vercel } = await searchParams;
+  // Stored account and declared reads per connector, read once for the whole page.
+  const connectorDetails = await getConnectorDetails(context.organizationId).catch(
+    () => new Map<string, never>()
+  );
+  const { googleDrive, github, vercel, x } = await searchParams;
   const oauthFeedback = (() => {
-    const entries: Array<[string, string | undefined]> = [
+    const entries: [string, string | undefined][] = [
       ["GitHub", github],
       ["Vercel", vercel],
+      ["X", x],
     ];
     const active = entries.find(([, value]) => value);
     if (!active) {
@@ -81,31 +98,27 @@ export default async function IntegrationsPage({
   })();
   const feedback = getGoogleDriveCallbackFeedback(googleDrive, lang);
   const googleDriveConfigured = isGoogleDriveConfigured();
-  const googleDriveConnected =
-    googleDriveConfigured &&
-    (await isGoogleDriveConnected(context.organizationId));
-  const providers: IntegrationProvider[] = INTEGRATION_PROVIDERS;
-  const googleProviders = new Set(["google_drive", "gmail"]);
-  const connectedIds = new Set<string>(
-    googleDriveConnected
-      ? [...googleProviders].filter((id) => id !== "gmail" || googleDriveConnected)
-      : []
+  const xConfigured = isOAuthProviderConfigured("x");
+  // One source of truth shared with /api/integrations/status: a badge reads
+  // "connected" only when the stored credential works right now.
+  // Neither of the two status reads may take the page down. A settings screen
+  // that 500s because one provider probe misbehaved is worse than a card that
+  // honestly shows no measured status.
+  const liveStatus = await getLiveIntegrationStatus(context.organizationId, {
+    googleConfigured: googleDriveConfigured,
+  }).catch(() => ({
+    connected: new Set<string>(),
+    needsReconnect: new Set<string>(),
+  }));
+  const connectedIds = liveStatus.connected;
+  const needsReconnectIds = liveStatus.needsReconnect;
+  const googleDriveConnected = connectedIds.has("google_drive");
+  const googleNeedsReconnect = ["google_drive", "gmail", "google_calendar"].some(
+    (id) => needsReconnectIds.has(id)
   );
-  // Credentials stored by the workspace (Stripe, Supabase, GitHub, Vercel, n8n)
-  // live in integration_connection; surface them so a provider only reads
-  // "connected" when a real encrypted credential exists for this workspace.
-  try {
-    for (const stored of await listWorkspaceIntegrations(
-      context.organizationId
-    )) {
-      if (stored.status === "connected") {
-        connectedIds.add(stored.providerId);
-      }
-    }
-  } catch {
-    // the table may be unreachable in a degraded deploy; badges fall back to
-    // the Google Drive state only.
-  }
+  const providers: IntegrationProvider[] = getIntegrationProviders(
+    isWhatsAppConfigured(process.env)
+  );
   const grouped = providers.reduce<Record<string, IntegrationProvider[]>>(
     (accumulator, provider) => {
       accumulator[provider.category] = [
@@ -129,10 +142,10 @@ export default async function IntegrationsPage({
       style={{ fontFamily: fontOf(lang) }}
     >
       <header className="flex flex-col gap-2">
-        <h1 className="font-semibold text-2xl">
+        <h1 className="text-2xl font-semibold">
           {isArabic ? "التكاملات" : "Integrations"}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {isArabic
             ? "يستخدم الوكيل Google Drive للقراءة، وGmail للبحث والقراءة والإرسال عند تفعيل الاتصال في مساحة العمل. لا تتوفر تكاملات Notion وShopify."
             : "The Agent can use Google Drive read-only, and Gmail to search, read and send, when connected to this workspace. Notion and Shopify are unavailable."}
@@ -172,16 +185,26 @@ export default async function IntegrationsPage({
         <article className="flex items-center justify-between gap-4 rounded-lg border p-5">
           <div className="flex flex-col gap-1">
             <h2 className="font-medium">Google Drive &amp; Gmail</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               {isArabic
                 ? "البحث عن ملفات Google Docs والنصوص وقراءتها. لا يمكن للوكيل تعديل الملفات."
                 : "Search and read Google Docs and text files. The Agent cannot modify files."}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {isArabic
                 ? "تُحفظ الرموز مشفّرة ومقيّدة بمساحة العمل. يُرسل نص الملف المقروء إلى النموذج ويُحفظ ضمن المحادثة."
                 : "Tokens are encrypted and scoped to this workspace. Read file text is sent to the model and saved with the chat."}
             </p>
+            {googleNeedsReconnect ? (
+              <p
+                className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-amber-800 text-sm dark:text-amber-300"
+                role="status"
+              >
+                {isArabic
+                  ? "صلاحيات Google المحفوظة لم تعد تعمل، لذلك لا يستطيع الوكيل قراءة Gmail أو Drive أو التقويم. اضغط «تحديث صلاحيات Gmail والتقويم» ووافق على كل الصلاحيات."
+                  : "The saved Google permission no longer works, so the Agent cannot read Gmail, Drive or Calendar. Use “Update Gmail and Calendar permissions” and approve every permission."}
+              </p>
+            ) : null}
           </div>
           {entitlements.canConnectIntegrations ? (
             <GoogleDriveConnectionControl
@@ -192,7 +215,7 @@ export default async function IntegrationsPage({
             />
           ) : (
             <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed p-4">
-              <p className="font-medium text-sm">
+              <p className="text-sm font-medium">
                 {isArabic
                   ? "ربط التكاملات متاح في الباقات المدفوعة"
                   : "Connecting integrations requires a paid plan"}
@@ -203,7 +226,7 @@ export default async function IntegrationsPage({
                   : "The free plan covers chat only. Pro adds account connections and agent runs."}
               </p>
               <Link
-                className="rounded-md bg-foreground px-3 py-1.5 font-medium text-background text-xs"
+                className="bg-foreground text-background rounded-md px-3 py-1.5 text-xs font-medium"
                 href="/pricing"
               >
                 {isArabic ? "رقّي الباقة" : "Upgrade plan"}
@@ -232,6 +255,83 @@ export default async function IntegrationsPage({
             </p>
           )}
         </article>
+        <section className="flex flex-col gap-3 rounded-lg border p-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium">
+              {isArabic
+                ? "دليل الربط من الصفر لكل منصة"
+                : "Connect any provider from zero"}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {isArabic
+                ? "كل منصة هنا فيها خطوات إنشاء الحساب واستخراج الاعتماد وموضع لصقه وفحص التأكيد. الوكيل يستخدم نفس الدليل ليجيب أي مستخدم، ولا يطلب أي سر داخل المحادثة."
+                : "Each provider lists how to create the account, where the credential comes from, where to paste it and how it is verified. The agent answers tenants from this same guide and never asks for a secret in chat."}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            {INTEGRATION_PLAYBOOKS.map((playbook) => {
+              const provider = providers.find(
+                (entry) => entry.id === playbook.providerId
+              );
+              if (!provider) {
+                return null;
+              }
+              return (
+                <details
+                  className="rounded-md border px-3 py-2"
+                  key={playbook.providerId}
+                >
+                  <summary className="cursor-pointer text-sm font-medium">
+                    {isArabic ? provider.nameAr : provider.name}
+                    {playbook.selfServe ? null : (
+                      <span className="text-muted-foreground">
+                        {isArabic ? " · يحتاج خطوة منصة" : " · platform step needed"}
+                      </span>
+                    )}
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-2 text-sm">
+                    <p className="text-muted-foreground">
+                      {isArabic ? "الاعتماد: " : "Credential: "}
+                      {isArabic ? playbook.credentialAr : playbook.credentialEn}
+                    </p>
+                    {playbook.prerequisites.length ? (
+                      <div>
+                        <p className="font-medium">
+                          {isArabic ? "قبل البدء" : "Prerequisites"}
+                        </p>
+                        <ul className="text-muted-foreground list-disc ps-5">
+                          {playbook.prerequisites.map((item) => (
+                            <li key={item.en}>{isArabic ? item.ar : item.en}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    <div>
+                      <p className="font-medium">
+                        {isArabic ? "الخطوات" : "Steps"}
+                      </p>
+                      <ol className="text-muted-foreground list-decimal ps-5">
+                        {playbook.steps.map((step) => (
+                          <li key={step.en}>{isArabic ? step.ar : step.en}</li>
+                        ))}
+                      </ol>
+                    </div>
+                    <p className="text-muted-foreground">
+                      {isArabic ? "التحقق: " : "Verification: "}
+                      {isArabic ? playbook.verifyAr : playbook.verifyEn}
+                    </p>
+                    {playbook.limitsAr || playbook.limitsEn ? (
+                      <p className="text-muted-foreground">
+                        {isArabic ? "حدود معروفة: " : "Known limits: "}
+                        {isArabic ? playbook.limitsAr : playbook.limitsEn}
+                      </p>
+                    ) : null}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        </section>
         <article className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex flex-col gap-1">
             <h2 className="font-medium">
@@ -262,54 +362,372 @@ export default async function IntegrationsPage({
         </article>
         {Object.entries(grouped).map(([category, items]) => (
           <div className="flex flex-col gap-3" key={category}>
-            <h3 className="font-medium text-sm text-muted-foreground">
+            <h3 className="text-muted-foreground text-sm font-medium">
               {isArabic
                 ? (PROVIDER_CATEGORIES[category]?.ar ?? category)
                 : (PROVIDER_CATEGORIES[category]?.en ?? category)}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               {items.map((provider) => {
-                const connected = connectedIds.has(provider.id);
+                const configured = provider.id !== "x" || xConfigured;
+                const connected =
+                  connectedIds.has(provider.id) && configured;
+                const needsReconnect =
+                  needsReconnectIds.has(provider.id) && configured;
                 const available = provider.status === "available";
                 return (
                   <article
-                    className="flex flex-col gap-2 rounded-lg border p-4"
+                    className="flex scroll-mt-24 flex-col gap-2 rounded-lg border p-4"
                     data-provider={provider.id}
+                    id={provider.id}
                     key={provider.id}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-medium text-sm">
-                        {isArabic ? provider.nameAr : provider.name}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <ConnectorLogo providerId={provider.id} />
+                        <h4 className="text-sm font-medium">
+                          {isArabic ? provider.nameAr : provider.name}
+                        </h4>
+                      </div>
                       <span
                         className={
                           connected
                             ? "shrink-0 rounded-full border border-emerald-600/40 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-400"
-                            : "shrink-0 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+                            : needsReconnect
+                              ? "shrink-0 rounded-full border border-amber-500/50 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-400"
+                              : "text-muted-foreground shrink-0 rounded-full border px-2 py-0.5 text-[11px]"
                         }
                       >
                         {connected
                           ? isArabic
                             ? "متصل"
                             : "Connected"
-                          : available
+                          : needsReconnect
                             ? isArabic
-                              ? "ربط ذاتي"
-                              : "Self-serve"
-                            : provider.status === "beta"
+                              ? "يحتاج إعادة ربط"
+                              : "Reconnect needed"
+                            : available && configured
+                              ? provider.id === "whatsapp"
+                                ? isArabic
+                                  ? "مهيأ على الخادم"
+                                  : "Server configured"
+                                : isArabic
+                                  ? "ربط ذاتي"
+                                  : "Self-serve"
+                            : provider.id === "x"
                               ? isArabic
-                                ? "عبر الوكيل"
-                                : "Via agent"
-                              : isArabic
-                                ? "قريبًا"
-                                : "Coming soon"}
+                                ? "غير مُعدّ"
+                                : "Not configured"
+                              : provider.status === "beta"
+                                ? isArabic
+                                  ? "عبر الوكيل"
+                                  : "Via agent"
+                                : isArabic
+                                  ? "قريبًا"
+                                  : "Coming soon"}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                       {isArabic ? provider.descriptionAr : provider.description}
                     </p>
-                    {available && (provider.id === "google_drive" || provider.id === "gmail") ? (
-                      <p className="text-[11px] text-muted-foreground">
+                    {(() => {
+                      const detail = connectorDetails.get(provider.id);
+                      const playbook = INTEGRATION_PLAYBOOKS.find(
+                        (entry) => entry.providerId === provider.id
+                      );
+                      const attention = needsReconnect || Boolean(detail?.lastError);
+                      if (!detail && !playbook && !available) {
+                        return null;
+                      }
+                      return (
+                        <details
+                          className="group mt-1 rounded-md border bg-muted/20 [&_summary::-webkit-details-marker]:hidden"
+                          data-settings={provider.id}
+                          open={attention}
+                        >
+                          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-xs font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <Settings2 aria-hidden="true" className="size-4" />
+                              {isArabic ? "الإعدادات" : "Settings"}
+                            </span>
+                            <span className="text-muted-foreground text-[11px] font-normal">
+                              {detail?.account ??
+                                (connected
+                                  ? isArabic
+                                    ? "متصل"
+                                    : "Connected"
+                                  : isArabic
+                                    ? "غير مربوط"
+                                    : "Not connected")}
+                            </span>
+                          </summary>
+                          <div className="flex flex-col gap-3 border-t p-3">
+                            {playbook ? (
+                              <div className="flex flex-col gap-1.5 text-[11px]">
+                                <p className="font-medium text-xs">
+                                  {playbook.connection === "oauth"
+                                    ? isArabic
+                                      ? "طريقة الربط: موافقة بضغطة (OAuth)"
+                                      : "How to connect: one-click consent (OAuth)"
+                                    : isArabic
+                                      ? "طريقة الحصول على التوكن"
+                                      : "How to get the token"}
+                                </p>
+                                <p className="text-muted-foreground">
+                                  {isArabic ? playbook.credentialAr : playbook.credentialEn}
+                                </p>
+                                <ol className="text-muted-foreground list-decimal ps-4">
+                                  {playbook.steps.map((step) => (
+                                    <li key={step.en}>{isArabic ? step.ar : step.en}</li>
+                                  ))}
+                                </ol>
+                                {playbook.docsUrl ? (
+                                  <a
+                                    className="inline-flex min-h-11 w-fit items-center gap-1 text-violet-600 underline dark:text-violet-300"
+                                    href={playbook.docsUrl}
+                                    rel="noopener noreferrer"
+                                    target="_blank"
+                                  >
+                                    {isArabic ? "فتح صفحة المزوّد" : "Open provider page"}
+                                    <ExternalLink aria-hidden="true" className="size-3" />
+                                  </a>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {(() => {
+                      if (!detail) {
+                        return null;
+                      }
+                      return (
+                        <div className="flex flex-col gap-1 rounded-md border border-dashed p-2">
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span className="text-muted-foreground">
+                              {isArabic ? "الحساب" : "Account"}
+                            </span>
+                            <span className="font-medium">
+                              {detail.account ??
+                                (isArabic ? "لا يوجد حساب محفوظ" : "No stored account")}
+                            </span>
+                          </div>
+                          {detail.accountEmail ? (
+                            <p className="text-muted-foreground text-[11px]">
+                              {detail.accountEmail}
+                            </p>
+                          ) : null}
+                          {detail.scopes.length > 0 ? (
+                            <p className="text-muted-foreground text-[11px]">
+                              {isArabic ? "الصلاحيات" : "Scopes"}:{" "}
+                              {detail.scopes.join(" · ")}
+                            </p>
+                          ) : null}
+                          {detail.operations.length > 0 ? (
+                            <p className="text-muted-foreground text-[11px]">
+                              {isArabic ? "قراءات متاحة" : "Reads"}:{" "}
+                              {detail.operations
+                                .map((operation) =>
+                                  isArabic ? operation.titleAr : operation.titleEn
+                                )
+                                .join(" · ")}
+                            </p>
+                          ) : null}
+                          {detail.lastError ? (
+                            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                              {isArabic ? "آخر خطأ" : "Last error"}: {detail.lastError}
+                            </p>
+                          ) : null}
+                          <ConnectorProbeButton
+                            canManage={canManage}
+                            label={isArabic ? provider.nameAr : provider.name}
+                            lang={lang}
+                            provider={provider.id}
+                          />
+                        </div>
+                      );
+                    })()}
+                    {provider.id === "google_calendar" &&
+                    !connected &&
+                    canManage &&
+                    googleDriveConfigured ? (
+                      <Link
+                        className="text-xs underline"
+                        href="/api/integrations/google-drive/connect"
+                      >
+                        {isArabic
+                          ? "ربط التقويم عبر موافقة Google المشتركة"
+                          : "Connect Calendar via shared Google consent"}
+                      </Link>
+                    ) : null}
+                    {provider.id === "x" ? (
+                      <OAuthConnectionControl
+                        allowToken={canManage}
+                        canManage={canManage}
+                        label="X"
+                        lang={lang}
+                        provider="x"
+                        tokenHint="X user access token"
+                      />
+                    ) : null}
+                    {["slack", "notion", "twilio", "shopify", "tiktok", "whatsapp", "cloudflare"].includes(
+                      provider.id
+                    )
+                      ? (() => {
+                          const spec = CONNECTOR_SPECS.find(
+                            (entry) => entry.providerId === provider.id
+                          );
+                          if (!spec) {
+                            return null;
+                          }
+                          return (
+                            <TokenConnectionControl
+                              canManage={canManage}
+                              label={spec.label}
+                              lang={lang}
+                              provider={provider.id}
+                              tokenHint={
+                                isArabic
+                                  ? spec.credentialHintAr
+                                  : spec.credentialHintEn
+                              }
+                            />
+                          );
+                        })()
+                      : null}
+                    {provider.id === "instagram" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Instagram"
+                        lang={lang}
+                        provider="instagram"
+                        tokenHint={
+                          isArabic
+                            ? "توكن وصول لصفحة فيسبوك/إنستغرام"
+                            : "Instagram / Facebook page access token"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "meta" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label={isArabic ? "صفحة فيسبوك" : "Facebook page"}
+                        lang={lang}
+                        provider="meta"
+                        tokenHint={
+                          isArabic
+                            ? "توكن وصول لصفحة فيسبوك"
+                            : "Facebook page access token"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "telegram_bot" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Telegram Bot"
+                        lang={lang}
+                        provider="telegram_bot"
+                        tokenHint={
+                          isArabic
+                            ? "توكن البوت من @BotFather"
+                            : "Bot token from @BotFather"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "stripe" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Stripe"
+                        lang={lang}
+                        provider="stripe"
+                        tokenHint={
+                          isArabic
+                            ? "مفتاح سترايب مقيّد للقراءة فقط (rk_… أو sk_…)"
+                            : "Stripe read-only restricted key (rk_… or sk_…)"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "supabase" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Supabase"
+                        lang={lang}
+                        provider="supabase"
+                        tokenHint={
+                          isArabic
+                            ? "رمز وصول شخصي من Supabase (sbp_…)"
+                            : "Supabase personal access token (sbp_…)"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "improvmx" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="ImprovMX"
+                        lang={lang}
+                        provider="improvmx"
+                        tokenHint={
+                          isArabic ? "مفتاح ImprovMX (sk_…)" : "ImprovMX API key (sk_…)"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "google_ads" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Google Ads"
+                        lang={lang}
+                        provider="ryze"
+                        tokenHint={
+                          isArabic
+                            ? "توكن تجديد Ryze (refresh token)"
+                            : "Ryze refresh token"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "telegram_ads" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Telegram Ads"
+                        lang={lang}
+                        provider="telegram_ads"
+                        tokenHint={
+                          isArabic
+                            ? "توكن Promote API من ads.telegram.org → API"
+                            : "Promote API token from ads.telegram.org → API"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "snapchat" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Snapchat"
+                        lang={lang}
+                        provider="snapchat"
+                        tokenHint={
+                          isArabic
+                            ? "توكن تسويق سناب (access_token أو access_token|refresh_token)"
+                            : "Snap Marketing token (access_token or access_token|refresh_token)"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "linkedin" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="LinkedIn"
+                        lang={lang}
+                        provider="linkedin"
+                        tokenHint={
+                          isArabic
+                            ? "توكن وصول لعضو لينكدإن"
+                            : "LinkedIn member access token"
+                        }
+                      />
+                    ) : null}
+                          </div>
+                        </details>
+                      );
+                    })()}
+                    {available &&
+                    (provider.id === "google_drive" ||
+                      provider.id === "gmail") ? (
+                      <p className="text-muted-foreground text-[11px]">
                         {isArabic
                           ? "ربط بضغطة: الوكيل يفتح صفحة الموافقة بنفسه ولا تحتاج مفتاحًا."
                           : "One-click: the Agent opens the consent screen, no API key needed."}
@@ -323,7 +741,7 @@ export default async function IntegrationsPage({
         ))}
       </section>
 
-      <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
+      <p className="bg-muted text-muted-foreground rounded-md p-4 text-sm">
         {isArabic
           ? "لا يظهر Google Drive وGmail كمتصلين إلا بعد موافقة OAuth وتخزين الرموز مشفّرة لمساحة العمل. البحث والقراءة والإرسال متاحة للوكيل."
           : "Google Drive and Gmail are shown as connected only after OAuth succeeds and tokens are encrypted for this workspace. The Agent can search, read and send from Gmail."}
@@ -331,3 +749,7 @@ export default async function IntegrationsPage({
     </main>
   );
 }
+
+// The page reads this workspace's connections, so it renders inside the
+// caller's tenant transaction.
+export default withTenantPage(IntegrationsPage);

@@ -61,10 +61,10 @@ export function GoogleDriveConnectionControl({
   if (!configured) {
     return (
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+        <span className="text-muted-foreground rounded-full border px-3 py-1 text-xs">
           {isArabic ? "غير متاح" : "Unavailable"}
         </span>
-        <span className="max-w-56 text-end text-xs text-muted-foreground">
+        <span className="text-muted-foreground max-w-56 text-end text-xs">
           {isArabic
             ? "يتطلب إعداد بيانات OAuth ومفتاح التشفير على الخادم."
             : "Server OAuth credentials and a token-encryption key are required."}
@@ -99,6 +99,21 @@ export function GoogleDriveConnectionControl({
                 : "Disconnect"}
           </Button>
         )}
+        {canManage && (
+          <Link
+            className="text-xs underline"
+            href="/api/integrations/google-drive/connect"
+          >
+            {isArabic
+              ? "تحديث صلاحيات Gmail والتقويم"
+              : "Update Gmail and Calendar permissions"}
+          </Link>
+        )}
+        <span className="text-muted-foreground max-w-64 text-end text-xs">
+          {isArabic
+            ? "الاتصال المحفوظ لا يؤكد نجاح العمليات؛ اختبر كل خدمة بعد الموافقة."
+            : "Stored authorization is not a live health check; test each service after consent."}
+        </span>
         {error && <span className="text-destructive text-xs">{error}</span>}
       </div>
     );
@@ -106,7 +121,7 @@ export function GoogleDriveConnectionControl({
 
   if (!canManage) {
     return (
-      <span className="max-w-56 text-end text-xs text-muted-foreground">
+      <span className="text-muted-foreground max-w-56 text-end text-xs">
         {isArabic
           ? "اطلب من مسؤول مساحة العمل إعداد الاتصال."
           : "Ask a workspace admin to connect Google Drive."}
@@ -124,13 +139,13 @@ export function GoogleDriveConnectionControl({
           {isArabic ? "ربط Google Drive" : "Connect Google Drive"}
         </Link>
       </Button>
-      <p className="max-w-64 text-end text-[11px] text-muted-foreground">
+      <p className="text-muted-foreground max-w-64 text-end text-[11px]">
         {isArabic
           ? "نفس الموافقة تشمل جيميل (قراءة وإرسال) وتقويم Google (إنشاء المواعيد)."
           : "The same consent covers Gmail (read and send) and Google Calendar (create events)."}
       </p>
       {revocationNotice && (
-        <p className="max-w-64 text-end text-xs text-muted-foreground">
+        <p className="text-muted-foreground max-w-64 text-end text-xs">
           {isArabic
             ? "تم الفصل من التطبيق، لكن تعذّر تأكيد الإلغاء لدى Google. أزل وصول Zooka من"
             : "Disconnected in this app, but Google could not confirm revocation. Remove Zooka access from"}{" "}

@@ -1,0 +1,295 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+/**
+ * The browser panel.
+ *
+ * A real page rendered live inside the app, wrapped in the chrome a browser has: back, forward,
+ * reload, an address bar that shows the real host and a lock when the connection is https. The frame
+ * is the customer's own browser showing the page, so the page is genuinely interactive.
+ *
+ * Honesty rules kept from the rest of the workspace: a site that refuses to be framed is named as
+ * such with the header that refused it, never hidden behind a blank frame; a navigation that fails
+ * shows the reason the server gave; and the panel never claims to be a browser we control when it is
+ * the customer's own.
+ *
+ * SAMEORIGIN is not a refusal for our own domain. zooka-ai.com sends it, and a panel served from
+ * zooka-ai.com is exactly the framer that header allows, so the server decides per request who is
+ * asking and this panel reports that decision instead of guessing from the header text.
+ */
+
+type Verdict = {
+  embeddable: boolean;
+  reason:
+    | "allowed"
+    | "x_frame_options"
+    | "frame_ancestors"
+    | "unreachable"
+    | "unsafe_url";
+  finalUrl: string | null;
+  detail: string | null;
+  embedderOrigin?: string | null;
+  sameOrigin?: boolean;
+  via?: "none" | "same_origin" | "wildcard" | "listed" | "denied" | null;
+};
+
+const REFUSAL_TEXT: Record<Verdict["reason"], string> = {
+  allowed: "",
+  x_frame_options:
+    "الموقع يمنع عرضه داخل إطار من هذا النطاق (X-Frame-Options)، فلا يمكن عرضه هنا.",
+  frame_ancestors:
+    "سياسة المحتوى للموقع (frame-ancestors) تمنع إطاره داخل تطبيق آخر.",
+  unreachable: "تعذّر الوصول إلى الموقع من الخادم الآن، فلم أستطع فحصه.",
+  unsafe_url: "العنوان مرفوض: المسموح هو http و https لعناوين عامة فقط.",
+};
+
+function normalise(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+export function LiveBrowser({
+  initialUrl = "https://zooka-ai.com",
+  onClose,
+  fillHeight = false,
+}: {
+  initialUrl?: string;
+  /** When provided, a close control appears so the panel can be dismissed in place. */
+  onClose?: () => void;
+  /** Use the parent's height instead of the page's viewport, for docked layouts. */
+  fillHeight?: boolean;
+}) {
+  const [address, setAddress] = useState(initialUrl);
+  const [target, setTarget] = useState(initialUrl);
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [history, setHistory] = useState<string[]>([initialUrl]);
+  const [cursor, setCursor] = useState(0);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+
+  const probe = useCallback(async (url: string) => {
+    setChecking(true);
+    try {
+      const response = await fetch(
+        `/api/workspace/browser/embed-check?url=${encodeURIComponent(url)}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        setVerdict({
+          embeddable: false,
+          reason: "unreachable",
+          finalUrl: null,
+          detail: `http_${response.status}`,
+        });
+        return;
+      }
+      setVerdict((await response.json()) as Verdict);
+    } catch {
+      setVerdict({
+        embeddable: false,
+        reason: "unreachable",
+        finalUrl: null,
+        detail: "network",
+      });
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void probe(target);
+  }, [target, probe]);
+
+  const go = useCallback(
+    (raw: string) => {
+      const url = normalise(raw);
+      if (!url) return;
+      setAddress(url);
+      setTarget(url);
+      const next = [...history.slice(0, cursor + 1), url];
+      setHistory(next);
+      setCursor(next.length - 1);
+      setReloadKey((value) => value + 1);
+    },
+    [cursor, history]
+  );
+
+  const step = useCallback(
+    (delta: number) => {
+      const index = cursor + delta;
+      const url = history[index];
+      if (!url) return;
+      setCursor(index);
+      setAddress(url);
+      setTarget(url);
+      setReloadKey((value) => value + 1);
+    },
+    [cursor, history]
+  );
+
+  const https = target.startsWith("https://");
+  const host = (() => {
+    try {
+      return new URL(target).host;
+    } catch {
+      return target;
+    }
+  })();
+  const agentBrowserHref = `/workspace/browser?url=${encodeURIComponent(target)}`;
+  const sameOrigin = Boolean(verdict?.sameOrigin);
+
+  return (
+    <div
+      className={`mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] shadow-2xl ${
+        fillHeight ? "h-full" : "h-[calc(100dvh-9rem)]"
+      }`}
+    >
+      <div className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-2.5">
+        <div className="flex gap-2">
+          <span aria-hidden className="size-3 rounded-full bg-[#ff5f57]" />
+          <span aria-hidden className="size-3 rounded-full bg-[#febc2e]" />
+          <span aria-hidden className="size-3 rounded-full bg-[#28c840]" />
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            aria-label="رجوع"
+            className="rounded-md px-2 py-1 text-lg leading-none text-white/80 disabled:opacity-30"
+            disabled={cursor === 0}
+            onClick={() => step(-1)}
+            type="button"
+          >
+            ‹
+          </button>
+          <button
+            aria-label="تقدّم"
+            className="rounded-md px-2 py-1 text-lg leading-none text-white/80 disabled:opacity-30"
+            disabled={cursor >= history.length - 1}
+            onClick={() => step(1)}
+            type="button"
+          >
+            ›
+          </button>
+          <button
+            aria-label="إعادة تحميل"
+            className="rounded-md px-2 py-1 text-sm text-white/80"
+            onClick={() => setReloadKey((value) => value + 1)}
+            type="button"
+          >
+            ⟳
+          </button>
+        </div>
+        <form
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            go(address);
+          }}
+        >
+          <span aria-hidden className="text-xs">
+            {https ? "🔒" : "⚠️"}
+          </span>
+          <input
+            aria-label="عنوان الموقع"
+            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
+            dir="ltr"
+            onChange={(event) => setAddress(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            placeholder="zooka-ai.com"
+            spellCheck={false}
+            value={address}
+          />
+        </form>
+        <a
+          aria-label="فتح في نافذة جديدة"
+          className="rounded-md px-2 py-1 text-sm text-white/80"
+          href={target}
+          rel="noreferrer noopener"
+          target="_blank"
+        >
+          ↗
+        </a>
+        {onClose ? (
+          <button
+            aria-label="إغلاق المتصفح"
+            className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+            onClick={onClose}
+            type="button"
+          >
+            ✕
+          </button>
+        ) : null}
+      </div>
+
+      <div className="relative flex-1 bg-white">
+        {checking ? (
+          <div className="flex h-full items-center justify-center bg-[#0b1220] text-sm text-white/70">
+            يجري فحص إمكانية عرض {host}…
+          </div>
+        ) : verdict?.embeddable ? (
+          <iframe
+            className="h-full w-full border-0"
+            key={`${target}#${reloadKey}`}
+            ref={frameRef}
+            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+            src={target}
+            title={`متصفح — ${host}`}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#0b1220] px-6 text-center">
+            <p className="text-sm text-white/80">
+              {REFUSAL_TEXT[verdict?.reason ?? "unreachable"]}
+            </p>
+            {verdict?.detail ? (
+              <p className="font-mono text-[11px] text-white/40" dir="ltr">
+                {verdict.detail}
+              </p>
+            ) : null}
+            {verdict?.embedderOrigin ? (
+              <p className="font-mono text-[11px] text-white/30" dir="ltr">
+                framer: {verdict.embedderOrigin}
+              </p>
+            ) : null}
+            <p className="max-w-md text-xs text-white/50">
+              العرض المباشر يتم داخل متصفحك أنت. المواقع التي تمنع الإطار تُفتح
+              في نافذة مستقلة، أو تُعرض داخل متصفح الوكيل الذي يلتقط الصفحة من
+              الخادم.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <a
+                className="rounded-lg px-4 py-2 text-sm text-white"
+                href={agentBrowserHref}
+                style={{ background: "#2E86AB" }}
+              >
+                افتح {host} في متصفح الوكيل
+              </a>
+              <a
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+                href={target}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                نافذة مستقلة
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between border-t border-white/10 bg-white/5 px-4 py-1.5 text-[11px] text-white/50">
+        <span dir="ltr">{host}</span>
+        <span>
+          {verdict?.embeddable
+            ? sameOrigin
+              ? "عرض مباشر داخل التطبيق · نفس الأصل"
+              : "عرض مباشر داخل التطبيق"
+            : "غير معروض داخل الإطار"}
+        </span>
+      </div>
+    </div>
+  );
+}

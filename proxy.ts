@@ -1,12 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
+import { isNavigation, requestIdFrom } from "./lib/http/request-id";
 
 /**
  * Routes that require an authenticated session. Anything not listed here is
  * either public or a genuine 404, so unknown URLs reach Next.js and render the
  * not-found page instead of bouncing visitors to the login screen.
  */
+/**
+ * Endpoints an autonomous agent calls with its own key rather than a browser session.
+ * Kept to the narrowest list: the worker and its heartbeat, both of which authenticate the
+ * key themselves and refuse with 401 when it is missing or invalid.
+ */
+const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
+
 const PROTECTED_PREFIXES = [
   "/chat",
   "/settings",
@@ -19,7 +27,28 @@ const PROTECTED_PREFIXES = [
 ];
 
 export async function proxy(request: NextRequest) {
+  const requestId = requestIdFrom(request.headers);
+  const response = await route(request, requestId);
+  response.headers.set("x-request-id", requestId);
+  return response;
+}
+
+async function route(request: NextRequest, requestId: string) {
   const { pathname } = request.nextUrl;
+
+  if (
+    process.env.VERCEL_ENV === "production" &&
+    request.nextUrl.host !== "zooka-ai.com" &&
+    (pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/api/auth" ||
+      pathname.startsWith("/api/auth/"))
+  ) {
+    const url = new URL("https://zooka-ai.com");
+    url.pathname = pathname;
+    url.search = request.nextUrl.search;
+    return NextResponse.redirect(url, 307);
+  }
 
   /*
    * Playwright starts the dev server and requires a 200 status to
@@ -33,8 +62,41 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  /*
+   * One-shot schema endpoint: authenticated by its own x-migration-token
+   * header, so it must reach the route handler rather than a login redirect.
+   */
+  if (pathname === "/api/admin/migrate") {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
+  }
+
+  // Machine callback authenticates its raw body using HMAC, not a browser session.
+  if (pathname === "/api/media-engine/callback") {
+    return NextResponse.next();
+  }
+
+  /*
+   * An unsubscribe link is opened by someone who was invited and has no account
+   * here, so a session gate would make the promise in the email impossible to
+   * keep. The route authorises the request itself: the token is derived from the
+   * address, and a mismatch is refused with 400 before anything is written.
+   */
+  if (pathname === "/api/growth/unsubscribe") {
+    return NextResponse.next();
+  }
+
+  // These exact endpoints require workspace sessions themselves and return JSON 401.
+  if (
+    pathname === "/api/media-engine" ||
+    pathname === "/api/domains" ||
+    pathname === "/api/agent" ||
+    pathname === "/api/projects"
+  ) {
+    return NextResponse.next();
   }
 
   if (pathname.startsWith("/api/auth")) {
@@ -60,12 +122,22 @@ export async function proxy(request: NextRequest) {
     pathname === "/embed.js" ||
     pathname === "/api/demo-chat" ||
     pathname === "/api/guest-quota" ||
-    pathname === "/api/webhooks/stripe" ||
+    // Machine-to-machine webhooks: every route verifies its own provider
+    // signature or shared secret, so they must never be bounced to /login.
+    pathname.startsWith("/api/webhooks") ||
     pathname === "/api/stripe/webhook" ||
     pathname === "/api/admin/backup" ||
     // Machine-to-machine: the ingest route authenticates with x-leads-key,
     // so it must not be bounced to the login page.
     pathname === "/api/leads/ingest" ||
+    // Phone sign-in: the route issues and verifies one-time codes with its own
+    // rate limits before any session exists, so it must stay reachable.
+    pathname === "/api/phone-auth" ||
+    // MCP clients authenticate with a workspace bearer key, not a browser
+    // session, so the endpoint must not be bounced to /login.
+    pathname === "/api/mcp" ||
+    // Private publishing endpoint for n8n: bearer workspace key, not a session.
+    pathname === "/api/publish" ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||
@@ -82,6 +154,17 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/apple-icon") ||
     pathname.startsWith("/images/") ||
     pathname === "/manifest.webmanifest"
+  ) {
+    return NextResponse.next();
+  }
+
+  // Agent command center: an agent presents a bearer key, not a browser
+  // session, and every route under /api/agents authenticates it through
+  // resolveCaller(). Without this the machine half of the API was unreachable:
+  // the request was bounced to /login before the key was ever read.
+  if (
+    pathname.startsWith("/api/agents/") &&
+    /^Bearer\s+\S+/i.test(request.headers.get("authorization") ?? "")
   ) {
     return NextResponse.next();
   }
@@ -110,6 +193,35 @@ export async function proxy(request: NextRequest) {
   );
 
   if (!token && isProtectedRoute) {
+    // An agent presents its own bearer key instead of a browser session. These
+    // endpoints authenticate that key themselves and answer 401 when it is
+    // absent or invalid, so letting the request reach them is not a bypass.
+    const presentsAgentKey =
+      (request.headers.get("authorization") ?? "").toLowerCase().startsWith("bearer ") ||
+      Boolean(request.headers.get("x-agent-key"));
+    const isAgentEndpoint = AGENT_KEY_ENDPOINTS.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    );
+    if (presentsAgentKey && isAgentEndpoint) {
+      return NextResponse.next();
+    }
+
+    const isApi = pathname === "/api" || pathname.startsWith("/api/");
+    // Code calling an endpoint gets an answer it can act on: a redirect made
+    // fetch() follow it and hand the caller 200 + HTML, which reads as success.
+    // Browser navigations still go to the login screen.
+    if (isApi && !isNavigation(request.headers)) {
+      return NextResponse.json(
+        {
+          code: "unauthorized:auth",
+          message: "You need to sign in before continuing.",
+          error: "unauthorized",
+          requestId,
+        },
+        { status: 401, headers: { "cache-control": "private, no-store" } }
+      );
+    }
+
     // Guest auto-provisioning disabled: require real sign-up
     return NextResponse.redirect(new URL("/login", request.url));
   }

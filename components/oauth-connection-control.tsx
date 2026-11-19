@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { loadIntegrationStatus } from "@/lib/integrations/status-fetch";
 
 interface Status {
   configured: boolean;
@@ -15,15 +16,18 @@ export function OAuthConnectionControl({
   tokenHint,
   canManage,
   lang,
+  allowToken = true,
 }: {
-  provider: "github" | "vercel";
+  provider: "github" | "vercel" | "x";
   label: string;
   tokenHint: string;
   canManage: boolean;
   lang: "ar" | "en";
+  allowToken?: boolean;
 }) {
   const isArabic = lang === "ar";
   const [status, setStatus] = useState<Status | null>(null);
+  const [statusFailed, setStatusFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -31,11 +35,15 @@ export function OAuthConnectionControl({
   const [token, setToken] = useState("");
 
   const load = useCallback(async () => {
-    const response = await fetch(`/api/integrations/${provider}`);
-    if (!response.ok) {
+    setStatusFailed(false);
+    // Bounded on purpose: a request that never settles has no error branch, so the card would sit on
+    // "Checking…" forever with no way to retry. A timeout is rendered as a failed read instead.
+    const outcome = await loadIntegrationStatus<Status>(provider);
+    if (!outcome.ok) {
+      setStatusFailed(true);
       return;
     }
-    setStatus((await response.json()) as Status);
+    setStatus(outcome.status);
   }, [provider]);
 
   useEffect(() => {
@@ -125,10 +133,53 @@ export function OAuthConnectionControl({
   };
 
   if (!status) {
+    if (statusFailed) {
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <p className="text-destructive text-xs">
+            {isArabic
+              ? "تعذّر قراءة حالة هذا التكامل من الخادم."
+              : "Could not read this integration's status."}
+          </p>
+          <Button onClick={() => void load()} size="sm" variant="outline">
+            {isArabic ? "إعادة المحاولة" : "Retry"}
+          </Button>
+        </div>
+      );
+    }
     return (
       <p className="text-muted-foreground text-xs">
         {isArabic ? "جارٍ التحقّق…" : "Checking…"}
       </p>
+    );
+  }
+
+  if (provider === "x" && !status.configured) {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-muted-foreground text-xs">
+          {isArabic
+            ? "تكامل X غير مُعدّ على الخادم."
+            : "X is not configured on the server."}
+        </p>
+        {status.connected ? (
+          <p className="text-muted-foreground text-xs">
+            {isArabic
+              ? `الحساب المحفوظ: ${status.accountName ?? "X"}`
+              : `Stored account: ${status.accountName ?? "X"}`}
+          </p>
+        ) : null}
+        {canManage && status.connected ? (
+          <Button
+            disabled={busy}
+            onClick={disconnect}
+            size="sm"
+            variant="outline"
+          >
+            {isArabic ? "فصل الحساب" : "Disconnect"}
+          </Button>
+        ) : null}
+      </div>
     );
   }
 
@@ -182,8 +233,14 @@ export function OAuthConnectionControl({
             {isArabic ? `ربط ${label} بضغطة` : `Connect ${label}`}
           </a>
         </Button>
-      ) : null}
-      {showTokenForm ? (
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          {isArabic
+            ? `تكامل ${label} غير مُعدّ على الخادم.`
+            : `${label} is not configured on the server.`}
+        </p>
+      )}
+      {allowToken && showTokenForm ? (
         <div className="flex w-full flex-col gap-2">
           <input
             aria-label={`${label} token`}
@@ -219,7 +276,7 @@ export function OAuthConnectionControl({
             </Button>
           </div>
         </div>
-      ) : (
+      ) : allowToken ? (
         <Button
           onClick={() => setShowTokenForm(true)}
           size="sm"
@@ -227,7 +284,7 @@ export function OAuthConnectionControl({
         >
           {isArabic ? "ربط بتوكن وصول" : "Connect with a token"}
         </Button>
-      )}
+      ) : null}
       {error ? <p className="text-destructive text-xs">{error}</p> : null}
       {message ? (
         <p className="text-xs text-emerald-700 dark:text-emerald-400">

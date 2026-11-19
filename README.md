@@ -75,6 +75,20 @@ Do not point a preview migration at production.
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
 
+### WhatsApp Cloud API
+
+Configure `WHATSAPP_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET` for Meta webhook
+verification, and `WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` for
+outbound replies. Subscribe `/api/webhooks/whatsapp` to message events for that
+phone number and apply the database migrations. Verified incoming text messages
+are claimed by message ID and answered asynchronously using the default chat
+model and assistant prompt. Replies are stateless and cannot access workspace
+data or tools. If either outbound setting is missing, deliveries are acknowledged
+without a reply. Processing failures are logged and acknowledged; a claimed
+message is not automatically retried, to avoid duplicate replies.
+`N8N_WHATSAPP_FORWARD_URL`, when configured, still forwards webhook deliveries
+separately.
+
 ## Workspaces and plans
 
 Every account receives a default workspace and can belong to multiple
@@ -103,13 +117,38 @@ are missing, the pricing page disables that upgrade and explains which setting
 is required. Configure a Stripe webhook pointing to
 `https://zooka-ai.com/api/stripe/webhook` (the legacy `/api/webhooks/stripe`
 path still works) and enable `checkout.session.completed`,
-`customer.subscription.updated`, `customer.subscription.deleted`, and
-`invoice.payment_failed`. Checkout is restricted to workspace owners and
+`customer.subscription.updated`, `customer.subscription.deleted`,
+`invoice.payment_failed`, and `invoice.paid`. Checkout is restricted to workspace owners and
 admins; the signed webhook synchronizes subscription status, plan, Stripe
 customer ID, and current period end into the existing `Subscription` table
 (a failed invoice marks the workspace `past_due`). Pro and Business plans
 receive higher hourly and monthly message limits plus access to advanced
 models.
+
+### Credit grants and reconciliation
+
+`invoice.paid` grants the configured recurring plan allowance only after signature
+verification. The grant uses the invoice line's price and billing period, not the
+subscription's current period. Grant failures return HTTP 500 for Stripe retry;
+a 200 response is not a substitute for checking the wallet. Zero-paid and
+proration-only invoices do not replenish the allowance. Multi-line or incomplete
+invoices fail closed for review. Workspace-scoped transaction locks prevent
+concurrent retries from granting twice; an older or same-period invoice cannot
+reset a newer wallet. Period renewal replaces, rather than accumulates, credits.
+
+`POST /api/billing/reconcile` requires a signed-in regular workspace owner/admin
+and a same-origin `Origin` header. It inspects at most the latest 100 paid invoices
+for that workspace's stored customer, verifies subscription ownership, and
+returns `hasMore` if older history remains. GET never reconciles. This is not a
+public cron endpoint. Inspect historical balances in both databases before
+release if the app previously had both `DATABASE_URL` and `POSTGRES_URL` set:
+wallets now follow the app's `DATABASE_URL`-first policy. Do not copy or replay
+balances blindly. No database migration or production reconciliation is performed
+by a build.
+
+The wallet grant ledger alone is **not** a fully implemented token-metered
+billing product: chat currently applies message and agent-run quotas, and wallet
+consumption/top-up purchase flows still require implementation and validation.
 
 ### Subscription management
 
@@ -166,3 +205,6 @@ Support the development of this project! Sponsors are recognized below automatic
 [![Sponsor ZOOKA-AI](https://img.shields.io/badge/Support-open_source-0366d6?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/ZOOKA-AI)
 
 <!-- redeploy trigger: 2026-10-29 01:52 UTC -->
+
+## Studio templates → Chat
+Open any template in Studio and click **عدّل في الشات**. The chat starts with the template loaded via `?template=` query param.

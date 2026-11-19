@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { REFERRAL_COOKIE, normalizeCode } from "@/lib/affiliate";
@@ -11,7 +12,7 @@ const checkoutSchema = z.object({
   plan: z.enum(paidWorkspacePlans),
 });
 
-export async function POST(request: Request) {
+async function POSTImpl(request: Request) {
   const context = await requireWorkspaceRole("admin");
   if (!context || context.user.type !== "regular") {
     return NextResponse.json(
@@ -150,3 +151,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const POST = withRequestTenantHandler(POSTImpl);

@@ -1,0 +1,172 @@
+{
+  "results": [
+    {
+      "label": "1. the customer is authenticated",
+      "ok": true,
+      "detail": "/"
+    },
+    {
+      "label": "2. the workspace is identified and has a library",
+      "ok": true,
+      "detail": "60 asset(s)"
+    },
+    {
+      "label": "3. the required input file (the logo) is accepted",
+      "ok": true,
+      "detail": "201 "
+    },
+    {
+      "label": "3b. the uploaded logo has an id to reference",
+      "ok": true,
+      "detail": "6edf1c45-c9bc-43e4-8204-453cf972325a"
+    },
+    {
+      "label": "4. the creative action validates and queues a real task",
+      "ok": true,
+      "detail": "201 3c93fc80-22e3-4b5e-97bb-d425fa49754e"
+    },
+    {
+      "label": "5. the task is pending, not reported as done",
+      "ok": true,
+      "detail": "pending"
+    },
+    {
+      "label": "6. the worker executed the composition",
+      "ok": true,
+      "detail": "200  Composed a 1080×1920 promo film of 7.5s with 3 scenes and Arabic narration and the company logo. It is in your"
+    },
+    {
+      "label": "7. real media was processed into a film",
+      "ok": true,
+      "detail": "796d45d3-aa06-47e8-9184-8bb0dbe90338 (found via the library)"
+    },
+    {
+      "label": "8. the authenticated customer can download it",
+      "ok": true,
+      "detail": "200 280179 bytes"
+    },
+    {
+      "label": "9. it is a playable MP4 with the brand frame size",
+      "ok": true,
+      "detail": "mov,mp4,m4a,3gp,3g2,mj2 h264 1080x1920"
+    },
+    {
+      "label": "10. it carries a real Arabic narration track",
+      "ok": true,
+      "detail": "aac"
+    },
+    {
+      "label": "11. the film lasts as long as the voice measured",
+      "ok": true,
+      "detail": "7.47s"
+    },
+    {
+      "label": "12. the result is persisted in the workspace",
+      "ok": true,
+      "detail": "video 1080×1920 7.5s"
+    },
+    {
+      "label": "13. the task shows its progress and evidence",
+      "ok": true,
+      "detail": "200 completed"
+    },
+    {
+      "label": "14a. the film belongs to the chosen project",
+      "ok": true,
+      "detail": "project=67728637-9421-4a31-9f08-17ed93f692da"
+    },
+    {
+      "label": "14b. metadata matches the stored bytes",
+      "ok": true,
+      "detail": "280179B row vs 280179B file, video/ready"
+    },
+    {
+      "label": "14c. the studio page opens for the owner",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "label": "14. a duplicate request does not create a second waiting task",
+      "ok": true,
+      "detail": "201/201 94a5bbd8-5e1b-44db-9a56-a325125a076d vs 94a5bbd8-5e1b-44db-9a56-a325125a076d dedup=true"
+    },
+    {
+      "label": "15. an action whose tool the agent lacks is refused",
+      "ok": true,
+      "detail": "409 no_assigned_agent"
+    },
+    {
+      "label": "16. a non-media upload is refused",
+      "ok": true,
+      "detail": "400"
+    },
+    {
+      "label": "17. another tenant cannot read the film",
+      "ok": true,
+      "detail": "file=404 visible_in_list=false"
+    },
+    {
+      "label": "18. a cancelled task is not executed by the worker",
+      "ok": true,
+      "detail": "cancelled then refused"
+    },
+    {
+      "label": "19. ffmpeg rendering is ready",
+      "ok": true,
+      "detail": "ready:deterministic editing and rendering; it does not invent pictures"
+    },
+    {
+      "label": "20. background removal is real and returns transparency",
+      "ok": true,
+      "detail": "201 corner_alpha=0"
+    },
+    {
+      "label": "21. the Arabic voice is real",
+      "ok": true,
+      "detail": "201 2.915s"
+    },
+    {
+      "label": "22. ComfyUI stays blocked without an authorized endpoint",
+      "ok": true,
+      "detail": "blocked:endpoint_not_configured"
+    },
+    {
+      "label": "23. no generation is claimed or fabricated",
+      "ok": true,
+      "detail": "not_configured,paid_provider_not_enabled"
+    },
+    {
+      "label": "24. the ladder is LOCAL → SELF_HOSTED → EXTERNAL_PAID",
+      "ok": true,
+      "detail": "6 decisions, tiers local/none"
+    },
+    {
+      "label": "25. no paid engine is chosen without authorization",
+      "ok": true,
+      "detail": "none"
+    }
+  ],
+  "probe": {
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1080,
+        "height": 1920
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio"
+      }
+    ],
+    "format": {
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "duration": "7.470000"
+    }
+  },
+  "crossTenant": {
+    "status": 404,
+    "note": "file=404 visible_in_list=false"
+  }
+}

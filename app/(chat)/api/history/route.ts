@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import {
   getWorkspaceContext,
   requireWorkspaceRole,
@@ -8,13 +9,36 @@ import {
   getChatsByOrganizationId,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { cursorSchema, limitSchema } from "@/lib/validation/chat";
 
-export async function GET(request: NextRequest) {
+async function GETImpl(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
-  const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
+  // "abc" used to become NaN and reach the query builder; a repeated or huge
+  // cursor is refused here instead of being handed to the database.
+  const limitRaw = searchParams.get("limit");
+  const limitParsed = limitSchema.safeParse(limitRaw === null || limitRaw === "" ? 10 : limitRaw);
+  if (!limitParsed.success) {
+    return new ChatbotError(
+      "bad_request:api",
+      "Parameter limit must be a whole number between 1 and 50"
+    ).toResponse();
+  }
+  const limit = limitParsed.data;
+
   const startingAfter = searchParams.get("starting_after");
   const endingBefore = searchParams.get("ending_before");
+  for (const [name, value] of [
+    ["starting_after", startingAfter],
+    ["ending_before", endingBefore],
+  ] as const) {
+    if (value !== null && value !== "" && !cursorSchema.safeParse(value).success) {
+      return new ChatbotError(
+        "bad_request:api",
+        `Parameter ${name} must be between 1 and 64 characters`
+      ).toResponse();
+    }
+  }
 
   if (startingAfter && endingBefore) {
     return new ChatbotError(
@@ -40,7 +64,7 @@ export async function GET(request: NextRequest) {
   return Response.json(chats);
 }
 
-export async function DELETE() {
+async function DELETEImpl() {
   const workspaceContext = await requireWorkspaceRole("admin");
 
   if (!workspaceContext) {
@@ -53,3 +77,7 @@ export async function DELETE() {
 
   return Response.json(result, { status: 200 });
 }
+
+// Tenant-scoped wrappers: query work runs inside the caller's tenant transaction.
+export const GET = withRequestTenantHandler(GETImpl);
+export const DELETE = withRequestTenantHandler(DELETEImpl);

@@ -16,6 +16,12 @@ export interface OAuthTokenBundle {
   scope?: string;
 }
 
+export interface StoredOAuthTokenBundle {
+  tokens: OAuthTokenBundle;
+  encryptedTokens: string;
+  tokenExpiresAt: Date | null;
+}
+
 export interface OAuthConnectionSummary {
   provider: OAuthProviderId;
   accountName: string | null;
@@ -161,6 +167,96 @@ export async function getOAuthAccessToken(
     return bundle.accessToken || null;
   } catch {
     return null;
+  }
+}
+
+export async function getStoredOAuthTokenBundle(
+  organizationId: string,
+  provider: OAuthProviderId
+): Promise<StoredOAuthTokenBundle | null> {
+  const key = getEncryptionKey();
+  if (!key) {
+    return null;
+  }
+  let row:
+    | {
+        encryptedTokens: string;
+        tokenExpiresAt: Date | null;
+      }
+    | undefined;
+  try {
+    [row] = await db
+      .select({
+        encryptedTokens: oauthConnection.encryptedTokens,
+        tokenExpiresAt: oauthConnection.tokenExpiresAt,
+      })
+      .from(oauthConnection)
+      .where(
+        and(
+          eq(oauthConnection.organizationId, organizationId),
+          eq(oauthConnection.provider, provider)
+        )
+      )
+      .limit(1);
+  } catch {
+    return null;
+  }
+  if (!row) {
+    return null;
+  }
+  try {
+    const tokens = JSON.parse(
+      decryptGoogleDriveTokens(row.encryptedTokens, key)
+    ) as OAuthTokenBundle;
+    return tokens.accessToken
+      ? {
+          tokens,
+          encryptedTokens: row.encryptedTokens,
+          tokenExpiresAt: row.tokenExpiresAt,
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateOAuthTokensIfUnchanged(params: {
+  organizationId: string;
+  provider: OAuthProviderId;
+  previousEncryptedTokens: string;
+  tokens: OAuthTokenBundle;
+  tokenExpiresAt: Date;
+}): Promise<boolean> {
+  const key = getEncryptionKey();
+  if (!key) {
+    return false;
+  }
+  let encrypted: string;
+  try {
+    encrypted = encryptGoogleDriveTokens(JSON.stringify(params.tokens), key);
+  } catch {
+    return false;
+  }
+  try {
+    const updated = await db
+      .update(oauthConnection)
+      .set({
+        encryptedTokens: encrypted,
+        tokenExpiresAt: params.tokenExpiresAt,
+        scopes: params.tokens.scope,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(oauthConnection.organizationId, params.organizationId),
+          eq(oauthConnection.provider, params.provider),
+          eq(oauthConnection.encryptedTokens, params.previousEncryptedTokens)
+        )
+      )
+      .returning({ organizationId: oauthConnection.organizationId });
+    return updated.length > 0;
+  } catch {
+    return false;
   }
 }
 

@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
-import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { SocialSignInButtons } from "@/components/social-sign-in-buttons";
+import { PhoneSignInForm } from "@/components/phone-sign-in-form";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
+import {
+  registerFeedback,
+  SUBMIT_LOCK_MS,
+} from "@/lib/auth/register-feedback";
 import { type RegisterActionState, register } from "../actions";
 
 const strings = {
@@ -25,10 +29,10 @@ const strings = {
     terms: "شروط الخدمة",
     and: " و",
     privacy: "سياسة الخصوصية",
-    exists: "الحساب موجود بالفعل!",
+    checkEmail: "تم استلام طلبك. إن كان البريد جديدًا فالحساب جاهز الآن — سجّل الدخول. وإن كان لديك حساب فاستخدم كلمة مرورك أو استعدها.",
+    unavailable: "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً.",
     failed: "فشل إنشاء الحساب!",
     invalid: "تحقق من البريد الإلكتروني وكلمة المرور (6 أحرف على الأقل)!",
-    success: "تم إنشاء الحساب بنجاح!",
   },
   en: {
     title: "Sign Up",
@@ -42,47 +46,76 @@ const strings = {
     terms: "Terms of Service",
     and: " and ",
     privacy: "Privacy Policy",
-    exists: "Account already exists!",
+    checkEmail:
+      "Your request was received. If this address is new, the account is ready — sign in. If you already have an account, use your password or reset it.",
+    unavailable:
+      "Account service is temporarily unavailable. Please try later.",
     failed: "Failed to create account!",
     invalid: "Failed validating your submission!",
-    success: "Account created successfully!",
   },
 } as const;
 
 export function RegisterClient({
   lang,
   googleEnabled = false,
+  facebookEnabled = false,
+  microsoftEnabled = false,
+  phoneEnabled = false,
 }: {
   lang: "ar" | "en";
   googleEnabled?: boolean;
+  facebookEnabled?: boolean;
+  microsoftEnabled?: boolean;
+  phoneEnabled?: boolean;
 }) {
   const t = strings[lang];
   const router = useRouter();
 
   const [email, setEmail] = useState("");
-  const [isSuccessful, setIsSuccessful] = useState(false);
+  // Shut while the outcome is being announced or the sign-in form loads. It is
+  // always released again: a disabled button must never outlive the message.
+  const [submitLocked, setSubmitLocked] = useState(false);
 
   const [state, formAction] = useActionState<RegisterActionState, FormData>(
     register,
     { status: "idle" }
   );
 
-  const { update: updateSession } = useSession();
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: router and updateSession are stable refs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: router is a stable ref
   useEffect(() => {
-    if (state.status === "user_exists") {
-      toast({ type: "error", description: t.exists });
-    } else if (state.status === "failed") {
-      toast({ type: "error", description: t.failed });
-    } else if (state.status === "invalid_data") {
-      toast({ type: "error", description: t.invalid });
-    } else if (state.status === "success") {
-      toast({ type: "success", description: t.success });
-      setIsSuccessful(true);
-      updateSession();
-      router.refresh();
+    const feedback = registerFeedback(state.status);
+
+    if (feedback.kind === "none") {
+      setSubmitLocked(false);
+      return;
     }
+
+    const text = {
+      checkEmail: t.checkEmail,
+      unavailable: t.unavailable,
+      invalid: t.invalid,
+      failed: t.failed,
+    }[feedback.kind === "navigate" ? feedback.toast.text : feedback.text];
+
+    toast({ type: feedback.kind === "navigate" ? feedback.toast.tone : feedback.tone, description: text });
+
+    // Release the button on its own timer first, so no code path below can
+    // leave a spinner running if the move to the sign-in form does not happen.
+    setSubmitLocked(feedback.lockSubmit);
+    const release = feedback.lockSubmit
+      ? setTimeout(() => setSubmitLocked(false), SUBMIT_LOCK_MS)
+      : null;
+
+    if (feedback.kind === "navigate") {
+      // replace, not push: pressing Back from the sign-in form must not land on
+      // a form that has already been submitted. No router.refresh() here, it
+      // re-renders the current route and cancels the move.
+      router.replace(feedback.to);
+    }
+
+    return () => {
+      if (release) clearTimeout(release);
+    };
   }, [state.status]);
 
   const handleSubmit = (formData: FormData) => {
@@ -91,20 +124,29 @@ export function RegisterClient({
   };
 
   return (
-    <div className="flex h-dvh w-screen items-start justify-center bg-background pt-12 md:items-center md:pt-0">
+    <div className="flex min-h-dvh w-full items-start justify-center bg-background px-0 pt-16 pb-10 md:items-center md:py-10">
       <LanguageToggle lang={lang} />
-      <div className="flex w-full max-w-md flex-col gap-12 overflow-hidden rounded-2xl">
+      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl sm:gap-10">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="font-semibold text-xl dark:text-zinc-50">{t.title}</h3>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">{t.subtitle}</p>
+          <h1 className="font-semibold text-2xl dark:text-zinc-50">{t.title}</h1>
+          <p className="text-gray-500 text-sm dark:text-zinc-400">
+            {t.subtitle}
+          </p>
         </div>
-        {googleEnabled ? <GoogleSignInButton lang={lang} /> : null}
+        {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
+        <SocialSignInButtons
+          lang={lang}
+          google={googleEnabled}
+          facebook={facebookEnabled}
+          microsoft={microsoftEnabled}
+        />
         <AuthForm
           action={handleSubmit}
           defaultEmail={email}
           labels={{ email: t.email, password: t.password }}
+          passwordAutoComplete="new-password"
         >
-          <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
+          <SubmitButton isSuccessful={submitLocked}>{t.submit}</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {`${t.hasAccount} `}
             <Link
