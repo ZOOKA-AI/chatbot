@@ -49,16 +49,21 @@ vi.mock("@/lib/agents/command-center", () => ({
   cancelTask: (...args: unknown[]) => mocks.cancelTask(...args),
 }));
 
+// A real UUID, because the tenant transaction validates the organisation id before it
+// opens. With a placeholder the whole suite only passed while the isolation flag was off,
+// which is exactly the configuration this suite exists to prove safe.
+const ORG_ALPHA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
 const APPROVAL_ID = "11111111-2222-4333-8444-555555555555";
 const TASK_ID = "66666666-7777-4888-8999-aaaaaaaaaaaa";
 
-const OWNER = { kind: "owner", userId: "user-alpha-1", organizationId: "org-alpha", role: "owner" };
-const MEMBER = { kind: "owner", userId: "user-alpha-2", organizationId: "org-alpha", role: "member" };
+const OWNER = { kind: "owner", userId: "user-alpha-1", organizationId: ORG_ALPHA, role: "owner" };
+const MEMBER = { kind: "owner", userId: "user-alpha-2", organizationId: ORG_ALPHA, role: "member" };
 const AGENT = {
   kind: "agent",
   agent: {
     id: "agent-alpha",
-    organizationId: "org-alpha",
+    organizationId: ORG_ALPHA,
     scopes: ["task:claim", "task:report", "approval:request"],
     status: "active",
   },
@@ -121,7 +126,7 @@ describe("deciding an approval", () => {
 
     assert.equal(response.status, 200);
     const [args] = mocks.decideApproval.mock.calls[0];
-    assert.equal(args.organizationId, "org-alpha");
+    assert.equal(args.organizationId, ORG_ALPHA);
     assert.equal(args.approvalId, APPROVAL_ID);
     assert.equal(args.decision, "approved");
     assert.match(args.decidedBy, /^owner:/);
@@ -156,7 +161,7 @@ describe("deciding an approval", () => {
     const ok = await GET(new Request("https://zooka.test/api/agents/approvals?status=pending"));
     assert.equal(ok.status, 200);
     const [orgId] = mocks.listApprovals.mock.calls[0];
-    assert.equal(orgId, "org-alpha");
+    assert.equal(orgId, ORG_ALPHA);
   });
 });
 
@@ -174,7 +179,7 @@ describe("cancelling a task", () => {
     const response = await POST(post(`/api/agents/tasks/${TASK_ID}`, { reason: "no longer needed" }), params(TASK_ID));
     assert.equal(response.status, 200);
     const [args] = mocks.cancelTask.mock.calls[0];
-    assert.equal(args.organizationId, "org-alpha");
+    assert.equal(args.organizationId, ORG_ALPHA);
     assert.equal(args.taskId, TASK_ID);
   });
 
