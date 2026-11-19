@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const WA_LINK = `mailto:info@zooka-ai.com?body=${encodeURIComponent(
+const WA_LINK = "/wa"; const _unused = (encodeURIComponent(
   "مرحبا، أبغى أعرف أكثر عن ZOOKA AI لشركة التنظيف عندي"
 )}`;
 
