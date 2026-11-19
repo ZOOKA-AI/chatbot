@@ -51,7 +51,7 @@ export function createConnectorTools(organizationId: string, userId?: string | n
         providerId: z
           .string()
           .describe(
-            "Connector id: slack, notion, twilio, shopify, tiktok, whatsapp, x, cloudflare, namecheap."
+            "Connector id from listConnectorMatrix, e.g. meta_ads, snapchat_ads or slack."
           ),
       }),
       execute: async ({ providerId }) => {
