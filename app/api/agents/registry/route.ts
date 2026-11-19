@@ -109,6 +109,14 @@ async function PATCHHandler(request: Request) {
         // it here the strict schema refused the whole save, so no agent could ever
         // be given a tool and no task could ever be planned against one.
         allowedTools: z.array(z.string().trim().min(1).max(64)).max(64).nullable().optional(),
+        // The console posts every field it edits in one body, so each of these must be
+        // nameable here. `instructions`, `modelProvider` and `modelId` were missing while
+        // the editor always sent them, and `.strict()` refused the whole save with
+        // `invalid_body`: no agent could be renamed, given instructions, given a model or
+        // given a tool from the console at all.
+        instructions: z.string().max(4000).nullable().optional(),
+        modelProvider: z.string().trim().max(64).nullable().optional(),
+        modelId: z.string().trim().max(128).nullable().optional(),
       })
       .strict()
   );

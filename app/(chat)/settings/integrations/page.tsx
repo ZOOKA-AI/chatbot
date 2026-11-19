@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ExternalLink, Settings2 } from "lucide-react";
 import { redirect } from "next/navigation";
+import { ConnectorLogo } from "@/components/connector-logo";
+import { ConnectorProbeButton } from "@/components/connector-probe-button";
 import { GoogleDriveConnectionControl } from "@/components/google-drive-connection-control";
 import { N8nConnectionControl } from "@/components/n8n-connection-control";
 import { OAuthConnectionControl } from "@/components/oauth-connection-control";
@@ -9,6 +12,7 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getGoogleDriveCallbackFeedback } from "@/lib/integrations/google-drive/callback-feedback";
 import { isGoogleDriveConfigured } from "@/lib/integrations/google-drive/server";
+import { getConnectorDetails } from "@/lib/integrations/connectors/detail";
 import { getLiveIntegrationStatus } from "@/lib/integrations/live-status";
 import { INTEGRATION_PLAYBOOKS } from "@/lib/integrations/playbooks";
 import { CONNECTOR_SPECS } from "@/lib/integrations/connectors/registry";
@@ -44,6 +48,10 @@ async function IntegrationsPage({
   const lang = await getLang();
   const isArabic = lang === "ar";
   const entitlements = await getWorkspaceEntitlements(context.organizationId);
+  // Stored account and declared reads per connector, read once for the whole page.
+  const connectorDetails = await getConnectorDetails(context.organizationId).catch(
+    () => new Map<string, never>()
+  );
   const { googleDrive, github, vercel, x } = await searchParams;
   const oauthFeedback = (() => {
     const entries: [string, string | undefined][] = [
@@ -93,9 +101,15 @@ async function IntegrationsPage({
   const xConfigured = isOAuthProviderConfigured("x");
   // One source of truth shared with /api/integrations/status: a badge reads
   // "connected" only when the stored credential works right now.
+  // Neither of the two status reads may take the page down. A settings screen
+  // that 500s because one provider probe misbehaved is worse than a card that
+  // honestly shows no measured status.
   const liveStatus = await getLiveIntegrationStatus(context.organizationId, {
     googleConfigured: googleDriveConfigured,
-  });
+  }).catch(() => ({
+    connected: new Set<string>(),
+    needsReconnect: new Set<string>(),
+  }));
   const connectedIds = liveStatus.connected;
   const needsReconnectIds = liveStatus.needsReconnect;
   const googleDriveConnected = connectedIds.has("google_drive");
@@ -369,9 +383,12 @@ async function IntegrationsPage({
                     key={provider.id}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-sm font-medium">
-                        {isArabic ? provider.nameAr : provider.name}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <ConnectorLogo providerId={provider.id} />
+                        <h4 className="text-sm font-medium">
+                          {isArabic ? provider.nameAr : provider.name}
+                        </h4>
+                      </div>
                       <span
                         className={
                           connected
@@ -413,6 +430,120 @@ async function IntegrationsPage({
                     <p className="text-muted-foreground text-xs">
                       {isArabic ? provider.descriptionAr : provider.description}
                     </p>
+                    {(() => {
+                      const detail = connectorDetails.get(provider.id);
+                      const playbook = INTEGRATION_PLAYBOOKS.find(
+                        (entry) => entry.providerId === provider.id
+                      );
+                      const attention = needsReconnect || Boolean(detail?.lastError);
+                      if (!detail && !playbook && !available) {
+                        return null;
+                      }
+                      return (
+                        <details
+                          className="group mt-1 rounded-md border bg-muted/20 [&_summary::-webkit-details-marker]:hidden"
+                          data-settings={provider.id}
+                          open={attention}
+                        >
+                          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-xs font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <Settings2 aria-hidden="true" className="size-4" />
+                              {isArabic ? "الإعدادات" : "Settings"}
+                            </span>
+                            <span className="text-muted-foreground text-[11px] font-normal">
+                              {detail?.account ??
+                                (connected
+                                  ? isArabic
+                                    ? "متصل"
+                                    : "Connected"
+                                  : isArabic
+                                    ? "غير مربوط"
+                                    : "Not connected")}
+                            </span>
+                          </summary>
+                          <div className="flex flex-col gap-3 border-t p-3">
+                            {playbook ? (
+                              <div className="flex flex-col gap-1.5 text-[11px]">
+                                <p className="font-medium text-xs">
+                                  {playbook.connection === "oauth"
+                                    ? isArabic
+                                      ? "طريقة الربط: موافقة بضغطة (OAuth)"
+                                      : "How to connect: one-click consent (OAuth)"
+                                    : isArabic
+                                      ? "طريقة الحصول على التوكن"
+                                      : "How to get the token"}
+                                </p>
+                                <p className="text-muted-foreground">
+                                  {isArabic ? playbook.credentialAr : playbook.credentialEn}
+                                </p>
+                                <ol className="text-muted-foreground list-decimal ps-4">
+                                  {playbook.steps.map((step) => (
+                                    <li key={step.en}>{isArabic ? step.ar : step.en}</li>
+                                  ))}
+                                </ol>
+                                {playbook.docsUrl ? (
+                                  <a
+                                    className="inline-flex min-h-11 w-fit items-center gap-1 text-violet-600 underline dark:text-violet-300"
+                                    href={playbook.docsUrl}
+                                    rel="noopener noreferrer"
+                                    target="_blank"
+                                  >
+                                    {isArabic ? "فتح صفحة المزوّد" : "Open provider page"}
+                                    <ExternalLink aria-hidden="true" className="size-3" />
+                                  </a>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {(() => {
+                      if (!detail) {
+                        return null;
+                      }
+                      return (
+                        <div className="flex flex-col gap-1 rounded-md border border-dashed p-2">
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span className="text-muted-foreground">
+                              {isArabic ? "الحساب" : "Account"}
+                            </span>
+                            <span className="font-medium">
+                              {detail.account ??
+                                (isArabic ? "لا يوجد حساب محفوظ" : "No stored account")}
+                            </span>
+                          </div>
+                          {detail.accountEmail ? (
+                            <p className="text-muted-foreground text-[11px]">
+                              {detail.accountEmail}
+                            </p>
+                          ) : null}
+                          {detail.scopes.length > 0 ? (
+                            <p className="text-muted-foreground text-[11px]">
+                              {isArabic ? "الصلاحيات" : "Scopes"}:{" "}
+                              {detail.scopes.join(" · ")}
+                            </p>
+                          ) : null}
+                          {detail.operations.length > 0 ? (
+                            <p className="text-muted-foreground text-[11px]">
+                              {isArabic ? "قراءات متاحة" : "Reads"}:{" "}
+                              {detail.operations
+                                .map((operation) =>
+                                  isArabic ? operation.titleAr : operation.titleEn
+                                )
+                                .join(" · ")}
+                            </p>
+                          ) : null}
+                          {detail.lastError ? (
+                            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                              {isArabic ? "آخر خطأ" : "Last error"}: {detail.lastError}
+                            </p>
+                          ) : null}
+                          <ConnectorProbeButton
+                            canManage={canManage}
+                            label={isArabic ? provider.nameAr : provider.name}
+                            lang={lang}
+                            provider={provider.id}
+                          />
+                        </div>
+                      );
+                    })()}
                     {provider.id === "google_calendar" &&
                     !connected &&
                     canManage &&
@@ -500,6 +631,32 @@ async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                    {provider.id === "stripe" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Stripe"
+                        lang={lang}
+                        provider="stripe"
+                        tokenHint={
+                          isArabic
+                            ? "مفتاح سترايب مقيّد للقراءة فقط (rk_… أو sk_…)"
+                            : "Stripe read-only restricted key (rk_… or sk_…)"
+                        }
+                      />
+                    ) : null}
+                    {provider.id === "supabase" ? (
+                      <TokenConnectionControl
+                        canManage={canManage}
+                        label="Supabase"
+                        lang={lang}
+                        provider="supabase"
+                        tokenHint={
+                          isArabic
+                            ? "رمز وصول شخصي من Supabase (sbp_…)"
+                            : "Supabase personal access token (sbp_…)"
+                        }
+                      />
+                    ) : null}
                     {provider.id === "improvmx" ? (
                       <TokenConnectionControl
                         canManage={canManage}
@@ -563,6 +720,10 @@ async function IntegrationsPage({
                         }
                       />
                     ) : null}
+                          </div>
+                        </details>
+                      );
+                    })()}
                     {available &&
                     (provider.id === "google_drive" ||
                       provider.id === "gmail") ? (

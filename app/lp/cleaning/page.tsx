@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 
-const WHATSAPP = "971566047579";
-const WA_LINK = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
-  "مرحبا، أبغى أعرف أكثر عن ZOOKA AI لشركة التنظيف عندي"
-)}`;
+const WA_LINK = "/wa";
 
 export const metadata: Metadata = {
   title: "ZOOKA AI لشركات التنظيف | مساعد يرد على العملاء ويكتب المحتوى",

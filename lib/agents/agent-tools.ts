@@ -30,6 +30,58 @@ const DESCRIPTIONS: Record<string, Omit<ToolCatalogEntry, "id">> = {
     summary: "Reads a project's latest deployment status and build result.",
     writes: false,
   },
+  workspace_readiness_inspect: {
+    summary: "Reads what this workspace has connected and what is still missing.",
+    writes: false,
+  },
+  studio_asset_list: {
+    summary: "Lists the media already stored for this workspace.",
+    writes: false,
+  },
+  connector_catalog: {
+    summary: "Lists the connectors this workspace can read from.",
+    writes: false,
+  },
+  connector_read: {
+    summary: "Reads from a connector this workspace has authorised.",
+    writes: false,
+  },
+  project_document_create: {
+    summary: "Writes a project document into the workspace.",
+    writes: true,
+  },
+  browser_task_run: {
+    summary: "Drives a browser session, which can submit forms and change external accounts.",
+    writes: true,
+  },
+  studio_image_edit: {
+    summary: "Produces a new edited image and stores it.",
+    writes: true,
+  },
+  studio_background_remove: {
+    summary: "Produces a new image with the background removed and stores it.",
+    writes: true,
+  },
+  studio_video_render: {
+    summary: "Renders a video and stores it.",
+    writes: true,
+  },
+  studio_promo_video: {
+    summary: "Renders a promotional video and stores it.",
+    writes: true,
+  },
+  studio_ai_generate: {
+    summary: "Calls a model to generate media and stores the result.",
+    writes: true,
+  },
+  studio_narration: {
+    summary: "Produces a narration track and stores it.",
+    writes: true,
+  },
+  studio_audio_edit: {
+    summary: "Produces an edited audio track and stores it.",
+    writes: true,
+  },
 };
 
 export function toolCatalog(): ToolCatalogEntry[] {
@@ -38,7 +90,10 @@ export function toolCatalog(): ToolCatalogEntry[] {
     .map((id) => ({
       id,
       summary: DESCRIPTIONS[id]?.summary ?? "Reads data this workspace has authorised.",
-      writes: DESCRIPTIONS[id]?.writes ?? false,
+      // Unknown tools are assumed to write. Every entry above is declared
+      // explicitly; the fallback only catches a tool added without a description,
+      // and guessing "read-only" for it would let an approval gate skip a write.
+      writes: DESCRIPTIONS[id]?.writes ?? true,
     }));
 }
 

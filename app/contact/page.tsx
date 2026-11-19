@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-// The number stays inside the link only: visitors start a WhatsApp chat with
-// one tap, but the digits are never rendered on the page.
-const WHATSAPP_NUMBER = "971566047579";
+const CONTACT_EMAIL = "info@zooka-ai.com";
 
 export const metadata: Metadata = {
   title: "تواصل معنا — خدمة الشركات B2B",
@@ -68,13 +66,11 @@ export default function ContactPage() {
         </p>
         <a
           className="rounded-md bg-primary px-5 py-2.5 font-medium text-primary-foreground"
-          href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-            "مرحبًا، عايز أعرف باقات زوكا AI للشركات (B2B) والتسعير."
-          )}`}
+          href="/wa"
           rel="noopener noreferrer"
           target="_blank"
         >
-          ابدأ محادثة واتساب
+          تواصل على واتساب
         </a>
         <p className="text-muted-foreground text-xs">
           النموذج مجاني؟ لا. الاشتراك مطلوب للاستخدام التجاري. / Is it free? No.
@@ -84,6 +80,9 @@ export default function ContactPage() {
           <Link className="underline" href="/pricing">
             اطّلع على الباقات والأسعار
           </Link>
+          <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>
+            {CONTACT_EMAIL}
+          </a>
         </div>
       </section>
 

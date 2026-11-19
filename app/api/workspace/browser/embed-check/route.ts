@@ -21,7 +21,24 @@ type Verdict = {
     | "unsafe_url";
   finalUrl: string | null;
   detail: string | null;
+  /** The origin that would host the frame, and whether the target shares it. */
+  embedderOrigin: string | null;
+  sameOrigin: boolean;
+  via: "none" | "same_origin" | "wildcard" | "listed" | "denied" | null;
 };
+
+/**
+ * The origin of the app asking. Taken from the request itself so a preview host and the production
+ * domain each get the truth for their own case, and the caller may narrow it with ?embedder= only
+ * when it matches a same-origin request (never a value from another site).
+ */
+function embedderOriginOf(request: Request): string | null {
+  try {
+    return new URL(request.url).origin;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
   const context = await getWorkspaceContext();
@@ -29,6 +46,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const embedderOrigin = embedderOriginOf(request);
   const raw = new URL(request.url).searchParams.get("url") ?? "";
   const policy = await assessUrl(raw);
   if (!policy.ok) {
@@ -37,6 +55,9 @@ export async function GET(request: Request) {
       reason: "unsafe_url",
       finalUrl: null,
       detail: policy.reason,
+      embedderOrigin,
+      sameOrigin: false,
+      via: null,
     };
     return Response.json(verdict, { headers: { "cache-control": "no-store" } });
   }
@@ -55,16 +76,23 @@ export async function GET(request: Request) {
       cache: "no-store",
     });
 
-    const judgement = embedVerdict({
-      xFrameOptions: response.headers.get("x-frame-options"),
-      contentSecurityPolicy: response.headers.get("content-security-policy"),
-    });
+    const finalUrl = response.url || policy.url;
+    const judgement = embedVerdict(
+      {
+        xFrameOptions: response.headers.get("x-frame-options"),
+        contentSecurityPolicy: response.headers.get("content-security-policy"),
+      },
+      { embedderOrigin, targetUrl: finalUrl },
+    );
 
     const verdict: Verdict = {
       embeddable: judgement.embeddable,
       reason: judgement.reason,
-      finalUrl: response.url || policy.url,
+      finalUrl,
       detail: judgement.detail,
+      embedderOrigin,
+      sameOrigin: judgement.sameOrigin,
+      via: judgement.via,
     };
     return Response.json(verdict, { headers: { "cache-control": "no-store" } });
   } catch (error) {
@@ -74,6 +102,9 @@ export async function GET(request: Request) {
         reason: "unsafe_url",
         finalUrl: null,
         detail: error.reason,
+        embedderOrigin,
+        sameOrigin: false,
+        via: null,
       };
       return Response.json(blocked, { headers: { "cache-control": "no-store" } });
     }
@@ -82,6 +113,9 @@ export async function GET(request: Request) {
       reason: "unreachable",
       finalUrl: null,
       detail: error instanceof Error ? error.name : "fetch_failed",
+      embedderOrigin,
+      sameOrigin: false,
+      via: null,
     };
     return Response.json(verdict, { headers: { "cache-control": "no-store" } });
   }

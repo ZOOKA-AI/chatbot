@@ -1,17 +1,9 @@
 name: gate
 
-# One workflow, one meaning: if this is green, the tree type-checks, builds, and passes every suite
-# the repository can actually run, including the tenant isolation suites that used to be skipped.
-#
-# Why it is written this way:
-#   - main had no workflow at all, so "CI is green" meant nothing. This file lives on main.
-#   - the previous gate set DATABASE_URL but never ZOOKA_TEST_PG_*, so tenant-real-connection and
-#     agent-health skipped themselves and the run reported success without testing isolation.
-#   - the last step fails the job when a named critical suite reports no tests, so a future change
-#     that silently re-skips one cannot masquerade as a pass.
-#
-# No production secret is used. The database is a throwaway service container, and AUTH_SECRET is a
-# placeholder that only has to be long enough for the build.
+# One workflow, one meaning. Green means: no unlisted credential, no placeholder auth, forward-only
+# migrations, clean types, a real build, migrations applied to a throwaway PostgreSQL, the runtime
+# grant proof holds, and every named security suite actually executed tests.
+# No production credential is used.
 
 on:
   pull_request:
@@ -57,30 +49,112 @@ jobs:
           node-version: 20
 
       - run: corepack enable
-
       - run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium for browser security tests
+        timeout-minutes: 15
+        run: |
+          for attempt in 1 2 3; do
+            pnpm exec playwright install --with-deps chromium && exit 0
+            echo "Attempt $attempt failed; retrying"
+          done
+          exit 1
+
+      - name: Placeholder check
+        timeout-minutes: 3
+        run: |
+          node -e '
+          const fs = require("node:fs"), path = require("node:path");
+          const banned = [/changeme/i, /your[_-]?api[_-]?key/i, /<placeholder>/i, /TODO:\s*implement\s+auth/i];
+          const hits = [];
+          const walk = (dir) => {
+            for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, e.name);
+              if (e.isDirectory()) { walk(full); continue; }
+              if (!/\.(ts|tsx|js|mjs)$/.test(e.name)) continue;
+              const text = fs.readFileSync(full, "utf8");
+              for (const rule of banned) if (rule.test(text)) hits.push(full + " matches " + rule);
+            }
+          };
+          ["lib", "app/api", "components"].filter((r) => fs.existsSync(r)).forEach(walk);
+          if (hits.length) { console.error(hits.join("\n")); process.exit(1); }
+          console.log("Placeholder check: clean.");
+          '
+
+      - name: Secret scan
+        timeout-minutes: 3
+        run: |
+          node -e '
+          const fs = require("node:fs"), cp = require("node:child_process");
+          const files = cp.execSync("git ls-files", { encoding: "utf8" }).split("\n").filter(Boolean);
+          const allowFile = ".github/secret-scan-allow.txt";
+          const allow = new Set((fs.existsSync(allowFile) ? fs.readFileSync(allowFile, "utf8") : "")
+            .split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).map((l) => l.trim()));
+          const rules = {
+            mail_relay_key: /zk-mail-[A-Za-z0-9-]{6,}/,
+            stripe_live: /sk_live_[A-Za-z0-9]{10,}/,
+            github_pat: /gh[pousr]_[A-Za-z0-9]{20,}/,
+            google_api_key: /AIza[0-9A-Za-z_-]{30,}/,
+            slack_bot: /xox[baprs]-[0-9A-Za-z-]{10,}/,
+            private_key: /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+          };
+          const findings = [], allowed = [];
+          for (const file of files) {
+            if (/\.(png|jpg|jpeg|gif|webp|woff2?|ttf|ico|pdf|zip|gz)$/.test(file)) continue;
+            let text; try { text = fs.readFileSync(file, "utf8"); } catch { continue; }
+            if (text.length > 2000000) continue;
+            for (const [name, rule] of Object.entries(rules)) {
+              if (!rule.test(text)) continue;
+              const key = file + ":" + name;
+              (allow.has(key) ? allowed : findings).push(key);
+            }
+          }
+          if (allowed.length) console.warn("Allowlisted, documented exposure: " + allowed.join(", "));
+          if (findings.length) { console.error("Secret scan findings: " + findings.join(", ")); process.exit(1); }
+          console.log("Secret scan: no unlisted credential.");
+          '
+
+      - name: Migration safety
+        timeout-minutes: 3
+        run: |
+          node -e '
+          const fs = require("node:fs"), path = require("node:path");
+          const dir = "lib/db/migrations/pending";
+          const problems = [];
+          for (const name of fs.readdirSync(dir)) {
+            if (!name.endsWith(".sql") || name.endsWith(".down.sql")) continue;
+            const text = fs.readFileSync(path.join(dir, name), "utf8");
+            if (/^\s*DROP\s+TABLE/im.test(text)) problems.push(name + ": drops a table");
+            if (/^\s*TRUNCATE/im.test(text)) problems.push(name + ": truncates");
+          }
+          if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+          console.log("Migration safety: forward-only, no destructive statements.");
+          '
 
       - name: TypeScript
         run: pnpm exec tsc --noEmit
 
+      - name: Lint (report only)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: pnpm run lint
+
       - name: Build
+        timeout-minutes: 12
         run: pnpm build
 
       - name: Apply migrations
+        timeout-minutes: 5
         run: pnpm exec tsx scripts/selfhost/migrate.ts
 
       - name: Set the runtime role password
-        # The role and every grant come from the migrations themselves: 0031 creates it, 0058 repairs
-        # and asserts the tenant grants. Creating or granting here as well would hide a broken
-        # migration, which is exactly how a missing AgentExecution privilege stayed invisible.
         run: |
           PGPASSWORD=ci psql -h 127.0.0.1 -U ci -d ci -v ON_ERROR_STOP=1 <<'SQL'
           ALTER ROLE zooka_runtime PASSWORD 'ci-runtime-password';
           SQL
 
       - name: Prove the grants the migration claims
-        # Fails the job if a fresh database built from the migration files does not give the runtime
-        # role what the application actually needs. This is the check that would have caught the drift.
+        timeout-minutes: 3
         run: |
           PGPASSWORD=ci psql -h 127.0.0.1 -U ci -d ci -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
@@ -109,17 +183,33 @@ jobs:
           SQL
 
       - name: Unit and integration suites (with the database suites enabled)
+        if: false
         env:
           ZOOKA_TEST_PG_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
           ZOOKA_TEST_PG_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
         run: pnpm exec vitest run --reporter=dot --reporter=json --outputFile=vitest-report.json
 
-      - name: Refuse a green run that skipped the security suites
-        # A skipped critical suite is the failure mode this step exists for. The named files must
-        # report at least one executed test each, or the job fails with the names it is missing.
+      - name: Unit and integration suites
+        id: security_tests
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          ZOOKA_TEST_PG_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          ZOOKA_TEST_PG_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
+          ZOOKA_TEST_PG_HEALTH_ADMIN: postgresql://ci:ci@127.0.0.1:5432/ci
+          ZOOKA_TEST_PG_HEALTH_RUNTIME: postgresql://zooka_runtime:ci-runtime-password@127.0.0.1:5432/ci
+        run: pnpm exec vitest run --reporter=dot --reporter=json --outputFile=vitest-report.json --testTimeout=20000 --hookTimeout=20000
+
+      - name: Evidence guard - critical security suites must execute and pass
+        if: ${{ always() }}
+        timeout-minutes: 3
         run: |
           node -e '
           const fs = require("node:fs");
+          if (!fs.existsSync("vitest-report.json")) {
+            console.error("Security evidence missing: vitest-report.json was not produced.");
+            process.exit(1);
+          }
           const report = JSON.parse(fs.readFileSync("vitest-report.json", "utf8"));
           const critical = [
             "tests/unit/tenant-real-connection.test.ts",
@@ -127,21 +217,32 @@ jobs:
             "tests/unit/outbound-guard.test.ts",
             "tests/unit/outbound-surfaces.test.ts",
             "tests/unit/integration-status-fetch.test.ts",
+            "tests/unit/agent-permission-boundaries.test.ts",
+            "tests/unit/agent-authorization.test.ts",
+            "tests/unit/mcp-catalog.test.ts",
+            "tests/unit/migration-journal.test.ts",
+            "tests/unit/browser-runtime-live.test.ts",
           ];
-          const results = new Map((report.testResults || []).map((file) => [file.name.replace(process.cwd() + "/", ""), file]));
+          const results = new Map((report.testResults || []).map((f) => [f.name.replace(process.cwd() + "/", ""), f]));
           const missing = [];
           for (const name of critical) {
             const file = results.get(name);
             const executed = file ? (file.assertionResults || []).filter((a) => a.status !== "pending").length : 0;
-            if (executed === 0) missing.push(`${name} (executed ${executed})`);
+            if (executed === 0) missing.push(name + " (executed " + executed + ")");
           }
-          if (missing.length > 0) {
-            console.error("Critical suites did not run:", missing.join(", "));
+          if (missing.length) {
+            console.error("Critical suites did not run: " + missing.join(", "));
             process.exit(1);
           }
           if ((report.numFailedTests || 0) > 0) {
-            console.error(`Failed tests: ${report.numFailedTests}`);
+            console.error("Failed tests: " + report.numFailedTests);
             process.exit(1);
           }
           console.log("Gate: all critical suites executed, no failures.");
           '
+
+      - name: Preserve test failure after evidence guard
+        if: ${{ always() && steps.security_tests.outcome == 'failure' }}
+        run: |
+          echo "Unit/integration tests failed. Evidence guard was still evaluated."
+          exit 1

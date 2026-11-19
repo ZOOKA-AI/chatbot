@@ -20,6 +20,16 @@ const TOKEN_CAPABLE = [
   "whatsapp",
   "x",
   "cloudflare",
+  "meta_ads",
+  "tiktok_ads",
+  "snapchat_ads",
+  "linkedin_ads",
+  "pinterest_ads",
+  "reddit_ads",
+  "amazon_ads",
+  "x_ads",
+  "hubspot",
+  "airtable",
 ] as const;
 
 export type ConnectorTokenProviderId = (typeof TOKEN_CAPABLE)[number];

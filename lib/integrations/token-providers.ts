@@ -20,7 +20,9 @@ export type BespokeTokenProviderId =
   | "telegram_ads"
   | "telegram_bot"
   | "improvmx"
-  | "ryze";
+  | "ryze"
+  | "stripe"
+  | "supabase";
 
 /**
  * Every provider the secure card can accept a credential for: the bespoke ones
@@ -235,7 +237,12 @@ const BESPOKE_TOKEN_PROVIDERS: Record<
       label: "ImprovMX email routing",
       tokenHint: "ImprovMX API key (sk_…)",
       validateUrl: "https://api.improvmx.com/v3/domains/",
-      auth: (token) => ({ Authorization: `Basic ${token.trim()}` }),
+      // ImprovMX documents HTTP Basic with the API key as the password and an
+      // empty username: base64(":" + key). Sending the raw key after "Basic "
+      // made every valid key look rejected.
+      auth: (token) => ({
+        Authorization: `Basic ${Buffer.from(`:${token.trim()}`).toString("base64")}`,
+      }),
       describe: (payload) => {
         const domains = Array.isArray(payload.domains)
           ? (payload.domains as unknown[])
@@ -278,6 +285,76 @@ const BESPOKE_TOKEN_PROVIDERS: Record<
       },
       scopes: ["ryze-mcp"],
       docsUrl: "https://get-ryze.ai",
+    },
+    stripe: {
+      id: "stripe",
+      label: "Stripe",
+      tokenHint:
+        "Stripe secret or restricted key (sk_… / rk_…). Use a read-only restricted key.",
+      validateUrl: "https://api.stripe.com/v1/account",
+      auth: (token) => ({ Authorization: `Bearer ${token.trim()}` }),
+      describe: (payload) => {
+        const id = asString(payload.id);
+        if (!id) {
+          throw new Error("stripe returned no account id");
+        }
+        const dashboard =
+          (payload.settings as Record<string, unknown> | undefined)?.dashboard;
+        const displayName =
+          dashboard && typeof dashboard === "object"
+            ? asString((dashboard as Record<string, unknown>).display_name)
+            : null;
+        const business = payload.business_profile;
+        const businessName =
+          business && typeof business === "object"
+            ? asString((business as Record<string, unknown>).name)
+            : null;
+        return {
+          accountId: id,
+          accountName: displayName ?? businessName ?? id,
+          extra: {
+            country: asString(payload.country),
+            currency: asString(payload.default_currency),
+            livemode: payload.id?.toString().startsWith("acct_") ?? null,
+          },
+        };
+      },
+      scopes: ["read_only"],
+      docsUrl: "https://docs.stripe.com/keys#create-restricted-api-secret-key",
+    },
+    supabase: {
+      id: "supabase",
+      label: "Supabase",
+      tokenHint: "Supabase personal access token (sbp_…)",
+      validateUrl: "https://api.supabase.com/v1/projects",
+      auth: (token) => ({ Authorization: `Bearer ${token.trim()}` }),
+      describe: (raw) => {
+        // /v1/projects answers with a bare array, and the two call sites hand
+        // the parsed body over as-is, so accept the array shape directly.
+        const payload = raw as unknown;
+        const rows = Array.isArray(payload)
+          ? (payload as Record<string, unknown>[])
+          : Array.isArray((payload as Record<string, unknown>).projects)
+            ? ((payload as Record<string, unknown>).projects as Record<string, unknown>[])
+            : Array.isArray((payload as Record<string, unknown>).value)
+              ? ((payload as Record<string, unknown>).value as Record<string, unknown>[])
+              : [];
+        const first = rows[0] ?? {};
+        const ref = asString(first.id) ?? asString(first.ref);
+        return {
+          accountId: ref,
+          accountName:
+            rows.length > 0
+              ? `Supabase (${rows.length} ${rows.length === 1 ? "project" : "projects"})`
+              : "Supabase (no projects)",
+          extra: {
+            projects: rows.length,
+            region: asString(first.region),
+          },
+        };
+      },
+      scopes: ["projects:read"],
+      docsUrl: "https://supabase.com/docs/reference/api/introduction",
     },
   };
 

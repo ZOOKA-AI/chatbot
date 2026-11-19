@@ -2,8 +2,120 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
+import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
+  // ZOOKA Mail (migration 0060). Same statements as
+  // lib/db/migrations/pending/0060_zooka_mail.sql; a unit test keeps them equal.
+  zooka_mail_0060: MAIL_DDL,
+  // Mail and rewards tenant isolation (migration 0061). Same statements as
+  // lib/db/migrations/pending/0061_mail_ledger_tenant_policies.sql; a unit test
+  // keeps them equal. 0058 could not grant these tables because 0060 creates
+  // them afterwards, so as zooka_runtime every read and write failed 42501.
+  // Tenant policies require a real membership for the authenticated subject
+  // (migration 0062). Same statements as
+  // lib/db/migrations/pending/0062_policy_subject_membership.sql; a unit test
+  // keeps them equal. Without the guard, a forged app.organization_id reads
+  // another workspace: measured 1 row before, 0 after.
+  policy_subject_membership_0062: [
+    `create or replace function public.app_tenant_subject() returns text
+language sql stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub',
+    nullif(current_setting('request.jwt.claim.sub', true), '')
+  )
+$$`,
+    `create or replace function public.app_is_org_member(org text) returns boolean
+language sql stable security definer
+set search_path = public, pg_temp
+as $$
+  select case
+    when org is null or org = '' then false
+    when public.app_tenant_subject() is null then true
+    else exists (
+      select 1
+      from public."OrganizationMember" m
+      where m."organizationId"::text = org
+        and m."userId"::text = public.app_tenant_subject()
+    )
+  end
+$$`,
+    `do $$
+declare
+  p record;
+  guard text := 'public.app_is_org_member(current_setting(''app.organization_id''::text, true))';
+  new_qual text;
+  new_check text;
+begin
+  for p in
+    select schemaname, tablename, policyname, cmd, roles, qual, with_check
+    from pg_policies
+    where schemaname = 'public'
+      and qual like '%app.organization_id%'
+  loop
+    new_qual := format('(%s) and %s', p.qual, guard);
+    new_check := case when p.with_check is null then null else format('(%s) and %s', p.with_check, guard) end;
+    execute format('drop policy if exists %I on %I.%I', p.policyname, p.schemaname, p.tablename);
+    if p.cmd = 'ALL' then
+      execute format('create policy %I on %I.%I for all to %s using (%s) with check (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual, coalesce(new_check, new_qual));
+    elsif p.cmd = 'SELECT' then
+      execute format('create policy %I on %I.%I for select to %s using (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual);
+    elsif p.cmd = 'INSERT' then
+      execute format('create policy %I on %I.%I for insert to %s with check (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), coalesce(new_check, new_qual));
+    elsif p.cmd = 'UPDATE' then
+      execute format('create policy %I on %I.%I for update to %s using (%s) with check (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual, coalesce(new_check, new_qual));
+    elsif p.cmd = 'DELETE' then
+      execute format('create policy %I on %I.%I for delete to %s using (%s)',
+        p.policyname, p.schemaname, p.tablename, array_to_string(p.roles, ', '), new_qual);
+    end if;
+  end loop;
+end $$`,
+  ],
+  mail_ledger_tenant_policies_0061: [
+    `DO $$
+DECLARE
+  target text;
+  candidates text[] := array['MailAddress','MailMessage','MailDraft','MailAttachment','MailAudit','RewardLedger'];
+BEGIN
+  FOREACH target IN ARRAY candidates LOOP
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = target AND column_name = 'organizationId'
+    ) THEN
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', target);
+      EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON public.%I', target);
+      EXECUTE format(
+        'CREATE POLICY tenant_isolation ON public.%I FOR ALL '
+        'USING (("organizationId")::text = current_setting(''app.organization_id''::text, true)) '
+        'WITH CHECK (("organizationId")::text = current_setting(''app.organization_id''::text, true))',
+        target
+      );
+    END IF;
+  END LOOP;
+END $$`,
+    `DO $$
+DECLARE
+  target text;
+  candidates text[] := array['MailAddress','MailMessage','MailDraft','MailAttachment','MailAudit','RewardLedger'];
+BEGIN
+  FOREACH target IN ARRAY candidates LOOP
+    IF to_regclass(format('public.%I', target)) IS NOT NULL THEN
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE ON TABLE public.%I TO zooka_runtime', target);
+      IF target = 'MailAudit' THEN
+        EXECUTE format('REVOKE DELETE ON TABLE public.%I FROM zooka_runtime', target);
+      ELSE
+        EXECUTE format('GRANT DELETE ON TABLE public.%I TO zooka_runtime', target);
+      END IF;
+    END IF;
+  END LOOP;
+  EXECUTE 'GRANT SELECT, USAGE ON ALL SEQUENCES IN SCHEMA public TO zooka_runtime';
+END $$`,
+  ],
   WebhookEvent: [
     'CREATE TABLE IF NOT EXISTS "WebhookEvent" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "provider" varchar(32) NOT NULL, "externalId" text NOT NULL, "receivedAt" timestamp DEFAULT now() NOT NULL)',
     'CREATE UNIQUE INDEX IF NOT EXISTS "WebhookEvent_provider_externalId_idx" ON "WebhookEvent" ("provider", "externalId")',

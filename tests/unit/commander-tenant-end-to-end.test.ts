@@ -62,12 +62,25 @@ async function applyMigrations() {
       "pending/0039_launch_plan.sql",
       "pending/0040_agent_tools_and_instructions.sql",
       "pending/0041_workspace_projects.sql",
+      "pending/0034_agent_execution.sql",
+    // Ends with the catalogue assertions that the runtime role holds exactly the grants the
+    // deployment expects, so a suite that touches 0031 leaves the shared database in the state
+    // every other suite reads from, and says so out loud if it cannot.
+    "pending/0058_runtime_grants_repair.sql",
   ];
   for (const name of files) {
     const body = readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8");
     for (const part of body.split("--> statement-breakpoint")) {
       const statement = part.trim();
       if (!statement) continue;
+      // 0031 opens with `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM zooka_runtime`,
+      // a blanket statement written for a database that has never been repaired. Re-applying
+      // it here strips every runtime grant that 0051 and 0058 put back, and with four workers
+      // the strip is visible to any suite reading through the runtime role at that moment:
+      // that is the "permission denied for table AgentExecution" seen in CI while the same
+      // suite passes on a quiet database. The role and its policies already exist; skip the
+      // blanket revoke and let the repair below restore the intended grant state.
+      if (/REVOKE\s+ALL\s+ON\s+ALL\s+TABLES\s+IN\s+SCHEMA\s+public/i.test(statement)) continue;
       try {
         await admin.unsafe(statement);
       } catch (error) {

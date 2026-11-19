@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     "قدّم طلب انضمام لشبكة شركاء Zooka AI: عمولة على الاشتراكات، وكالة white-label، أو امتياز منطقة. Apply to the Zooka AI partner network.",
 };
 
-const WHATSAPP = "971566047579";
+const CONTACT_EMAIL = "info@zooka-ai.com";
 
 export default async function PartnerJoinPage() {
   const lang = await getLang();
@@ -75,7 +75,7 @@ export default async function PartnerJoinPage() {
       <section className="flex flex-col items-center gap-4 rounded-2xl border bg-muted/30 p-6">
         <a
           className="w-full rounded-lg bg-primary px-6 py-3 text-center font-medium text-primary-foreground"
-          href={`https://wa.me/${WHATSAPP}?text=${message}`}
+          href="/wa"
           rel="noreferrer"
           target="_blank"
         >
@@ -83,8 +83,8 @@ export default async function PartnerJoinPage() {
         </a>
         <p className="text-xs text-muted-foreground">
           {isAr
-            ? "الدعم عبر واتساب فقط، ولا نستقبل مكالمات على هذا الرقم."
-            : "Support is WhatsApp only; no calls are received on this number."}
+            ? "نستقبل الطلبات على واتساب أو البريد."
+            : "Requests are accepted on WhatsApp or by email."}
         </p>
       </section>
 
