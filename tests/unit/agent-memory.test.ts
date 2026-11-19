@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { test, vi } from "vitest";
@@ -24,6 +26,12 @@ test("agent memory can be saved and retrieved from the workspace", async () => {
   });
 
   try {
+    await client.exec(
+      readFileSync(
+        join(process.cwd(), "lib/db/migrations/pending/0056_runtime_own_tables.sql"),
+        "utf8"
+      )
+    );
     await saveAgentMemory({
       userId: "user-1",
       organizationId: "workspace-1",
