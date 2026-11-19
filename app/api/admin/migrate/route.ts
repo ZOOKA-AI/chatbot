@@ -8,6 +8,50 @@ const TABLES: Record<string, string[]> = {
   // ZOOKA Mail (migration 0060). Same statements as
   // lib/db/migrations/pending/0060_zooka_mail.sql; a unit test keeps them equal.
   zooka_mail_0060: MAIL_DDL,
+  // Mail and rewards tenant isolation (migration 0061). Same statements as
+  // lib/db/migrations/pending/0061_mail_ledger_tenant_policies.sql; a unit test
+  // keeps them equal. 0058 could not grant these tables because 0060 creates
+  // them afterwards, so as zooka_runtime every read and write failed 42501.
+  mail_ledger_tenant_policies_0061: [
+    `DO $$
+DECLARE
+  target text;
+  candidates text[] := array['MailAddress','MailMessage','MailDraft','MailAttachment','MailAudit','RewardLedger'];
+BEGIN
+  FOREACH target IN ARRAY candidates LOOP
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = target AND column_name = 'organizationId'
+    ) THEN
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', target);
+      EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON public.%I', target);
+      EXECUTE format(
+        'CREATE POLICY tenant_isolation ON public.%I FOR ALL '
+        'USING (("organizationId")::text = current_setting(''app.organization_id''::text, true)) '
+        'WITH CHECK (("organizationId")::text = current_setting(''app.organization_id''::text, true))',
+        target
+      );
+    END IF;
+  END LOOP;
+END $$`,
+    `DO $$
+DECLARE
+  target text;
+  candidates text[] := array['MailAddress','MailMessage','MailDraft','MailAttachment','MailAudit','RewardLedger'];
+BEGIN
+  FOREACH target IN ARRAY candidates LOOP
+    IF to_regclass(format('public.%I', target)) IS NOT NULL THEN
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE ON TABLE public.%I TO zooka_runtime', target);
+      IF target = 'MailAudit' THEN
+        EXECUTE format('REVOKE DELETE ON TABLE public.%I FROM zooka_runtime', target);
+      ELSE
+        EXECUTE format('GRANT DELETE ON TABLE public.%I TO zooka_runtime', target);
+      END IF;
+    END IF;
+  END LOOP;
+  EXECUTE 'GRANT SELECT, USAGE ON ALL SEQUENCES IN SCHEMA public TO zooka_runtime';
+END $$`,
+  ],
   WebhookEvent: [
     'CREATE TABLE IF NOT EXISTS "WebhookEvent" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, "provider" varchar(32) NOT NULL, "externalId" text NOT NULL, "receivedAt" timestamp DEFAULT now() NOT NULL)',
     'CREATE UNIQUE INDEX IF NOT EXISTS "WebhookEvent_provider_externalId_idx" ON "WebhookEvent" ("provider", "externalId")',
