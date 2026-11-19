@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { withTenantPage } from "@/lib/db/request-tenant";
 import { AgentConsole } from "@/components/agent-console";
+import { AgentBrowserDock } from "@/components/agent-browser-dock";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 
@@ -24,6 +25,8 @@ async function WorkspaceAgentPageImpl() {
   return (
     <main className="mx-auto flex h-[calc(100vh-64px)] w-full max-w-3xl flex-col gap-4 p-4">
       <AgentConsole limit={limit} plan={plan} used={usage.agentRuns} />
+      {/* المتصفح على بعد نقرة من المحادثة: زر يظهر ويختفي بدل صفحة منفصلة */}
+      <AgentBrowserDock />
     </main>
   );
 }
