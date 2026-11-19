@@ -35,7 +35,7 @@ const template = (over: Partial<ActionTemplate> = {}): ActionTemplate => ({
 });
 
 const base = {
-  assignedTools: ["github_repo_inspect", "project_document"],
+  assignedTools: ["github_repo_inspect", "project_document_create"],
   agentStatus: "active",
   plan: "pro" as const,
   agentRunsUsed: 0,
@@ -54,7 +54,7 @@ describe("preflight risk classification", () => {
   it("asks for confirmation when a tool writes but the catalogue allows it", () => {
     const result = preflightAction({
       ...base,
-      template: template({ requiredTools: ["project_document"] }),
+      template: template({ requiredTools: ["project_document_create"] }),
     });
     expect(result.decision).toBe("confirm");
     if (result.decision === "deny") throw new Error("unexpected denial");
@@ -118,7 +118,7 @@ describe("preflight denials", () => {
   it("refuses a tool the project's agent was not assigned", () => {
     const result = preflightAction({
       ...base,
-      assignedTools: ["project_document"],
+      assignedTools: ["project_document_create"],
       template: template(),
     });
     expect(result.decision).toBe("deny");
@@ -130,11 +130,11 @@ describe("preflight denials", () => {
 describe("preflight cost and idempotency", () => {
   it("counts one agent run and every distinct tool", () => {
     const cost = estimateCost(
-      template({ requiredTools: ["github_repo_inspect", "github_repo_inspect", "project_document"] })
+      template({ requiredTools: ["github_repo_inspect", "github_repo_inspect", "project_document_create"] })
     );
     expect(cost.agentRuns).toBe(1);
     expect(cost.toolCalls).toBe(2);
-    expect(cost.writingTools).toEqual(["project_document"]);
+    expect(cost.writingTools).toEqual(["project_document_create"]);
   });
 
   it("gives the same key for the same request regardless of key order", () => {
