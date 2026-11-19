@@ -15,7 +15,15 @@ const template = (over: Partial<ActionTemplate> = {}): ActionTemplate => ({
   category: "engineering",
   title: { ar: "حالة المستودع", en: "Repository status" },
   description: { ar: "قراءة", en: "Reads" },
-  inputs: [{ key: "repo", label: { ar: "المستودع", en: "Repository" }, type: "text", required: true }],
+  inputs: [
+    {
+      key: "repo",
+      label: { ar: "المستودع", en: "Repository" },
+      help: { ar: "المستودع المصرّح به", en: "The authorised repository" },
+      type: "text",
+      required: true,
+    },
+  ],
   responsibleRole: "engineer",
   requiredTools: ["github_repo_inspect"],
   requiredIntegrations: ["github"],
