@@ -62,17 +62,15 @@ export default function ContactPage() {
       <section className="flex flex-col items-center gap-4 rounded-xl border bg-muted/30 p-6 text-center">
         <p className="text-muted-foreground text-sm">
           للاستفسار عن الباقات، أو عرض سعر لفريق كامل، أو عقد سنوي وفاتورة
-          رسمية — راسلنا على البريد وسنرد في أوقات العمل (الأحد إلى الخميس).
+          رسمية — كلّمنا على واتساب وسنرد في أوقات العمل (الأحد إلى الخميس).
         </p>
         <a
           className="rounded-md bg-primary px-5 py-2.5 font-medium text-primary-foreground"
-          href={`mailto:${CONTACT_EMAIL}?body=${encodeURIComponent(
-            "مرحبًا، عايز أعرف باقات زوكا AI للشركات (B2B) والتسعير."
-          )}`}
+          href="/wa"
           rel="noopener noreferrer"
           target="_blank"
         >
-          راسلنا على البريد
+          تواصل على واتساب
         </a>
         <p className="text-muted-foreground text-xs">
           النموذج مجاني؟ لا. الاشتراك مطلوب للاستخدام التجاري. / Is it free? No.
@@ -82,6 +80,9 @@ export default function ContactPage() {
           <Link className="underline" href="/pricing">
             اطّلع على الباقات والأسعار
           </Link>
+          <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>
+            {CONTACT_EMAIL}
+          </a>
         </div>
       </section>
 
