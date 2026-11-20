@@ -115,11 +115,11 @@ export function verifyAccessToken(token: string, apiSecret: string): Record<stri
     throw new Error("token_malformed");
   }
   const [header, payload, signature] = parts;
-  // Same HMAC as above: this is signature verification, not password hashing.
+  // Same HMAC as above: this is signature verification, not password hashing. The marker
+  // must sit on the line directly above the call, or CodeQL does not read it.
   // codeql[js/insufficient-password-hash]
-  const expected = base64url(
-    createHmac("sha256", apiSecret).update(`${header}.${payload}`).digest(),
-  );
+  const expectedHmac = createHmac("sha256", apiSecret).update(`${header}.${payload}`).digest();
+  const expected = base64url(expectedHmac);
   const expectedBytes = Buffer.from(expected, "utf8");
   const actualBytes = Buffer.from(signature, "utf8");
   // Constant-time comparison: a byte-by-byte early exit leaks how much of a forged
