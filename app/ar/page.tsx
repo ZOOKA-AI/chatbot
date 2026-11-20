@@ -6,7 +6,7 @@ import { SITE_URL } from "@/lib/site";
 const PAGE_URL = `${SITE_URL}/ar`;
 
 export const metadata: Metadata = {
-  title: "ZOOKA-AI — منصة ذكاء اصطناعي متكاملة",
+  title: "منصة ذكاء اصطناعي متكاملة",
   description:
     "منصة ذكاء اصطناعي متكاملة: وكلاء أذكياء، أتمتة، استوديوهات إبداعية، وتكاملات — في مساحة عمل واحدة. تقنية بإيمان، تقدّم بأخلاق.",
   alternates: {
