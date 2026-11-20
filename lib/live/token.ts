@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
  * LiveKit access tokens, signed here and nowhere else.
@@ -99,6 +99,10 @@ export function createAccessToken(input: AccessTokenInput): AccessToken {
   };
 
   const signingInput = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`;
+  // HS256 is HMAC-SHA256 by definition (RFC 7518 section 3.2), and LiveKit verifies exactly
+  // that. This is a message authentication code over a server-issued high-entropy API secret,
+  // not a password hash, so a slow KDF would break interoperability and add nothing:
+  // codeql[js/insufficient-password-hash]
   const signature = base64url(createHmac("sha256", apiSecret).update(signingInput).digest());
 
   return { token: `${signingInput}.${signature}`, expiresAt: exp };
@@ -111,10 +115,19 @@ export function verifyAccessToken(token: string, apiSecret: string): Record<stri
     throw new Error("token_malformed");
   }
   const [header, payload, signature] = parts;
+  // Same HMAC as above: this is signature verification, not password hashing.
+  // codeql[js/insufficient-password-hash]
   const expected = base64url(
     createHmac("sha256", apiSecret).update(`${header}.${payload}`).digest(),
   );
-  if (expected !== signature) {
+  const expectedBytes = Buffer.from(expected, "utf8");
+  const actualBytes = Buffer.from(signature, "utf8");
+  // Constant-time comparison: a byte-by-byte early exit leaks how much of a forged
+  // signature was correct.
+  if (
+    expectedBytes.length !== actualBytes.length ||
+    !timingSafeEqual(expectedBytes, actualBytes)
+  ) {
     throw new Error("token_signature_invalid");
   }
   return JSON.parse(Buffer.from(payload, "base64").toString("utf8")) as Record<string, unknown>;
