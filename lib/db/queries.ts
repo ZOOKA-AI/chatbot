@@ -775,18 +775,33 @@ export async function saveChat({
   title: string;
   visibility: VisibilityType;
 }) {
+  let inserted: { id: string }[];
   try {
-    return await db.insert(chat).values({
-      id,
-      createdAt: new Date(),
-      userId,
-      organizationId,
-      title,
-      visibility,
-    });
+    // ON CONFLICT DO NOTHING instead of letting the primary key reject the row: a
+    // chat id that already exists but belongs to another workspace is invisible to
+    // the lookup before this call (organisation filter, and RLS when the tenant
+    // flag is on), so the caller reaches here. A raised unique violation aborted
+    // the tenant transaction and surfaced as a 500; an empty insert lets the
+    // route answer 403 and leaves the transaction usable.
+    inserted = await db
+      .insert(chat)
+      .values({
+        id,
+        createdAt: new Date(),
+        userId,
+        organizationId,
+        title,
+        visibility,
+      })
+      .onConflictDoNothing({ target: chat.id })
+      .returning({ id: chat.id });
   } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to save chat");
   }
+  if (inserted.length === 0) {
+    throw new ChatbotError("forbidden:chat");
+  }
+  return inserted;
 }
 
 export async function deleteChatById({
