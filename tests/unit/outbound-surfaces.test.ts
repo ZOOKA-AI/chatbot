@@ -14,6 +14,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
  * and not only by the shape of the returned verdict.
  */
 
+// The guard resolves hostnames before fetching. Keep DNS deterministic and offline-safe so these
+// tests verify policy and redirect handling, not network availability.
+vi.mock("node:dns/promises", () => ({
+  lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+}));
+
 const calls: string[] = [];
 
 vi.mock("@/lib/auth/workspace", () => ({
