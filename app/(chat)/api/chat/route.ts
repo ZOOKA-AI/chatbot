@@ -210,17 +210,39 @@ async function POSTImpl(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const billing = await getWorkspaceBilling(workspaceContext.organizationId);
+    /*
+     * One wave, not five.
+     *
+     * Time-to-first-token is decided here, before any model call: everything
+     * below used to be awaited one after another, so five independent reads
+     * (billing, hourly count, entitlements, quota, the chat row) cost five
+     * round trips in series. They share no inputs, so they run together and
+     * the conditionals keep their original order and semantics afterwards.
+     */
+    const [billing, messageCount, entitlements, messageQuota, chat] =
+      await Promise.all([
+        getWorkspaceBilling(workspaceContext.organizationId),
+        getMessageCountByUserId({
+          id: session.user.id,
+          differenceInHours: 1,
+        }),
+        getWorkspaceEntitlements(workspaceContext.organizationId),
+        checkQuota(
+          session.user.id,
+          "chat_message",
+          workspaceContext.organizationId,
+        ),
+        getChatById({
+          id,
+          organizationId: workspaceContext.organizationId,
+        }),
+      ]);
     const effectivePlan =
       billing.subscription &&
       ["active", "trialing"].includes(billing.subscription.status)
         ? billing.subscription.plan
         : "free";
     const plan = workspacePlans[effectivePlan];
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 1,
-    });
     const hourlyLimit =
       userType === "guest"
         ? entitlementsByUserType.guest.maxMessagesPerHour
@@ -238,9 +260,6 @@ async function POSTImpl(request: Request) {
     // testing claim (entitlements). The limit is still the plan's, so usage is
     // metered and recorded exactly as for a paying workspace, and nothing is
     // deducted because no ledger runs here.
-    const entitlements = await getWorkspaceEntitlements(
-      workspaceContext.organizationId,
-    );
     const agentRunsLimit = entitlements.canUseAgentMode
       ? workspacePlans[entitlements.plan].monthlyAgentRuns
       : 0;
@@ -257,11 +276,6 @@ async function POSTImpl(request: Request) {
       return agentModeErrorResponse("quota", lang);
     }
 
-    const messageQuota = await checkQuota(
-      session.user.id,
-      "chat_message",
-      workspaceContext.organizationId,
-    );
     if (!messageQuota.allowed) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
@@ -290,10 +304,6 @@ async function POSTImpl(request: Request) {
       quotaAllowed: agentQuotaAllowed,
     });
 
-    const chat = await getChatById({
-      id,
-      organizationId: workspaceContext.organizationId,
-    });
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string | null> | null = null;
 
