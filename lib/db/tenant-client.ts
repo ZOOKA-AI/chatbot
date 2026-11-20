@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import {
+  tenantScopeEnabled,
   TENANT_SETTING,
   TENANT_USER_SETTING,
   TenantScopeError,
@@ -174,4 +175,23 @@ export async function runInTenantTransaction<T>(
 
     return runWithCommanderDb(tx, () => work());
   }) as Promise<T>;
+}
+
+/**
+ * Work that runs after the request's own transaction is gone (a streaming
+ * onFinish, an after() callback) and still has to land in the caller's tenant.
+ *
+ * Flag off, the work runs on the shared connection exactly like every other
+ * route. Calling runInTenantTransaction unconditionally here made production,
+ * where DATABASE_URL_TENANT is deliberately absent, throw on every chat finish:
+ * the reply streamed but was never saved.
+ */
+export function runAfterResponseInTenant<T>(
+  context: TenantContext | null,
+  work: () => Promise<T>
+): Promise<T> {
+  if (!tenantScopeEnabled()) {
+    return work();
+  }
+  return runInTenantTransaction(context, work);
 }

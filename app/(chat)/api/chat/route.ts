@@ -82,7 +82,7 @@ import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
-import { runInTenantTransaction } from "@/lib/db/tenant-client";
+import { runAfterResponseInTenant } from "@/lib/db/tenant-client";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -577,7 +577,7 @@ async function POSTImpl(request: Request) {
        * writes back inside their tenant.
        */
       onFinish: async ({ messages: finishedMessages }) =>
-        runInTenantTransaction(
+        runAfterResponseInTenant(
           {
             organizationId: workspaceContext.organizationId,
             userId: session.user.id ?? null,
