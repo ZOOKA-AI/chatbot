@@ -149,79 +149,90 @@ export function LiveSessionStatus({
   return null;
 }
 
-function ParticipantTile({ participant }: { participant: Participant }) {
+function ParticipantVideo({ track }: { track: Track }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const videoKey = participantTracks(participant, Track.Kind.Video)
-    .map((track) => track.sid)
-    .join(":");
-  const audioKey = participantTracks(participant, Track.Kind.Audio)
-    .map((track) => track.sid)
-    .join(":");
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Track IDs detect in-place LiveKit publication changes.
   useEffect(() => {
     const element = videoRef.current;
     if (!element) {
       return;
     }
-    const tracks = participantTracks(participant, Track.Kind.Video);
-    for (const track of tracks) {
-      track.attach(element);
-    }
+    track.attach(element);
     return () => {
-      for (const track of tracks) {
-        track.detach(element);
-      }
+      track.detach(element);
     };
-  }, [participant, videoKey]);
+  }, [track]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Track IDs detect in-place LiveKit publication changes.
+  return (
+    <video
+      autoPlay
+      className="aspect-video w-full object-cover"
+      muted
+      playsInline
+      ref={videoRef}
+    />
+  );
+}
+
+function ParticipantAudio({
+  participantName,
+  track,
+}: {
+  participantName: string;
+  track: Track;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     const element = audioRef.current;
     if (!element) {
       return;
     }
-    const tracks = participantTracks(participant, Track.Kind.Audio);
-    for (const track of tracks) {
-      track.attach(element);
-    }
+    track.attach(element);
     return () => {
-      for (const track of tracks) {
-        track.detach(element);
-      }
+      track.detach(element);
     };
-  }, [participant, audioKey]);
+  }, [track]);
+
+  return (
+    /* biome-ignore lint/a11y/useMediaCaption: Live audio has no pre-authored caption track. */
+    <audio
+      aria-label={`${participantName} audio`}
+      autoPlay
+      className="hidden"
+      ref={audioRef}
+    />
+  );
+}
+
+export function ParticipantTile({ participant }: { participant: Participant }) {
+  const videoTracks = participantTracks(participant, Track.Kind.Video);
+  const audioTracks = participantTracks(participant, Track.Kind.Audio);
+  const participantName = participant.name || participant.identity;
 
   return (
     <div className="zk-neon-surface min-w-0 overflow-hidden rounded-xl p-3">
       <div className="mb-2 flex items-center gap-2 text-sm font-medium">
         <Users className="size-4" />
-        <span className="truncate">
-          {participant.name || participant.identity}
-        </span>
+        <span className="truncate">{participantName}</span>
       </div>
-      <div className="overflow-hidden rounded-lg bg-black/50">
-        {videoKey ? (
-          <video
-            autoPlay
-            className="aspect-video w-full object-cover"
-            muted
-            playsInline
-            ref={videoRef}
-          />
+      <div className="grid gap-2 overflow-hidden rounded-lg bg-black/50">
+        {videoTracks.length ? (
+          videoTracks.map((track) => (
+            <ParticipantVideo key={track.sid} track={track} />
+          ))
         ) : (
           <div className="text-muted-foreground flex aspect-video items-center justify-center text-xs">
-            {participant.name || participant.identity}
+            {participantName}
           </div>
         )}
-        {/* biome-ignore lint/a11y/useMediaCaption: Live audio has no pre-authored caption track. */}
-        <audio
-          aria-label={`${participant.name || participant.identity} audio`}
-          autoPlay
-          className="hidden"
-          ref={audioRef}
-        />
+        {audioTracks.map((track) => (
+          <ParticipantAudio
+            key={track.sid}
+            participantName={participantName}
+            track={track}
+          />
+        ))}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import type { Participant } from "livekit-client";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -38,7 +39,10 @@ vi.mock("livekit-client", () => ({
   },
 }));
 
-import { LiveSessionStatus } from "@/components/live-session-console";
+import {
+  LiveSessionStatus,
+  ParticipantTile,
+} from "@/components/live-session-console";
 import { createLiveSessionClient, fetchLiveToken } from "@/lib/live/client";
 
 afterEach(() => {
@@ -109,6 +113,24 @@ describe("live session console availability", () => {
 
     expect(html).toContain("<button");
     expect(html).toContain("Join session");
+  });
+
+  test("renders camera and screen-share tracks as separate remote videos", () => {
+    const participant = {
+      name: "Ada",
+      identity: "ada-identity",
+      trackPublications: new Map([
+        ["camera", { kind: "video", track: { sid: "camera-track" } }],
+        ["screen", { kind: "video", track: { sid: "screen-track" } }],
+      ]),
+    } as unknown as Participant;
+
+    const html = renderToStaticMarkup(
+      createElement(ParticipantTile, { participant })
+    );
+
+    expect(html.match(/<video/g)).toHaveLength(2);
+    expect(html).toContain("Ada");
   });
 
   test("renders the connection error text", async () => {
