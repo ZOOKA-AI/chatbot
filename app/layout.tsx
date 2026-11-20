@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { GlobalSiteComponents } from "@/components/global-site-components";
 import { PwaRegister } from "@/components/pwa-register";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import { SITE_YEAR } from "@/lib/site-year";
@@ -151,10 +152,12 @@ export default function RootLayout({
           disableTransitionOnChange
           enableSystem
         >
-          <Toaster position="top-center" />
-          <SessionProvider>{children}</SessionProvider>
-          <PwaRegister />
-          <GlobalSiteComponents year={SITE_YEAR} />
+          <TooltipProvider>
+            <Toaster position="top-center" />
+            <SessionProvider>{children}</SessionProvider>
+            <PwaRegister />
+            <GlobalSiteComponents year={SITE_YEAR} />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>
