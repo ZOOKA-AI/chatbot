@@ -675,7 +675,7 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
               status={status}
             />
-            <LiveSessionConsole lang={lang} />
+            <LiveSessionConsole lang={lang} slug={chatId} />
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
