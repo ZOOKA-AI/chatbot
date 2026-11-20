@@ -183,7 +183,7 @@ export function LiveSessionConsole({ lang }: { lang: "ar" | "en" }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label={isArabic ? "جلسة مباشرة" : "Live session controls"}
+            aria-label={isArabic ? "معاينة محلية للكاميرا والشاشة" : "Local camera and screen preview"}
             aria-pressed={isSessionLive}
             className="size-8 rounded-full p-0"
             onClick={() => setOpen(true)}
@@ -195,25 +195,31 @@ export function LiveSessionConsole({ lang }: { lang: "ar" | "en" }) {
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          {isArabic ? "جلسة مباشرة" : "Live session"}
+          {isArabic ? "معاينة محلية" : "Local preview"}
         </TooltipContent>
       </Tooltip>
 
       <Dialog onOpenChange={setOpen} open={open}>
         <DialogContent className="zk-neon-surface max-w-xl">
           <DialogHeader>
-            <DialogTitle>{isArabic ? "جلسة تواصل مباشرة" : "Live communication session"}</DialogTitle>
+            <DialogTitle>{isArabic ? "معاينة الكاميرا والشاشة" : "Camera and screen preview"}</DialogTitle>
           </DialogHeader>
+
+          <p className="text-muted-foreground text-xs">
+            {isArabic
+              ? "هذه معاينة على هذا الجهاز فقط. إرسال الكاميرا أو الشاشة إلى جهاز آخر يحتاج خادم وسائط (SFU) ولم يُبنَ بعد."
+              : "This is a preview on this device only. Sending camera or screen to another device needs a media server (SFU) and is not built yet."}
+          </p>
 
           <div className="grid gap-4">
             <div className="zk-neon-surface rounded-xl p-3">
               <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="inline-flex items-center gap-1 font-medium">
                   <Users className="size-4" />
-                  {isArabic ? "الحضور" : "Presence"}
+                  {isArabic ? "التقاط محلي" : "Local capture"}
                 </span>
                 <span className={cn("rounded-full px-2 py-0.5 text-xs", isSessionLive ? "bg-emerald-500/20 text-emerald-300" : "bg-muted text-muted-foreground")}>
-                  {isSessionLive ? (isArabic ? "مباشر" : "Live") : isArabic ? "جاهز" : "Ready"}
+                  {isSessionLive ? (isArabic ? "مفعّل" : "On") : isArabic ? "متوقف" : "Off"}
                 </span>
               </div>
               <p className="text-muted-foreground text-xs">{summary || (isArabic ? "لا توجد قنوات مفعلة بعد." : "No active channels yet.")}</p>
@@ -249,7 +255,7 @@ export function LiveSessionConsole({ lang }: { lang: "ar" | "en" }) {
             <div className="zk-neon-surface rounded-xl p-3">
               <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <Settings2 className="size-4" />
-                {isArabic ? "وضع الجودة" : "Stream quality"}
+                {isArabic ? "جودة المعاينة" : "Preview quality"}
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {(["performance", "balanced", "high"] as QualityMode[]).map((mode) => (
