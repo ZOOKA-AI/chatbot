@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -7,14 +8,13 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "المدونة | Blog",
-  description:
-    "مقالات Zooka AI عن تشغيل الأعمال بالذكاء الاصطناعي: ربط البريد وجوجل درايف وجيت هب وأتمتة المهام اليومية. Zooka AI blog on running a business with AI agents.",
+  description: `مقالات ${PRODUCT_NAME} عن تشغيل الأعمال بالذكاء الاصطناعي: ربط البريد وجوجل درايف وجيت هب وأتمتة المهام اليومية. ${PRODUCT_NAME} blog on running a business with AI agents.`,
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
     type: "website",
     url: `${SITE_URL}/blog`,
     title: `المدونة | ${SITE_NAME}`,
-    description: "مقالات عن أتمتة الأعمال بالذكاء الاصطناعي مع Zooka AI.",
+    description: `مقالات عن أتمتة الأعمال بالذكاء الاصطناعي مع ${PRODUCT_NAME}.`,
   },
 };
 
@@ -84,10 +84,15 @@ async function BlogIndexContent() {
       )}
 
       <header className="flex flex-col gap-3">
-        <Link href="/" className="text-muted-foreground text-sm hover:underline">
+        <Link
+          href="/"
+          className="text-muted-foreground text-sm hover:underline"
+        >
           {ar ? "← رجوع إلى زوكا" : "← Back to Zooka"}
         </Link>
-        <h1 className="font-semibold text-3xl">{ar ? "مدونة زوكا" : "Zooka Blog"}</h1>
+        <h1 className="font-semibold text-3xl">
+          {ar ? "مدونة زوكا" : "Zooka Blog"}
+        </h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
           {ar
             ? "كيف تشغّل شركتك بمساعد ذكي ينفّذ المهام فعلاً: البريد، الملفات، التقويم، الكود، والأتمتة. مقالات عملية بدون حشو."
@@ -103,7 +108,10 @@ async function BlogIndexContent() {
         <ul className="flex flex-col divide-y">
           {posts.map((post) => (
             <li key={post.slug} className="py-5 first:pt-0">
-              <Link href={`/blog/${post.slug}`} className="group flex flex-col gap-2">
+              <Link
+                href={`/blog/${post.slug}`}
+                className="group flex flex-col gap-2"
+              >
                 <div className="flex items-center gap-2 text-muted-foreground text-xs">
                   <span className="rounded-full border px-2 py-0.5">
                     {post.lang === "ar" ? "عربي" : "English"}
@@ -127,13 +135,19 @@ async function BlogIndexContent() {
       )}
 
       <footer className="flex flex-wrap items-center gap-3 border-t pt-6 text-sm">
-        <Link href="/register" className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+        <Link
+          href="/register"
+          className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
+        >
           {ar ? "أنشئ مساحة عملك" : "Create your workspace"}
         </Link>
         <Link href="/pricing" className="text-muted-foreground hover:underline">
           {ar ? "الأسعار" : "Pricing"}
         </Link>
-        <Link href="/compare/chatgpt" className="text-muted-foreground hover:underline">
+        <Link
+          href="/compare/chatgpt"
+          className="text-muted-foreground hover:underline"
+        >
           {ar ? "زوكا مقابل ChatGPT" : "Zooka vs ChatGPT"}
         </Link>
       </footer>
@@ -145,7 +159,11 @@ export default function BlogIndexPage() {
   // The post list is read per request, so it must sit inside a Suspense
   // boundary for the route to prerender its static shell.
   return (
-    <Suspense fallback={<div className="mx-auto min-h-dvh w-full max-w-3xl p-6 py-16" />}>
+    <Suspense
+      fallback={
+        <div className="mx-auto min-h-dvh w-full max-w-3xl p-6 py-16" />
+      }
+    >
       <BlogIndexContent />
     </Suspense>
   );

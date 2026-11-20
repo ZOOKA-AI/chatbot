@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import "server-only";
 
 import postgres from "postgres";
@@ -49,10 +50,14 @@ function normaliseLang(value: string): BlogLang {
 }
 
 function isoDate(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
-export async function listPublishedPosts(limit = 50): Promise<BlogPostSummary[]> {
+export async function listPublishedPosts(
+  limit = 50,
+): Promise<BlogPostSummary[]> {
   try {
     const rows = await db()<Row[]>`
       select slug, lang, title, excerpt, keyword, body, author, published_at
@@ -130,9 +135,15 @@ export async function publishPost(input: PublishInput) {
   if (!slug) throw new Error("blog_invalid_slug");
   const status = input.status === "published" ? "published" : "draft";
   const publishedAt =
-    status === "published" ? input.publishedAt || new Date().toISOString() : input.publishedAt || null;
+    status === "published"
+      ? input.publishedAt || new Date().toISOString()
+      : input.publishedAt || null;
   const excerpt =
-    input.excerpt ?? `${input.body.replace(/[#*_>`\-\n]+/g, " ").trim().slice(0, 180)}…`;
+    input.excerpt ??
+    `${input.body
+      .replace(/[#*_>`\-\n]+/g, " ")
+      .trim()
+      .slice(0, 180)}…`;
 
   const rows = await db()`
     insert into "BlogPost" (slug, lang, title, excerpt, body, keyword, status, author, published_at)
@@ -144,7 +155,7 @@ export async function publishPost(input: PublishInput) {
       ${input.body},
       ${input.keyword ?? null},
       ${status},
-      ${input.author ?? "Zooka AI"},
+      ${input.author ?? `${PRODUCT_NAME}`},
       ${publishedAt}
     )
     on conflict (slug) do update set
@@ -160,5 +171,9 @@ export async function publishPost(input: PublishInput) {
     returning slug, status, published_at
   `;
 
-  return rows[0] as { slug: string; status: string; published_at: Date | string | null };
+  return rows[0] as {
+    slug: string;
+    status: string;
+    published_at: Date | string | null;
+  };
 }

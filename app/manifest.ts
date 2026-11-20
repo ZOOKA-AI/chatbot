@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-
-import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+import { APP_STORE_NAME, TAGLINE_AR } from "@/lib/brand";
 
 /**
  * Installable-app manifest (PWA).
@@ -12,18 +11,18 @@ import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: SITE_NAME,
-    short_name: "ZOOKA-AI",
-    description: SITE_DESCRIPTION,
+    background_color: "#0b1220",
+    description: TAGLINE_AR,
+    dir: "rtl",
     id: "/",
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
-    dir: "rtl",
     lang: "ar",
-    background_color: "#0f172a",
-    theme_color: "#2E86AB",
+    name: APP_STORE_NAME,
+    short_name: APP_STORE_NAME,
+    theme_color: "#0b1220",
     categories: ["productivity", "business", "utilities"],
     icons: [
       {

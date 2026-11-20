@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import {
   ArrowUpLeft,
   ArrowUpRight,
@@ -32,7 +33,7 @@ export function PlatformHeader({ lang }: { lang: Lang }) {
   return (
     <header className={styles.header}>
       <Link
-        aria-label="Zooka AI — الرئيسية"
+        aria-label={`${PRODUCT_NAME} — الرئيسية`}
         className={styles.logo}
         href="/explore"
       >

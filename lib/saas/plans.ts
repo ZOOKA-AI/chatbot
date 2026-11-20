@@ -1,7 +1,8 @@
+import { BRAND_PRICES } from "@/lib/brand";
 export const workspacePlans = {
   free: {
     name: "Free",
-    price: 0,
+    price: BRAND_PRICES.free,
     monthlyMessages: 1000,
     monthlyAgentRuns: 0,
     monthlyWebSearches: 0,
@@ -9,7 +10,7 @@ export const workspacePlans = {
   },
   pro: {
     name: "Pro",
-    price: 19,
+    price: BRAND_PRICES.pro,
     monthlyMessages: 10_000,
     monthlyAgentRuns: 500,
     monthlyWebSearches: 1000,
@@ -21,7 +22,7 @@ export const workspacePlans = {
   },
   business: {
     name: "Business",
-    price: 49,
+    price: BRAND_PRICES.business,
     monthlyMessages: 100_000,
     monthlyAgentRuns: 5000,
     monthlyWebSearches: 10_000,

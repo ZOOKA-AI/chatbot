@@ -23,6 +23,7 @@ import {
   type IntegrationProvider,
   PROVIDER_CATEGORIES,
 } from "@/lib/integrations/providers";
+import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
 import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { withTenantPage } from "@/lib/db/request-tenant";
 
@@ -119,6 +120,21 @@ async function IntegrationsPage({
   const providers: IntegrationProvider[] = getIntegrationProviders(
     isWhatsAppConfigured(process.env)
   );
+  // Credentials stored by the workspace (Stripe, Supabase, GitHub, Vercel, n8n)
+  // live in integration_connection; surface them so a provider only reads
+  // "connected" when a real encrypted credential exists for this workspace.
+  try {
+    for (const stored of await listWorkspaceIntegrations(
+      context.organizationId
+    )) {
+      if (stored.status === "connected") {
+        connectedIds.add(stored.providerId);
+      }
+    }
+  } catch {
+    // the table may be unreachable in a degraded deploy; badges fall back to
+    // the Google Drive state only.
+  }
   const grouped = providers.reduce<Record<string, IntegrationProvider[]>>(
     (accumulator, provider) => {
       accumulator[provider.category] = [

@@ -1,12 +1,16 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CookieConsent } from "@/components/cookie-consent";
 import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { hidesPublicHeader } from "@/lib/site-nav";
 import type { Lang } from "@/lib/i18n";
 
 export function GlobalSiteComponents({ year }: { year: number }) {
   const [lang, setLang] = useState<Lang>("ar");
+  const pathname = usePathname() ?? "/";
 
   useEffect(() => {
     const savedLang = document.cookie
@@ -21,6 +25,7 @@ export function GlobalSiteComponents({ year }: { year: number }) {
 
   return (
     <>
+      {hidesPublicHeader(pathname) ? null : <SiteHeader lang={lang} />}
       <SiteFooter lang={lang} year={year} />
       <CookieConsent lang={lang} />
     </>

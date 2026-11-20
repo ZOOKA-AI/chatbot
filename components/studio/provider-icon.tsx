@@ -1,4 +1,5 @@
 import {
+  SiCanva,
   SiGithub,
   SiGmail,
   SiGoogle,
@@ -14,16 +15,18 @@ import {
   SiN8n,
   SiNotion,
   SiShopify,
+  SiSlack,
   SiSnapchat,
   SiStripe,
   SiSupabase,
   SiTiktok,
+  SiTwilio,
   SiVercel,
   SiWhatsapp,
   SiX,
   SiZapier,
 } from "@icons-pack/react-simple-icons";
-import { Cable, Hash, Linkedin, MessageCircle, Palette } from "lucide-react";
+import { Cable, Linkedin } from "lucide-react";
 
 const icons = {
   gmail: SiGmail,
@@ -47,10 +50,10 @@ const icons = {
   zapier: SiZapier,
   make: SiMake,
   notion: SiNotion,
-  slack: Hash,
+  slack: SiSlack,
   shopify: SiShopify,
-  twilio: MessageCircle,
-  canva: Palette,
+  twilio: SiTwilio,
+  canva: SiCanva,
   hubspot: SiHubspot,
 };
 const colors: Record<string, string> = {

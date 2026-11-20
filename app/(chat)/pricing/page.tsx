@@ -1,3 +1,10 @@
+import {
+  brandTitle,
+  TAGLINE_AR,
+  TAGLINE_EN,
+  PRODUCT_NAME_AR,
+  APP_STORE_NAME,
+} from "@/lib/brand";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -5,10 +12,15 @@ import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
 
-export const metadata: Metadata = {
-  title: "الأسعار | Pricing",
-  description: "Zooka AI plans and pricing — خطط وأسعار Zooka AI",
-};
+export async function generateMetadata() {
+  const lang = await getLang();
+  return {
+    title: {
+      absolute: brandTitle(lang === "ar" ? "الأسعار" : "Pricing", lang),
+    },
+    description: lang === "ar" ? TAGLINE_AR : TAGLINE_EN,
+  };
+}
 
 const pricingPlanKeys = ["free", "pro", "business"] as const;
 
@@ -16,8 +28,7 @@ const strings = {
   ar: {
     eyebrow: "باقات بسيطة وواضحة",
     title: "اختر الباقة المناسبة لعملك",
-    subtitle:
-      "زوكا AI خدمة أعمال مدفوعة. التجربة التعريفية محدودة، والتشغيل التجاري يتم بباقة اشتراك.",
+    subtitle: `${PRODUCT_NAME_AR} خدمة أعمال مدفوعة. التجربة التعريفية محدودة، والتشغيل التجاري يتم بباقة اشتراك.`,
     canceled: "تم إلغاء الدفع. لم يتم أي تغيير على حسابك.",
     plans: {
       free: {
@@ -63,8 +74,7 @@ const strings = {
   en: {
     eyebrow: "Simple, transparent plans",
     title: "Choose the right workspace plan",
-    subtitle:
-      "ZOOKA AI is a paid business service. The preview is limited; commercial use runs on a paid plan.",
+    subtitle: `${APP_STORE_NAME} is a paid business service. The preview is limited; commercial use runs on a paid plan.`,
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
       free: {

@@ -41,6 +41,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       ADMIN_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       ZOOKA_BUDGET_DB: "1"
+      BRAND_SEAL_KEY: ${{ secrets.BRAND_SEAL_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +51,9 @@ jobs:
 
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+
+      - name: Unseal licensed identity
+        run: node scripts/unseal-identity.mjs
 
       - name: Install Chromium for browser security tests
         timeout-minutes: 15

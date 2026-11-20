@@ -1,5 +1,5 @@
+import { PRODUCT_NAME_AR, PRODUCT_NAME, SITE_URL } from "@/lib/brand";
 import Link from "next/link";
-import { SITE_URL } from "@/lib/site";
 import {
   getIntegrationProviders,
   isWhatsAppConfigured,
@@ -24,7 +24,10 @@ type Lang = "ar" | "en";
 export const plans = [
   {
     id: "free",
-    note: { ar: "كتابة وتوليد داخل المحادثة. لا ربط أدوات ولا وضع وكيل.", en: "Writing and drafting in chat. No tool connections, no agent mode." },
+    note: {
+      ar: "كتابة وتوليد داخل المحادثة. لا ربط أدوات ولا وضع وكيل.",
+      en: "Writing and drafting in chat. No tool connections, no agent mode.",
+    },
     name: { ar: "مجاني", en: "Free" },
     price: { ar: "0", en: "0" },
     period: { ar: "للأبد", en: "forever" },
@@ -39,7 +42,10 @@ export const plans = [
   },
   {
     id: "pro",
-    note: { ar: "كل التكاملات المتاحة + وضع الوكيل حتى إنجاز المهمة.", en: "All live integrations + agent mode that runs the task to the end." },
+    note: {
+      ar: "كل التكاملات المتاحة + وضع الوكيل حتى إنجاز المهمة.",
+      en: "All live integrations + agent mode that runs the task to the end.",
+    },
     name: { ar: "احترافي", en: "Pro" },
     price: { ar: "19", en: "19" },
     period: { ar: "شهريًا", en: "per month" },
@@ -54,7 +60,10 @@ export const plans = [
   },
   {
     id: "business",
-    note: { ar: "نفس الاحترافي + فريق وسجل تدقيق ودعم بأولوية.", en: "Everything in Pro + team seats, audit log and priority support." },
+    note: {
+      ar: "نفس الاحترافي + فريق وسجل تدقيق ودعم بأولوية.",
+      en: "Everything in Pro + team seats, audit log and priority support.",
+    },
     name: { ar: "الأعمال", en: "Business" },
     price: { ar: "49", en: "49" },
     period: { ar: "شهريًا", en: "per month" },
@@ -79,7 +88,10 @@ export const plans = [
   },
   {
     id: "enterprise",
-    note: { ar: "فروع متعددة، اتفاقية خدمة، وتسعير بحسب الاستخدام.", en: "Multiple branches, service agreement, usage-based pricing." },
+    note: {
+      ar: "فروع متعددة، اتفاقية خدمة، وتسعير بحسب الاستخدام.",
+      en: "Multiple branches, service agreement, usage-based pricing.",
+    },
     name: { ar: "مؤسسات", en: "Enterprise" },
     price: { ar: "على الطلب", en: "Custom" },
     period: { ar: "سنوي", en: "annual" },
@@ -228,7 +240,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
   const isArabic = lang === "ar";
   const t = (ar: string, en: string) => (isArabic ? ar : en);
   const available = INTEGRATION_PROVIDERS.filter(
-    (provider) => provider.status === "available"
+    (provider) => provider.status === "available",
   );
   const grouped = available.reduce<Record<string, typeof available>>(
     (accumulator, provider) => {
@@ -238,7 +250,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
       ];
       return accumulator;
     },
-    {}
+    {},
   );
 
   return (
@@ -265,19 +277,19 @@ export function LandingPage({ lang }: { lang: Lang }) {
               <span className="w-fit rounded-full border px-3 py-1 text-xs text-muted-foreground">
                 {t(
                   "وكيل أعمال يعمل نيابةً عنك — لا مجرد محادثة",
-                  "A business agent that works for you — not just a chat"
+                  "A business agent that works for you — not just a chat",
                 )}
               </span>
               <h1 className="max-w-3xl font-semibold text-4xl leading-tight md:text-6xl">
                 {t(
                   "ردود عملائك وفواتيرك ومتابعة طلباتك — من محادثة واحدة",
-                  "Customer replies, invoices and follow-ups — from one chat"
+                  "Customer replies, invoices and follow-ups — from one chat",
                 )}
               </h1>
               <p className="max-w-xl text-lg text-muted-foreground">
                 {t(
                   "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
-                  "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it."
+                  "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it.",
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -297,14 +309,17 @@ export function LandingPage({ lang }: { lang: Lang }) {
               <p className="text-sm text-muted-foreground">
                 {t(
                   "10 رسائل مجانية كل يوم · كتابة فقط، بدون فتح بريدك أو ملفاتك",
-                  "10 free messages a day · writing only, we never open your mail or files"
+                  "10 free messages a day · writing only, we never open your mail or files",
                 )}
               </p>
               <p className="-mt-4 text-sm">
-                <Link className="text-blue-300 underline-offset-4 hover:underline" href="/pricing">
+                <Link
+                  className="text-blue-300 underline-offset-4 hover:underline"
+                  href="/pricing"
+                >
                   {t(
                     "ربط الأدوات ووضع الوكيل من باقة الاحترافي — 19$ شهريًا",
-                    "Tool connections and Agent mode start on Pro — $19 a month"
+                    "Tool connections and Agent mode start on Pro — $19 a month",
                   )}
                 </Link>
               </p>
@@ -323,7 +338,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 title: t("اكتب وولّد الآن", "Write and draft now"),
                 body: t(
                   "المحادثة والتوليد متاحان في التجربة — عشر رسائل كل يوم بدون حساب.",
-                  "Chat and drafting work in the preview — ten messages a day, no account."
+                  "Chat and drafting work in the preview — ten messages a day, no account.",
                 ),
               },
               {
@@ -331,7 +346,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 title: t("اربط أدواتك", "Connect your tools"),
                 body: t(
                   "جيميل ودرايف وبقية الكتالوج عبر صفحة موافقة المزوّد. ليست في المجاني.",
-                  "Gmail, Drive and the rest of the catalog through the provider's consent screen. Not on Free."
+                  "Gmail, Drive and the rest of the catalog through the provider's consent screen. Not on Free.",
                 ),
               },
               {
@@ -339,7 +354,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 title: t("وضع الوكيل", "Agent mode"),
                 body: t(
                   "خطوات متعددة على الأدوات المربوطة حتى إنجاز المهمة، بعدد تشغيلات باقتك.",
-                  "Multi-step work on connected tools until the task is done, within your plan's run quota."
+                  "Multi-step work on connected tools until the task is done, within your plan's run quota.",
                 ),
               },
               {
@@ -347,7 +362,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 title: t("أنت تقرّر", "You decide"),
                 body: t(
                   "أي إرسال لطرف خارجي ينتظر موافقتك، والتجربة لا ترسل شيئًا نيابةً عنك.",
-                  "Anything sent to an outside party waits for your approval; the preview never sends for you."
+                  "Anything sent to an outside party waits for your approval; the preview never sends for you.",
                 ),
               },
             ].map((card) => (
@@ -356,7 +371,9 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   {card.kicker}
                 </span>
                 <h3 className="mt-2 font-medium">{card.title}</h3>
-                <p className="mt-2 text-muted-foreground text-sm">{card.body}</p>
+                <p className="mt-2 text-muted-foreground text-sm">
+                  {card.body}
+                </p>
               </div>
             ))}
           </div>
@@ -375,27 +392,29 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 title: t("يفهم سياقك", "Understands your context"),
                 body: t(
                   "مساحة عمل، أعضاء، ملفات ومحادثات — الوكيل يبني على ما لديك بدل أن يبدأ من الصفر كل مرة.",
-                  "Workspace, members, files and chats — the agent builds on what you already have."
+                  "Workspace, members, files and chats — the agent builds on what you already have.",
                 ),
               },
               {
                 title: t("ينفّذ بنفسه", "Executes by itself"),
                 body: t(
                   "يفتح الموافقة، يربط الحساب، يقرأ ويرسل ويحدّث ويراجع — خطوات متعددة دون أن تديرها يدويًا.",
-                  "Opens consent, connects accounts, reads, sends, updates and reviews across several steps."
+                  "Opens consent, connects accounts, reads, sends, updates and reviews across several steps.",
                 ),
               },
               {
                 title: t("يحمي بياناتك", "Protects your data"),
                 body: t(
                   "تشفير AES-256-GCM للرموز، عزل بمساحة العمل، وسجل تدقيق لكل إجراء على التكاملات.",
-                  "AES-256-GCM token encryption, workspace isolation, and an audit trail for every integration action."
+                  "AES-256-GCM token encryption, workspace isolation, and an audit trail for every integration action.",
                 ),
               },
             ].map((item) => (
               <div className="rounded-xl border p-6" key={item.title}>
                 <h3 className="font-medium">{item.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {item.body}
+                </p>
               </div>
             ))}
           </div>
@@ -411,15 +430,15 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
                     "لا نبيع وعودًا: هذه القدرات مبنية ومختبَرة على zooka-ai.com نفسها.",
-                    "No promises: these capabilities are built and tested on zooka-ai.com itself."
+                    "No promises: these capabilities are built and tested on zooka-ai.com itself.",
                   )}
                 </p>
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt={t(
-                  "وكيل زوكا AI محاط ببطاقات البريد والملفات والكود",
-                  "Zooka AI agent surrounded by email, files and code cards"
+                  `وكيل ${PRODUCT_NAME_AR} محاط ببطاقات البريد والملفات والكود`,
+                  `${PRODUCT_NAME} agent surrounded by email, files and code cards`,
                 )}
                 className="hidden w-full rounded-2xl border border-white/10 md:block"
                 decoding="async"
@@ -457,7 +476,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 <p className="mt-3 max-w-2xl text-muted-foreground">
                   {t(
                     `ما بنعلن عن أي تكامل كـ«متصل» قبل ما تربطه بنفسك من صفحة التكاملات. الربط الذاتي متاح فعليًا لثلاثة عشر: جوجل درايف، جيميل، إنستغرام، فيسبوك، لينكدإن، سناب شات، تيليجرام أدز، بوت تيليجرام، توجيه البريد، إعلانات جوجل، جيت هب، فيرسل، وn8n (جيت هب: الوكيل يقرأ ويكتب بعد موافقتك. فيرسل: ربط الحساب الآن، وإجراءات الوكيل قادمة). وباقي الكتالوج (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} من ${INTEGRATION_PROVIDERS.length}) ينتظر موافقة المزوّد أو يعمل عبر جسر الوكيل — بنكتبها صريحة بدل ما نوعد بربط بضغطة لكل حاجة.`,
-                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for thirteen: Google Drive, Gmail, Instagram, Facebook, LinkedIn, Snapchat, Telegram Ads, Telegram Bot, ImprovMX email routing, Google Ads, GitHub, Vercel and n8n (GitHub: the agent reads and writes after your approval. Vercel: account connection today, agent actions coming). The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge or waits on provider approval — stated plainly instead of promising one-click for everything.`
+                    `Nothing is shown as "connected" before you connect it yourself from the integrations page. Self-serve is live for thirteen: Google Drive, Gmail, Instagram, Facebook, LinkedIn, Snapchat, Telegram Ads, Telegram Bot, ImprovMX email routing, Google Ads, GitHub, Vercel and n8n (GitHub: the agent reads and writes after your approval. Vercel: account connection today, agent actions coming). The rest of the catalog (${INTEGRATION_PROVIDERS.length - SELF_SERVE.size} of ${INTEGRATION_PROVIDERS.length}) waits on provider approval or runs through the agent bridge — stated plainly instead of promising one-click for everything.`,
                   )}
                 </p>
               </div>
@@ -475,8 +494,13 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   </h3>
                   <ul className="mt-3 flex flex-col gap-2 text-sm">
                     {items.map((provider) => (
-                      <li className="flex items-center justify-between gap-2" key={provider.id}>
-                        <span>{isArabic ? provider.nameAr : provider.name}</span>
+                      <li
+                        className="flex items-center justify-between gap-2"
+                        key={provider.id}
+                      >
+                        <span>
+                          {isArabic ? provider.nameAr : provider.name}
+                        </span>
                         <span className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
                           {SELF_SERVE.has(provider.id)
                             ? t("تربطه بنفسك", "you connect it")
@@ -501,12 +525,15 @@ export function LandingPage({ lang }: { lang: Lang }) {
               {t("أرقام حقيقية", "Real numbers")}
             </span>
             <h2 className="mt-2 font-semibold text-3xl">
-              {t("أرقام نقدر نثبتها، لا شعارات", "Numbers we can prove, not badges")}
+              {t(
+                "أرقام نقدر نثبتها، لا شعارات",
+                "Numbers we can prove, not badges",
+              )}
             </h2>
             <p className="mt-3 max-w-2xl text-muted-foreground">
               {t(
                 "الأرقام تحت محسوبة من قاعدة بياناتنا في أكتوبر 2026، ومفيش شهادة عميل واحدة مدفوعة أو مكتوبة من عندنا — الشهادات مكانها فاضي لحد ما عميل حقيقي يكتبها باسمه.",
-                "The numbers below are counted from our database in October 2026, and there is not one paid or in-house testimonial on this page — that space stays empty until a real customer writes one in their own name."
+                "The numbers below are counted from our database in October 2026, and there is not one paid or in-house testimonial on this page — that space stays empty until a real customer writes one in their own name.",
               )}
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -515,39 +542,47 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   value: "271",
                   label: t(
                     "حساب مسجّل حتى أكتوبر 2026",
-                    "registered accounts as of October 2026"
+                    "registered accounts as of October 2026",
                   ),
                 },
                 {
                   value: String(
                     INTEGRATION_PROVIDERS.filter(
                       (provider) => provider.status === "available"
-                    ).length
+                    ).length,
                   ),
                   label: t(
                     `تكامل جاهز فعلاً من ${INTEGRATION_PROVIDERS.length} في الكتالوج، والباقي معلّم «قريباً» أو «تجريبي»`,
-                    `integrations live today, out of ${INTEGRATION_PROVIDERS.length} in the catalog; the rest are labelled coming soon or beta`
+                    `integrations live today, out of ${INTEGRATION_PROVIDERS.length} in the catalog; the rest are labelled coming soon or beta`,
                   ),
                 },
                 {
                   value: String(SELF_SERVE.size),
-                  label: t("ربط ذاتي من داخل التطبيق من غير تدخّل مننا", "self-serve connections, no setup on our side"),
+                  label: t(
+                    "ربط ذاتي من داخل التطبيق من غير تدخّل مننا",
+                    "self-serve connections, no setup on our side",
+                  ),
                 },
                 {
                   value: "0",
-                  label: t("شهادات مشتراة أو مكتوبة من الشركة", "paid or company-written testimonials"),
+                  label: t(
+                    "شهادات مشتراة أو مكتوبة من الشركة",
+                    "paid or company-written testimonials",
+                  ),
                 },
               ].map((stat) => (
                 <div className="rounded-xl border p-5" key={stat.label}>
                   <p className="font-semibold text-3xl">{stat.value}</p>
-                  <p className="mt-2 text-muted-foreground text-sm">{stat.label}</p>
+                  <p className="mt-2 text-muted-foreground text-sm">
+                    {stat.label}
+                  </p>
                 </div>
               ))}
             </div>
             <p className="mt-6 text-sm text-muted-foreground">
               {t(
                 "نبني على أدوات مجرّبة: Google (OAuth للدرايف وجيميل) · GitHub · Vercel · Supabase · n8n — وأي شهادة عميل ننشرها لازم تكون باسمه وبموافقته.",
-                "Built on tools you already trust: Google (OAuth for Drive and Gmail) · GitHub · Vercel · Supabase · n8n. Any customer quote we publish carries their name and their permission."
+                "Built on tools you already trust: Google (OAuth for Drive and Gmail) · GitHub · Vercel · Supabase · n8n. Any customer quote we publish carries their name and their permission.",
               )}
             </p>
           </div>
@@ -561,7 +596,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
             <p className="mt-3 max-w-2xl text-muted-foreground">
               {t(
                 "فرد، شركة، مكتب، أو مؤسسة بفروع — الحدود والأعضاء وسجل التدقيق تختلف بوضوح.",
-                "Individual, company, office or multi-branch group — limits, seats and audit trail differ clearly."
+                "Individual, company, office or multi-branch group — limits, seats and audit trail differ clearly.",
               )}
             </p>
             <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -577,9 +612,13 @@ export function LandingPage({ lang }: { lang: Lang }) {
                   <span className="text-xs text-muted-foreground">
                     {plan.tag[lang]}
                   </span>
-                  <h3 className="mt-2 font-semibold text-xl">{plan.name[lang]}</h3>
+                  <h3 className="mt-2 font-semibold text-xl">
+                    {plan.name[lang]}
+                  </h3>
                   <p className="mt-3 flex items-baseline gap-1">
-                    <span className="font-semibold text-3xl">{plan.price[lang]}</span>
+                    <span className="font-semibold text-3xl">
+                      {plan.price[lang]}
+                    </span>
                     <span className="text-sm text-muted-foreground">
                       {plan.period[lang]}
                     </span>
@@ -625,17 +664,32 @@ export function LandingPage({ lang }: { lang: Lang }) {
               <p className="mt-3 text-muted-foreground">
                 {t(
                   "كل اتصال تكامل يُخزَّن مشفّرًا، مربوطًا بمساحة عمل واحدة، ومُسجَّلًا في سجل تدقيق يمكنك مراجعته. وأنت من يملك القرار في أي إجراء يخص طرفًا خارجيًا.",
-                  "Every integration connection is stored encrypted, bound to a single workspace and recorded in an audit trail you can review. You keep the decision on anything that touches an outside party."
+                  "Every integration connection is stored encrypted, bound to a single workspace and recorded in an audit trail you can review. You keep the decision on anything that touches an outside party.",
                 )}
               </p>
             </div>
             <ul className="grid gap-3 text-sm">
               {[
-                t("تشفير AES-256-GCM مع نسخ احتياطي للمفتاح", "AES-256-GCM encryption with key versioning"),
-                t("عزل البيانات لكل مساحة عمل على مستوى الخادم", "Server-enforced data isolation per workspace"),
-                t("سجل تدقيق لكل ربط وفصل واستخدام", "Audit log for every connect, revoke and use"),
-                t("فصل الاتصال في أي لحظة يمحو الرموز", "Disconnecting wipes the stored tokens"),
-                t("حدود استهلاك واضحة لكل باقة", "Clear usage limits on every plan"),
+                t(
+                  "تشفير AES-256-GCM مع نسخ احتياطي للمفتاح",
+                  "AES-256-GCM encryption with key versioning",
+                ),
+                t(
+                  "عزل بيانات مفروض على الخادم مع سياسات صفوف لكل مساحة عمل",
+                  "Server-enforced data isolation with row-level policies per workspace",
+                ),
+                t(
+                  "سجل تدقيق لكل ربط وفصل واستخدام",
+                  "Audit log for every connect, revoke and use",
+                ),
+                t(
+                  "فصل الاتصال في أي لحظة يمحو الرموز",
+                  "Disconnecting wipes the stored tokens",
+                ),
+                t(
+                  "حدود استهلاك واضحة لكل باقة",
+                  "Clear usage limits on every plan",
+                ),
               ].map((item) => (
                 <li className="rounded-lg border px-4 py-3" key={item}>
                   {item}
@@ -667,12 +721,15 @@ export function LandingPage({ lang }: { lang: Lang }) {
 
         <section className="mx-auto w-full max-w-6xl px-5 py-20 text-center">
           <h2 className="font-semibold text-3xl">
-            {t("جاهز؟ افتح مساحة عملك في دقيقة", "Ready? Open your workspace in a minute")}
+            {t(
+              "جاهز؟ افتح مساحة عملك في دقيقة",
+              "Ready? Open your workspace in a minute",
+            )}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
             {t(
               "ابدأ بالمجاني للكتابة. ربط الأدوات ووضع الوكيل يتفعّلان على الاحترافي والأعمال. الباقات تُرقّى من داخل التطبيق متى شئت.",
-              "Start on the free plan for writing. Tool connections and Agent mode unlock on Pro and Business. Upgrade from inside the app whenever you like."
+              "Start on the free plan for writing. Tool connections and Agent mode unlock on Pro and Business. Upgrade from inside the app whenever you like.",
             )}
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
@@ -682,10 +739,16 @@ export function LandingPage({ lang }: { lang: Lang }) {
             >
               {isArabic ? CTA.workspace.ar : CTA.workspace.en}
             </Link>
-            <Link className="rounded-lg border px-6 py-3 font-medium" href="/login">
+            <Link
+              className="rounded-lg border px-6 py-3 font-medium"
+              href="/login"
+            >
               {t("تسجيل الدخول", "Sign in")}
             </Link>
-            <Link className="rounded-lg border px-6 py-3 font-medium" href="/contact">
+            <Link
+              className="rounded-lg border px-6 py-3 font-medium"
+              href="/contact"
+            >
               {t("تحدث مع الفريق", "Talk to the team")}
             </Link>
           </div>
@@ -697,14 +760,13 @@ export function LandingPage({ lang }: { lang: Lang }) {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
-            name: "Zooka AI",
+            name: `${PRODUCT_NAME}`,
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web",
             url: SITE_URL,
             publisher: { "@id": `${SITE_URL}/#organization` },
             inLanguage: ["ar", "en"],
-            description:
-              "Zooka AI: an AI business agent that connects your tools, executes multi-step tasks and keeps your data isolated per workspace.",
+            description: `${PRODUCT_NAME}: an AI business agent that connects your tools, executes multi-step tasks and keeps your data isolated per workspace.`,
             offers: plans
               .filter((plan) => plan.id !== "enterprise")
               .map((plan) => ({
@@ -713,6 +775,27 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 price: plan.price.en,
                 priceCurrency: "USD",
               })),
+          }),
+        }}
+        type="application/ld+json"
+      />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "VideoObject",
+            name: t(
+              `${PRODUCT_NAME_AR} — فيديو تعريفي`,
+              `${PRODUCT_NAME} demo video`,
+            ),
+            description: t(
+              `عرض سريع لقدرات ${PRODUCT_NAME_AR}: ربط الأدوات، تنفيذ المهام، التكاملات، المحادثة الصوتية والنشر.`,
+              `A short walkthrough of ${PRODUCT_NAME}: connecting tools, multi-step execution, integrations, voice and shipping.`,
+            ),
+            thumbnailUrl: `${SITE_URL}/images/zooka-demo-poster.png`,
+            contentUrl: `${SITE_URL}/videos/zooka-demo.mp4`,
+            uploadDate: "2026-10-31",
+            duration: "PT28S",
           }),
         }}
         type="application/ld+json"

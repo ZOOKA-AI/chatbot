@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,7 +10,9 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPublishedPost(slug);
   if (!post) return { title: "Article not found" };
@@ -50,13 +53,20 @@ async function BlogPostContent({ params }: PageProps) {
   const articleLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
-    mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}/blog/${post.slug}` },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": `${SITE_URL}/blog/${post.slug}`,
+    },
     headline: post.title,
     description: post.excerpt ?? undefined,
     inLanguage: post.lang,
     datePublished: post.publishedAt,
     dateModified: post.publishedAt,
-    author: { "@type": "Organization", name: post.author ?? SITE_NAME, url: SITE_URL },
+    author: {
+      "@type": "Organization",
+      name: post.author ?? SITE_NAME,
+      url: SITE_URL,
+    },
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,
@@ -70,9 +80,24 @@ async function BlogPostContent({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Zooka AI", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog` },
-      { "@type": "ListItem", position: 3, name: post.title, item: `${SITE_URL}/blog/${post.slug}` },
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: `${PRODUCT_NAME}`,
+        item: SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Blog",
+        item: `${SITE_URL}/blog`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: post.title,
+        item: `${SITE_URL}/blog/${post.slug}`,
+      },
     ],
   };
 
@@ -106,19 +131,24 @@ async function BlogPostContent({ params }: PageProps) {
         <h1 className="font-semibold text-3xl leading-tight">{post.title}</h1>
         <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
           <time dateTime={post.publishedAt}>
-            {new Date(post.publishedAt).toLocaleDateString(post.lang === "ar" ? "ar-AE" : "en-GB", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              timeZone: "UTC",
-            })}
+            {new Date(post.publishedAt).toLocaleDateString(
+              post.lang === "ar" ? "ar-AE" : "en-GB",
+              {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                timeZone: "UTC",
+              },
+            )}
           </time>
           <span>·</span>
           <span>{post.author ?? SITE_NAME}</span>
           {post.keyword && (
             <>
               <span>·</span>
-              <span className="rounded-full border px-2 py-0.5 text-xs">{post.keyword}</span>
+              <span className="rounded-full border px-2 py-0.5 text-xs">
+                {post.keyword}
+              </span>
             </>
           )}
         </div>
@@ -138,10 +168,16 @@ async function BlogPostContent({ params }: PageProps) {
             : "The free preview writes only. Gmail, Drive, GitHub connections and agent mode start on the Pro plan."}
         </p>
         <div className="flex flex-wrap gap-3 text-sm">
-          <Link href="/" className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+          <Link
+            href="/"
+            className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
+          >
             {ar ? "ابدأ مجاناً" : "Start free"}
           </Link>
-          <Link href="/pricing" className="text-muted-foreground px-2 py-2 hover:underline">
+          <Link
+            href="/pricing"
+            className="text-muted-foreground px-2 py-2 hover:underline"
+          >
             {ar ? "الأسعار" : "Pricing"}
           </Link>
         </div>
@@ -149,7 +185,9 @@ async function BlogPostContent({ params }: PageProps) {
 
       {related.length > 0 && (
         <section className="flex flex-col gap-3 border-t pt-6">
-          <h2 className="font-semibold text-lg">{ar ? "اقرأ أيضاً" : "Read next"}</h2>
+          <h2 className="font-semibold text-lg">
+            {ar ? "اقرأ أيضاً" : "Read next"}
+          </h2>
           <ul className="flex flex-col gap-2 text-sm">
             {related.map((item) => (
               <li key={item.slug}>
@@ -169,7 +207,11 @@ export default function BlogPostPage({ params }: PageProps) {
   // generateMetadata already resolved the slug; the body still reads the
   // database per request, so keep it inside Suspense for prerendering.
   return (
-    <Suspense fallback={<div className="mx-auto min-h-dvh w-full max-w-3xl p-6 py-16" />}>
+    <Suspense
+      fallback={
+        <div className="mx-auto min-h-dvh w-full max-w-3xl p-6 py-16" />
+      }
+    >
       <BlogPostContent params={params} />
     </Suspense>
   );

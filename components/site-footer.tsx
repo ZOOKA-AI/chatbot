@@ -1,11 +1,23 @@
 import Link from "next/link";
+import {
+  BILLING_EMAIL,
+  COMPANY_ADDRESS,
+  COMPANY_COUNTRY,
+  COMPANY_LEGAL_NAME_AR,
+  COMPANY_LEGAL_NAME_EN,
+  CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_E164,
+  COPYRIGHT,
+  PRIVACY_EMAIL,
+  PRODUCT_NAME,
+} from "@/lib/brand";
 import type { Lang } from "@/lib/i18n";
 import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
+import { FOOTER_GROUPS } from "@/lib/site-nav";
 
 /** Zooka AI has been in development since late 2024. */
 const FOUNDED_YEAR = 2024;
-const SUPPORT_EMAIL = "support@zooka-ai.com";
-
 const LINKS: readonly (readonly [
   string,
   LegalPageId | "compare" | "partners",
@@ -80,23 +92,26 @@ export function SiteFooter({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-1">
-            <p className="font-bold text-base text-foreground">Zooka AI</p>
+            <p className="font-bold text-base text-foreground">{PRODUCT_NAME}</p>
+            <p>{COPYRIGHT}</p>
+            <p>{COMPANY_LEGAL_NAME_AR}</p>
+            <p>{COMPANY_ADDRESS}</p>
+            <p>{COMPANY_COUNTRY}</p>
             <p>
-              {ar
-                ? "وكيل أعمال ذكي لشركات الخدمات."
-                : "An AI business agent for service companies."}
+              <a href={`tel:${CONTACT_PHONE_E164}`}>
+                <bdi dir="ltr">{CONTACT_PHONE_DISPLAY}</bdi>
+              </a>
+            </p>
+            <p>
+              <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> ·{" "}
+              <a href={`mailto:${BILLING_EMAIL}`}>{BILLING_EMAIL}</a>
             </p>
             <p>
               {ar ? "الدعم: " : "Support: "}
-              <a
-                className="text-foreground underline-offset-4 hover:underline"
-                href={`mailto:${SUPPORT_EMAIL}`}
-              >
-                {SUPPORT_EMAIL}
-              </a>
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
             </p>
+            <span className="sr-only">{COMPANY_LEGAL_NAME_EN}</span>
           </div>
-
           <ul
             aria-label={ar ? "حساباتنا الرسمية" : "Official accounts"}
             className="flex items-center gap-2"
@@ -139,52 +154,46 @@ export function SiteFooter({
             })}
           </ul>
         </div>
-
-        <nav
-          aria-label={ar ? "روابط الموقع" : "Site links"}
-          className="flex flex-wrap gap-x-5 gap-y-2"
-        >
-          <Link className="hover:text-foreground hover:underline" href="/explore">
-            {ar ? "اكتشف المنصة" : "Explore"}
-          </Link>
-          <Link className="hover:text-foreground hover:underline" href="/studio">
-            Studio
-          </Link>
-          <Link
-            className="hover:text-foreground hover:underline"
-            href="/platform-readiness"
-          >
-            {ar ? "الجاهزية" : "Readiness"}
-          </Link>
-          <Link
-            className="hover:text-foreground hover:underline"
-            href="/developer"
-          >
-            {ar ? "المطوّر" : "Developer"}
-          </Link>
-          {LINKS.map(([href, page]) => (
-            <Link
-              className="hover:text-foreground hover:underline"
-              href={href}
-              key={href}
-            >
-              {page === "compare"
-                ? ar
-                  ? "زوكا مقابل ChatGPT"
-                  : "Zooka vs ChatGPT"
-                : page === "partners"
-                  ? ar
-                    ? "الشركاء"
-                    : "Partners"
-                  : getLegalPageCopy(lang, page).title}
-            </Link>
+        <div className="flex flex-col gap-5 md:flex-row md:gap-10">
+          {FOOTER_GROUPS.map((group) => (
+            <nav className="flex flex-col gap-2" key={group.en}>
+              <p className="font-medium text-foreground">
+                {ar ? group.ar : group.en}
+              </p>
+              {group.items.map((item) => (
+                <Link
+                  className="hover:underline"
+                  href={item.href}
+                  key={item.href}
+                >
+                  {ar ? item.ar : item.en}
+                </Link>
+              ))}
+            </nav>
           ))}
-        </nav>
-
+          <nav
+            aria-label={ar ? "روابط الموقع" : "Site links"}
+            className="flex flex-col gap-2"
+          >
+            {LINKS.map(([href, page]) => (
+              <Link className="hover:underline" href={href} key={href}>
+                {page === "compare"
+                  ? ar
+                    ? "زوكا مقابل ChatGPT"
+                    : "Zooka vs ChatGPT"
+                  : page === "partners"
+                    ? ar
+                      ? "الشركاء"
+                      : "Partners"
+                    : getLegalPageCopy(lang, page).title}
+              </Link>
+            ))}
+          </nav>
+        </div>
         <p className="border-t pt-4 text-xs">
           {ar
-            ? `© ${years} جميع الحقوق محفوظة لمنصة Zooka AI — zooka-ai.com`
-            : `© ${years} All rights reserved to the Zooka AI platform — zooka-ai.com`}
+            ? `© ${years} جميع الحقوق محفوظة لمنصة ${PRODUCT_NAME} — zooka-ai.com`
+            : `© ${years} All rights reserved to ${PRODUCT_NAME} — zooka-ai.com`}
         </p>
       </div>
     </footer>
