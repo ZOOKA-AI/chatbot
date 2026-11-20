@@ -168,7 +168,17 @@ const googleWithKey = createGoogleGenerativeAI({
 
 export function getLanguageModel(modelId: string) {
   if (isTestEnvironment && myProvider) {
-    return myProvider.languageModel(modelId);
+    // The mock registry only knows its own aliases, while every request names a
+    // real model id (the UI default is openai/gpt-4.1-mini). Without this, every
+    // test-mode chat turn failed with NoSuchModelError, so no end-to-end test
+    // could ever observe a successful reply being stored.
+    try {
+      return myProvider.languageModel(modelId);
+    } catch {
+      return myProvider.languageModel(
+        modelId.endsWith("-thinking") ? "chat-model-reasoning" : "chat-model"
+      );
+    }
   }
 
   const groqModelId = GROQ_MODELS[modelId];
