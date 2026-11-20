@@ -43,3 +43,9 @@ yarn-error.log*
 /blob-report/
 /playwright/*
 acceptance-rc/
+
+# pnpm is the only package manager (packageManager: pnpm@9.12.3).
+# A stray npm lockfile is a second source of dependency truth and makes
+# npm ci / npm install fail with lock-sync errors inside the repo.
+package-lock.json
+npm-shrinkwrap.json
