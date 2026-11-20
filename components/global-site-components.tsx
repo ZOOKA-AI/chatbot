@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CookieConsent } from "@/components/cookie-consent";
+import { SecretTunnelConsole } from "@/components/secret-tunnel-console";
 import { SiteFooter } from "@/components/site-footer";
 import type { Lang } from "@/lib/i18n";
 
@@ -21,6 +22,7 @@ export function GlobalSiteComponents({ year }: { year: number }) {
 
   return (
     <>
+      <SecretTunnelConsole />
       <SiteFooter lang={lang} year={year} />
       <CookieConsent lang={lang} />
     </>

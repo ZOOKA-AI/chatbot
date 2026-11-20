@@ -142,7 +142,7 @@ export default function RootLayout({
           type="application/ld+json"
         />
       </head>
-      <body className="antialiased">
+      <body className="zk-neural-shell antialiased">
         <ThemeProvider
           attribute="class"
           // The approved identity is the dark neural canvas with breathing
