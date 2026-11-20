@@ -86,6 +86,20 @@ describe("access token", () => {
     );
   });
 
+  test("rejects a tampered payload", () => {
+    const [header, , signature] = token.token.split(".");
+    const forgedPayload = Buffer.from(
+      JSON.stringify({ iss: "test-key", sub: "someone-else", exp: 9_999_999_999 }),
+    )
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    expect(() => verifyAccessToken(`${header}.${forgedPayload}.${signature}`, secret)).toThrow(
+      "token_signature_invalid",
+    );
+  });
+
   test("expires within the allowed window", () => {
     expect(token.expiresAt).toBe(1_700_000_000 + 3600);
     const claims = verifyAccessToken(token.token, secret);
