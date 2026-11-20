@@ -30,6 +30,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
+import { LiveSessionConsole } from "@/components/live-session-console";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { speakText, useVoiceMode } from "@/hooks/use-voice-mode";
 import { agentPresets } from "@/lib/ai/agent-presets";
@@ -674,6 +675,7 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
               status={status}
             />
+            <LiveSessionConsole lang={lang} />
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
@@ -703,6 +705,7 @@ function PureMultimodalInput({
           agentMode ? (
             <p
               className="px-2 pt-2 text-xs text-muted-foreground"
+              data-aux-copy="true"
               data-testid="agent-mode-usage"
             >
               {lang === "ar"
@@ -712,6 +715,7 @@ function PureMultimodalInput({
           ) : (
             <p
               className="px-2 pt-2 text-xs text-muted-foreground"
+              data-aux-copy="true"
               data-testid="agent-mode-hint"
             >
               {lang === "ar"
@@ -727,6 +731,7 @@ function PureMultimodalInput({
         {agentMode ? (
           <p
             className="px-2 pt-1 text-xs text-muted-foreground"
+            data-aux-copy="true"
             data-testid="agent-workflow-guidance"
           >
             {lang === "ar"

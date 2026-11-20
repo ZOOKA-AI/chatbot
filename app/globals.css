@@ -410,3 +410,46 @@ body:has([data-app-shell]) [data-site-footer="global"] {
     animation: none;
   }
 }
+
+/* Global neural-neon identity layer. */
+.zk-neural-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.zk-neural-shell::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60rem 60rem at 8% -10%, rgb(var(--zk-neon-a) / 0.16), transparent 58%),
+    radial-gradient(45rem 45rem at 92% 18%, rgb(var(--zk-neon-b) / 0.14), transparent 62%),
+    radial-gradient(38rem 38rem at 50% 100%, rgb(var(--zk-neon-a) / 0.09), transparent 70%);
+}
+
+.zk-neural-shell::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgb(var(--zk-neon-a) / 0.11) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--zk-neon-b) / 0.1) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: radial-gradient(circle at 50% 45%, black 26%, transparent 76%);
+}
+
+.zk-neon-surface {
+  background: color-mix(in oklab, var(--background) 75%, transparent);
+  border: 1px solid rgb(var(--zk-neon-a) / 0.22);
+  box-shadow: 0 0 18px -8px rgb(var(--zk-neon-a) / 0.42);
+}
+
+/* Optional content density mode: hide auxiliary copy unless explicitly revealed. */
+.zk-compact-copy [data-aux-copy="true"] {
+  display: none;
+}
