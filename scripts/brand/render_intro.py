@@ -44,7 +44,14 @@ def base_canvas():
     img = Image.blend(img, glow, 0.55)
     return img
 
+HAS_RAQM = ImageFont.core.HAVE_RAQM
+
 def shaped(txt):
+    """Arabic must be shaped by the layout engine (RAQM) using the font's own
+    joining glyphs. The reshaper path is only a fallback for builds without RAQM,
+    and it needs a font that carries Arabic Presentation Forms (Cairo does not)."""
+    if HAS_RAQM:
+        return txt
     return get_display(arabic_reshaper.reshape(txt))
 
 def frame(i, canvas):
@@ -64,7 +71,7 @@ def frame(i, canvas):
         logo = logo.resize((tw, int(logo.height * tw / logo.width)), Image.LANCZOS)
         img.paste(logo, ((W - logo.width) // 2, 700), logo)
     # arabic slogan
-    fa = ImageFont.truetype(FONT_AR, 66)
+    fa = ImageFont.truetype(FONT_AR, 66, layout_engine=(ImageFont.Layout.RAQM if HAS_RAQM else ImageFont.Layout.BASIC))
     ar = shaped("تقنية بإيمان، تقدّم بأخلاق")
     w = d.textlength(ar, font=fa)
     d.text(((W - w) / 2, 960), ar, font=fa, fill=ICE)
