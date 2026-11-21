@@ -1,20 +1,37 @@
--- Rollback for 0065.
+-- Forward-only guard.
 --
--- Same guard as 0064: a table that still holds queued work is not dropped by a
--- rollback script, because those rows are somebody's scheduled post. Refuse and
--- let a human decide.
-do $$
-begin
-  if to_regclass('public."TikTokPublishJob"') is not null then
-    if exists (select 1 from "TikTokPublishJob" limit 1) then
-      raise exception 'TikTokPublishJob still holds rows: rollback refused (forward_only)';
-    end if;
-  end if;
-end $$;
+-- Dropping the queue table is the correct inverse of creating it. Dropping it
+-- while it holds rows is data loss with a zero exit code, so the rollback
+-- refuses and says what to do instead. A queued row is somebody's scheduled
+-- post, not scratch data.
+DO $$
+DECLARE rows_present bigint;
+BEGIN
+  IF to_regclass('public."TikTokPublishJob"') IS NOT NULL THEN
+    EXECUTE 'SELECT count(*) FROM "TikTokPublishJob"' INTO rows_present;
+    IF rows_present > 0 THEN
+      RAISE EXCEPTION 'forward_only: "TikTokPublishJob" holds % row(s); rollback refused to discard them', rows_present
+        USING HINT = 'Export the rows, delete them deliberately, or restore the pre-migration backup. See docs/tiktok-publishing-release-065.md.';
+    END IF;
+  END IF;
+END $$;
 
-do $$
-begin
-  if to_regclass('public."TikTokPublishJob"') is not null then
-    drop table "TikTokPublishJob";
-  end if;
-end $$;
+-- Forward-only guard.
+--
+-- The audit trail is the only record of what happened to a job. Losing it while
+-- rows exist would erase the answer to "did this publish", so it is guarded too.
+DO $$
+DECLARE rows_present bigint;
+BEGIN
+  IF to_regclass('public."TikTokPublishEvent"') IS NOT NULL THEN
+    EXECUTE 'SELECT count(*) FROM "TikTokPublishEvent"' INTO rows_present;
+    IF rows_present > 0 THEN
+      RAISE EXCEPTION 'forward_only: "TikTokPublishEvent" holds % row(s); rollback refused to discard them', rows_present
+        USING HINT = 'Export the rows or delete them deliberately. See docs/tiktok-publishing-release-065.md.';
+    END IF;
+  END IF;
+END $$;
+
+DROP TABLE IF EXISTS "TikTokPublishEvent";
+
+DROP TABLE IF EXISTS "TikTokPublishJob";

@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { runInTenantTransaction } from "@/lib/db/tenant-client";
-import {
-  initInboxUpload,
-  putChunk,
-} from "@/lib/integrations/tiktok/api";
+import { fetchPublishStatus, initInboxUpload, putChunk } from "@/lib/integrations/tiktok/api";
 import { fetchMedia } from "@/lib/integrations/tiktok/media";
-import { claimDueJobs, finishJob, MAX_ATTEMPTS } from "@/lib/integrations/tiktok/queue";
-import { getTiktokAccess, recordUpload, updateUploadStatus } from "@/lib/integrations/tiktok/store";
+import {
+  claimDueJobs,
+  finishJob,
+  MAX_ATTEMPTS,
+  recordEvent,
+} from "@/lib/integrations/tiktok/queue";
+import {
+  getTiktokAccess,
+  recordUpload,
+  updateUploadStatus,
+} from "@/lib/integrations/tiktok/store";
 import {
   checkTiktokMedia,
   planTiktokChunks,
@@ -23,10 +29,33 @@ import { verifySharedSecret } from "@/lib/webhooks/security";
  * token. The shared secret is the only credential n8n holds, and it grants
  * nothing beyond "drain this workspace's queue".
  *
- * Every job is claimed with a lease before any network call, so a crash leaves a
- * reclaimable row rather than an endless retry, and the job key makes a repeated
- * call a no-op instead of a second video in someone's inbox.
+ * Reliability rules enforced here:
+ *  - a job is claimed with a lease before any network call, so a crash leaves a
+ *    reclaimable row instead of an endless retry;
+ *  - a retried job whose previous attempt already reached TikTok is reconciled
+ *    by asking TikTok, never re-uploaded blind: a second upload would put two
+ *    copies of the same video in somebody's inbox;
+ *  - failures schedule an exponential backoff, and the attempt cap moves the job
+ *    to a dead-letter state instead of retrying forever.
  */
+
+/** TikTok states that mean "this publish id already carries our video". */
+const SETTLED_STATUSES = new Set([
+  "PUBLISH_COMPLETE",
+  "SEND_TO_USER_INBOX",
+  "PROCESSING_UPLOAD",
+  "PROCESSING_DOWNLOAD",
+]);
+
+type JobResult = {
+  id: string;
+  status: "UPLOADED" | "FAILED" | "DEAD" | "RECONCILED";
+  publishId?: string | null;
+  error?: string | null;
+  attempts: number;
+  retryable: boolean;
+};
+
 export async function POST(request: Request) {
   const secret = process.env.N8N_WEBHOOK_SECRET;
   if (!secret) {
@@ -49,44 +78,117 @@ export async function POST(request: Request) {
   }
   const limit = typeof body?.limit === "number" ? body.limit : 5;
 
-  const jobs = await runInTenantTransaction(
-    { organizationId, userId: null },
-    () => claimDueJobs(organizationId, limit)
-  );
+  const inTenant = <T>(work: () => Promise<T>) =>
+    runInTenantTransaction({ organizationId, userId: null }, work);
 
-  const results: Array<Record<string, unknown>> = [];
+  const jobs = await inTenant(() => claimDueJobs(organizationId, limit));
+  const results: JobResult[] = [];
+
   for (const job of jobs) {
-    const access = await getTiktokAccess(organizationId, job.userId);
-    if (!access) {
-      await runInTenantTransaction({ organizationId, userId: null }, () =>
+    await inTenant(() =>
+      recordEvent({
+        jobId: job.id,
+        organizationId,
+        userId: job.userId,
+        type: "claimed",
+        detail: `attempt ${job.attempts}`,
+      })
+    );
+
+    const fail = async (
+      error: string,
+      extra: { retryable: boolean; publishId?: string | null }
+    ): Promise<JobResult> => {
+      const status = await inTenant(() =>
         finishJob({
           id: job.id,
           status: "FAILED",
-          lastError: "not_connected_or_refresh_failed",
+          lastError: error,
+          publishId: extra.publishId ?? job.publishId,
+          attempts: job.attempts,
         })
       );
-      results.push({
+      await inTenant(() =>
+        recordEvent({
+          jobId: job.id,
+          organizationId,
+          userId: job.userId,
+          type: status === "DEAD" ? "dead_lettered" : "retry_scheduled",
+          detail: error,
+        })
+      );
+      return {
         id: job.id,
-        status: "FAILED",
-        error: "not_connected_or_refresh_failed",
+        status: status === "DEAD" ? "DEAD" : "FAILED",
+        publishId: extra.publishId ?? job.publishId,
+        error,
         attempts: job.attempts,
-        retryable: job.attempts < MAX_ATTEMPTS,
-      });
+        retryable: extra.retryable && job.attempts < MAX_ATTEMPTS,
+      };
+    };
+
+    const access = await getTiktokAccess(organizationId, job.userId);
+    if (!access) {
+      await inTenant(() =>
+        recordEvent({
+          jobId: job.id,
+          organizationId,
+          userId: job.userId,
+          type: "not_connected",
+        })
+      );
+      results.push(await fail("not_connected_or_refresh_failed", { retryable: true }));
       continue;
+    }
+
+    // Reconcile before retrying. A previous attempt may have reached TikTok and
+    // died on our side; uploading again would duplicate the video.
+    if (job.publishId && job.attempts > 1) {
+      const known = await fetchPublishStatus(access.accessToken, job.publishId);
+      if (known.ok && SETTLED_STATUSES.has(known.value.status)) {
+        await inTenant(() =>
+          finishJob({
+            id: job.id,
+            status: "UPLOADED",
+            publishId: job.publishId,
+            attempts: job.attempts,
+          })
+        );
+        await inTenant(() =>
+          recordEvent({
+            jobId: job.id,
+            organizationId,
+            userId: job.userId,
+            type: "reconciled",
+            detail: `tiktok reports ${known.value.status}`,
+          })
+        );
+        results.push({
+          id: job.id,
+          status: "RECONCILED",
+          publishId: job.publishId,
+          attempts: job.attempts,
+          retryable: false,
+        });
+        continue;
+      }
+      if (!known.ok) {
+        // TikTok did not answer, so the outcome is genuinely unknown. Retrying
+        // now would be the blind republish the rule forbids.
+        results.push(
+          await fail(`reconcile_failed_${known.error}`, {
+            retryable: true,
+            publishId: job.publishId,
+          })
+        );
+        continue;
+      }
+      // TikTok says the old publish id failed: a fresh upload is safe.
     }
 
     const media = await fetchMedia(job.mediaUrl);
     if (!media.ok) {
-      await runInTenantTransaction({ organizationId, userId: null }, () =>
-        finishJob({ id: job.id, status: "FAILED", lastError: media.error })
-      );
-      results.push({
-        id: job.id,
-        status: "FAILED",
-        error: media.error,
-        attempts: job.attempts,
-        retryable: job.attempts < MAX_ATTEMPTS,
-      });
+      results.push(await fail(media.error, { retryable: true }));
       continue;
     }
 
@@ -95,16 +197,9 @@ export async function POST(request: Request) {
       mime: media.value.mime,
     });
     if (!shape.ok) {
-      await runInTenantTransaction({ organizationId, userId: null }, () =>
-        finishJob({ id: job.id, status: "FAILED", lastError: shape.problem })
+      results.push(
+        await fail(shape.problem ?? "invalid_media", { retryable: false })
       );
-      results.push({
-        id: job.id,
-        status: "FAILED",
-        error: shape.problem,
-        attempts: job.attempts,
-        retryable: false,
-      });
       continue;
     }
 
@@ -116,39 +211,27 @@ export async function POST(request: Request) {
       totalChunkCount: plan.totalChunkCount,
     });
     if (!ticket.ok) {
-      await runInTenantTransaction({ organizationId, userId: null }, () =>
-        finishJob({ id: job.id, status: "FAILED", lastError: ticket.error })
-      );
-      results.push({
-        id: job.id,
-        status: "FAILED",
-        error: ticket.error,
-        attempts: job.attempts,
-        retryable: job.attempts < MAX_ATTEMPTS,
-      });
+      results.push(await fail(ticket.error, { retryable: true }));
       continue;
     }
 
-    await recordUpload({
-      organizationId,
-      userId: job.userId,
-      publishId: ticket.value.publishId,
-      fileName: job.jobKey,
-      fileSize: size,
-      mimeType: media.value.mime,
-      status: "INIT",
-    });
+    await inTenant(() =>
+      recordUpload({
+        organizationId,
+        userId: job.userId,
+        publishId: ticket.value.publishId,
+        fileName: job.jobKey,
+        fileSize: size,
+        mimeType: media.value.mime,
+        status: "INIT",
+      })
+    );
 
     let failure: string | null = null;
     let sentTo = 0;
     for (const range of tiktokChunkRanges(size, plan)) {
       const chunk = media.value.bytes.subarray(range.start, range.end + 1);
-      const sent = await putChunk(
-        ticket.value.uploadUrl,
-        chunk,
-        range,
-        size
-      );
+      const sent = await putChunk(ticket.value.uploadUrl, chunk, range, size);
       if (!sent.ok) {
         failure = sent.error.slice(0, 200);
         break;
@@ -156,7 +239,7 @@ export async function POST(request: Request) {
       sentTo = range.end + 1;
     }
 
-    await runInTenantTransaction({ organizationId, userId: null }, () =>
+    await inTenant(() =>
       updateUploadStatus({
         organizationId,
         userId: job.userId,
@@ -166,23 +249,37 @@ export async function POST(request: Request) {
         uploadedBytes: sentTo,
       })
     );
-    await runInTenantTransaction({ organizationId, userId: null }, () =>
+
+    if (failure) {
+      results.push(
+        await fail(failure, { retryable: true, publishId: ticket.value.publishId })
+      );
+      continue;
+    }
+
+    await inTenant(() =>
       finishJob({
         id: job.id,
-        status: failure ? "FAILED" : "UPLOADED",
+        status: "UPLOADED",
         publishId: ticket.value.publishId,
-        lastError: failure,
+        attempts: job.attempts,
       })
     );
-
+    await inTenant(() =>
+      recordEvent({
+        jobId: job.id,
+        organizationId,
+        userId: job.userId,
+        type: "uploaded",
+        detail: ticket.value.publishId,
+      })
+    );
     results.push({
       id: job.id,
-      status: failure ? "FAILED" : "UPLOADED",
+      status: "UPLOADED",
       publishId: ticket.value.publishId,
-      error: failure,
       attempts: job.attempts,
-      retryable: failure !== null && job.attempts < MAX_ATTEMPTS,
-      chunks: plan.totalChunkCount,
+      retryable: false,
     });
   }
 

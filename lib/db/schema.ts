@@ -1243,6 +1243,9 @@ export const tiktokPublishJob = pgTable(
     claimedAt: timestamp("claimedAt"),
     publishId: varchar("publishId", { length: 128 }),
     lastError: varchar("lastError", { length: 300 }),
+    nextAttemptAt: timestamp("nextAttemptAt"),
+    lastAttemptAt: timestamp("lastAttemptAt"),
+    deadAt: timestamp("deadAt"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   },
@@ -1256,5 +1259,28 @@ export const tiktokPublishJob = pgTable(
       table.status,
       table.createdAt
     ),
+  })
+);
+
+/** Append-only: every job state change, so the history is auditable. */
+export const tiktokPublishEvent = pgTable(
+  "TikTokPublishEvent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    jobId: uuid("jobId")
+      .notNull()
+      .references(() => tiktokPublishJob.id, { onDelete: "cascade" }),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 32 }).notNull(),
+    detail: varchar("detail", { length: 300 }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    jobIndex: index("TikTokPublishEvent_job_idx").on(table.jobId, table.createdAt),
   })
 );

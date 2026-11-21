@@ -18,6 +18,9 @@ create table if not exists "TikTokPublishJob" (
   "claimedAt" timestamp,
   "publishId" varchar(128),
   "lastError" varchar(300),
+  "nextAttemptAt" timestamp,
+  "lastAttemptAt" timestamp,
+  "deadAt" timestamp,
   "createdAt" timestamp not null default now(),
   "updatedAt" timestamp not null default now()
 );
@@ -44,3 +47,35 @@ create policy "TikTokPublishJob_tenant" on "TikTokPublishJob"
   );
 
 grant select, insert, update, delete on "TikTokPublishJob" to zooka_runtime;
+
+-- Append-only audit trail. Every state change is a row, so "why did this not
+-- publish" is answered by reading history rather than guessing from a status.
+create table if not exists "TikTokPublishEvent" (
+  "id" uuid primary key default gen_random_uuid(),
+  "jobId" uuid not null references "TikTokPublishJob"("id") on delete cascade,
+  "organizationId" uuid not null references "Organization"("id") on delete cascade,
+  "userId" uuid not null references "User"("id") on delete cascade,
+  "type" varchar(32) not null,
+  "detail" varchar(300),
+  "createdAt" timestamp not null default now()
+);
+
+create index if not exists "TikTokPublishEvent_job_idx"
+  on "TikTokPublishEvent" ("jobId", "createdAt");
+
+alter table "TikTokPublishEvent" enable row level security;
+
+drop policy if exists "TikTokPublishEvent_tenant" on "TikTokPublishEvent";
+
+create policy "TikTokPublishEvent_tenant" on "TikTokPublishEvent"
+  for all
+  using (
+    ("organizationId")::text = current_setting('app.organization_id', true)
+    and public.app_is_org_member(current_setting('app.organization_id', true))
+  )
+  with check (
+    ("organizationId")::text = current_setting('app.organization_id', true)
+    and public.app_is_org_member(current_setting('app.organization_id', true))
+  );
+
+grant select, insert, update, delete on "TikTokPublishEvent" to zooka_runtime;

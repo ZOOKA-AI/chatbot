@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { checkMediaUrl } from "@/lib/integrations/tiktok/media";
 import {
+  backoffMs,
   isClaimable,
   leaseExpiry,
   LEASE_MS,
   MAX_ATTEMPTS,
+  nextAttemptFor,
+  retryDecision,
 } from "@/lib/integrations/tiktok/queue";
 
 test("the media guard refuses everything that is not a public https URL", () => {
@@ -78,4 +81,28 @@ test("a job stops being claimable at the attempt cap or when already uploaded", 
     ),
     true
   );
+});
+
+test("retries back off exponentially and stop at the cap", () => {
+  assert.equal(backoffMs(1), 60_000);
+  assert.equal(backoffMs(2), 120_000);
+  assert.equal(backoffMs(3), 240_000);
+  assert.equal(backoffMs(4), 480_000);
+  assert.equal(backoffMs(10), 30 * 60 * 1000, "never longer than the cap");
+  assert.equal(backoffMs(0), 60_000, "a zero attempt still waits a minute");
+});
+
+test("a failure schedules a wait, and the last attempt dead-letters the job", () => {
+  const now = 1_700_000_000_000;
+  const first = retryDecision(1, now);
+  assert.equal(first.status, "FAILED");
+  assert.equal(first.nextAttemptAt?.getTime(), now + 60_000);
+
+  const last = retryDecision(MAX_ATTEMPTS, now);
+  assert.equal(last.status, "DEAD", "an unfixable job must stop retrying");
+  assert.equal(last.nextAttemptAt, null, "a dead job is never rescheduled");
+
+  const almost = retryDecision(MAX_ATTEMPTS - 1, now);
+  assert.equal(almost.status, "FAILED", "the final attempt is still a retry");
+  assert.equal(almost.nextAttemptAt?.getTime(), nextAttemptFor(MAX_ATTEMPTS - 1, now).getTime());
 });

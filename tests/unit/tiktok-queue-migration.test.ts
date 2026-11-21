@@ -81,6 +81,16 @@ test("0065 creates the queue with RLS, a membership policy and both foreign keys
   const targets = fks.rows.map((r) => r.confrelid).sort();
   assert.deepEqual(targets, ['"Organization"', '"User"']);
 
+  const audit = await db.query<{ relrowsecurity: boolean }>(
+    `select relrowsecurity from pg_class where relname = 'TikTokPublishEvent'`
+  );
+  assert.equal(audit.rows[0]?.relrowsecurity, true, "the audit table needs RLS too");
+  const auditPolicy = await db.query<{ qual: string }>(
+    `select qual from pg_policies where policyname = 'TikTokPublishEvent_tenant'`
+  );
+  assert.equal(auditPolicy.rows.length, 1);
+  assert.match(auditPolicy.rows[0].qual, /app_is_org_member/);
+
   // A second run must be a no-op: the migrate endpoint is retried.
   await apply(db, UP);
   assert.equal(await exists(db), true);
