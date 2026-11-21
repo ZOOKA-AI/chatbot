@@ -106,6 +106,75 @@ export function isClaimable(
   return job.claimedAt.getTime() < now - LEASE_MS;
 }
 
+/**
+ * TikTok answers 429 when a creator's app hits its posting rate limit, and it
+ * may send Retry-After as seconds or as an HTTP date. Blind exponential backoff
+ * is wrong here twice over: it retries too early (burning attempts on a limit
+ * that has nothing to do with the video) and it can wait far longer than the
+ * platform asked. So the delay comes from the header, clamped to something sane.
+ */
+export const RATE_LIMIT_DEFAULT_MS = 60_000;
+export const RATE_LIMIT_MIN_MS = 1_000;
+export const RATE_LIMIT_MAX_MS = 15 * 60_000;
+
+export function rateLimitDelayMs(
+  retryAfter: string | null | undefined,
+  now: number = Date.now()
+): number {
+  const clamp = (ms: number) =>
+    Math.min(RATE_LIMIT_MAX_MS, Math.max(RATE_LIMIT_MIN_MS, Math.round(ms)));
+  if (retryAfter === null || retryAfter === undefined) return RATE_LIMIT_DEFAULT_MS;
+  const raw = String(retryAfter).trim();
+  if (raw.length === 0) return RATE_LIMIT_DEFAULT_MS;
+  if (/^\d+$/.test(raw)) return clamp(Number(raw) * 1000);
+  // Date.parse is far too forgiving: it reads "-5" as a year. Only an actual
+  // HTTP-date shape is allowed to become a date, otherwise a garbage header
+  // would silently become a wait of a few milliseconds.
+  const looksLikeDate = raw.includes(",") || /^\d{4}-\d{2}-\d{2}/.test(raw);
+  if (!looksLikeDate) return RATE_LIMIT_DEFAULT_MS;
+  const asDate = Date.parse(raw);
+  if (Number.isNaN(asDate)) return RATE_LIMIT_DEFAULT_MS;
+  return clamp(asDate - now);
+}
+
+/** True when a platform result means "throttled", not "this video failed". */
+export function isRateLimited(result: { ok: boolean; error?: string }): boolean {
+  return result.ok === false && result.error === "rate_limited";
+}
+
+/**
+ * Puts a claimed job back without spending an attempt.
+ *
+ * A rate limit is a property of the account's quota, not of the video, so the
+ * attempt counter must not move: three 429s would otherwise dead-letter a video
+ * that was never tried. The lease is released and the row is parked until the
+ * delay the platform asked for has passed.
+ */
+export async function releaseForRateLimit(params: {
+  id: string;
+  delayMs: number;
+  lastError?: string;
+  now?: number;
+}) {
+  const now = params.now ?? Date.now();
+  const delay = Math.min(
+    RATE_LIMIT_MAX_MS,
+    Math.max(RATE_LIMIT_MIN_MS, Math.round(params.delayMs))
+  );
+  await db
+    .update(tiktokPublishJob)
+    .set({
+      status: "PENDING",
+      claimedAt: null,
+      attempts: sql`greatest(${tiktokPublishJob.attempts} - 1, 0)`,
+      nextAttemptAt: new Date(now + delay),
+      lastError: (params.lastError ?? "rate_limited").slice(0, 300),
+      updatedAt: new Date(now),
+    })
+    .where(eq(tiktokPublishJob.id, params.id));
+  return { status: "PENDING" as const, retryAt: new Date(now + delay) };
+}
+
 export interface EnqueueInput {
   organizationId: string;
   userId: string;
@@ -238,6 +307,7 @@ export async function recordEvent(params: {
     | "retry_scheduled"
     | "dead_lettered"
     | "reconciled"
+    | "rate_limited"
     | "not_connected";
   detail?: string | null;
 }) {

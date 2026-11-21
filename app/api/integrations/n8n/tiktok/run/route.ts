@@ -9,8 +9,10 @@ import {
   finishJob,
   listTenantsWithDueWork,
   MAX_ATTEMPTS,
+  rateLimitDelayMs,
   RECONCILE_STATUS,
   recordEvent,
+  releaseForRateLimit,
 } from "@/lib/integrations/tiktok/queue";
 import {
   getTiktokAccess,
@@ -190,6 +192,7 @@ async function drainTenant(organizationId: string, limit: number): Promise<JobRe
   }
 
   const jobs = await inTenant(() => claimDueJobs(organizationId, limit));
+  let throttled = false;
 
   for (const job of jobs) {
     await inTenant(() =>
@@ -204,8 +207,43 @@ async function drainTenant(organizationId: string, limit: number): Promise<JobRe
 
     const fail = async (
       error: string,
-      extra: { retryable: boolean; publishId?: string | null }
+      extra: {
+        retryable: boolean;
+        publishId?: string | null;
+        retryAfterMs?: number;
+      }
     ): Promise<JobResult> => {
+      // A 429 belongs to the account's quota, not to this video. Parking it with
+      // the platform's own Retry-After keeps the attempt counter honest and
+      // stops this run from hammering an endpoint that already said no.
+      if (error === "rate_limited") {
+        const delayMs = extra.retryAfterMs ?? rateLimitDelayMs(null);
+        await inTenant(() =>
+          releaseForRateLimit({
+            id: job.id,
+            delayMs,
+            lastError: `rate_limited_${delayMs}ms`,
+          })
+        );
+        await inTenant(() =>
+          recordEvent({
+            jobId: job.id,
+            organizationId,
+            userId: job.userId,
+            type: "rate_limited",
+            detail: `parked ${delayMs}ms`,
+          })
+        );
+        throttled = true;
+        return {
+          id: job.id,
+          status: "FAILED",
+          publishId: extra.publishId ?? job.publishId,
+          error: "rate_limited",
+          attempts: job.attempts,
+          retryable: true,
+        };
+      }
       const status = await inTenant(() =>
         finishJob({
           id: job.id,
@@ -279,6 +317,16 @@ async function drainTenant(organizationId: string, limit: number): Promise<JobRe
         });
         continue;
       }
+      if (!known.ok && known.error === "rate_limited") {
+        results.push(
+          await fail("rate_limited", {
+            retryable: true,
+            publishId: job.publishId,
+            retryAfterMs: known.retryAfterMs,
+          })
+        );
+        continue;
+      }
       if (!known.ok) {
         // TikTok did not answer, so the outcome is genuinely unknown. Holding the
         // job is the only safe move: it leaves the claimable set entirely, so no
@@ -338,7 +386,12 @@ async function drainTenant(organizationId: string, limit: number): Promise<JobRe
       totalChunkCount: plan.totalChunkCount,
     });
     if (!ticket.ok) {
-      results.push(await fail(ticket.error, { retryable: true }));
+      results.push(
+        await fail(ticket.error, {
+          retryable: true,
+          retryAfterMs: ticket.retryAfterMs,
+        })
+      );
       continue;
     }
 
@@ -355,12 +408,14 @@ async function drainTenant(organizationId: string, limit: number): Promise<JobRe
     );
 
     let failure: string | null = null;
+    let failureRetryAfter: number | undefined;
     let sentTo = 0;
     for (const range of tiktokChunkRanges(size, plan)) {
       const chunk = media.value.bytes.subarray(range.start, range.end + 1);
       const sent = await putChunk(ticket.value.uploadUrl, chunk, range, size);
       if (!sent.ok) {
         failure = sent.error.slice(0, 200);
+        failureRetryAfter = sent.retryAfterMs;
         break;
       }
       sentTo = range.end + 1;
@@ -379,7 +434,11 @@ async function drainTenant(organizationId: string, limit: number): Promise<JobRe
 
     if (failure) {
       results.push(
-        await fail(failure, { retryable: true, publishId: ticket.value.publishId })
+        await fail(failure, {
+          retryable: true,
+          publishId: ticket.value.publishId,
+          retryAfterMs: failureRetryAfter,
+        })
       );
       continue;
     }
@@ -408,6 +467,11 @@ async function drainTenant(organizationId: string, limit: number): Promise<JobRe
       attempts: job.attempts,
       retryable: false,
     });
+    if (throttled) {
+      // The workspace is over its posting rate. Leave the rest of the batch
+      // claimed-but-untouched for the next run rather than draining into a 429.
+      break;
+    }
   }
 
   return results;

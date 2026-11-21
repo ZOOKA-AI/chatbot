@@ -1,5 +1,6 @@
 import "server-only";
 
+import { rateLimitDelayMs } from "@/lib/integrations/tiktok/queue";
 import {
   TIKTOK_API_BASE,
   TIKTOK_REVOKE_URL,
@@ -30,7 +31,21 @@ export interface TiktokTokens {
 
 export type TiktokResult<T> =
   | { ok: true; value: T }
-  | { ok: false; error: string; detail?: string };
+  | { ok: false; error: string; detail?: string; retryAfterMs?: number };
+
+/**
+ * A 429 is not a failed video. It says the account is throttled, so the caller
+ * has to park the job for as long as the platform asked instead of spending an
+ * attempt. The delay is parsed by the queue's clamp so every caller agrees.
+ */
+function rateLimitedFailure(response: Response, detail?: string) {
+  return {
+    ok: false as const,
+    error: "rate_limited",
+    detail,
+    retryAfterMs: rateLimitDelayMs(response.headers.get("retry-after")),
+  };
+}
 
 async function postForm(
   url: string,
@@ -51,6 +66,9 @@ async function postForm(
     const payload = (await response.json().catch(() => null)) as
       | Record<string, unknown>
       | null;
+    if (response.status === 429) {
+      return rateLimitedFailure(response, "http_429");
+    }
     if (!response.ok) {
       return {
         ok: false,
@@ -173,6 +191,7 @@ async function getJson(
       | Record<string, unknown>
       | null;
     if (!response.ok) {
+      if (response.status === 429) return rateLimitedFailure(response, "http_429");
       return { ok: false, error: `http_${response.status}` };
     }
     if (!payload) {
