@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, ne, sql } from "drizzle-orm";
 
 import { adminDb, getAdminUsers, getWorkspaceBilling } from "@/lib/db/queries";
 import { getConnectorDetails } from "@/lib/integrations/connectors/detail";
@@ -229,15 +229,27 @@ export async function getWorkspaces(organizationId: string): Promise<AdminSectio
         ],
       },
       async () => {
-        const rows = await db
-          .select({
-            id: organization.id,
-            name: organization.name,
-            createdAt: organization.createdAt,
-          })
+        const columns = {
+          id: organization.id,
+          name: organization.name,
+          createdAt: organization.createdAt,
+        };
+        // The current workspace is fetched first, on its own. A plain LIMIT 25 over
+        // 281 organizations returns an arbitrary page that usually does not contain
+        // the caller's own workspace, so the "current" column read as empty for every
+        // row and the marker promised by the page description never appeared.
+        const [current] = await db
+          .select(columns)
           .from(organization)
-          .limit(25);
-        return rows.map((row) => ({
+          .where(eq(organization.id, organizationId))
+          .limit(1);
+        const others = await db
+          .select(columns)
+          .from(organization)
+          .where(ne(organization.id, organizationId))
+          .orderBy(desc(organization.createdAt))
+          .limit(24);
+        return [...(current ? [current] : []), ...others].map((row) => ({
           name: row.name,
           current: row.id === organizationId ? "✓" : null,
           created: row.createdAt?.toISOString().slice(0, 10) ?? null,
