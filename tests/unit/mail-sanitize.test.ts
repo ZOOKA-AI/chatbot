@@ -90,4 +90,8 @@ describe("HTML sanitiser", () => {
     expect(text).toBe("Hello there");
     expect(text).not.toContain("<");
   });
+  it("decodes entities once, so escaped markup stays text", () => {
+    expect(htmlToText("<p>&amp;lt;b&amp;gt; and &amp;#60;</p>")).toBe("&lt;b&gt; and &#60;");
+    expect(htmlToText("a<script>x()</script >b")).toBe("a b");
+  });
 });

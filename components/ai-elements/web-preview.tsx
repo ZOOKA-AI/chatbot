@@ -169,6 +169,21 @@ export type WebPreviewBodyProps = ComponentProps<"iframe"> & {
   loading?: ReactNode;
 };
 
+// The address bar is user input. Only http(s) reaches the iframe, so a
+// "javascript:" or "data:" URL can never run in the preview frame.
+function safePreviewSrc(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value, "https://invalid.invalid");
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return undefined;
+    }
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
 export const WebPreviewBody = ({
   className,
   loading,
@@ -182,7 +197,7 @@ export const WebPreviewBody = ({
       <iframe
         className={cn("size-full", className)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-        src={(src ?? url) || undefined}
+        src={safePreviewSrc(src ?? url)}
         title="Preview"
         {...props}
       />

@@ -178,7 +178,7 @@ export async function readGmailMessages(input: {
       messages.push({
         providerMessageId: id,
         fromAddress: header(payload.headers, "from").replace(/.*<([^>]+)>.*/, "$1").trim(),
-        fromName: header(payload.headers, "from").replace(/<[^>]*>/, "").replace(/"/g, "").trim() || null,
+        fromName: header(payload.headers, "from").replace(/<[^>]*>/g, "").replace(/"/g, "").trim() || null,
         subject: header(payload.headers, "subject") || "(no subject)",
         snippet: String(detail.snippet ?? "").slice(0, 200),
         // Sanitised before it is ever stored or rendered.
