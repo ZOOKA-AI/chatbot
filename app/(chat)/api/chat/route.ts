@@ -35,6 +35,7 @@ import {
 } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
+import { unavailableModelIds } from "@/lib/ai/model-availability";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
 import { createCommanderTools } from "@/lib/ai/tools/commander";
@@ -75,6 +76,7 @@ import {
   saveMessages,
   updateChatTitleById,
   updateMessage,
+  trackWorkspaceUsage,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
@@ -82,6 +84,7 @@ import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { classifyTurn } from "@/lib/saas/turn-usage";
 import { runAfterResponseInTenant } from "@/lib/db/tenant-client";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
@@ -183,6 +186,14 @@ async function POSTImpl(request: Request) {
 
     if (!allowedModelIds.has(selectedChatModel)) {
       return new ChatbotError("bad_request:api").toResponse();
+    }
+    // Refuse before anything is stored or counted: a model this deployment cannot
+    // serve used to fail after the message was saved and a usage event recorded.
+    if (unavailableModelIds([selectedChatModel], process.env).length > 0) {
+      return new ChatbotError(
+        "bad_request:api",
+        `Model ${selectedChatModel} is not available on this deployment`,
+      ).toResponse();
     }
     const supportsTools = modelSupportsTools(selectedChatModel);
 
@@ -437,6 +448,10 @@ async function POSTImpl(request: Request) {
       organizationId: workspaceContext.organizationId,
     });
 
+    // Set by onError, read by onFinish: a turn whose model failed before producing
+    // any output must not be billed as a chat message (see lib/saas/turn-usage.ts).
+    let modelFailed = false;
+
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
@@ -639,7 +654,19 @@ async function POSTImpl(request: Request) {
                 })),
                 organizationId: workspaceContext.organizationId,
               });
-              if (message?.role === "user") {
+              const turn = classifyTurn({
+                modelFailed,
+                messages: finishedMessages,
+                priorIds: new Set(uiMessages.map((m) => m.id)),
+              });
+              if (message?.role === "user" && turn === "failed_unbilled") {
+                // Visible to the admin as an attempt that failed; not a quota event.
+                await trackWorkspaceUsage({
+                  organizationId: workspaceContext.organizationId,
+                  userId: session.user.id,
+                  event: "chat_failed",
+                });
+              } else if (message?.role === "user") {
                 await recordUsage(
                   session.user.id,
                   "chat_message",
@@ -665,6 +692,7 @@ async function POSTImpl(request: Request) {
           },
         ),
       onError: (error) => {
+        modelFailed = true;
         logModelProviderFailure(error, selectedChatModel, "chat");
         if (
           error instanceof Error &&

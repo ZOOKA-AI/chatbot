@@ -831,6 +831,21 @@ function PureModelSelectorCompact({
   onModelChange?: (modelId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [unavailable, setUnavailable] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/models/availability")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { unavailable?: unknown } | null) => {
+        if (!cancelled && Array.isArray(body?.unavailable)) {
+          setUnavailable(new Set(body.unavailable.filter((id): id is string => typeof id === "string")));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selectedModel =
     chatModels.find((m) => m.id === selectedModelId) ??
@@ -867,7 +882,7 @@ function PureModelSelectorCompact({
                 heading={providerNames[providerKey] ?? providerKey}
                 key={providerKey}
               >
-                {providerModels.map((model) => {
+                {providerModels.filter((model) => !unavailable.has(model.id)).map((model) => {
                   const logoProvider = model.id.split("/")[0];
                   return (
                     <ModelSelectorItem
