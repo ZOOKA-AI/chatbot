@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   alternates: { canonical: "./" },
+  verification: {
+    other: {
+      "p:domain_verify": "f6cbf0cf80175d361a3df212368f409d",
+    },
+  },
   icons: { icon: [{ url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" }, { url: "/icon.svg", type: "image/svg+xml" }], apple: "/brand/apple-touch-icon-180.png" },
   openGraph: {
     type: "website",
@@ -33,12 +38,15 @@ export const metadata: Metadata = {
         url: "/brand/og-1200x630.png",
         width: 1200,
         height: 630,
+        type: "image/png",
         alt: SITE_TITLE,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
+    site: "@zooka_ai",
+    creator: "@zooka_ai",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     images: ["/brand/og-1200x630.png"],
@@ -130,6 +138,8 @@ export default function RootLayout({
               "@type": "Organization",
               "@id": `${SITE_URL}/#organization`,
               name: SITE_NAME,
+              alternateName: ["Zooka AI", "ZOOKA AI"],
+              slogan: "تقنية بإيمان، تقدّم بأخلاق",
               url: SITE_URL,
               logo: `${SITE_URL}/brand/app-icon-512.png`,
               description: SITE_DESCRIPTION,
@@ -137,6 +147,11 @@ export default function RootLayout({
                 "https://github.com/ZOOKA-AI",
                 "https://g.dev/zooka-ai",
                 "https://developers.google.com/profile/u/zooka-ai",
+                "https://x.com/zooka_ai",
+                "https://www.linkedin.com/company/zooka-ai/",
+                "https://www.youtube.com/@zooka_ai_official",
+                "https://t.me/zooka_ai_official",
+                "https://discord.gg/7ynqJxMZfQ",
               ],
             }),
           }}
