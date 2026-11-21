@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 
+import { requirePlatformRole } from "@/lib/auth/platform-role";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { adminDb } from "@/lib/db/queries";
 import { getTrafficSnapshotForOrganization } from "@/lib/analytics/growth";
@@ -21,9 +22,16 @@ export default async function GrowthAdminPage() {
   // deployment service account when the owner has not connected one yet.
   const traffic = await getTrafficSnapshotForOrganization(context.organizationId);
   const notice = growthNotice(traffic, ar);
-  // Signup-to-usage funnel from our own tables. Empty until migration 0067 runs,
-  // and the section says so rather than showing invented zeroes as a result.
-  const funnel = await getGrowthFunnel(30).catch(() => null);
+  /*
+   * Signup-to-usage funnel. This is platform-wide data: it aggregates every
+   * workspace's signups, so it is gated on the platform grant, not on being the
+   * owner of one workspace. A workspace owner who is not a platform admin gets
+   * no funnel at all rather than a slice of everyone else's numbers.
+   */
+  const platformAdmin = await requirePlatformRole("admin", "page.admin.growth");
+  const funnel = platformAdmin
+    ? await getGrowthFunnel(30).catch(() => null)
+    : null;
 
   let recent: Array<Record<string, unknown>> = [];
   let audit: Array<Record<string, unknown>> = [];
@@ -96,7 +104,13 @@ export default async function GrowthAdminPage() {
         <h2 className="text-sm font-semibold">
           {ar ? "قمع التسجيل إلى الاستخدام (٣٠ يومًا)" : "Signup to usage funnel (30 days)"}
         </h2>
-        {funnel === null ? (
+        {!platformAdmin ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {ar
+              ? "هذا القسم لإدارة المنصة فقط: يجمع تسجيلات كل المساحات."
+              : "Platform administration only: it aggregates signups across all workspaces."}
+          </p>
+        ) : funnel === null ? (
           <p className="mt-2 text-sm text-muted-foreground">
             {ar
               ? "القياس غير متاح بعد: يلزم تطبيق هجرة 0067 لإضافة تاريخ التسجيل ومصدره."
@@ -139,8 +153,15 @@ export default async function GrowthAdminPage() {
             {funnel.totals.unattributedSignups > 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 {ar
-                  ? `${funnel.totals.unattributedSignups} حسابًا بلا مصدر مسجَّل (أُنشئ قبل تشغيل القياس).`
-                  : `${funnel.totals.unattributedSignups} accounts carry no channel (created before measurement).`}
+                  ? `${funnel.totals.unattributedSignups} حسابًا بلا مصدر مسجَّل داخل الفترة.`
+                  : `${funnel.totals.unattributedSignups} accounts in this window carry no channel.`}
+              </p>
+            ) : null}
+            {funnel.totals.unknownSignupDate > 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {ar
+                  ? `${funnel.totals.unknownSignupDate} حسابًا قديمًا بلا تاريخ تسجيل موثوق؛ يُعرض كمجهول ولا يُؤرَّخ بالتخمين.`
+                  : `${funnel.totals.unknownSignupDate} older accounts have no trustworthy signup date; shown as unknown, never guessed.`}
               </p>
             ) : null}
           </>

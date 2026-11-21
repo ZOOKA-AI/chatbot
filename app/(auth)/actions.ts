@@ -4,7 +4,11 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { REFERRAL_COOKIE, recordReferralEvent } from "@/lib/affiliate";
-import { ATTRIBUTION_COOKIE, deserializeAttribution } from "@/lib/growth/attribution";
+import type { Attribution } from "@/lib/growth/attribution";
+import {
+  ATTRIBUTION_COOKIE,
+  deserializeAttribution,
+} from "@/lib/growth/attribution";
 import {
   consumePasswordResetToken,
   createPasswordResetToken,
@@ -36,6 +40,22 @@ const authFormSchema = z.object({
   email: z.string().trim().email().max(64),
   password: z.string().min(6),
 });
+
+/**
+ * The first-touch channel, or null.
+ *
+ * Reading a cookie must never fail a sign-up: a request without a cookie jar, a
+ * corrupted value, or a cookie store that throws all collapse to "no channel",
+ * which is exactly what a direct visit stores anyway.
+ */
+async function firstTouchAttribution(): Promise<Attribution | null> {
+  try {
+    const store = await cookies();
+    return deserializeAttribution(store?.get(ATTRIBUTION_COOKIE)?.value);
+  } catch {
+    return null;
+  }
+}
 
 export type LoginActionState = {
   status:
@@ -123,9 +143,7 @@ export const register = async (
   // First-touch channel, captured by the proxy on the visitor's first landing.
   // Read before the insert because the account row is written in one shot; a
   // failure to read it must never fail a sign-up, so it stays optional.
-  const attribution = deserializeAttribution(
-    (await cookies()).get(ATTRIBUTION_COOKIE)?.value
-  );
+  const attribution = await firstTouchAttribution();
 
   try {
     const [existingUser] = await getUser(email);
