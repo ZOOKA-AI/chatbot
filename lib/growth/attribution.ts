@@ -76,7 +76,11 @@ export function parseAttribution(
   }
 
   // Internal navigation is not an acquisition source.
-  if (host.endsWith("zooka-ai.com") || host === "localhost") {
+  //
+  // The comparison is exact or dot-prefixed on purpose. A bare endsWith("zooka-ai.com")
+  // also matches "evilzooka-ai.com", which would let any attacker-registered domain
+  // pass as our own and drop its traffic out of every channel report.
+  if (isInternalHost(host)) {
     return null;
   }
 
@@ -86,6 +90,22 @@ export function parseAttribution(
     campaign,
     referrer: rawReferrer,
   };
+}
+
+const INTERNAL_HOSTS = ["zooka-ai.com", "localhost"];
+
+/**
+ * Is this host one of ours?
+ *
+ * Exact match, or a real subdomain of ours. "www.zooka-ai.com" is internal;
+ * "evilzooka-ai.com" is not, even though the string ends with our domain.
+ */
+export function isInternalHost(host: string): boolean {
+  const normalized = host.toLowerCase();
+  return INTERNAL_HOSTS.some(
+    (internal) =>
+      normalized === internal || normalized.endsWith(`.${internal}`)
+  );
 }
 
 export function serializeAttribution(value: Attribution): string {
