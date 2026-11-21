@@ -1153,3 +1153,37 @@ export const mailAudit = pgTable(
     ),
   })
 );
+
+/**
+ * Platform roles, independent of any workspace (pending migration 0063).
+ *
+ * A row here is the only thing that grants platform administration: workspace
+ * ownership, an email address or a session claim never does. Rows are written
+ * by scripts/admin/platform-role.mjs, which records who granted what and why.
+ */
+export const platformRole = pgTable("PlatformRole", {
+  userId: uuid("userId")
+    .primaryKey()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  role: varchar("role", { enum: ["super_admin", "admin"] }).notNull(),
+  grantedBy: varchar("grantedBy", { length: 128 }).notNull(),
+  reason: text("reason").notNull(),
+  grantedAt: timestamp("grantedAt").notNull().defaultNow(),
+});
+
+export const platformAuditLog = pgTable(
+  "PlatformAuditLog",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    actorUserId: uuid("actorUserId"),
+    action: varchar("action", { length: 64 }).notNull(),
+    target: varchar("target", { length: 256 }),
+    outcome: varchar("outcome", { length: 16 }).notNull(),
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    createdIndex: index("PlatformAuditLog_created_idx").on(table.createdAt),
+  })
+);
