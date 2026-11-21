@@ -47,3 +47,16 @@ BEGIN
     EXECUTE 'REVOKE ALL ON "PlatformRole", "PlatformAuditLog" FROM zooka_app';
   END IF;
 END $$;
+--> statement-breakpoint
+-- Supabase grants anon/authenticated ALL on every new public table by default,
+-- and RLS does not stop TRUNCATE; PUBLIC is cleared too. No-op where absent.
+DO $$
+BEGIN
+  EXECUTE 'REVOKE ALL ON "PlatformRole", "PlatformAuditLog" FROM PUBLIC';
+  IF to_regrole('anon') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON "PlatformRole", "PlatformAuditLog" FROM anon';
+  END IF;
+  IF to_regrole('authenticated') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON "PlatformRole", "PlatformAuditLog" FROM authenticated';
+  END IF;
+END $$;
