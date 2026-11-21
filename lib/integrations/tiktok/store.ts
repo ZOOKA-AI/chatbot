@@ -7,6 +7,7 @@ import {
   decryptGoogleDriveTokens,
   encryptGoogleDriveTokens,
 } from "@/lib/integrations/google-drive/crypto";
+import { runExclusive } from "@/lib/integrations/tiktok/single-flight";
 import {
   fetchAccount,
   refreshAccessToken,
@@ -219,7 +220,13 @@ export async function getTiktokAccess(
     return { accessToken, openId: row.openId, refreshed: false };
   }
 
-  const refreshed = await refreshAccessToken(refreshToken);
+  // Serialised per creator: two parallel requests must not spend the same
+  // rotating refresh token, because the loser is told invalid_grant and a
+  // believed answer there disconnects the creator permanently.
+  const refreshed = await runExclusive(
+    `tiktok-refresh:${organizationId}:${userId}`,
+    () => refreshAccessToken(refreshToken)
+  );
   if (!refreshed.ok) {
     return null;
   }
