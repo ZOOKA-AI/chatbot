@@ -171,9 +171,29 @@ async function probeGoogle(providerId: string, workspaceId: string): Promise<Pro
 /** OAuth providers (GitHub, Vercel): call the provider's own identity endpoint. */
 async function probeOAuth(providerId: string, workspaceId: string): Promise<ProbeResult> {
   const definition = OAUTH_PROVIDERS[providerId as keyof typeof OAUTH_PROVIDERS];
-  const token = await getOAuthAccessToken(workspaceId, definition.id);
+  // The credential tested here is the one the card displays. The card reads the
+  // workspace connection store; this check read only the OAuth store, so a provider
+  // holding a pasted token was "connected" on the page and "not connected" here
+  // (LinkedIn and Vercel were exactly that). One provider, one credential: the OAuth
+  // store wins when it has a row, otherwise the workspace token is tested, and the
+  // answer records which store answered.
+  let token = await getOAuthAccessToken(workspaceId, definition.id);
+  let credentialSource: "oauth" | "workspace" = "oauth";
   if (!token) {
-    return failure(providerId, "not_connected", "no oauth connection for this workspace", 0);
+    const stored = await getIntegrationTokens(workspaceId, providerId).catch(() => null);
+    const raw = typeof stored?.accessToken === "string" ? stored.accessToken : "";
+    if (raw) {
+      token = raw;
+      credentialSource = "workspace";
+    }
+  }
+  if (!token) {
+    return failure(
+      providerId,
+      "not_connected",
+      `no ${providerId} credential for this workspace`,
+      0
+    );
   }
   const outcome = await timed(async (signal) => {
     const response = await fetch(definition.userUrl, {
@@ -198,15 +218,25 @@ async function probeOAuth(providerId: string, workspaceId: string): Promise<Prob
   if (status < 200 || status >= 300) {
     return failure(providerId, "provider_error", `provider returned ${status}`, outcome.latencyMs);
   }
+  // The account label comes from the provider's own definition, the same one the connect
+  // flow uses. Reading GitHub and Vercel shapes here labelled a LinkedIn or Meta account
+  // as nothing at all, so a healthy connection reported success with no account.
+  let described: { accountId: string | null; accountName: string | null } | null = null;
+  try {
+    described = definition.describeAccount(payload);
+  } catch {
+    described = null;
+  }
   return {
     providerId,
     code: "ok",
     ok: true,
-    account:
-      providerId === "github"
-        ? pick(payload, ["login"])
-        : pick(payload, ["user.username", "user.email", "user.name"]),
-    detail: { status, accountId: pick(payload, ["id", "user.id"]) },
+    account: described?.accountName ?? null,
+    detail: {
+      status,
+      accountId: described?.accountId ?? pick(payload, ["id", "user.id"]),
+      credentialSource,
+    },
     latencyMs: outcome.latencyMs,
     checkedAt: nowIso(),
     error: null,
