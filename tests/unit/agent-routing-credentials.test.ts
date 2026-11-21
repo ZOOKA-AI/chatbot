@@ -38,7 +38,7 @@ vi.mock("@/lib/db/queries", () => ({
   },
 }));
 
-import { toolForTask } from "@/lib/agents/scheduler";
+import { argumentsFromText, toolForTask } from "@/lib/agents/scheduler";
 import { resolveWorkspaceCredential } from "@/lib/agents/worker-credentials";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
@@ -119,5 +119,32 @@ describe("the tool a task runs", () => {
   it("falls back to the configured tool when the text names none or an unknown one", () => {
     expect(toolForTask(task({ instruction: "لخّص الحالة" }), config)).toBe("github_repo_inspect");
     expect(toolForTask(task({ payload: { tool: "rm_rf" }, instruction: "x" }), config)).toBe("github_repo_inspect");
+  });
+});
+
+describe("arguments for a tool chosen from the task text", () => {
+  const task = (over: Record<string, unknown>) =>
+    ({ id: "t", organizationId: ORG, createdAt: new Date(), payload: null, ...over }) as never;
+
+  it("labels a readiness report with the task's own title (was invalid_label)", () => {
+    expect(argumentsFromText("workspace_readiness_inspect", task({ title: "اختبار بعد النشر: جاهزية" }))).toEqual({
+      label: "اختبار بعد النشر: جاهزية",
+    });
+  });
+
+  it("keeps the label within the tool's 60-character limit", () => {
+    const args = argumentsFromText("workspace_readiness_inspect", task({ title: "ت".repeat(90) })) as { label: string };
+    expect(Array.from(args.label).length).toBe(60);
+  });
+
+  it("gives a document its title and brief, and invents nothing it cannot read", () => {
+    expect(
+      argumentsFromText("project_document_create", task({ title: "تقرير", instruction: "اكتب ملخصًا قصيرًا عن حالة الأدوات اليوم" }))
+    ).toEqual({ title: "تقرير", brief: "اكتب ملخصًا قصيرًا عن حالة الأدوات اليوم" });
+    expect(argumentsFromText("project_document_create", task({ title: "x", instruction: "short" }))).toEqual({});
+  });
+
+  it("adds nothing for tools that take no text arguments", () => {
+    expect(argumentsFromText("github_repo_inspect", task({ title: "anything" }))).toEqual({});
   });
 });

@@ -1,7 +1,6 @@
 "use client";
 
 import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
-import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useState } from "react";
@@ -17,12 +16,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import {
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { CHAT_HISTORY_PAGE_SIZE } from "@/lib/chat-history";
 import type { Chat } from "@/lib/db/schema";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
@@ -40,8 +42,6 @@ export type ChatHistory = {
   chats: Chat[];
   hasMore: boolean;
 };
-
-const PAGE_SIZE = 20;
 
 const groupChatsByDate = (chats: Chat[]): GroupedChats => {
   const now = new Date();
@@ -85,7 +85,7 @@ export function getChatHistoryPaginationKey(
   }
 
   if (pageIndex === 0) {
-    return `/api/history?limit=${PAGE_SIZE}`;
+    return `/api/history?limit=${CHAT_HISTORY_PAGE_SIZE}`;
   }
 
   const firstChatFromPage = previousPageData.chats.at(-1);
@@ -94,10 +94,16 @@ export function getChatHistoryPaginationKey(
     return null;
   }
 
-  return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
+  return `/api/history?ending_before=${firstChatFromPage.id}&limit=${CHAT_HISTORY_PAGE_SIZE}`;
 }
 
-export function SidebarHistory({ user }: { user: User | undefined }) {
+export function SidebarHistory({
+  user,
+  isArabic,
+}: {
+  user: User | undefined;
+  isArabic: boolean;
+}) {
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const id = pathname?.startsWith("/chat/") ? pathname.split("/")[2] : null;
@@ -125,6 +131,11 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   const hasEmptyChatHistory = paginatedChatHistories
     ? paginatedChatHistories.every((page) => page.chats.length === 0)
     : false;
+  const displayedChatCount =
+    paginatedChatHistories?.reduce(
+      (count, page) => count + page.chats.length,
+      0
+    ) ?? 0;
 
   const handleDelete = () => {
     const chatToDelete = deleteId;
@@ -217,6 +228,12 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   return (
     <>
       <SidebarGroup>
+        <SidebarGroupLabel className="justify-between">
+          <span>{isArabic ? "المحادثات الأخيرة" : "Recent conversations"}</span>
+          <span className="font-normal text-sidebar-foreground/50">
+            {displayedChatCount.toLocaleString(isArabic ? "ar" : "en")}
+          </span>
+        </SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
             {paginatedChatHistories &&
@@ -333,25 +350,29 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               })()}
           </SidebarMenu>
 
-          <motion.div
-            onViewportEnter={() => {
-              if (!isValidating && !hasReachedEnd) {
-                setSize((size) => size + 1);
-              }
-            }}
-          />
-
           {hasReachedEnd ? (
             <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
-              You have reached the end of your chat history.
+              {isArabic
+                ? "وصلت إلى نهاية سجل المحادثات."
+                : "You have reached the end of your chat history."}
             </div>
           ) : (
-            <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
-              <div className="animate-spin">
-                <LoaderIcon />
-              </div>
-              <div>Loading Chats...</div>
-            </div>
+            <Button
+              className="mt-3 w-full"
+              disabled={isValidating}
+              onClick={() => {
+                void setSize((size) => size + 1);
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              {isValidating ? (
+                <span className="animate-spin">
+                  <LoaderIcon />
+                </span>
+              ) : null}
+              {isArabic ? "تحميل محادثات أقدم" : "Load older conversations"}
+            </Button>
           )}
         </SidebarGroupContent>
       </SidebarGroup>

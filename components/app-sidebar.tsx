@@ -389,7 +389,7 @@ export function AppSidebar({
             />
             <ManageAccountButton className="w-full" />
           </div>
-          <SidebarHistory user={user} />
+          <SidebarHistory isArabic={lang === "ar"} user={user} />
         </SidebarContent>
         <SidebarFooter>
           {user && !isGuest && <SidebarUserNav user={user} />}
