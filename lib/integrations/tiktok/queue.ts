@@ -147,10 +147,11 @@ export async function enqueueJob(input: EnqueueInput) {
 export async function claimDueJobs(
   organizationId: string,
   limit: number,
-  now: number = Date.now()
+  now: number = Date.now(),
+  handle: typeof db = db
 ) {
   const leaseBefore = leaseExpiry(now);
-  const candidates = await db
+  const candidates = await handle
     .select({ id: tiktokPublishJob.id })
     .from(tiktokPublishJob)
     .where(
@@ -176,7 +177,7 @@ export async function claimDueJobs(
   }
   // The status predicate repeats in the UPDATE: a second runner that read the
   // same rows finds them already CLAIMED and updates nothing.
-  return db
+  return handle
     .update(tiktokPublishJob)
     .set({
       status: "CLAIMED",
@@ -296,10 +297,11 @@ export async function listJobs(
  */
 export async function listTenantsWithDueWork(
   limit = 20,
-  now: number = Date.now()
+  now: number = Date.now(),
+  handle: typeof db = adminDb() as unknown as typeof db
 ): Promise<string[]> {
   const leaseBefore = leaseExpiry(now);
-  const rows = await adminDb()
+  const rows = await handle
     .selectDistinct({ organizationId: tiktokPublishJob.organizationId })
     .from(tiktokPublishJob)
     .where(
@@ -333,14 +335,15 @@ export async function listTenantsWithDueWork(
 export async function claimReconcileJobs(
   organizationId: string,
   limit: number,
-  now: number = Date.now()
+  now: number = Date.now(),
+  handle: typeof db = db
 ) {
   const leaseBefore = leaseExpiry(now);
   const free = or(
     isNull(tiktokPublishJob.claimedAt),
     lt(tiktokPublishJob.claimedAt, leaseBefore)
   );
-  const candidates = await db
+  const candidates = await handle
     .select({ id: tiktokPublishJob.id })
     .from(tiktokPublishJob)
     .where(
@@ -356,7 +359,7 @@ export async function claimReconcileJobs(
   if (candidates.length === 0) {
     return [];
   }
-  return db
+  return handle
     .update(tiktokPublishJob)
     .set({ claimedAt: new Date(now), lastAttemptAt: new Date(now), updatedAt: new Date(now) })
     .where(
@@ -380,10 +383,11 @@ export async function applyReconciliation(params: {
   publishId: string | null;
   detail?: string | null;
   now?: number;
+  handle?: typeof db;
 }) {
   const now = params.now ?? Date.now();
   const decision = reconciliationDecision(params.outcome, params.attempts, now);
-  await db
+  await (params.handle ?? db)
     .update(tiktokPublishJob)
     .set({
       status: decision.status,
