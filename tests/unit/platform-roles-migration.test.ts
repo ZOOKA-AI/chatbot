@@ -163,9 +163,27 @@ test("nothing grants a platform role automatically", () => {
     }
   };
   for (const root of roots) walk(root);
+
+  // Two sanctioned writers, and only these two.
+  //
+  //   scripts/admin/platform-role.mjs - the operator path: explicit user id,
+  //   --confirm-production, audit row in the same transaction.
+  //
+  //   the 0066 bootstrap pair - because the operator path needs a connection to
+  //   the production database and nothing outside the app has one. It is
+  //   deliberately weaker than a first-user rule: it names one immutable user id,
+  //   and it inserts only while the table holds no super_admin at all, so it can
+  //   never hand administration to whoever registered first and never restores a
+  //   revoked role while another administrator remains. The guard itself is
+  //   asserted in tests/unit/platform-owner-bootstrap.test.ts.
+  const sanctioned = [
+    "scripts/admin/platform-role.mjs",
+    "lib/platform/bootstrap-owner-ddl.ts",
+    "lib/db/migrations/pending/0066_bootstrap_platform_owner.sql",
+  ];
   assert.deepEqual(
-    offenders.filter((path) => !path.endsWith("scripts/admin/platform-role.mjs")),
+    offenders.filter((path) => !sanctioned.some((allowed) => path.endsWith(allowed))),
     [],
-    `a platform role is written outside the operator script: ${offenders.join(", ")}`
+    `a platform role is written outside a sanctioned path: ${offenders.join(", ")}`
   );
 });

@@ -5,6 +5,7 @@ import { db } from "@/lib/db/queries";
 import { TIKTOK_DDL } from "@/lib/integrations/tiktok/ddl";
 import { TIKTOK_QUEUE_DDL } from "@/lib/integrations/tiktok/queue-ddl";
 import { PLATFORM_ROLES_DDL } from "@/lib/platform/ddl";
+import { PLATFORM_OWNER_BOOTSTRAP_DDL } from "@/lib/platform/bootstrap-owner-ddl";
 import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
@@ -12,6 +13,10 @@ const TABLES: Record<string, string[]> = {
   // decide who may open /admin were never created by the only migration path
   // production has, so every platform administrator was refused.
   platform_roles_0063: PLATFORM_ROLES_DDL,
+  // First platform administrator (migration 0066). Runs after 0063 so the grant
+  // table exists. One-shot by construction: it inserts only while no super_admin
+  // is present, so a later revoke is not silently undone by a migration re-run.
+  bootstrap_platform_owner_0066: PLATFORM_OWNER_BOOTSTRAP_DDL,
   // TikTok per-creator integration (migration 0063). Same statements as
   // lib/db/migrations/pending/0064_tiktok_integration.sql; a unit test keeps
   // them equal. Two tables only, both owner-scoped by (organizationId, userId).
