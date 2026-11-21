@@ -8,11 +8,12 @@ import {
   getChatsByOrganizationId,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
+import { normalizeChatHistoryLimit } from "@/lib/chat-history";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
-  const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
+  const limit = normalizeChatHistoryLimit(searchParams.get("limit"));
   const startingAfter = searchParams.get("starting_after");
   const endingBefore = searchParams.get("ending_before");
 
