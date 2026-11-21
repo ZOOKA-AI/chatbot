@@ -2,6 +2,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 import { isNavigation, requestIdFrom } from "./lib/http/request-id";
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_MAX_AGE_SECONDS,
+  parseAttribution,
+  serializeAttribution,
+} from "./lib/growth/attribution";
 
 /**
  * Routes that require an authenticated session. Anything not listed here is
@@ -14,6 +20,13 @@ import { isNavigation, requestIdFrom } from "./lib/http/request-id";
  * key themselves and refuse with 401 when it is missing or invalid.
  */
 const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
+
+/**
+ * The one endpoint the n8n publishing scheduler calls. It authenticates with a
+ * shared secret inside the route handler, not with a session, so the proxy must
+ * let the request through - and only for POST on this exact path.
+ */
+const N8N_SERVICE_ENDPOINT = "/api/integrations/n8n/tiktok/run";
 
 const PROTECTED_PREFIXES = [
   "/chat",
@@ -30,7 +43,45 @@ export async function proxy(request: NextRequest) {
   const requestId = requestIdFrom(request.headers);
   const response = await route(request, requestId);
   response.headers.set("x-request-id", requestId);
+  rememberAttribution(request, response);
   return response;
+}
+
+/**
+ * Records the acquisition channel on the visitor's first landing.
+ *
+ * First touch wins, so an existing cookie is never overwritten: a visitor who
+ * arrived from an AI assistant and later returns through a direct visit must
+ * still be credited to the assistant, otherwise every channel report drifts
+ * towards "direct". Internal navigation and direct visits write nothing, so a
+ * plain page view never invents a channel.
+ *
+ * The cookie is httpOnly because only the server reads it at sign-up, and the
+ * visitor's own browser scripts have no use for it.
+ */
+function rememberAttribution(request: NextRequest, response: Response) {
+  if (request.method !== "GET" || !(response instanceof NextResponse)) {
+    return;
+  }
+  if (request.cookies.get(ATTRIBUTION_COOKIE)?.value) {
+    return;
+  }
+  const attribution = parseAttribution(
+    request.nextUrl,
+    request.headers.get("referer")
+  );
+  if (!attribution) {
+    return;
+  }
+  response.cookies.set({
+    name: ATTRIBUTION_COOKIE,
+    value: serializeAttribution(attribution),
+    maxAge: ATTRIBUTION_MAX_AGE_SECONDS,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
 }
 
 async function route(request: NextRequest, requestId: string) {
@@ -67,6 +118,18 @@ async function route(request: NextRequest, requestId: string) {
    * header, so it must reach the route handler rather than a login redirect.
    */
   if (pathname === "/api/admin/migrate") {
+    return NextResponse.next();
+  }
+
+  /*
+   * The publishing scheduler runs in n8n, which has no browser session. It calls
+   * exactly one endpoint, with POST, and proves itself with the x-n8n-secret
+   * header that the handler compares in constant time. The exemption is written
+   * as that single path plus that single method: a GET, a sibling route under
+   * /api/integrations/n8n, or any other API keeps the session gate, so this is a
+   * doorway for one machine caller rather than a hole in the boundary.
+   */
+  if (request.method === "POST" && pathname === N8N_SERVICE_ENDPOINT) {
     return NextResponse.next();
   }
 

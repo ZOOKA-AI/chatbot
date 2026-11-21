@@ -35,6 +35,7 @@ import {
 } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
+import { unavailableModelIds } from "@/lib/ai/model-availability";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { createN8nTools } from "@/lib/ai/tools/n8n";
 import { createCommanderTools } from "@/lib/ai/tools/commander";
@@ -75,6 +76,7 @@ import {
   saveMessages,
   updateChatTitleById,
   updateMessage,
+  trackWorkspaceUsage,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
@@ -82,7 +84,8 @@ import { getLang } from "@/lib/i18n";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import { workspacePlans } from "@/lib/saas/plans";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
-import { runInTenantTransaction } from "@/lib/db/tenant-client";
+import { classifyTurn } from "@/lib/saas/turn-usage";
+import { runAfterResponseInTenant } from "@/lib/db/tenant-client";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
@@ -184,6 +187,14 @@ async function POSTImpl(request: Request) {
     if (!allowedModelIds.has(selectedChatModel)) {
       return new ChatbotError("bad_request:api").toResponse();
     }
+    // Refuse before anything is stored or counted: a model this deployment cannot
+    // serve used to fail after the message was saved and a usage event recorded.
+    if (unavailableModelIds([selectedChatModel], process.env).length > 0) {
+      return new ChatbotError(
+        "bad_request:api",
+        `Model ${selectedChatModel} is not available on this deployment`,
+      ).toResponse();
+    }
     const supportsTools = modelSupportsTools(selectedChatModel);
 
     await checkIpRateLimit(ipAddress(request));
@@ -210,17 +221,39 @@ async function POSTImpl(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const billing = await getWorkspaceBilling(workspaceContext.organizationId);
+    /*
+     * One wave, not five.
+     *
+     * Time-to-first-token is decided here, before any model call: everything
+     * below used to be awaited one after another, so five independent reads
+     * (billing, hourly count, entitlements, quota, the chat row) cost five
+     * round trips in series. They share no inputs, so they run together and
+     * the conditionals keep their original order and semantics afterwards.
+     */
+    const [billing, messageCount, entitlements, messageQuota, chat] =
+      await Promise.all([
+        getWorkspaceBilling(workspaceContext.organizationId),
+        getMessageCountByUserId({
+          id: session.user.id,
+          differenceInHours: 1,
+        }),
+        getWorkspaceEntitlements(workspaceContext.organizationId),
+        checkQuota(
+          session.user.id,
+          "chat_message",
+          workspaceContext.organizationId,
+        ),
+        getChatById({
+          id,
+          organizationId: workspaceContext.organizationId,
+        }),
+      ]);
     const effectivePlan =
       billing.subscription &&
       ["active", "trialing"].includes(billing.subscription.status)
         ? billing.subscription.plan
         : "free";
     const plan = workspacePlans[effectivePlan];
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 1,
-    });
     const hourlyLimit =
       userType === "guest"
         ? entitlementsByUserType.guest.maxMessagesPerHour
@@ -238,9 +271,6 @@ async function POSTImpl(request: Request) {
     // testing claim (entitlements). The limit is still the plan's, so usage is
     // metered and recorded exactly as for a paying workspace, and nothing is
     // deducted because no ledger runs here.
-    const entitlements = await getWorkspaceEntitlements(
-      workspaceContext.organizationId,
-    );
     const agentRunsLimit = entitlements.canUseAgentMode
       ? workspacePlans[entitlements.plan].monthlyAgentRuns
       : 0;
@@ -257,11 +287,6 @@ async function POSTImpl(request: Request) {
       return agentModeErrorResponse("quota", lang);
     }
 
-    const messageQuota = await checkQuota(
-      session.user.id,
-      "chat_message",
-      workspaceContext.organizationId,
-    );
     if (!messageQuota.allowed) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
@@ -290,10 +315,6 @@ async function POSTImpl(request: Request) {
       quotaAllowed: agentQuotaAllowed,
     });
 
-    const chat = await getChatById({
-      id,
-      organizationId: workspaceContext.organizationId,
-    });
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string | null> | null = null;
 
@@ -426,6 +447,10 @@ async function POSTImpl(request: Request) {
       limit: 10,
       organizationId: workspaceContext.organizationId,
     });
+
+    // Set by onError, read by onFinish: a turn whose model failed before producing
+    // any output must not be billed as a chat message (see lib/saas/turn-usage.ts).
+    let modelFailed = false;
 
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
@@ -567,7 +592,7 @@ async function POSTImpl(request: Request) {
        * writes back inside their tenant.
        */
       onFinish: async ({ messages: finishedMessages }) =>
-        runInTenantTransaction(
+        runAfterResponseInTenant(
           {
             organizationId: workspaceContext.organizationId,
             userId: session.user.id ?? null,
@@ -629,7 +654,19 @@ async function POSTImpl(request: Request) {
                 })),
                 organizationId: workspaceContext.organizationId,
               });
-              if (message?.role === "user") {
+              const turn = classifyTurn({
+                modelFailed,
+                messages: finishedMessages,
+                priorIds: new Set(uiMessages.map((m) => m.id)),
+              });
+              if (message?.role === "user" && turn === "failed_unbilled") {
+                // Visible to the admin as an attempt that failed; not a quota event.
+                await trackWorkspaceUsage({
+                  organizationId: workspaceContext.organizationId,
+                  userId: session.user.id,
+                  event: "chat_failed",
+                });
+              } else if (message?.role === "user") {
                 await recordUsage(
                   session.user.id,
                   "chat_message",
@@ -655,6 +692,7 @@ async function POSTImpl(request: Request) {
           },
         ),
       onError: (error) => {
+        modelFailed = true;
         logModelProviderFailure(error, selectedChatModel, "chat");
         if (
           error instanceof Error &&

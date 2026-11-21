@@ -1,58 +1,15 @@
 import { Suspense } from "react";
-import { auth } from "@/app/(auth)/auth";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+import { requirePlatformRole } from "@/lib/auth/platform-role";
+import { addAffiliateAction } from "./actions";
 import { db } from "@/lib/db/queries";
 import { affiliate } from "@/lib/db/schema";
-import { getReferralReport, normalizeCode } from "@/lib/affiliate";
-import { referralsAccess } from "@/lib/admin/referrals-access";
+import { getReferralReport } from "@/lib/affiliate";
 import { referralEvent } from "@/lib/db/schema";
 
 type PageProps = {
-  searchParams: Promise<{
-    k?: string;
-    add?: string;
-    name?: string;
-    pct?: string;
-    platform?: string;
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-async function addAffiliate(
-  code: string,
-  name: string | undefined,
-  platform: string | undefined,
-  pct: string | undefined
-) {
-  const normalized = normalizeCode(code);
-  if (!normalized) {
-    return;
-  }
-  const commissionPct = Number.parseInt(pct ?? "20", 10);
-  const existing = await db
-    .select({ id: affiliate.id })
-    .from(affiliate)
-    .where(eq(affiliate.code, normalized))
-    .limit(1);
-
-  if (existing.length > 0) {
-    await db
-      .update(affiliate)
-      .set({
-        name: name ?? null,
-        platform: platform ?? null,
-        commissionPct: Number.isFinite(commissionPct) ? commissionPct : 20,
-      })
-      .where(eq(affiliate.code, normalized));
-    return;
-  }
-
-  await db.insert(affiliate).values({
-    code: normalized,
-    name: name ?? null,
-    platform: platform ?? null,
-    commissionPct: Number.isFinite(commissionPct) ? commissionPct : 20,
-  });
-}
 
 export default function AdminReferralsPage({ searchParams }: PageProps) {
   return (
@@ -63,29 +20,20 @@ export default function AdminReferralsPage({ searchParams }: PageProps) {
 }
 
 async function AdminReferralsContent({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const session = await auth();
-  const access = referralsAccess({
-    sessionEmail: session?.user?.email,
-    key: params.k,
-    adminEmailsEnv: process.env.ADMIN_EMAILS,
-    backupToken: process.env.BACKUP_TOKEN,
-  });
-
-  if (!access.allowed) {
+  await searchParams;
+  // Platform administrators only, by PlatformRole grant. This page used to accept
+  // a hard-coded email list (which mixed in an account from another business) or
+  // the backup token in the URL, where it lands in history and access logs.
+  const admin = await requirePlatformRole("admin", "admin.referrals.view");
+  if (!admin) {
     return (
       <main className="mx-auto max-w-xl p-8">
         <h1 className="font-semibold text-xl">Not authorized</h1>
         <p className="mt-2 text-muted-foreground text-sm">
-          Sign in with an admin account, or add the admin key to the URL, to view
-          referral analytics.
+          Referral analytics are for platform administrators only.
         </p>
       </main>
     );
-  }
-
-  if (params.add) {
-    await addAffiliate(params.add, params.name, params.platform, params.pct);
   }
 
   const [rows, partners, totals] = await Promise.all([
@@ -196,11 +144,31 @@ async function AdminReferralsContent({ searchParams }: PageProps) {
         </div>
       </section>
 
+      {admin.role === "super_admin" ? (
+        <form action={addAffiliateAction} className="flex flex-wrap items-end gap-2 rounded-lg border p-3 text-sm">
+          <label className="flex flex-col gap-1">
+            Code
+            <input className="rounded border bg-transparent px-2 py-1" name="code" required />
+          </label>
+          <label className="flex flex-col gap-1">
+            Name
+            <input className="rounded border bg-transparent px-2 py-1" name="name" />
+          </label>
+          <label className="flex flex-col gap-1">
+            Platform
+            <input className="rounded border bg-transparent px-2 py-1" name="platform" />
+          </label>
+          <label className="flex flex-col gap-1">
+            Commission %
+            <input className="w-20 rounded border bg-transparent px-2 py-1" defaultValue="20" name="pct" type="number" min="0" max="100" />
+          </label>
+          <button className="rounded bg-primary px-3 py-1.5 text-primary-foreground" type="submit">
+            Create or update partner
+          </button>
+        </form>
+      ) : null}
+
       <section className="text-muted-foreground text-xs">
-        <p>
-          Create or update a partner:
-          /admin/referrals?k=KEY&amp;add=CODE&amp;name=NAME&amp;pct=20&amp;platform=instagram
-        </p>
         <p className="mt-1">
           Share links as https://zooka-ai.com/r/CODE (cookie lasts 60 days).
         </p>

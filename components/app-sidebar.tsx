@@ -11,6 +11,7 @@ import {
   Settings,
   UserRound,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -142,6 +143,11 @@ export function AppSidebar({
           href: "/workspace/actions",
           icon: <Bot />,
           label: isArabic ? "الإجراءات الجاهزة" : "Action catalog",
+        },
+        {
+          href: "/workspace/security",
+          icon: <ShieldCheck />,
+          label: isArabic ? "الأمان" : "Security",
         },
         {
           href: "/workspace/launch",

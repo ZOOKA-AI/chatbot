@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { requirePlatformRole } from "@/lib/auth/platform-role";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getLang } from "@/lib/i18n";
 
@@ -18,19 +19,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   const lang = await getLang();
-  const allowed = context.role === "admin" || context.role === "owner";
+  // A platform grant, not a workspace role: every sign-up owns a workspace.
+  const admin = await requirePlatformRole("admin", "admin.layout");
+  const allowed = Boolean(admin && admin.userId === context.user.id);
 
   if (!allowed) {
     return (
       <main className="mx-auto w-full max-w-2xl p-6">
         <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
           <p className="font-medium">
-            {lang === "ar" ? "هذه اللوحة للأدمن فقط." : "This command center is admin-only."}
+            {lang === "ar"
+              ? "هذه اللوحة لإدارة المنصة فقط."
+              : "This command center is for platform administrators only."}
           </p>
           <p className="mt-1 text-xs text-rose-200/80">
             {lang === "ar"
-              ? "دورك الحالي لا يمنح الوصول. لم يُقرأ أي بيانات إدارية."
-              : "Your current role does not grant access. No admin data was read."}
+              ? "ملكية مساحة عمل لا تمنح الوصول. إعدادات مساحة عملك في /workspace. لم تُقرأ أي بيانات إدارية."
+              : "Owning a workspace does not grant access. Your workspace settings are under /workspace. No admin data was read."}
           </p>
         </div>
       </main>
@@ -45,7 +50,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             {lang === "ar" ? "مركز قيادة ZOOKA-AI" : "ZOOKA-AI command center"}
           </p>
           <p dir="ltr" className="font-mono text-[10px] text-white/40">
-            /admin · {context.role}
+            /admin · {admin?.role}
           </p>
         </div>
         <AdminNav lang={lang} />

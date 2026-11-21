@@ -30,6 +30,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { useBilling } from "@/components/billing-provider";
+import { LiveSessionConsole } from "@/components/live-session-console";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { speakText, useVoiceMode } from "@/hooks/use-voice-mode";
 import { agentPresets } from "@/lib/ai/agent-presets";
@@ -674,6 +675,7 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
               status={status}
             />
+            <LiveSessionConsole lang={lang} slug={chatId} />
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
@@ -703,6 +705,7 @@ function PureMultimodalInput({
           agentMode ? (
             <p
               className="px-2 pt-2 text-xs text-muted-foreground"
+              data-aux-copy="true"
               data-testid="agent-mode-usage"
             >
               {lang === "ar"
@@ -712,6 +715,7 @@ function PureMultimodalInput({
           ) : (
             <p
               className="px-2 pt-2 text-xs text-muted-foreground"
+              data-aux-copy="true"
               data-testid="agent-mode-hint"
             >
               {lang === "ar"
@@ -727,6 +731,7 @@ function PureMultimodalInput({
         {agentMode ? (
           <p
             className="px-2 pt-1 text-xs text-muted-foreground"
+            data-aux-copy="true"
             data-testid="agent-workflow-guidance"
           >
             {lang === "ar"
@@ -826,6 +831,21 @@ function PureModelSelectorCompact({
   onModelChange?: (modelId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [unavailable, setUnavailable] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/models/availability")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { unavailable?: unknown } | null) => {
+        if (!cancelled && Array.isArray(body?.unavailable)) {
+          setUnavailable(new Set(body.unavailable.filter((id): id is string => typeof id === "string")));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selectedModel =
     chatModels.find((m) => m.id === selectedModelId) ??
@@ -862,7 +882,7 @@ function PureModelSelectorCompact({
                 heading={providerNames[providerKey] ?? providerKey}
                 key={providerKey}
               >
-                {providerModels.map((model) => {
+                {providerModels.filter((model) => !unavailable.has(model.id)).map((model) => {
                   const logoProvider = model.id.split("/")[0];
                   return (
                     <ModelSelectorItem

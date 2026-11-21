@@ -6,9 +6,9 @@ import { SITE_URL } from "@/lib/site";
 const PAGE_URL = `${SITE_URL}/ar`;
 
 export const metadata: Metadata = {
-  title: "ZOOKA AI — وكيل أعمال ذكي لشركات الخدمات في الإمارات",
+  title: "ZOOKA-AI — منصة ذكاء اصطناعي متكاملة",
   description:
-    "وكيل ذكاء اصطناعي يرد على عملائك، يجهّز عروض الأسعار والفواتير، ويتابع الطلبات من محادثة واحدة — بالعربية أو الإنجليزية. جرّبه مجانًا.",
+    "منصة ذكاء اصطناعي متكاملة: وكلاء أذكياء، أتمتة، استوديوهات إبداعية، وتكاملات — في مساحة عمل واحدة. تقنية بإيمان، تقدّم بأخلاق.",
   alternates: {
     canonical: PAGE_URL,
     languages: {
@@ -20,10 +20,10 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: PAGE_URL,
-    siteName: "Zooka AI",
-    title: "ZOOKA AI — وكيل أعمال ذكي لشركات الخدمات في الإمارات",
+    siteName: "ZOOKA-AI",
+    title: "ZOOKA-AI — منصة ذكاء اصطناعي متكاملة",
     description:
-      "موظف ذكي يرد على عملائك ويُنجز المهمة من محادثة واحدة: عروض أسعار، فواتير، متابعة طلبات.",
+      "منصة ذكاء اصطناعي متكاملة: وكلاء أذكياء، أتمتة، استوديوهات إبداعية، وتكاملات في مساحة عمل واحدة.",
     locale: "ar_AE",
   },
 };
@@ -150,7 +150,7 @@ export default function ArabicLandingPage() {
     "@graph": [
       {
         "@type": "SoftwareApplication",
-        name: "Zooka AI",
+        name: "ZOOKA-AI",
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
         url: PAGE_URL,

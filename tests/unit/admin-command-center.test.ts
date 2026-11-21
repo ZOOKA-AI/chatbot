@@ -69,8 +69,9 @@ describe("fail-closed access", () => {
     );
     expect(layout).toContain("getWorkspaceContext");
     expect(layout).toContain('redirect("/login")');
-    expect(layout).toContain('context.role === "admin"');
-    expect(layout).toContain('context.role === "owner"');
+    // Platform administration is its own grant: a workspace role must not open it.
+    expect(layout).toContain('requirePlatformRole("admin"');
+    expect(layout).not.toContain('context.role === "owner"');
   });
 
   it("re-checks the role inside every admin page", () => {

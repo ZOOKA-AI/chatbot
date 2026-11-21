@@ -24,6 +24,19 @@ export const user = pgTable("User", {
   password: varchar("password", { length: 64 }),
   // Set only by the verification flow (pending migration 0029).
   emailVerifiedAt: timestamp("emailVerifiedAt"),
+  /*
+   * Signup time and first-touch channel (migration 0067). Both were absent, so
+   * the funnel could not be joined to acquisition at all. Rows created before
+   * 0067 carry the migration timestamp, not their real signup time.
+   */
+  // Nullable on purpose: accounts that predate 0067 have no trustworthy signup
+  // date, so they stay NULL instead of inheriting the migration timestamp. New
+  // rows get now() from the column default attached after the column was added.
+  createdAt: timestamp("createdAt").defaultNow(),
+  signupSource: varchar("signupSource", { length: 64 }),
+  signupMedium: varchar("signupMedium", { length: 64 }),
+  signupCampaign: varchar("signupCampaign", { length: 64 }),
+  signupReferrer: varchar("signupReferrer", { length: 190 }),
 });
 
 /**
@@ -1151,5 +1164,170 @@ export const mailAudit = pgTable(
       table.organizationId,
       table.createdAt
     ),
+  })
+);
+
+/**
+ * TikTok connection, scoped to the person who authorized it.
+ *
+ * The workspace-scoped OAuthConnection table cannot carry this: TikTok tokens
+ * belong to a human creator, and one workspace may hold several creators. The
+ * unique key is therefore (organizationId, userId), so two users in the same
+ * workspace can never overwrite each other's authorization.
+ */
+export const tiktokConnection = pgTable(
+  "TikTokConnection",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId").notNull(),
+    openId: varchar("openId", { length: 128 }).notNull(),
+    displayName: varchar("displayName", { length: 200 }),
+    avatarUrl: text("avatarUrl"),
+    scopes: varchar("scopes", { length: 300 }),
+    encryptedTokens: text("encryptedTokens").notNull(),
+    accessExpiresAt: timestamp("accessExpiresAt"),
+    refreshExpiresAt: timestamp("refreshExpiresAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    userUnique: unique("TikTokConnection_organization_user_key").on(
+      table.organizationId,
+      table.userId
+    ),
+    organizationIndex: index("TikTokConnection_organization_idx").on(
+      table.organizationId
+    ),
+  })
+);
+
+/** One row per upload attempt, so status is a fact we recorded, not a guess. */
+export const tiktokUpload = pgTable(
+  "TikTokUpload",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId").notNull(),
+    publishId: varchar("publishId", { length: 128 }).notNull(),
+    fileName: varchar("fileName", { length: 255 }).notNull(),
+    fileSize: integer("fileSize").notNull(),
+    mimeType: varchar("mimeType", { length: 64 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("INIT"),
+    failReason: varchar("failReason", { length: 200 }),
+    uploadedBytes: integer("uploadedBytes"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    publishUnique: unique("TikTokUpload_publish_key").on(table.publishId),
+    ownerIndex: index("TikTokUpload_owner_created_idx").on(
+      table.organizationId,
+      table.userId,
+      table.createdAt
+    ),
+  })
+);
+
+/**
+ * The publish queue n8n drains. Kept separate from TikTokUpload on purpose:
+ * TikTokUpload records what TikTok said about an upload, while this table
+ * records what was asked for, by whom, and how many times it was tried.
+ */
+export const tiktokPublishJob = pgTable(
+  "TikTokPublishJob",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    jobKey: varchar("jobKey", { length: 128 }).notNull(),
+    mediaUrl: varchar("mediaUrl", { length: 2048 }).notNull(),
+    caption: varchar("caption", { length: 2200 }),
+    status: varchar("status", { length: 24 }).notNull().default("PENDING"),
+    attempts: integer("attempts").notNull().default(0),
+    claimedAt: timestamp("claimedAt"),
+    publishId: varchar("publishId", { length: 128 }),
+    lastError: varchar("lastError", { length: 300 }),
+    nextAttemptAt: timestamp("nextAttemptAt"),
+    lastAttemptAt: timestamp("lastAttemptAt"),
+    deadAt: timestamp("deadAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    jobUnique: unique("TikTokPublishJob_org_jobkey_key").on(
+      table.organizationId,
+      table.jobKey
+    ),
+    dueIndex: index("TikTokPublishJob_due_idx").on(
+      table.organizationId,
+      table.status,
+      table.createdAt
+    ),
+  })
+);
+
+/** Append-only: every job state change, so the history is auditable. */
+export const tiktokPublishEvent = pgTable(
+  "TikTokPublishEvent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    jobId: uuid("jobId")
+      .notNull()
+      .references(() => tiktokPublishJob.id, { onDelete: "cascade" }),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 32 }).notNull(),
+    detail: varchar("detail", { length: 300 }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    jobIndex: index("TikTokPublishEvent_job_idx").on(table.jobId, table.createdAt),
+  })
+);
+
+/**
+ * Platform roles, independent of any workspace (pending migration 0063).
+ *
+ * A row here is the only thing that grants platform administration: workspace
+ * ownership, an email address or a session claim never does. Rows are written
+ * by scripts/admin/platform-role.mjs, which records who granted what and why.
+ */
+export const platformRole = pgTable("PlatformRole", {
+  userId: uuid("userId")
+    .primaryKey()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  role: varchar("role", { enum: ["super_admin", "admin"] }).notNull(),
+  grantedBy: varchar("grantedBy", { length: 128 }).notNull(),
+  reason: text("reason").notNull(),
+  grantedAt: timestamp("grantedAt").notNull().defaultNow(),
+});
+
+export const platformAuditLog = pgTable(
+  "PlatformAuditLog",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    actorUserId: uuid("actorUserId"),
+    action: varchar("action", { length: 64 }).notNull(),
+    target: varchar("target", { length: 256 }),
+    outcome: varchar("outcome", { length: 16 }).notNull(),
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    createdIndex: index("PlatformAuditLog_created_idx").on(table.createdAt),
   })
 );
