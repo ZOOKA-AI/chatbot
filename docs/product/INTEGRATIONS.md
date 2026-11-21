@@ -24,5 +24,6 @@ flowchart LR
 
 ## مخاطر
 - `integration_audit` و`usage_counter` و`integration_provider` لا تُنشأ بهجرة مرقّمة؛ على قاعدة جديدة تفشل `execute.ts` حتى يُشغَّل `/api/admin/migrate` (انظر DATABASE-ARCHITECTURE).
-- Meta Ads: الموصل موجود في `lib/integrations/facebook` و`instagram`؛ لا يُضاف تكامل ثانٍ.
+- Meta Ads (حساب المالك): الحساب الإعلاني المتاح يشغّل حملات Royal Haroon؛ لا يُربط بـ ZOOKA-AI. حملات ZOOKA تحتاج حسابًا إعلانيًا مستقلًا.
+- Meta Ads (ميزة المنتج): الموصل موجود في `lib/integrations/facebook` و`instagram`؛ لا يُضاف تكامل ثانٍ.
 - OpticOdds / Polymarket: غير مرتبطين بنطاق المنتج؛ لا يُضافان بدون قرار.
