@@ -136,6 +136,7 @@ export const register = async (
     attribution = null;
   }
 
+
   try {
     const [existingUser] = await getUser(email);
     let plan = planRegistration({ existing: Boolean(existingUser) });

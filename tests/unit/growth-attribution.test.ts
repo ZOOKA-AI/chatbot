@@ -63,3 +63,70 @@ describe("growth attribution", () => {
     expect(deserializeAttribution(JSON.stringify({ medium: "social" }))).toBeNull();
   });
 });
+
+/**
+ * The five acquisition paths the release must survive. Named one by one because
+ * "it works for utm links" says nothing about the AI-assistant referral that is
+ * currently our second real channel.
+ */
+describe("acquisition paths", () => {
+  test("Direct: no referrer and no tags claims nothing", () => {
+    expect(parseAttribution(new URL("https://zooka-ai.com/ar"), null)).toBeNull();
+  });
+
+  test("Google: an accounts.google.com referrer is a channel", () => {
+    const parsed = parseAttribution(
+      new URL("https://zooka-ai.com/register"),
+      "https://accounts.google.com/o/oauth2/auth"
+    );
+    assertChannel(parsed, "accounts.google.com", "referral");
+  });
+
+  test("AI referral: chatgpt.com is a channel", () => {
+    const parsed = parseAttribution(
+      new URL("https://zooka-ai.com/"),
+      "https://chatgpt.com/c/6a59a371"
+    );
+    assertChannel(parsed, "chatgpt.com", "referral");
+  });
+
+  test("Social: linkedin.com is a channel", () => {
+    const parsed = parseAttribution(
+      new URL("https://zooka-ai.com/ar"),
+      "https://www.linkedin.com/feed/"
+    );
+    assertChannel(parsed, "www.linkedin.com", "referral");
+  });
+
+  test("UTM campaign: tags win over the referrer and keep the campaign", () => {
+    const parsed = parseAttribution(
+      new URL(
+        "https://zooka-ai.com/ar?utm_source=youtube&utm_medium=video&utm_campaign=launch-2026"
+      ),
+      "https://www.youtube.com/watch?v=abc"
+    );
+    assertChannel(parsed, "youtube", "video");
+    expect(parsed?.campaign).toBe("launch-2026");
+  });
+
+  test("First touch: an existing channel is never replaced by a later direct visit", () => {
+    const first = parseAttribution(
+      new URL("https://zooka-ai.com/"),
+      "https://chatgpt.com/c/1"
+    );
+    const cookie = serializeAttribution(first as never);
+    const laterDirect = parseAttribution(new URL("https://zooka-ai.com/"), null);
+    expect(laterDirect).toBeNull();
+    expect(deserializeAttribution(cookie)?.source).toBe("chatgpt.com");
+  });
+});
+
+function assertChannel(
+  parsed: ReturnType<typeof parseAttribution>,
+  source: string,
+  medium: string
+) {
+  expect(parsed, "this path must be attributed, not dropped").not.toBeNull();
+  expect(parsed?.source).toBe(source);
+  expect(parsed?.medium).toBe(medium);
+}
