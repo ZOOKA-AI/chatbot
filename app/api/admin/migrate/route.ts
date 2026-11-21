@@ -2,10 +2,20 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
+import { PLATFORM_ROLES_0063_DDL, TIKTOK_PUBLISH_JOBS_0065_DDL } from "@/lib/db/ddl/registry";
 import { TIKTOK_DDL } from "@/lib/integrations/tiktok/ddl";
 import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
+  // Platform administration (migration 0063). Same statements as
+  // lib/db/migrations/pending/0063_platform_roles.sql; a unit test keeps them
+  // equal. Without this entry the endpoint reported success and never created the
+  // table, so /admin answered "platform administration only" to its own owner.
+  platform_roles_0063: PLATFORM_ROLES_0063_DDL,
+  // The publish queue (migration 0065). Same statements as
+  // lib/db/migrations/pending/0065_tiktok_publish_jobs.sql; a unit test keeps them
+  // equal. It depends on TikTokConnection from 0064, so 0064 runs first.
+  tiktok_publish_jobs_0065: TIKTOK_PUBLISH_JOBS_0065_DDL,
   // TikTok per-creator integration (migration 0063). Same statements as
   // lib/db/migrations/pending/0064_tiktok_integration.sql; a unit test keeps
   // them equal. Two tables only, both owner-scoped by (organizationId, userId).
