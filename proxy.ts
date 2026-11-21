@@ -15,6 +15,13 @@ import { isNavigation, requestIdFrom } from "./lib/http/request-id";
  */
 const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
 
+/**
+ * The one endpoint the n8n publishing scheduler calls. It authenticates with a
+ * shared secret inside the route handler, not with a session, so the proxy must
+ * let the request through - and only for POST on this exact path.
+ */
+const N8N_SERVICE_ENDPOINT = "/api/integrations/n8n/tiktok/run";
+
 const PROTECTED_PREFIXES = [
   "/chat",
   "/settings",
@@ -67,6 +74,18 @@ async function route(request: NextRequest, requestId: string) {
    * header, so it must reach the route handler rather than a login redirect.
    */
   if (pathname === "/api/admin/migrate") {
+    return NextResponse.next();
+  }
+
+  /*
+   * The publishing scheduler runs in n8n, which has no browser session. It calls
+   * exactly one endpoint, with POST, and proves itself with the x-n8n-secret
+   * header that the handler compares in constant time. The exemption is written
+   * as that single path plus that single method: a GET, a sibling route under
+   * /api/integrations/n8n, or any other API keeps the session gate, so this is a
+   * doorway for one machine caller rather than a hole in the boundary.
+   */
+  if (request.method === "POST" && pathname === N8N_SERVICE_ENDPOINT) {
     return NextResponse.next();
   }
 
