@@ -16,6 +16,16 @@ describe("workspace project isolation", () => {
     }
   });
 
+  test("the payment connection stays visible even though its entity is the other business", () => {
+    expect(
+      belongsToOtherProject({
+        displayName: "Royal Haroon Cleaning FZ-LLC",
+        accountEmail: "info@royalharoon.com",
+        providerId: "stripe",
+      })
+    ).toBe(false);
+  });
+
   test("this workspace's own assets are kept", () => {
     const zooka = [
       { displayName: "ZOOKA AI", accountEmail: null },

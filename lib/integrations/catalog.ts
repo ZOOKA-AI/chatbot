@@ -111,19 +111,21 @@ export async function listWorkspaceIntegrations(
     where workspace_id = ${workspaceId} and revoked_at is null
     order by provider asc
   `)) as unknown as Record<string, unknown>[];
-  return rows
-    .map((row) => ({
-      providerId: row.provider as string,
-    displayName: (row.display_name as string) ?? null,
-    accountEmail: (row.account_email as string) ?? null,
-    scopes: normalizeScopes(row.scopes),
-    status: row.status as WorkspaceIntegration["status"],
-    expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
-    lastUsedAt: row.last_used_at ? new Date(row.last_used_at as string) : null,
-      lastError: (row.last_error as string) ?? null,
-    }))
-    // Assets of the other business are read-boundary excluded, never deleted.
-    .filter((row) => !belongsToOtherProject(row));
+  return (
+    rows
+      .map((row) => ({
+        providerId: row.provider as string,
+        displayName: (row.display_name as string) ?? null,
+        accountEmail: (row.account_email as string) ?? null,
+        scopes: normalizeScopes(row.scopes),
+        status: row.status as WorkspaceIntegration["status"],
+        expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
+        lastUsedAt: row.last_used_at ? new Date(row.last_used_at as string) : null,
+        lastError: (row.last_error as string) ?? null,
+      }))
+      // Assets of the other business are read-boundary excluded, never deleted.
+      .filter((row) => !belongsToOtherProject(row))
+  );
 }
 
 export async function saveIntegrationConnection(input: {
