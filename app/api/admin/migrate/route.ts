@@ -3,9 +3,14 @@ import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
 import { TIKTOK_DDL } from "@/lib/integrations/tiktok/ddl";
+import { PLATFORM_ROLES_DDL } from "@/lib/platform/ddl";
 import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
+  // Platform administration (migration 0063). Without this entry the tables that
+  // decide who may open /admin were never created by the only migration path
+  // production has, so every platform administrator was refused.
+  platform_roles_0063: PLATFORM_ROLES_DDL,
   // TikTok per-creator integration (migration 0063). Same statements as
   // lib/db/migrations/pending/0064_tiktok_integration.sql; a unit test keeps
   // them equal. Two tables only, both owner-scoped by (organizationId, userId).

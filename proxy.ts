@@ -138,6 +138,11 @@ async function route(request: NextRequest, requestId: string) {
     pathname === "/api/mcp" ||
     // Private publishing endpoint for n8n: bearer workspace key, not a session.
     pathname === "/api/publish" ||
+    // The TikTok drain endpoint is called by n8n, which has no browser session.
+    // It authenticates every request itself with a timing-safe shared secret and
+    // answers 401 when the secret is missing, wrong, or unset, so exempting the
+    // path here removes the session wall without removing the authentication.
+    pathname.startsWith("/api/integrations/n8n/") ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||
