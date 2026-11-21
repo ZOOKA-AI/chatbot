@@ -62,6 +62,7 @@ import {
 import { generateHashedPassword } from "./utils";
 import { claimPasswordResetToken } from "@/lib/auth/verification";
 import { mediaJobUpdateQuery, type MediaJobUpdate } from "./media-job-state";
+import { pgError } from "./errors";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -1077,10 +1078,7 @@ export async function saveMessages({
         });
     }
   } catch (error) {
-    const details = error as {
-      code?: string;
-      constraint?: string;
-    };
+    const details = pgError(error);
     // لا نُسجّل detail الخام لأنه قد يحوي قيماً من صفوف المستخدم.
     console.error("[db] saveMessages failed", {
       code: details.code,

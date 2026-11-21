@@ -10,6 +10,7 @@ import { runWithCommanderDb } from "@/lib/db/tenant-context";
 import * as schema from "@/lib/db/schema";
 import { INTERNAL_WRITE_TOOLS } from "@/lib/agents/worker-types";
 import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
+import { isUniqueViolation } from "@/lib/db/errors";
 
 vi.mock("server-only", () => ({}));
 
@@ -171,7 +172,7 @@ describe("project document action", () => {
     assert.equal(first.ok, true);
     await assert.rejects(
       () => run(db, { title: "الثاني", brief: BRIEF, projectId: PROJECT_A }),
-      /ProjectDocument_taskId_key|duplicate key/i
+      (error: unknown) => isUniqueViolation(error, "ProjectDocument_taskId_key")
     );
     const rows = await db.select().from(schema.projectDocument);
     assert.equal(rows.length, 1);

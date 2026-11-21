@@ -32,6 +32,7 @@ import { sendExistingAccountNotice, sendVerificationEmail } from "@/lib/email/se
 import { signIn } from "./auth";
 import { isDatabaseUnavailable } from "@/lib/db/diagnostics";
 import { award, getOrCreateReferralCode, resolveReferralCode } from "@/lib/growth/referrals";
+import { isUniqueViolation, pgError } from "@/lib/db/errors";
 
 const authFormSchema = z.object({
   email: z.string().trim().email().max(64),
@@ -162,12 +163,11 @@ export const register = async (
         }
         // A unique violation means the address was registered between the read
         // and the insert: the race collapses into the neutral existing branch.
-        const message = error instanceof Error ? error.message : String(error);
-        if (/duplicate key|unique constraint|User_email/i.test(message)) {
+        if (isUniqueViolation(error)) {
           plan = planRegistration({ existing: true, createFailedOnConflict: true });
           generateHashedPassword(password);
         } else {
-          console.error("registration failed", message.slice(0, 200));
+          console.error("registration failed", pgError(error).message.slice(0, 200));
           return { status: "unavailable" };
         }
       }
