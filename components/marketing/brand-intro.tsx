@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Lang } from "@/lib/i18n";
 
 /**
@@ -14,7 +14,9 @@ import type { Lang } from "@/lib/i18n";
  * - controls stay visible for keyboard and screen-reader users
  * - playsInline keeps iOS from hijacking the screen with its native player
  * - if the file fails to load the poster and a plain link remain, so the card is
- *   never an empty black rectangle
+ *   never an empty black rectangle. The source is set on the <video> itself, not
+ *   on a <source> child: a media error on a <source> does not bubble, so the
+ *   fallback never fired and a missing file left a dead black player
  */
 
 const VIDEO_SRC = "/videos/brand/zk-intro-1080x1920.mp4";
@@ -43,8 +45,16 @@ const COPY = {
 
 export function BrandIntro({ lang }: { lang: Lang }) {
   const [failed, setFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isArabic = lang === "ar";
   const copy = isArabic ? COPY.ar : COPY.en;
+
+  // The load error can fire before React hydrates, so an onError listener alone
+  // misses it. Measured in Chromium: with the file blocked the element carried
+  // MEDIA_ERR_SRC_NOT_SUPPORTED while the fallback never appeared.
+  useEffect(() => {
+    if (videoRef.current?.error) setFailed(true);
+  }, []);
 
   return (
     <figure className="m-0 flex flex-col gap-6 md:flex-row md:items-center md:gap-10">
@@ -69,10 +79,10 @@ export function BrandIntro({ lang }: { lang: Lang }) {
             playsInline
             poster={POSTER_SRC}
             preload="metadata"
+            ref={videoRef}
+            src={VIDEO_SRC}
             width={1080}
-          >
-            <source src={VIDEO_SRC} type="video/mp4" />
-          </video>
+          />
         )}
       </div>
 

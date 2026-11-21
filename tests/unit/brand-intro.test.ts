@@ -41,6 +41,14 @@ describe("brand intro card", () => {
     expect(markup).toContain('href="/videos/brand/zk-intro-1080x1920.mp4"');
   });
 
+  test("sets the source on the video so a load error can reach the fallback", () => {
+    // With a <source> child the media error fires on the source element and does
+    // not bubble, so React's onError on <video> never ran and a failed file left
+    // a dead black player instead of the poster. Measured in Chromium.
+    expect(markup).not.toContain("<source");
+    expect(markup).toContain('src="/videos/brand/zk-intro-1080x1920.mp4"');
+  });
+
   test("is bilingual", () => {
     expect(markup).toContain("تقنية بإيمان، تقدّم بأخلاق");
     expect(english).toContain("Technology with faith, progress with ethics");
