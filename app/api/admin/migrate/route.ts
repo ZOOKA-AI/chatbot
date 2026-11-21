@@ -7,6 +7,7 @@ import { TIKTOK_QUEUE_DDL } from "@/lib/integrations/tiktok/queue-ddl";
 import { PLATFORM_ROLES_DDL } from "@/lib/platform/ddl";
 import { PLATFORM_OWNER_BOOTSTRAP_DDL } from "@/lib/platform/bootstrap-owner-ddl";
 import { MAIL_DDL } from "@/lib/mail/ddl";
+import { SIGNUP_ATTRIBUTION_DDL } from "@/lib/growth/ddl";
 
 const TABLES: Record<string, string[]> = {
   // Platform administration (migration 0063). Without this entry the tables that
@@ -293,7 +294,11 @@ $$;`,
     `REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated`,
     `DO $$ DECLARE r record; BEGIN FOR r IN SELECT c.relname AS v FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'v' LOOP EXECUTE format('ALTER VIEW public.%I SET (security_invoker = true)', r.v); END LOOP; END $$`,
   ],
+  // 0067_signup_attribution; the reviewed statements live in lib/growth/ddl.ts
+  // and a unit test keeps them equal to the .sql file.
+  signup_attribution_0067: [...SIGNUP_ATTRIBUTION_DDL],
 };
+
 
 export async function POST(request: Request) {
   const expected = process.env.MIGRATION_TOKEN;
