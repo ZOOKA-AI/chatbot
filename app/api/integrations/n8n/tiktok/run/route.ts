@@ -107,8 +107,15 @@ export async function POST(request: Request) {
 
   const results: JobResult[] = [];
   for (const organizationId of tenants) {
-    const drained = await drainTenant(organizationId, limit);
-    results.push(...drained);
+    try {
+      results.push(...(await drainTenant(organizationId, limit)));
+    } catch {
+      // The same refusal the tenant-discovery path gives. Without this, an explicit
+      // organizationId on a queue that is not there (tables missing, database
+      // unreachable) escaped as an empty 500, so the scheduler saw a code fault
+      // instead of "try again later" and had nothing to branch on.
+      return NextResponse.json({ error: "queue_unavailable" }, { status: 503 });
+    }
   }
   return NextResponse.json({
     tenants: tenants.length,

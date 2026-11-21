@@ -75,3 +75,29 @@ test("with no workspace the coordinator asks the database, and fails cleanly whe
     assert.equal((await response.json()).error, "queue_unavailable");
   }
 });
+
+test("an explicit organizationId on a missing queue answers 503, not an empty 500", async () => {
+  // The queue tables arrive with migration 0065. Until they do, a scheduler that
+  // passes its tenant id used to get a 500 with no body, which reads as a code
+  // fault and gives n8n nothing to branch on. It must get the same refusal the
+  // tenant-discovery path already returns.
+  vi.stubEnv("N8N_WEBHOOK_SECRET", SECRET);
+  vi.doMock("@/lib/db/tenant-client", () => ({
+    runInTenantTransaction: async () => {
+      throw new Error('relation "TikTokPublishJob" does not exist');
+    },
+  }));
+  vi.resetModules();
+  const { POST } = await import("@/app/api/integrations/n8n/tiktok/run/route");
+  const response = await POST(
+    new Request("https://zooka-ai.com/api/integrations/n8n/tiktok/run", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-n8n-secret": SECRET },
+      body: JSON.stringify({ organizationId: "434c902f-eb9c-4532-b2d3-ba443e6d0ea6", limit: 2 }),
+    })
+  );
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "queue_unavailable" });
+  vi.doUnmock("@/lib/db/tenant-client");
+  vi.resetModules();
+});
