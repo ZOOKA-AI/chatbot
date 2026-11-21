@@ -1,6 +1,7 @@
 import "server-only";
 
 import { OutboundBlocked, guardedFetch } from "@/lib/studio/outbound-guard";
+import { isInScope, workflowScope } from "./scope";
 import { getN8nCredentials, type N8nCredentials } from "./store";
 
 /**
@@ -202,6 +203,11 @@ export async function buildN8nAdminOverview(
     };
   }
 
+  // One instance can serve more than one business. When this workspace is scoped, the workflows it
+  // does not own are dropped here, before they reach counts, execution names or the rendered table,
+  // so a second project never appears inside this one's panel.
+  const scope = workflowScope();
+
   const workflows: N8nWorkflowSummary[] = asArray(workflowsOutcome.payload)
     .map((row) => {
       const id = text(row, "id");
@@ -215,6 +221,7 @@ export async function buildN8nAdminOverview(
       } satisfies N8nWorkflowSummary;
     })
     .filter((row): row is N8nWorkflowSummary => row !== null)
+    .filter((row) => isInScope(row.id, scope))
     .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name));
 
   const executionsOutcome = await getJson(
@@ -239,6 +246,9 @@ export async function buildN8nAdminOverview(
           } satisfies N8nExecutionSummary;
         })
         .filter((row): row is N8nExecutionSummary => row !== null)
+        // An execution with no workflow id cannot be attributed to this workspace, so it is not
+        // counted as this workspace's activity either.
+        .filter((row) => (row.workflowId ? isInScope(row.workflowId, scope) : false))
         .sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""))
     : [];
 
