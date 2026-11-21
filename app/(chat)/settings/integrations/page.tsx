@@ -360,6 +360,38 @@ async function IntegrationsPage({
             />
           </div>
         </article>
+        {/* Meta and LinkedIn are real OAuth servers, so they get the same one-click path as GitHub
+            and Vercel instead of asking the owner to copy a token out of a developer console.
+            Instagram is not a separate grant: it is reachable through the pages the Meta consent
+            returns, so one button covers both cards below. */}
+        <article className="flex flex-col gap-3 rounded-lg border p-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-medium">
+              {isArabic ? "ميتا وإنستغرام ولينكدإن" : "Meta, Instagram & LinkedIn"}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {isArabic
+                ? "ربط بضغطة عبر OAuth. موافقة ميتا الواحدة تمنح الصفحات التي تديرها وحساب إنستغرام التجاري المرتبط بها، فلذلك يكفي زر واحد للاثنين. يبقى لصق التوكن متاحًا أسفل الصفحة لمن يفضّل توكنًا يدويًا."
+                : "One-click OAuth. A single Meta consent covers the pages you manage and the Instagram business account linked to them, so one button serves both cards below. Pasting a token stays available further down for anyone who prefers it."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <OAuthConnectionControl
+              canManage={canManage}
+              label={isArabic ? "ميتا وإنستغرام" : "Meta & Instagram"}
+              lang={lang}
+              provider="meta"
+              tokenHint="EAAG…"
+            />
+            <OAuthConnectionControl
+              canManage={canManage}
+              label="LinkedIn"
+              lang={lang}
+              provider="linkedin"
+              tokenHint="AQV…"
+            />
+          </div>
+        </article>
         {Object.entries(grouped).map(([category, items]) => (
           <div className="flex flex-col gap-3" key={category}>
             <h3 className="text-muted-foreground text-sm font-medium">
