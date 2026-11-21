@@ -52,6 +52,9 @@ test("neighbouring n8n routes keep the session gate", async () => {
     "/api/integrations/n8n/tiktok",
     "/api/integrations/n8n/tiktok/run/extra",
     "/api/integrations/n8n/tiktok/run/",
+    "/api/integrations/n8n/growth",
+    "/api/integrations/n8n/growth/report/",
+    "/api/integrations/n8n/growth/report/extra",
     "/api/integrations/tiktok/queue",
     "/api/integrations/tiktok/status",
   ];
@@ -96,5 +99,15 @@ test("the machine exemptions that already existed are unchanged", async () => {
   for (const path of exempt) {
     const response = await call(path, "POST");
     assert.equal(passes(response), true, `${path} is a documented machine exemption`);
+  }
+});
+
+test("the growth report is a POST-only doorway, like the scheduler", async () => {
+  const REPORT = "/api/integrations/n8n/growth/report";
+  const response = await call(REPORT, "POST", { "x-n8n-secret": "whatever" });
+  assert.equal(passes(response), true, "the request must reach the route, which checks the secret");
+  for (const method of ["GET", "PUT", "PATCH", "DELETE", "HEAD"]) {
+    const other = await call(REPORT, method);
+    assert.equal(other.status, 401, `${method} must not be exempted`);
   }
 });

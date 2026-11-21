@@ -48,3 +48,25 @@ The endpoint has **no rate limiting of its own**. The proxy cannot provide it (i
 the edge with no shared state), so a limiter belongs in the handler: a token bucket per
 `x-n8n-secret` fingerprint, or a `lastRunAt` guard that refuses a second drain within the schedule
 interval. Until that exists, a misconfigured n8n schedule can drain the queue faster than intended.
+
+## Second call: Growth Engine report (read-only)
+
+```
+POST https://zooka-ai.com/api/integrations/n8n/growth/report
+x-n8n-secret: <N8N_GROWTH_REPORT_SECRET>
+content-type: application/json
+
+{"days": 7}
+```
+
+A separate secret from the publishing call, so neither credential can do the other's job. The answer
+is aggregate counts per signup channel (`channels`, `totals`, `bestChannel`, `notMeasured`) and never a
+user identifier. `proxy.ts` lets `POST` on this exact path through and nothing else.
+
+| Status | Body | What n8n should do |
+|---|---|---|
+| 200 | report | nothing |
+| 400 | `body_malformed` / `days_out_of_range` | fix the workflow |
+| 401 | `unauthorized` | fix the credential, do not retry |
+| 500 | `n8n_growth_report_secret_not_configured` | owner action: set the secret |
+| 503 | `report_unavailable` | retry with backoff |

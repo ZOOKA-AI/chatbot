@@ -1,0 +1,70 @@
+{
+  "name": "ZOOKA-AI Growth Engine - weekly funnel report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "weeks", "weeksInterval": 1, "triggerAtDay": [1], "triggerAtHour": 9 }
+          ]
+        }
+      },
+      "id": "a1f0c0de-0001-4000-8000-000000000001",
+      "name": "Every Monday 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://zooka-ai.com/api/integrations/n8n/growth/report",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"days\": 7 }",
+        "options": { "timeout": 20000 }
+      },
+      "id": "a1f0c0de-0002-4000-8000-000000000002",
+      "name": "Read funnel (aggregate)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst pct = (v) => (v === null || v === undefined ? 'n/a' : `${Math.round(v * 100)}%`);\nconst lines = (r.channels || []).map((c) => `- ${c.source}: ${c.signups} signups, ${c.activated} activated (${pct(c.activationRate)}), ${c.activeLast7d} active in 7d`);\nconst text = [\n  `ZOOKA-AI growth, last ${r.days} days`,\n  `Signups ${r.totals.signups} | Activated ${r.totals.activated} (${pct(r.totals.activationRate)}) | Active 7d ${r.totals.activeLast7d}`,\n  `Best channel: ${r.bestChannel ?? 'none yet'}`,\n  '',\n  ...lines,\n  '',\n  `Not measured yet: ${(r.notMeasured || []).join('; ')}`,\n].join('\\n');\nreturn [{ json: { text, report: r } }];"
+      },
+      "id": "a1f0c0de-0003-4000-8000-000000000003",
+      "name": "Summarise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nreturn [{ json: { text: `Growth report failed: ${e.error?.message ?? JSON.stringify(e).slice(0, 300)}. 401 = fix the credential; 500 = set N8N_GROWTH_REPORT_SECRET on the server; 503 = database unreachable, retry later.` } }];"
+      },
+      "id": "a1f0c0de-0004-4000-8000-000000000004",
+      "name": "Explain failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 120]
+    }
+  ],
+  "connections": {
+    "Every Monday 09:00": { "main": [[{ "node": "Read funnel (aggregate)", "type": "main", "index": 0 }]] },
+    "Read funnel (aggregate)": {
+      "main": [
+        [{ "node": "Summarise", "type": "main", "index": 0 }],
+        [{ "node": "Explain failure", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Dubai" }
+}

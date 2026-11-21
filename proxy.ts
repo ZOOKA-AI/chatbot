@@ -22,11 +22,17 @@ import {
 const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
 
 /**
- * The one endpoint the n8n publishing scheduler calls. It authenticates with a
- * shared secret inside the route handler, not with a session, so the proxy must
- * let the request through - and only for POST on this exact path.
+ * The endpoints n8n calls. Each authenticates with its own shared secret inside
+ * the route handler, not with a session, so the proxy must let the request
+ * through - and only for POST on these exact paths.
+ *  - tiktok/run: the publishing scheduler (N8N_WEBHOOK_SECRET).
+ *  - growth/report: the Growth Engine reads aggregate funnel counts
+ *    (N8N_GROWTH_REPORT_SECRET). Read-only; no personal data.
  */
-const N8N_SERVICE_ENDPOINT = "/api/integrations/n8n/tiktok/run";
+const N8N_SERVICE_ENDPOINTS = new Set([
+  "/api/integrations/n8n/tiktok/run",
+  "/api/integrations/n8n/growth/report",
+]);
 
 const PROTECTED_PREFIXES = [
   "/chat",
@@ -122,14 +128,14 @@ async function route(request: NextRequest, requestId: string) {
   }
 
   /*
-   * The publishing scheduler runs in n8n, which has no browser session. It calls
-   * exactly one endpoint, with POST, and proves itself with the x-n8n-secret
-   * header that the handler compares in constant time. The exemption is written
-   * as that single path plus that single method: a GET, a sibling route under
-   * /api/integrations/n8n, or any other API keeps the session gate, so this is a
-   * doorway for one machine caller rather than a hole in the boundary.
+   * n8n has no browser session. It calls a fixed set of endpoints, with POST,
+   * and proves itself with the x-n8n-secret header that each handler compares in
+   * constant time. The exemption is written as exact paths plus a single method:
+   * a GET, a sibling route under /api/integrations/n8n, or any other API keeps
+   * the session gate, so these are doorways for a machine caller rather than a
+   * hole in the boundary.
    */
-  if (request.method === "POST" && pathname === N8N_SERVICE_ENDPOINT) {
+  if (request.method === "POST" && N8N_SERVICE_ENDPOINTS.has(pathname)) {
     return NextResponse.next();
   }
 
