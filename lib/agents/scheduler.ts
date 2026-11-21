@@ -91,6 +91,36 @@ export function toolForTask(task: Candidate, config: SchedulerConfig) {
   return best ? best.name : config.tool;
 }
 
+/** Trims to a maximum length without cutting a surrogate pair in half. */
+function clip(value: string, max: number): string {
+  const chars = Array.from(value.trim().replace(/\s+/g, " "));
+  return chars.length > max ? chars.slice(0, max).join("").trim() : chars.join("");
+}
+
+/**
+ * Arguments for a tool chosen from the task's own words.
+ *
+ * A task created from the form carries only a title and an instruction. When its tool is
+ * inferred from that text, the tool still needs its arguments: the readiness report
+ * refused every such task with invalid_label (seen in production on 2026-11-21, task
+ * ec235d80). The title is the label the person already wrote; nothing is invented. An
+ * explicit payload value always wins over these.
+ */
+export function argumentsFromText(tool: string, task: Candidate): Record<string, unknown> {
+  const title = clip(task.title ?? "", 120);
+  const instruction = clip(task.instruction ?? "", 2000);
+  if (tool === "workspace_readiness_inspect" && title.length >= 3) {
+    return { label: clip(title, 60) };
+  }
+  if (tool === "project_document_create") {
+    const args: Record<string, unknown> = {};
+    if (title.length >= 3) args.title = title;
+    if (instruction.length >= 20) args.brief = instruction;
+    return args;
+  }
+  return {};
+}
+
 /**
  * Fair selection: one task per workspace per pass, oldest first, so a workspace
  * with a thousand queued tasks cannot starve a workspace with one.
@@ -229,7 +259,7 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
             taskId: task.id,
             tool,
             fetchImpl: config.fetchImpl,
-            payload: toolPayloadFor(tool, task.payload),
+            payload: toolPayloadFor(tool, { ...argumentsFromText(tool, task), ...(task.payload ?? {}) }),
           })
         );
         outcomes.push({
