@@ -6,6 +6,7 @@ import {
   type TiktokAccount,
 } from "@/lib/integrations/tiktok/api";
 import { tiktokStateSecret } from "@/lib/integrations/tiktok/config";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   readTiktokState,
   TIKTOK_STATE_COOKIE,
@@ -55,6 +56,20 @@ export async function GET(request: Request) {
   if (!verified) {
     // A forged, replayed or expired callback: refuse instead of guessing.
     return fail("invalid_state");
+  }
+
+  // The ticket proves who started the flow; the session proves who is finishing
+  // it. A link pasted into another browser must not attach a TikTok account to
+  // the account that minted it.
+  const context = await getWorkspaceContext();
+  if (!context || context.user.type !== "regular") {
+    return fail("session_required");
+  }
+  if (
+    context.user.id !== verified.userId ||
+    context.organizationId !== verified.organizationId
+  ) {
+    return fail("session_mismatch");
   }
 
   const exchanged = await exchangeAuthorizationCode(code, verified.codeVerifier);

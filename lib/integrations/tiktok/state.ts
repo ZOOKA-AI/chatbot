@@ -13,6 +13,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 
 export const TIKTOK_STATE_COOKIE = "tiktok_oauth_state";
 export const TIKTOK_STATE_TTL_SECONDS = 600;
+/** A ticket minted a little ahead of our clock is tolerated, a stale one is not. */
+const FUTURE_SKEW_MS = 60_000;
 export const TIKTOK_STATE_COOKIE_PATH = "/api/integrations/tiktok";
 
 export interface TiktokStateInput {
@@ -44,10 +46,16 @@ function sign(
   userId: string,
   nonce: string,
   codeVerifier: string,
+  issuedAt: number,
   secret: string
 ): string {
+  // issuedAt is inside the signature, so the browser cannot stretch the life of
+  // a state ticket by editing the cookie: changing the timestamp invalidates
+  // the HMAC and the callback is refused.
   return createHmac("sha256", secret)
-    .update(`tiktok:${organizationId}:${userId}:${nonce}:${codeVerifier}`)
+    .update(
+      `tiktok:${organizationId}:${userId}:${nonce}:${codeVerifier}:${issuedAt}`
+    )
     .digest("base64url");
 }
 
@@ -57,18 +65,27 @@ export function createTiktokState(
 ): TiktokStateTicket {
   const nonce = base64url(randomBytes(32));
   const codeVerifier = createCodeVerifier();
+  const issuedAt = Date.now();
   const signature = sign(
     input.organizationId,
     input.userId,
     nonce,
     codeVerifier,
+    issuedAt,
     secret
   );
   return {
     nonce,
     codeVerifier,
     codeChallenge: codeChallengeFor(codeVerifier),
-    cookie: [input.organizationId, input.userId, nonce, codeVerifier, signature].join("."),
+    cookie: [
+      input.organizationId,
+      input.userId,
+      nonce,
+      codeVerifier,
+      String(issuedAt),
+      signature,
+    ].join("."),
   };
 }
 
@@ -81,23 +98,54 @@ export interface TiktokStateResult {
 export function readTiktokState(
   cookieValue: string | undefined,
   nonce: string | null,
-  secret: string
+  secret: string,
+  now: number = Date.now()
 ): TiktokStateResult | null {
   if (!cookieValue || !nonce) {
     return null;
   }
   const parts = cookieValue.split(".");
-  if (parts.length !== 5) {
+  if (parts.length !== 6) {
     return null;
   }
-  const [organizationId, userId, cookieNonce, codeVerifier, signature] = parts;
-  if (!organizationId || !userId || !cookieNonce || !codeVerifier || !signature) {
+  const [
+    organizationId,
+    userId,
+    cookieNonce,
+    codeVerifier,
+    issuedAtRaw,
+    signature,
+  ] = parts;
+  if (
+    !organizationId ||
+    !userId ||
+    !cookieNonce ||
+    !codeVerifier ||
+    !issuedAtRaw ||
+    !signature
+  ) {
     return null;
   }
   if (cookieNonce !== nonce) {
     return null;
   }
-  const expected = sign(organizationId, userId, cookieNonce, codeVerifier, secret);
+  const issuedAt = Number(issuedAtRaw);
+  if (!Number.isFinite(issuedAt)) {
+    return null;
+  }
+  // Server-side lifetime, enforced here rather than trusted from the browser.
+  const age = now - issuedAt;
+  if (age < -FUTURE_SKEW_MS || age > TIKTOK_STATE_TTL_SECONDS * 1000) {
+    return null;
+  }
+  const expected = sign(
+    organizationId,
+    userId,
+    cookieNonce,
+    codeVerifier,
+    issuedAt,
+    secret
+  );
   const left = Buffer.from(signature);
   const right = Buffer.from(expected);
   if (left.length !== right.length || !timingSafeEqual(left, right)) {

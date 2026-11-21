@@ -325,7 +325,8 @@ export async function initInboxUpload(
 export async function putChunk(
   uploadUrl: string,
   chunk: Buffer,
-  range: { start: number; end: number; length: number }
+  range: { start: number; end: number; length: number },
+  totalBytes: number
 ): Promise<TiktokResult<true>> {
   try {
     const response = await fetch(uploadUrl, {
@@ -333,7 +334,7 @@ export async function putChunk(
       headers: {
         "Content-Type": "video/mp4",
         "Content-Length": String(chunk.byteLength),
-        "Content-Range": contentRangeHeader(range),
+        "Content-Range": contentRangeHeader(range, totalBytes),
       },
       body: new Uint8Array(chunk),
       signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),

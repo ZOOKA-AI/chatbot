@@ -90,6 +90,29 @@ test("a forged, replayed or mismatched callback is refused", () => {
   assert.equal(readTiktokState(parts.join("."), ticket.nonce, SECRET), null);
 });
 
+test("state expires after 600 seconds and cannot be re-dated", () => {
+  const ticket = createTiktokState(
+    { organizationId: "org-1", userId: "user-1" },
+    SECRET
+  );
+  const now = Date.now();
+  assert.ok(readTiktokState(ticket.cookie, ticket.nonce, SECRET, now));
+  // 599s: still inside the window.
+  assert.ok(readTiktokState(ticket.cookie, ticket.nonce, SECRET, now + 599_000));
+  // 601s: outside it, even though the HMAC is intact.
+  assert.equal(
+    readTiktokState(ticket.cookie, ticket.nonce, SECRET, now + 601_000),
+    null
+  );
+  // Editing the signed timestamp to buy more time breaks the signature.
+  const parts = ticket.cookie.split(".");
+  parts[4] = String(Number(parts[4]) + 10 * 60 * 1000);
+  assert.equal(
+    readTiktokState(parts.join("."), ticket.nonce, SECRET, now + 601_000),
+    null
+  );
+});
+
 test("chunk plan obeys the 5MB floor and covers the file exactly", () => {
   const small = planTiktokChunks(1024 * 1024);
   assert.deepEqual(small, { chunkSize: 1024 * 1024, totalChunkCount: 1 });
@@ -121,9 +144,25 @@ test("chunk plan obeys the 5MB floor and covers the file exactly", () => {
 
 test("content-range header matches the documented byte form", () => {
   assert.equal(
-    contentRangeHeader({ start: 0, end: 10485759, length: 10485760 }),
+    contentRangeHeader({ start: 0, end: 10485759 }, 10485760),
     "bytes 0-10485759/10485760"
   );
+  // The last segment is the TOTAL file size. A 21MB file split into chunks must
+  // announce 21MB on every chunk, not the chunk size (the original defect: a
+  // 30MB upload told TikTok it was sending 10MB).
+  assert.equal(
+    contentRangeHeader({ start: 0, end: 10485759 }, 22020096),
+    "bytes 0-10485759/22020096"
+  );
+  assert.equal(
+    contentRangeHeader({ start: 20971520, end: 22020095 }, 22020096),
+    "bytes 20971520-22020095/22020096"
+  );
+  // A full-file single chunk is valid; an end past the file or a zero total is not.
+  assert.equal(contentRangeHeader({ start: 0, end: 9 }, 10), "bytes 0-9/10");
+  assert.throws(() => contentRangeHeader({ start: 0, end: 10 }, 10));
+  assert.throws(() => contentRangeHeader({ start: 0, end: 9 }, 0));
+  assert.throws(() => contentRangeHeader({ start: 5, end: 2 }, 10));
 });
 
 test("media validation refuses empty, oversized and non-video files", () => {
@@ -184,11 +223,12 @@ test("an upload chunk carries the exact Content-Range and length", async () => {
   }) as typeof fetch;
 
   const chunk = Buffer.alloc(8);
-  const result = await putChunk("https://upload.example/1", chunk, {
-    start: 0,
-    end: 7,
-    length: 8,
-  });
+  const result = await putChunk(
+    "https://upload.example/1",
+    chunk,
+    { start: 0, end: 7, length: 8 },
+    8
+  );
   globalThis.fetch = original;
 
   assert.equal(result.ok, true);

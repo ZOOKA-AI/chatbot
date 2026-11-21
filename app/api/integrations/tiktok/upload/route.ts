@@ -89,7 +89,12 @@ async function POSTImpl(request: Request) {
   const ranges = tiktokChunkRanges(file.size, plan);
   for (const range of ranges) {
     const chunk = bytes.subarray(range.start, range.end + 1);
-    const sent = await putChunk(ticket.value.uploadUrl, chunk, range);
+    const sent = await putChunk(
+      ticket.value.uploadUrl,
+      chunk,
+      range,
+      file.size
+    );
     if (!sent.ok) {
       await updateUploadStatus({
         organizationId: context.organizationId,

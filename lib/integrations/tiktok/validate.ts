@@ -96,10 +96,18 @@ export function tiktokChunkRanges(
   return ranges;
 }
 
-export function contentRangeHeader(range: {
-  start: number;
-  end: number;
-  length: number;
-}): string {
-  return `bytes ${range.start}-${range.end}/${range.length}`;
+export function contentRangeHeader(
+  range: { start: number; end: number },
+  totalBytes: number
+): string {
+  if (!Number.isFinite(totalBytes) || totalBytes <= 0) {
+    throw new Error("totalBytes must be a positive number of bytes");
+  }
+  if (range.start < 0 || range.end < range.start || range.end >= totalBytes) {
+    throw new Error("chunk range falls outside the file");
+  }
+  // The final segment is the TOTAL size of the file, not the size of this
+  // chunk. Sending the chunk length made every multi-chunk upload announce a
+  // smaller file than it was actually sending.
+  return `bytes ${range.start}-${range.end}/${totalBytes}`;
 }

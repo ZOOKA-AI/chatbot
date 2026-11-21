@@ -1,7 +1,7 @@
 create table if not exists "TikTokConnection" (
 "id" uuid primary key default gen_random_uuid() not null,
 "organizationId" uuid not null references "Organization"("id") on delete cascade,
-"userId" uuid not null,
+"userId" uuid not null references "User"("id") on delete cascade,
 "openId" varchar(128) not null,
 "displayName" varchar(200),
 "avatarUrl" text,
@@ -20,7 +20,7 @@ on "TikTokConnection" using btree ("organizationId");
 create table if not exists "TikTokUpload" (
 "id" uuid primary key default gen_random_uuid() not null,
 "organizationId" uuid not null references "Organization"("id") on delete cascade,
-"userId" uuid not null,
+"userId" uuid not null references "User"("id") on delete cascade,
 "publishId" varchar(128) not null,
 "fileName" varchar(255) not null,
 "fileSize" integer not null,
@@ -40,9 +40,13 @@ alter table "TikTokConnection" enable row level security;
 
 alter table "TikTokUpload" enable row level security;
 
+drop policy if exists "TikTokConnection_tenant" on "TikTokConnection";
+
 create policy "TikTokConnection_tenant" on "TikTokConnection" for all
 using (((("organizationId")::text = current_setting('app.organization_id'::text, true)) and public.app_is_org_member(current_setting('app.organization_id'::text, true))))
 with check (((("organizationId")::text = current_setting('app.organization_id'::text, true)) and public.app_is_org_member(current_setting('app.organization_id'::text, true))));
+
+drop policy if exists "TikTokUpload_tenant" on "TikTokUpload";
 
 create policy "TikTokUpload_tenant" on "TikTokUpload" for all
 using (((("organizationId")::text = current_setting('app.organization_id'::text, true)) and public.app_is_org_member(current_setting('app.organization_id'::text, true))))
