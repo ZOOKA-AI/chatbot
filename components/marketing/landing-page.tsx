@@ -12,6 +12,7 @@ import {
   UseCases,
   VideoSection,
 } from "@/components/marketing/showcase";
+import { BrandIntro } from "@/components/marketing/brand-intro";
 import { DemoChat } from "@/components/marketing/demo-chat";
 import { TaskTemplates } from "@/components/marketing/task-templates";
 import { SiteHeader } from "@/components/marketing/site-header";
@@ -312,6 +313,12 @@ export function LandingPage({ lang }: { lang: Lang }) {
             <div className="relative">
               <DemoChat lang={lang} />
             </div>
+          </div>
+        </section>
+
+        <section className="border-b" id="brand">
+          <div className="mx-auto w-full max-w-6xl px-5 py-14">
+            <BrandIntro lang={lang} />
           </div>
         </section>
 
