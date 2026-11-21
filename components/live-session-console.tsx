@@ -476,7 +476,13 @@ export function LiveSessionConsole({
       cameraStreamRef.current = null;
       setCameraEnabled(false);
       refreshPreview();
-      setActionError(errorMessage(error));
+      setActionError(
+        error instanceof Error && error.name === "NotAllowedError"
+          ? isArabic
+            ? "تعذّر الوصول إلى الكاميرا. تحقق من إذن الكاميرا لهذا الموقع في إعدادات المتصفح."
+            : "Camera access was denied. Check the camera permission for this site in your browser."
+          : errorMessage(error)
+      );
     }
   }, [
     cameraEnabled,
@@ -559,8 +565,8 @@ export function LiveSessionConsole({
     if (!navigator.mediaDevices?.getDisplayMedia) {
       setActionError(
         isArabic
-          ? "مشاركة الشاشة غير مدعومة."
-          : "Screen sharing is not supported."
+          ? "هذا المتصفح لا يدعم مشاركة الشاشة. جرّب فتح الجلسة في متصفح على الكمبيوتر."
+          : "This browser does not support screen sharing. Try opening the session in a desktop browser."
       );
       return;
     }
