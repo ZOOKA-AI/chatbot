@@ -7,7 +7,7 @@ import type { FunnelReport, FunnelRow } from "@/lib/growth/funnel";
  */
 export interface GrowthChannelReport extends FunnelRow {
   activationRate: number | null;
-  retention7dRate: number | null;
+  activeLast7dRate: number | null;
 }
 
 export interface GrowthReport {
@@ -16,7 +16,7 @@ export interface GrowthReport {
   channels: GrowthChannelReport[];
   totals: FunnelReport["totals"] & {
     activationRate: number | null;
-    retention7dRate: number | null;
+    activeLast7dRate: number | null;
   };
   /** Channel with the most activated users, ignoring "unknown". Null when none. */
   bestChannel: string | null;
@@ -30,6 +30,7 @@ function ratio(part: number, whole: number): number | null {
 }
 
 export const NOT_MEASURED = [
+  "cohort retention (recent activity is not retention after signup)",
   "reach (needs each platform's insights API)",
   "website visits (Vercel Analytics is not exposed to the API)",
   "cost per signup (needs a ZOOKA-AI ad account, separate from Royal Haroon)",
@@ -39,7 +40,7 @@ export function buildGrowthReport(funnel: FunnelReport, now = new Date()): Growt
   const channels = funnel.rows.map((row) => ({
     ...row,
     activationRate: ratio(row.activated, row.signups),
-    retention7dRate: ratio(row.activeLast7d, row.signups),
+    activeLast7dRate: ratio(row.activeLast7d, row.signups),
   }));
 
   const best = channels
@@ -53,7 +54,7 @@ export function buildGrowthReport(funnel: FunnelReport, now = new Date()): Growt
     totals: {
       ...funnel.totals,
       activationRate: ratio(funnel.totals.activated, funnel.totals.signups),
-      retention7dRate: ratio(funnel.totals.activeLast7d, funnel.totals.signups),
+      activeLast7dRate: ratio(funnel.totals.activeLast7d, funnel.totals.signups),
     },
     bestChannel: best?.source ?? null,
     notMeasured: NOT_MEASURED,

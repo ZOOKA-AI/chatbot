@@ -102,12 +102,20 @@ test("the machine exemptions that already existed are unchanged", async () => {
   }
 });
 
-test("the growth report is a POST-only doorway, like the scheduler", async () => {
+test("only an authenticated growth machine POST reaches the report handler", async () => {
   const REPORT = "/api/integrations/n8n/growth/report";
-  const response = await call(REPORT, "POST", { "x-n8n-secret": "whatever" });
-  assert.equal(passes(response), true, "the request must reach the route, which checks the secret");
+  vi.stubEnv("N8N_GROWTH_REPORT_SECRET", "growth-secret");
+  vi.stubEnv("N8N_WEBHOOK_SECRET", "publishing-secret");
+  for (const candidate of ["wrong", "publishing-secret", "growth"]) {
+    assert.equal((await call(REPORT, "POST", { "x-n8n-secret": candidate })).status, 401);
+  }
+  assert.equal((await call(REPORT, "POST")).status, 401);
+  const headers = { "x-n8n-secret": "growth-secret" };
+  assert.equal(passes(await call(REPORT, "POST", headers)), true);
   for (const method of ["GET", "PUT", "PATCH", "DELETE", "HEAD"]) {
-    const other = await call(REPORT, method);
+    const other = await call(REPORT, method, headers);
     assert.equal(other.status, 401, `${method} must not be exempted`);
   }
+  vi.stubEnv("N8N_GROWTH_REPORT_SECRET", "");
+  assert.equal((await call(REPORT, "POST", headers)).status, 401);
 });

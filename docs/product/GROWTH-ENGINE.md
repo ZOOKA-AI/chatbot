@@ -22,7 +22,8 @@ flowchart LR
 | --- | --- | --- | --- |
 | Signups | كم شخصًا سجّل؟ ومن أي قناة؟ | `"User"."signupSource"` (هجرة 0067، #204) | يُقاس |
 | Activation | كم مستخدمًا نفّذ عملًا حقيقيًا؟ | `"UsageEvent"` في `lib/growth/funnel.ts` | يُقاس |
-| Retention | كم مستخدمًا نشط خلال 7 أيام؟ | `activeLast7d` في نفس الاستعلام | يُقاس (7 أيام فقط) |
+| النشاط الحديث | كم من المسجلين في فترة التقرير كان نشطًا خلال آخر 7 أيام؟ | `activeLast7d` في نفس الاستعلام | يُقاس، وليس احتفاظًا بعد التسجيل |
+| Retention | كم مستخدمًا عاد بعد التسجيل بفترة محددة؟ | يحتاج قياسًا بحسب دفعات التسجيل | غير مقاس |
 | Website Visits | كم زائرًا؟ | `@vercel/analytics` مثبت، لكن لا API للقراءة | غير مقاس آليًا |
 | Reach | كم شخصًا وصل إليه المحتوى؟ | يحتاج insights API لكل منصة | غير مقاس |
 | Cost per Signup | تكلفة التسجيل | يحتاج حسابًا إعلانيًا مستقلًا لـ ZOOKA-AI | غير مقاس |
@@ -35,7 +36,7 @@ flowchart LR
 | --- | --- |
 | واجهة قراءة للـ n8n (أرقام مجمّعة فقط، بلا بيانات شخصية) | `app/api/integrations/n8n/growth/report/route.ts` |
 | حساب النسب وأفضل قناة | `lib/growth/report.ts` |
-| باب ضيق في `proxy.ts`: POST فقط، مسار مطابق تمامًا | `proxy.ts` |
+| وصول n8n في `proxy.ts`: POST فقط، بمفتاح النمو الصحيح على المسار المحدد | `proxy.ts` |
 | سر مستقل `N8N_GROWTH_REPORT_SECRET` (ليس سر النشر) | `.env.example` |
 | Workflow جاهز للاستيراد: تقرير أسبوعي كل اثنين 9:00 بتوقيت دبي | `docs/integrations/n8n-growth-engine/weekly-growth-report.json` |
 | اختبارات | `tests/unit/growth-report.test.ts`, `tests/unit/n8n-service-boundary.test.ts` |

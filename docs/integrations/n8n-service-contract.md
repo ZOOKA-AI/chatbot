@@ -61,12 +61,12 @@ content-type: application/json
 
 A separate secret from the publishing call, so neither credential can do the other's job. The answer
 is aggregate counts per signup channel (`channels`, `totals`, `bestChannel`, `notMeasured`) and never a
-user identifier. `proxy.ts` lets `POST` on this exact path through and nothing else.
+user identifier. `proxy.ts` only forwards `POST` on this exact path after validating the growth
+secret. Missing configuration or an invalid secret is rejected at the proxy with `401`.
 
 | Status | Body | What n8n should do |
 |---|---|---|
 | 200 | report | nothing |
 | 400 | `body_malformed` / `days_out_of_range` | fix the workflow |
 | 401 | `unauthorized` | fix the credential, do not retry |
-| 500 | `n8n_growth_report_secret_not_configured` | owner action: set the secret |
 | 503 | `report_unavailable` | retry with backoff |
