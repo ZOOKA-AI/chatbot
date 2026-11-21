@@ -928,7 +928,7 @@ export async function getChatsByOrganizationId({
               )
             : and(eq(chat.organizationId, organizationId), visibleToUser)
         )
-        .orderBy(desc(chat.createdAt))
+        .orderBy(desc(chat.createdAt), desc(chat.id))
         .limit(extendedLimit);
 
     let filteredChats: Chat[] = [];
@@ -953,7 +953,15 @@ export async function getChatsByOrganizationId({
         );
       }
 
-      filteredChats = await query(gt(chat.createdAt, selectedChat.createdAt));
+      filteredChats = await query(
+        or(
+          gt(chat.createdAt, selectedChat.createdAt),
+          and(
+            eq(chat.createdAt, selectedChat.createdAt),
+            gt(chat.id, selectedChat.id)
+          )
+        )
+      );
     } else if (endingBefore) {
       const [selectedChat] = await db
         .select()
@@ -974,7 +982,15 @@ export async function getChatsByOrganizationId({
         );
       }
 
-      filteredChats = await query(lt(chat.createdAt, selectedChat.createdAt));
+      filteredChats = await query(
+        or(
+          lt(chat.createdAt, selectedChat.createdAt),
+          and(
+            eq(chat.createdAt, selectedChat.createdAt),
+            lt(chat.id, selectedChat.id)
+          )
+        )
+      );
     } else {
       filteredChats = await query();
     }
