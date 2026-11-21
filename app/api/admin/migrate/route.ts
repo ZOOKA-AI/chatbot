@@ -3,13 +3,25 @@ import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
 import { TIKTOK_DDL } from "@/lib/integrations/tiktok/ddl";
+import { TIKTOK_QUEUE_DDL } from "@/lib/integrations/tiktok/queue-ddl";
+import { PLATFORM_ROLES_DDL } from "@/lib/platform/ddl";
 import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
+  // Platform administration (migration 0063). Without this entry the tables that
+  // decide who may open /admin were never created by the only migration path
+  // production has, so every platform administrator was refused.
+  platform_roles_0063: PLATFORM_ROLES_DDL,
   // TikTok per-creator integration (migration 0063). Same statements as
   // lib/db/migrations/pending/0064_tiktok_integration.sql; a unit test keeps
   // them equal. Two tables only, both owner-scoped by (organizationId, userId).
   tiktok_integration_0064: TIKTOK_DDL,
+  // TikTok publishing queue (migration 0065). Object.entries preserves this
+  // order, so it is registered after 0064 and the numbers read in sequence.
+  // The queue's foreign keys point at Organization, User and its own event
+  // table, none of which 0064 creates, so the order is a matter of clarity
+  // rather than of dependency.
+  tiktok_publish_jobs_0065: TIKTOK_QUEUE_DDL,
   // ZOOKA Mail (migration 0060). Same statements as
   // lib/db/migrations/pending/0060_zooka_mail.sql; a unit test keeps them equal.
   zooka_mail_0060: MAIL_DDL,
