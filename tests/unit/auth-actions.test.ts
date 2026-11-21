@@ -91,3 +91,20 @@ test("registration gives the same answer whether or not the address is taken", a
   expect(taken).toEqual({ status: "check_email" });
   expect(mocks.signIn).not.toHaveBeenCalled();
 });
+
+test("a cookie store that cannot be read never fails a sign-up", async () => {
+  // The attribution read is optional: outside a request scope `cookies()` throws, and
+  // registration must still create the account rather than returning an error.
+  const { cookies } = await import("next/headers");
+  (cookies as unknown as { mockImplementationOnce: (fn: () => never) => void }).mockImplementationOnce(
+    () => {
+      throw new Error("cookies() was called outside a request scope");
+    }
+  );
+  mocks.getUser
+    .mockResolvedValueOnce([])
+    .mockResolvedValue([{ id: "u9", email: "user@example.test" }]);
+
+  expect(await register({ status: "idle" }, form())).toEqual({ status: "check_email" });
+  expect(mocks.createUser).toHaveBeenCalledWith("user@example.test", "valid-password", null);
+});
