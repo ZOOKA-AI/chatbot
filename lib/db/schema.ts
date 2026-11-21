@@ -24,6 +24,16 @@ export const user = pgTable("User", {
   password: varchar("password", { length: 64 }),
   // Set only by the verification flow (pending migration 0029).
   emailVerifiedAt: timestamp("emailVerifiedAt"),
+  /*
+   * Signup time and first-touch channel (migration 0067). Both were absent, so
+   * the funnel could not be joined to acquisition at all. Rows created before
+   * 0067 carry the migration timestamp, not their real signup time.
+   */
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  signupSource: varchar("signupSource", { length: 64 }),
+  signupMedium: varchar("signupMedium", { length: 64 }),
+  signupCampaign: varchar("signupCampaign", { length: 64 }),
+  signupReferrer: varchar("signupReferrer", { length: 190 }),
 });
 
 /**

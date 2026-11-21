@@ -6,6 +6,7 @@ import { adminDb } from "@/lib/db/queries";
 import { getTrafficSnapshotForOrganization } from "@/lib/analytics/growth";
 import { growthNotice } from "@/lib/analytics/growth-notice";
 import { readSettings } from "@/lib/growth/referrals";
+import { getGrowthFunnel } from "@/lib/growth/funnel";
 import { getLang } from "@/lib/i18n";
 
 export default async function GrowthAdminPage() {
@@ -20,6 +21,9 @@ export default async function GrowthAdminPage() {
   // deployment service account when the owner has not connected one yet.
   const traffic = await getTrafficSnapshotForOrganization(context.organizationId);
   const notice = growthNotice(traffic, ar);
+  // Signup-to-usage funnel from our own tables. Empty until migration 0067 runs,
+  // and the section says so rather than showing invented zeroes as a result.
+  const funnel = await getGrowthFunnel(30).catch(() => null);
 
   let recent: Array<Record<string, unknown>> = [];
   let audit: Array<Record<string, unknown>> = [];
@@ -87,6 +91,61 @@ export default async function GrowthAdminPage() {
           {ar ? "حفظ" : "Save"}
         </button>
       </form>
+
+      <section className="rounded-2xl border bg-card p-4">
+        <h2 className="text-sm font-semibold">
+          {ar ? "قمع التسجيل إلى الاستخدام (٣٠ يومًا)" : "Signup to usage funnel (30 days)"}
+        </h2>
+        {funnel === null ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {ar
+              ? "القياس غير متاح بعد: يلزم تطبيق هجرة 0067 لإضافة تاريخ التسجيل ومصدره."
+              : "Not measurable yet: migration 0067 adds the signup time and channel."}
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {ar
+                ? `${funnel.totals.signups} تسجيلًا، ${funnel.totals.activated} استخدم المنصة فعلًا.`
+                : `${funnel.totals.signups} signups, ${funnel.totals.activated} actually used the product.`}
+            </p>
+            <table className="mt-3 w-full text-sm">
+              <thead className="text-xs text-muted-foreground">
+                <tr>
+                  <th className="py-1 text-start font-normal">{ar ? "المصدر" : "Source"}</th>
+                  <th className="py-1 text-end font-normal">{ar ? "تسجيل" : "Signups"}</th>
+                  <th className="py-1 text-end font-normal">{ar ? "استخدام" : "Activated"}</th>
+                  <th className="py-1 text-end font-normal">{ar ? "نشِط ٧ أيام" : "Active 7d"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {funnel.rows.map((row) => (
+                  <tr key={row.source}>
+                    <td className="py-1.5">{row.source}</td>
+                    <td className="py-1.5 text-end font-mono">{row.signups}</td>
+                    <td className="py-1.5 text-end font-mono">{row.activated}</td>
+                    <td className="py-1.5 text-end font-mono">{row.activeLast7d}</td>
+                  </tr>
+                ))}
+                {funnel.rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-2 text-muted-foreground">
+                      {ar ? "لا تسجيلات في هذه الفترة." : "No signups in this window."}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+            {funnel.totals.unattributedSignups > 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {ar
+                  ? `${funnel.totals.unattributedSignups} حسابًا بلا مصدر مسجَّل (أُنشئ قبل تشغيل القياس).`
+                  : `${funnel.totals.unattributedSignups} accounts carry no channel (created before measurement).`}
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
 
       <section className="rounded-2xl border bg-card p-4">
         <h2 className="text-sm font-semibold">{ar ? "أحدث المكافآت" : "Recent rewards"}</h2>
