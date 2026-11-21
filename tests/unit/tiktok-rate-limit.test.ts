@@ -54,5 +54,7 @@ test("a throttle is not the same decision as a failed upload", () => {
   // reach it, which is why the drain route parks the job before this point.
   assert.equal(retryDecision(1, 0).status, "FAILED");
   assert.equal(retryDecision(5, 0).status, "DEAD");
-  assert.notEqual(rateLimitDelayMs("30"), retryDecision(1, 0).nextAttemptAt.getTime());
+  const firstRetry = retryDecision(1, 0);
+  assert.ok(firstRetry.nextAttemptAt, "a first failure must schedule a retry");
+  assert.notEqual(rateLimitDelayMs("30"), firstRetry.nextAttemptAt.getTime());
 });
