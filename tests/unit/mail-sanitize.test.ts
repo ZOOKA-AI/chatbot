@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { htmlToText, sanitizeHtml } from "@/lib/mail/sanitize";
+import { displayName, htmlToText, sanitizeHtml } from "@/lib/mail/sanitize";
 
 describe("HTML sanitiser", () => {
   it("keeps ordinary formatting", () => {
@@ -93,5 +93,18 @@ describe("HTML sanitiser", () => {
   it("decodes entities once, so escaped markup stays text", () => {
     expect(htmlToText("<p>&amp;lt;b&amp;gt; and &amp;#60;</p>")).toBe("&lt;b&gt; and &#60;");
     expect(htmlToText("a<script>x()</script >b")).toBe("a b");
+  });
+});
+
+describe("From header display name", () => {
+  it("returns the name before the address", () => {
+    expect(displayName('"Jane Doe" <jane@example.com>')).toBe("Jane Doe");
+  });
+  it("returns null when only an address is present", () => {
+    expect(displayName("<jane@example.com>")).toBeNull();
+  });
+  it("never keeps a fragment of markup", () => {
+    const name = displayName("<<script>script>alert(1)</script> <x@example.com>");
+    expect(name ?? "").not.toMatch(/<|>/);
   });
 });

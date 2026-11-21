@@ -59,9 +59,9 @@ function decodeEntities(input: string) {
 
 export function htmlToText(html: string) {
   const withoutNoise = html
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style\s*>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript\s*>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script\b[^>]*>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style\b[^>]*>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript\b[^>]*>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ");
 
   const titleMatch = withoutNoise.match(/<title[^>]*>([\s\S]*?)<\/title>/i);

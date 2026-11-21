@@ -348,3 +348,12 @@ export function htmlToText(input: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Display name of an RFC 5322 From header: everything before the address. Splitting on "<"
+ * keeps no markup at all, where stripping tags with a regex could leave a partial "<script".
+ */
+export function displayName(from: string): string | null {
+  const name = from.split("<")[0].replace(/["<>]/g, "").trim();
+  return name || null;
+}
