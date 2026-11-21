@@ -41,13 +41,21 @@ async function POSTImpl(request: Request) {
       ? body.jobKey.trim().slice(0, 128)
       : randomUUID();
 
-  const job = await enqueueJob({
-    organizationId: context.organizationId,
-    userId: context.user.id,
-    jobKey,
-    mediaUrl: body.mediaUrl,
-    caption,
-  });
+  let job: Awaited<ReturnType<typeof enqueueJob>>;
+  try {
+    job = await enqueueJob({
+      organizationId: context.organizationId,
+      userId: context.user.id,
+      jobKey,
+      mediaUrl: body.mediaUrl,
+      caption,
+    });
+  } catch {
+    // Same refusal the n8n drain route gives. A queue that is not there (tables
+    // not migrated, database unreachable) used to escape as an empty 500, which
+    // reads like a code fault and gives the caller nothing to branch on.
+    return NextResponse.json({ error: "queue_unavailable" }, { status: 503 });
+  }
   if (!job) {
     return NextResponse.json({ error: "enqueue_failed" }, { status: 500 });
   }
@@ -70,8 +78,14 @@ async function GETImpl() {
   if (!context || context.user.type !== "regular") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const jobs = await listJobs(context.organizationId, context.user.id, 20);
-  return NextResponse.json({ jobs, scope: "user" });
+  try {
+    const jobs = await listJobs(context.organizationId, context.user.id, 20);
+    return NextResponse.json({ jobs, scope: "user" });
+  } catch {
+    // The list is a read: an unavailable queue must answer 503 like the drain
+    // route, not an empty 500 with no body for the UI to interpret.
+    return NextResponse.json({ error: "queue_unavailable" }, { status: 503 });
+  }
 }
 
 export const POST = withRequestTenantHandler(POSTImpl);

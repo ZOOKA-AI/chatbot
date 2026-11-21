@@ -61,15 +61,19 @@ export default defineConfig({
       },
     },
 
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
+    /* Cross-browser coverage. The session, layout and error suites exercise real
+     * pages and real navigation, which is where engines actually differ; the
+     * security suites are request-level and run once on Chrome. */
+    {
+      name: "firefox",
+      testMatch: /e2e\/(session-lifecycle|i18n-layout|error-handling)\.test\.ts/,
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      testMatch: /e2e\/(session-lifecycle|i18n-layout|error-handling)\.test\.ts/,
+      use: { ...devices["Desktop Safari"] },
+    },
 
     /* Test against mobile viewports. */
     // {
