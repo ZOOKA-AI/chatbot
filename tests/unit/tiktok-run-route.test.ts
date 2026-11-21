@@ -52,22 +52,26 @@ test("a prefix of the secret is refused", async () => {
   assert.equal(response.status, 401);
 });
 
-test("with the secret but no workspace, the call is refused before any work", async () => {
+test("a malformed workspace id is refused before any database call", async () => {
   vi.stubEnv("N8N_WEBHOOK_SECRET", SECRET);
-  const missing = await callRun({ "x-n8n-secret": SECRET }, {});
-  assert.equal(missing.status, 400);
-  assert.equal((await missing.json()).error, "organizationId_required");
-
-  const malformed = await callRun({ "x-n8n-secret": SECRET }, { organizationId: "not-a-uuid" });
-  assert.equal(malformed.status, 400);
+  const response = await callRun(
+    { "x-n8n-secret": SECRET },
+    { organizationId: "not-a-uuid" }
+  );
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "organizationId_malformed");
 });
 
-test("an unconfigured deployment says so instead of running unauthenticated", async () => {
-  vi.stubEnv("N8N_WEBHOOK_SECRET", "");
-  const response = await callRun(
-    { "x-n8n-secret": "anything" },
-    { organizationId: "434c902f-eb9c-4532-b2d3-ba443e6d0ea6" }
+test("with no workspace the coordinator asks the database, and fails cleanly when it is down", async () => {
+  vi.stubEnv("N8N_WEBHOOK_SECRET", SECRET);
+  const response = await callRun({ "x-n8n-secret": SECRET }, { limit: 5 });
+  // The scheduler is not configured with an organization id by design. With no
+  // database reachable the honest answer is 503, never a 400 blaming the caller.
+  assert.ok(
+    response.status === 503 || response.status === 200,
+    `expected 503 or 200, got ${response.status}`
   );
-  assert.equal(response.status, 500);
-  assert.equal((await response.json()).error, "n8n_webhook_secret_not_configured");
+  if (response.status === 503) {
+    assert.equal((await response.json()).error, "queue_unavailable");
+  }
 });

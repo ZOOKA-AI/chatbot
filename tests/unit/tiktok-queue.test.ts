@@ -3,6 +3,9 @@ import { test } from "vitest";
 import { checkMediaUrl } from "@/lib/integrations/tiktok/media";
 import {
   backoffMs,
+  CLAIMABLE_STATUSES,
+  reconciliationDecision,
+  RECONCILE_STATUS,
   isClaimable,
   leaseExpiry,
   LEASE_MS,
@@ -105,4 +108,37 @@ test("a failure schedules a wait, and the last attempt dead-letters the job", ()
   const almost = retryDecision(MAX_ATTEMPTS - 1, now);
   assert.equal(almost.status, "FAILED", "the final attempt is still a retry");
   assert.equal(almost.nextAttemptAt?.getTime(), nextAttemptFor(MAX_ATTEMPTS - 1, now).getTime());
+});
+
+test("a held job can never be claimed as fresh work", () => {
+  assert.ok(
+    !(CLAIMABLE_STATUSES as readonly string[]).includes(RECONCILE_STATUS),
+    "NEEDS_RECONCILIATION must stay outside the claimable set, or a runner re-uploads"
+  );
+});
+
+test("an unknown publish result holds the job instead of retrying it", () => {
+  const now = 1_700_000_000_000;
+  const held = reconciliationDecision("unknown", 2, now);
+  assert.equal(held.status, RECONCILE_STATUS);
+  assert.equal(held.nextAttemptAt?.getTime(), now + 120_000, "recheck waits, it does not upload");
+  assert.equal(reconciliationDecision("unknown", MAX_ATTEMPTS, now).status, RECONCILE_STATUS);
+});
+
+test("a settled publish closes the job with no second upload", () => {
+  const settled = reconciliationDecision("settled", 3, 1_700_000_000_000);
+  assert.equal(settled.status, "UPLOADED");
+  assert.equal(settled.nextAttemptAt, null);
+});
+
+test("a publish TikTok reports as failed may be uploaded again, until the cap", () => {
+  const now = 1_700_000_000_000;
+  const retry = reconciliationDecision("failed", 1, now);
+  assert.equal(retry.status, "PENDING", "a failed publish id cannot duplicate");
+  assert.equal(retry.nextAttemptAt?.getTime(), now, "the fresh upload runs immediately");
+  assert.equal(
+    reconciliationDecision("failed", MAX_ATTEMPTS, now).status,
+    "DEAD",
+    "the attempt cap still applies to a fresh upload"
+  );
 });

@@ -3,9 +3,13 @@ import { runInTenantTransaction } from "@/lib/db/tenant-client";
 import { fetchPublishStatus, initInboxUpload, putChunk } from "@/lib/integrations/tiktok/api";
 import { fetchMedia } from "@/lib/integrations/tiktok/media";
 import {
+  applyReconciliation,
   claimDueJobs,
+  claimReconcileJobs,
   finishJob,
+  listTenantsWithDueWork,
   MAX_ATTEMPTS,
+  RECONCILE_STATUS,
   recordEvent,
 } from "@/lib/integrations/tiktok/queue";
 import {
@@ -49,7 +53,7 @@ const SETTLED_STATUSES = new Set([
 
 type JobResult = {
   id: string;
-  status: "UPLOADED" | "FAILED" | "DEAD" | "RECONCILED";
+  status: "UPLOADED" | "FAILED" | "DEAD" | "RECONCILED" | "NEEDS_RECONCILIATION";
   publishId?: string | null;
   error?: string | null;
   attempts: number;
@@ -71,18 +75,121 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as
     | { organizationId?: unknown; limit?: unknown }
     | null;
-  const organizationId =
+  // Tenant-agnostic by design: the scheduler is not configured with an
+  // organization id. With none supplied, the server finds the tenants that have
+  // due work and opens a separate tenant transaction for each. An explicit id is
+  // still accepted, and is validated the same way.
+  const requested =
     typeof body?.organizationId === "string" ? body.organizationId : null;
-  if (!organizationId || !/^[0-9a-f-]{36}$/i.test(organizationId)) {
-    return NextResponse.json({ error: "organizationId_required" }, { status: 400 });
+  if (requested && !/^[0-9a-f-]{36}$/i.test(requested)) {
+    return NextResponse.json({ error: "organizationId_malformed" }, { status: 400 });
   }
   const limit = typeof body?.limit === "number" ? body.limit : 5;
+  let tenants: string[];
+  if (requested) {
+    tenants = [requested];
+  } else {
+    try {
+      tenants = await listTenantsWithDueWork(
+        typeof body?.limit === "number" ? limit : 20
+      );
+    } catch {
+      // A scheduler retrying an unavailable database must see a clean refusal,
+      // not a stack trace that reads like a code fault.
+      return NextResponse.json({ error: "queue_unavailable" }, { status: 503 });
+    }
+  }
+  if (tenants.length === 0) {
+    return NextResponse.json({ tenants: 0, claimed: 0, results: [], note: "no_due_work" });
+  }
 
+  const results: JobResult[] = [];
+  for (const organizationId of tenants) {
+    const drained = await drainTenant(organizationId, limit);
+    results.push(...drained);
+  }
+  return NextResponse.json({
+    tenants: tenants.length,
+    claimed: results.length,
+    results,
+    note: "An UPLOADED job is in the creator's TikTok inbox, not published. The creator finishes the post inside TikTok.",
+  });
+}
+
+/**
+ * One tenant, one transaction scope. Reconciliation runs before new work so a
+ * held job is resolved rather than left behind, and it only ever reads status.
+ */
+async function drainTenant(organizationId: string, limit: number): Promise<JobResult[]> {
   const inTenant = <T>(work: () => Promise<T>) =>
     runInTenantTransaction({ organizationId, userId: null }, work);
+  const results: JobResult[] = [];
+
+  const held = await inTenant(() => claimReconcileJobs(organizationId, limit));
+  for (const job of held) {
+    const access = await getTiktokAccess(organizationId, job.userId);
+    if (!access) {
+      await inTenant(() =>
+        applyReconciliation({
+          id: job.id,
+          outcome: "unknown",
+          attempts: job.attempts,
+          publishId: job.publishId,
+          detail: "not_connected_during_reconciliation",
+        })
+      );
+      results.push({
+        id: job.id,
+        status: RECONCILE_STATUS,
+        publishId: job.publishId,
+        attempts: job.attempts,
+        retryable: false,
+      });
+      continue;
+    }
+    const known = job.publishId
+      ? await fetchPublishStatus(access.accessToken, job.publishId)
+      : { ok: false as const, error: "no_publish_id" };
+    const outcome = !known.ok
+      ? ("unknown" as const)
+      : SETTLED_STATUSES.has(known.value.status)
+        ? ("settled" as const)
+        : ("failed" as const);
+    const status = await inTenant(() =>
+      applyReconciliation({
+        id: job.id,
+        outcome,
+        attempts: job.attempts,
+        publishId: job.publishId,
+        detail: known.ok ? `tiktok reports ${known.value.status}` : known.error,
+      })
+    );
+    await inTenant(() =>
+      recordEvent({
+        jobId: job.id,
+        organizationId,
+        userId: job.userId,
+        type: "reconciled",
+        detail: known.ok ? known.value.status : known.error,
+      })
+    );
+    results.push({
+      id: job.id,
+      status:
+        status === "UPLOADED"
+          ? "RECONCILED"
+          : status === "DEAD"
+            ? "DEAD"
+            : status === "PENDING"
+              ? "FAILED"
+              : RECONCILE_STATUS,
+      publishId: job.publishId,
+      attempts: job.attempts,
+      retryable: status === "PENDING",
+    });
+  }
 
   const jobs = await inTenant(() => claimDueJobs(organizationId, limit));
-  const results: JobResult[] = [];
 
   for (const job of jobs) {
     await inTenant(() =>
@@ -173,14 +280,34 @@ export async function POST(request: Request) {
         continue;
       }
       if (!known.ok) {
-        // TikTok did not answer, so the outcome is genuinely unknown. Retrying
-        // now would be the blind republish the rule forbids.
-        results.push(
-          await fail(`reconcile_failed_${known.error}`, {
-            retryable: true,
+        // TikTok did not answer, so the outcome is genuinely unknown. Holding the
+        // job is the only safe move: it leaves the claimable set entirely, so no
+        // runner can pick it up and re-upload while the answer is missing.
+        await inTenant(() =>
+          applyReconciliation({
+            id: job.id,
+            outcome: "unknown",
+            attempts: job.attempts,
             publishId: job.publishId,
+            detail: `reconcile_failed_${known.error}`,
           })
         );
+        await inTenant(() =>
+          recordEvent({
+            jobId: job.id,
+            organizationId,
+            userId: job.userId,
+            type: "reconciled",
+            detail: `held: unknown outcome (${known.error})`,
+          })
+        );
+        results.push({
+          id: job.id,
+          status: RECONCILE_STATUS,
+          publishId: job.publishId,
+          attempts: job.attempts,
+          retryable: false,
+        });
         continue;
       }
       // TikTok says the old publish id failed: a fresh upload is safe.
@@ -283,9 +410,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({
-    claimed: jobs.length,
-    results,
-    note: "An UPLOADED job is in the creator's TikTok inbox, not published. The creator finishes the post inside TikTok.",
-  });
+  return results;
 }
