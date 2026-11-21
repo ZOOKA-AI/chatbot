@@ -1153,3 +1153,69 @@ export const mailAudit = pgTable(
     ),
   })
 );
+
+/**
+ * TikTok connection, scoped to the person who authorized it.
+ *
+ * The workspace-scoped OAuthConnection table cannot carry this: TikTok tokens
+ * belong to a human creator, and one workspace may hold several creators. The
+ * unique key is therefore (organizationId, userId), so two users in the same
+ * workspace can never overwrite each other's authorization.
+ */
+export const tiktokConnection = pgTable(
+  "TikTokConnection",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId").notNull(),
+    openId: varchar("openId", { length: 128 }).notNull(),
+    displayName: varchar("displayName", { length: 200 }),
+    avatarUrl: text("avatarUrl"),
+    scopes: varchar("scopes", { length: 300 }),
+    encryptedTokens: text("encryptedTokens").notNull(),
+    accessExpiresAt: timestamp("accessExpiresAt"),
+    refreshExpiresAt: timestamp("refreshExpiresAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    userUnique: unique("TikTokConnection_organization_user_key").on(
+      table.organizationId,
+      table.userId
+    ),
+    organizationIndex: index("TikTokConnection_organization_idx").on(
+      table.organizationId
+    ),
+  })
+);
+
+/** One row per upload attempt, so status is a fact we recorded, not a guess. */
+export const tiktokUpload = pgTable(
+  "TikTokUpload",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId").notNull(),
+    publishId: varchar("publishId", { length: 128 }).notNull(),
+    fileName: varchar("fileName", { length: 255 }).notNull(),
+    fileSize: integer("fileSize").notNull(),
+    mimeType: varchar("mimeType", { length: 64 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("INIT"),
+    failReason: varchar("failReason", { length: 200 }),
+    uploadedBytes: integer("uploadedBytes"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    publishUnique: unique("TikTokUpload_publish_key").on(table.publishId),
+    ownerIndex: index("TikTokUpload_owner_created_idx").on(
+      table.organizationId,
+      table.userId,
+      table.createdAt
+    ),
+  })
+);

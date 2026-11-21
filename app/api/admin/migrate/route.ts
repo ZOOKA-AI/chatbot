@@ -2,9 +2,14 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
+import { TIKTOK_DDL } from "@/lib/integrations/tiktok/ddl";
 import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
+  // TikTok per-creator integration (migration 0063). Same statements as
+  // lib/db/migrations/pending/0063_tiktok_integration.sql; a unit test keeps
+  // them equal. Two tables only, both owner-scoped by (organizationId, userId).
+  tiktok_integration_0063: TIKTOK_DDL,
   // ZOOKA Mail (migration 0060). Same statements as
   // lib/db/migrations/pending/0060_zooka_mail.sql; a unit test keeps them equal.
   zooka_mail_0060: MAIL_DDL,
