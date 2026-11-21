@@ -1219,3 +1219,42 @@ export const tiktokUpload = pgTable(
     ),
   })
 );
+
+/**
+ * The publish queue n8n drains. Kept separate from TikTokUpload on purpose:
+ * TikTokUpload records what TikTok said about an upload, while this table
+ * records what was asked for, by whom, and how many times it was tried.
+ */
+export const tiktokPublishJob = pgTable(
+  "TikTokPublishJob",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    jobKey: varchar("jobKey", { length: 128 }).notNull(),
+    mediaUrl: varchar("mediaUrl", { length: 2048 }).notNull(),
+    caption: varchar("caption", { length: 2200 }),
+    status: varchar("status", { length: 24 }).notNull().default("PENDING"),
+    attempts: integer("attempts").notNull().default(0),
+    claimedAt: timestamp("claimedAt"),
+    publishId: varchar("publishId", { length: 128 }),
+    lastError: varchar("lastError", { length: 300 }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    jobUnique: unique("TikTokPublishJob_org_jobkey_key").on(
+      table.organizationId,
+      table.jobKey
+    ),
+    dueIndex: index("TikTokPublishJob_due_idx").on(
+      table.organizationId,
+      table.status,
+      table.createdAt
+    ),
+  })
+);
