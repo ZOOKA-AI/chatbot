@@ -1,4 +1,6 @@
 import "server-only";
+
+import type { Attribution } from "@/lib/growth/attribution";
 import { accountDatabaseError } from "./diagnostics";
 import { commanderActiveDb } from "./tenant-context";
 import { serviceConnectionAvailable, serviceDb } from "./service-client";
@@ -735,11 +737,26 @@ export async function getUser(email: string): Promise<User[]> {
   }
 }
 
-export async function createUser(email: string, password: string) {
+export async function createUser(
+  email: string,
+  password: string,
+  attribution?: Attribution | null
+) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await adminDb().insert(user).values({ email, password: hashedPassword });
+    return await adminDb()
+      .insert(user)
+      .values({
+        email,
+        password: hashedPassword,
+        // Null when the visit carried no channel: an invented source is worse
+        // than an empty one for every later decision made from this table.
+        signupSource: attribution?.source ?? null,
+        signupMedium: attribution?.medium ?? null,
+        signupCampaign: attribution?.campaign ?? null,
+        signupReferrer: attribution?.referrer ?? null,
+      });
   } catch (error) {
     throw accountDatabaseError("create", error);
   }

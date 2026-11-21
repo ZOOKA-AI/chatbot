@@ -2,6 +2,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 import { isNavigation, requestIdFrom } from "./lib/http/request-id";
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_MAX_AGE_SECONDS,
+  parseAttribution,
+  serializeAttribution,
+} from "./lib/growth/attribution";
 
 /**
  * Routes that require an authenticated session. Anything not listed here is
@@ -37,7 +43,45 @@ export async function proxy(request: NextRequest) {
   const requestId = requestIdFrom(request.headers);
   const response = await route(request, requestId);
   response.headers.set("x-request-id", requestId);
+  rememberAttribution(request, response);
   return response;
+}
+
+/**
+ * Records the acquisition channel on the visitor's first landing.
+ *
+ * First touch wins, so an existing cookie is never overwritten: a visitor who
+ * arrived from an AI assistant and later returns through a direct visit must
+ * still be credited to the assistant, otherwise every channel report drifts
+ * towards "direct". Internal navigation and direct visits write nothing, so a
+ * plain page view never invents a channel.
+ *
+ * The cookie is httpOnly because only the server reads it at sign-up, and the
+ * visitor's own browser scripts have no use for it.
+ */
+function rememberAttribution(request: NextRequest, response: Response) {
+  if (request.method !== "GET" || !(response instanceof NextResponse)) {
+    return;
+  }
+  if (request.cookies.get(ATTRIBUTION_COOKIE)?.value) {
+    return;
+  }
+  const attribution = parseAttribution(
+    request.nextUrl,
+    request.headers.get("referer")
+  );
+  if (!attribution) {
+    return;
+  }
+  response.cookies.set({
+    name: ATTRIBUTION_COOKIE,
+    value: serializeAttribution(attribution),
+    maxAge: ATTRIBUTION_MAX_AGE_SECONDS,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
 }
 
 async function route(request: NextRequest, requestId: string) {

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { REFERRAL_COOKIE, recordReferralEvent } from "@/lib/affiliate";
+import { ATTRIBUTION_COOKIE, deserializeAttribution } from "@/lib/growth/attribution";
 import {
   consumePasswordResetToken,
   createPasswordResetToken,
@@ -119,6 +120,13 @@ export const register = async (
     return { status: NEUTRAL_SIGNUP_STATUS };
   }
 
+  // First-touch channel, captured by the proxy on the visitor's first landing.
+  // Read before the insert because the account row is written in one shot; a
+  // failure to read it must never fail a sign-up, so it stays optional.
+  const attribution = deserializeAttribution(
+    (await cookies()).get(ATTRIBUTION_COOKIE)?.value
+  );
+
   try {
     const [existingUser] = await getUser(email);
     let plan = planRegistration({ existing: Boolean(existingUser) });
@@ -132,7 +140,7 @@ export const register = async (
 
     if (plan.createAccount) {
       try {
-        await createUser(email, password);
+        await createUser(email, password, attribution);
         const [created] = await getUser(email);
         createdUserId = created?.id ?? null;
         if (!createdUserId) {
