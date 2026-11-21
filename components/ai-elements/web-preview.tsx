@@ -16,6 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { safePreviewSrc } from "@/lib/http/web-preview-url";
 import { cn } from "@/lib/utils";
 
 export type WebPreviewContextValue = {
@@ -165,7 +166,7 @@ export const WebPreviewUrl = ({
   );
 };
 
-export type WebPreviewBodyProps = ComponentProps<"iframe"> & {
+export type WebPreviewBodyProps = Omit<ComponentProps<"iframe">, "sandbox" | "srcDoc"> & {
   loading?: ReactNode;
 };
 
@@ -180,11 +181,13 @@ export const WebPreviewBody = ({
   return (
     <div className="flex-1">
       <iframe
-        className={cn("size-full", className)}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-        src={(src ?? url) || undefined}
-        title="Preview"
         {...props}
+        className={cn("size-full", className)}
+        referrerPolicy="no-referrer"
+        sandbox="allow-scripts"
+        src={safePreviewSrc(src ?? url)}
+        srcDoc={undefined}
+        title={props.title ?? "Preview"}
       />
       {loading}
     </div>

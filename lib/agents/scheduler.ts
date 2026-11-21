@@ -1,5 +1,5 @@
 import { withPlatformClient } from "@/lib/db/platform-client";
-import { firstAgentIdentity } from "@/lib/agents/command-center";
+import { agentIdentityForTask } from "@/lib/agents/command-center";
 import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { materialiseDueSchedules } from "./schedule";
 import { toolPayloadFor } from "./tool-payload";
@@ -62,6 +62,9 @@ type Candidate = {
   organizationId: string;
   createdAt: Date;
   payload: Record<string, unknown> | null;
+  title?: string | null;
+  instruction?: string | null;
+  ownerAgentId?: string | null;
 };
 
 /**
@@ -72,9 +75,50 @@ type Candidate = {
  * the task said one thing and the worker did another. A task naming a tool the worker does not
  * implement falls back rather than silently running the wrong one.
  */
-function toolForTask(task: Candidate, config: SchedulerConfig) {
+export function toolForTask(task: Candidate, config: SchedulerConfig) {
   const declared = task.payload && typeof task.payload.tool === "string" ? task.payload.tool : null;
-  return declared && WORKER_TOOLS[declared] ? declared : config.tool;
+  if (declared && WORKER_TOOLS[declared]) return declared;
+  // A task written by a person names its tool in words, not in a payload (the task form sends
+  // none). Defaulting to the repository inspector made a readiness check fail on a GitHub token
+  // it never needed. The first tool the text names, in the order it appears, wins; a task that
+  // names none keeps the configured fallback.
+  const text = `${task.title ?? ""}\n${task.instruction ?? ""}`;
+  let best: { name: string; at: number } | null = null;
+  for (const name of Object.keys(WORKER_TOOLS)) {
+    const at = text.indexOf(name);
+    if (at >= 0 && (best === null || at < best.at)) best = { name, at };
+  }
+  return best ? best.name : config.tool;
+}
+
+/** Trims to a maximum length without cutting a surrogate pair in half. */
+function clip(value: string, max: number): string {
+  const chars = Array.from(value.trim().replace(/\s+/g, " "));
+  return chars.length > max ? chars.slice(0, max).join("").trim() : chars.join("");
+}
+
+/**
+ * Arguments for a tool chosen from the task's own words.
+ *
+ * A task created from the form carries only a title and an instruction. When its tool is
+ * inferred from that text, the tool still needs its arguments: the readiness report
+ * refused every such task with invalid_label (seen in production on 2026-11-21, task
+ * ec235d80). The title is the label the person already wrote; nothing is invented. An
+ * explicit payload value always wins over these.
+ */
+export function argumentsFromText(tool: string, task: Candidate): Record<string, unknown> {
+  const title = clip(task.title ?? "", 120);
+  const instruction = clip(task.instruction ?? "", 2000);
+  if (tool === "workspace_readiness_inspect" && title.length >= 3) {
+    return { label: clip(title, 60) };
+  }
+  if (tool === "project_document_create") {
+    const args: Record<string, unknown> = {};
+    if (title.length >= 3) args.title = title;
+    if (instruction.length >= 20) args.brief = instruction;
+    return args;
+  }
+  return {};
 }
 
 /**
@@ -185,20 +229,28 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
       const candidateLimit = Math.max(20, config.batchSize * 20);
       const candidates = config.organizationId
         ? await sql<Candidate[]>`
-            select id, "organizationId", "createdAt", payload from "AgentTask"
+            select id, "organizationId", "createdAt", payload, title, instruction, "ownerAgentId" from "AgentTask"
             where status = 'pending' and "organizationId" = ${config.organizationId}
             order by "createdAt" asc limit ${candidateLimit}`
         : await sql<Candidate[]>`
-            select id, "organizationId", "createdAt", payload from "AgentTask"
+            select id, "organizationId", "createdAt", payload, title, instruction, "ownerAgentId" from "AgentTask"
             where status = 'pending' order by "createdAt" asc limit ${candidateLimit}`;
       const chosen = selectFairly(candidates, runningByOrg, config, capacity);
 
       // 4. Each task runs inside its own workspace's transaction.
       const outcomes: SchedulerResult["outcomes"] = [];
       for (const task of chosen) {
-        const agent = await withCommanderScope(task.organizationId, () => firstAgentIdentity(task.organizationId));
+        const agent = await withCommanderScope(task.organizationId, () =>
+          agentIdentityForTask(task.organizationId, task.ownerAgentId ?? null)
+        );
         if (!agent) {
-          outcomes.push({ taskId: task.id, organizationId: task.organizationId, status: "rejected", error: "no_agent_identity" });
+          outcomes.push({
+            taskId: task.id,
+            organizationId: task.organizationId,
+            status: "rejected",
+            // An assigned agent that is gone or disabled is not silently replaced by another one.
+            error: task.ownerAgentId ? "owner_agent_unavailable" : "no_agent_identity",
+          });
           continue;
         }
         const tool = toolForTask(task, config);
@@ -207,7 +259,7 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
             taskId: task.id,
             tool,
             fetchImpl: config.fetchImpl,
-            payload: toolPayloadFor(tool, task.payload),
+            payload: toolPayloadFor(tool, { ...argumentsFromText(tool, task), ...(task.payload ?? {}) }),
           })
         );
         outcomes.push({

@@ -15,6 +15,9 @@ concurrency:
   group: gate-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   NEXT_TELEMETRY_DISABLED: "1"
   AUTH_SECRET: ci-only-placeholder-not-a-real-secret

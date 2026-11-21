@@ -18,7 +18,7 @@ export function OAuthConnectionControl({
   lang,
   allowToken = true,
 }: {
-  provider: "github" | "vercel" | "x";
+  provider: "github" | "vercel" | "x" | "meta" | "linkedin";
   label: string;
   tokenHint: string;
   canManage: boolean;

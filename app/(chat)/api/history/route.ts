@@ -9,7 +9,8 @@ import {
   getChatsByOrganizationId,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
-import { cursorSchema, limitSchema } from "@/lib/validation/chat";
+import { CHAT_HISTORY_PAGE_SIZE, historyLimitSchema } from "@/lib/chat-history";
+import { cursorSchema } from "@/lib/validation/chat";
 
 async function GETImpl(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -17,11 +18,11 @@ async function GETImpl(request: NextRequest) {
   // "abc" used to become NaN and reach the query builder; a repeated or huge
   // cursor is refused here instead of being handed to the database.
   const limitRaw = searchParams.get("limit");
-  const limitParsed = limitSchema.safeParse(limitRaw === null || limitRaw === "" ? 10 : limitRaw);
+  const limitParsed = historyLimitSchema.safeParse(limitRaw === null || limitRaw === "" ? 10 : limitRaw);
   if (!limitParsed.success) {
     return new ChatbotError(
       "bad_request:api",
-      "Parameter limit must be a whole number between 1 and 50"
+      `Parameter limit must be a whole number between 1 and ${CHAT_HISTORY_PAGE_SIZE}`
     ).toResponse();
   }
   const limit = limitParsed.data;
