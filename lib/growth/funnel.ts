@@ -32,11 +32,19 @@ export interface FunnelReport {
     activated: number;
     activeLast7d: number;
     unattributedSignups: number;
+    /** Accounts with no trustworthy signup date (created before 0067). */
+    unknownSignupDate: number;
   };
 }
 
 export async function getGrowthFunnel(days = 30): Promise<FunnelReport> {
   const window = Math.min(Math.max(Math.trunc(days), 1), 365);
+
+  // Accounts that predate the migration carry no signup date. They are counted
+  // separately instead of being dropped silently, and never dated by guesswork.
+  const unknown = (await adminDb().execute(sql`
+    select count(*)::int as total from "User" where "createdAt" is null
+  `)) as unknown as Record<string, unknown>[];
 
   const rows = (await adminDb().execute(sql`
     with signups as (
@@ -86,6 +94,7 @@ export async function getGrowthFunnel(days = 30): Promise<FunnelReport> {
       activeLast7d: sum((row) => row.activeLast7d),
       unattributedSignups:
         parsed.find((row) => row.source === "unknown")?.signups ?? 0,
+      unknownSignupDate: Number(unknown[0]?.total ?? 0),
     },
   };
 }

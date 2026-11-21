@@ -29,7 +29,10 @@ export const user = pgTable("User", {
    * the funnel could not be joined to acquisition at all. Rows created before
    * 0067 carry the migration timestamp, not their real signup time.
    */
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  // Nullable on purpose: accounts that predate 0067 have no trustworthy signup
+  // date, so they stay NULL instead of inheriting the migration timestamp. New
+  // rows get now() from the column default attached after the column was added.
+  createdAt: timestamp("createdAt").defaultNow(),
   signupSource: varchar("signupSource", { length: 64 }),
   signupMedium: varchar("signupMedium", { length: 64 }),
   signupCampaign: varchar("signupCampaign", { length: 64 }),
