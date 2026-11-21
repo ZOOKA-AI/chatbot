@@ -16,6 +16,9 @@ import { BrandIntro } from "@/components/marketing/brand-intro";
 import { DemoChat } from "@/components/marketing/demo-chat";
 import { TaskTemplates } from "@/components/marketing/task-templates";
 import { SiteHeader } from "@/components/marketing/site-header";
+import { SocialIconRow } from "@/components/social-icon-row";
+import { VideoStream } from "@/components/tv/video-stream";
+import { visibleVideos } from "@/lib/tv/videos";
 import { dirOf, fontOf } from "@/lib/i18n";
 import { planFeatures } from "@/lib/billing/entitlements";
 import { CTA } from "@/lib/marketing/cta";
@@ -501,6 +504,44 @@ export function LandingPage({ lang }: { lang: Lang }) {
         <UseCases lang={lang} />
 
         <Compare lang={lang} />
+
+        <section className="border-b" id="tv">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-16">
+            <div className="flex flex-col gap-2">
+              <span className="text-blue-400 text-xs uppercase tracking-widest">
+                ZOOKA AI TV
+              </span>
+              <h2 className="font-semibold text-3xl">
+                {t("شاهد المنصة وهي تعمل", "Watch the platform at work")}
+              </h2>
+              <p className="max-w-2xl text-muted-foreground">
+                {t(
+                  "فيديوهات من إنتاجنا تعرض ما هو موجود فعلًا في المنتج. لا تشغيل تلقائي للصوت.",
+                  "Videos we produced that show what actually exists in the product. Nothing plays sound on its own."
+                )}
+              </p>
+            </div>
+            <VideoStream lang={lang} videos={visibleVideos()} />
+            <div className="flex flex-col gap-4 rounded-2xl border p-5 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-1">
+                <p className="font-medium">
+                  {t("تابع ZOOKA-AI على الحسابات الرسمية", "Follow ZOOKA-AI on the official accounts")}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  {t(
+                    "تظهر هنا الحسابات الموثّقة فقط؛ الحسابات قيد المراجعة تبقى في صفحة الحسابات الرسمية بدون رابط.",
+                    "Only verified accounts appear here; accounts under review stay on the official accounts page without a link."
+                  )}
+                </p>
+              </div>
+              <SocialIconRow
+                ids={["x", "youtube", "tiktok", "linkedin", "telegram", "facebook", "discord", "github", "bluesky", "pinterest"]}
+                lang={lang}
+                size="sm"
+              />
+            </div>
+          </div>
+        </section>
 
         <section className="border-b" id="proof">
           <div className="mx-auto w-full max-w-6xl px-5 py-16">

@@ -14,6 +14,8 @@ const PUBLIC_PAGES = [
   { changeFrequency: "monthly", path: "/partners/join", priority: 0.7 },
   { changeFrequency: "monthly", path: "/contact", priority: 0.6 },
   { changeFrequency: "monthly", path: "/videos/zooka-demo", priority: 0.6 },
+  { changeFrequency: "weekly", path: "/tv", priority: 0.7 },
+  { changeFrequency: "monthly", path: "/support", priority: 0.7 },
   { changeFrequency: "monthly", path: "/compare/chatgpt", priority: 0.8 },
   { changeFrequency: "yearly", path: "/privacy", priority: 0.4 },
   { changeFrequency: "yearly", path: "/terms", priority: 0.4 },
