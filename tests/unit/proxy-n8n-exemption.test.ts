@@ -65,3 +65,28 @@ test("the route refuses a wrong shared secret", async () => {
   );
   assert.equal(response.status, 401);
 });
+
+test("the middleware itself lets the n8n call through and still gates a page", async () => {
+  const { proxy } = await import("@/proxy");
+  const { NextRequest } = await import("next/server");
+
+  const drainCall = await proxy(
+    new NextRequest("https://zooka-ai.com/api/integrations/n8n/tiktok/run", {
+      method: "POST",
+      headers: { "x-n8n-secret": "test-only-secret-value" },
+    })
+  );
+  // NextResponse.next() carries the pass-through header and no location.
+  assert.equal(
+    drainCall.headers.get("location"),
+    null,
+    "n8n is still being redirected away from the drain route"
+  );
+  assert.notEqual(drainCall.status, 401);
+
+  const gatedPage = await proxy(new NextRequest("https://zooka-ai.com/workspace/home"));
+  assert.ok(
+    gatedPage.status === 307 || gatedPage.headers.get("location")?.includes("/login"),
+    "a workspace page must still require a session"
+  );
+});
