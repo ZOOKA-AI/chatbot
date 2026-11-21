@@ -9,10 +9,12 @@ export default async function AdminOverviewPage() {
   const admin = await adminPageContext();
   if (!admin) return <AdminDenied />;
 
-  const [platform, workspace] = await Promise.all([
-    getPlatformOverview(admin.platformRole),
-    getCommandOverview(admin.organizationId),
-  ]);
+  // Sequential on purpose, matching every other section of this panel. The overview is the only
+  // page that loads two aggregate models, and running them concurrently against the service pool
+  // left the page pending indefinitely in production (reproduced across sessions while the six
+  // other sections rendered in seconds). One after the other costs a round trip and always returns.
+  const platform = await getPlatformOverview(admin.platformRole);
+  const workspace = await getCommandOverview(admin.organizationId);
   const lang = admin.lang;
 
   return (
