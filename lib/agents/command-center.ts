@@ -406,18 +406,82 @@ export async function createTask(input: CreateTaskInput) {
  * tenant handle. The scheduler runs cross-tenant selection but must not read a
  * workspace's rows on the shared connection.
  */
+const AGENT_FOR_SCHEDULER = {
+  id: agentIdentity.id,
+  organizationId: agentIdentity.organizationId,
+  // The scheduler runs tools without an HTTP request, so it needs the policy here or it has none.
+  allowedTools: agentIdentity.allowedTools,
+};
+
+/**
+ * The oldest active agent of the workspace. Unordered and unfiltered, this used to
+ * return whichever row the planner met first, which could be a disabled agent.
+ */
 export async function firstAgentIdentity(organizationId: string) {
   const [row] = await db
-    .select({
-      id: agentIdentity.id,
-      organizationId: agentIdentity.organizationId,
-      // The scheduler runs tools without an HTTP request, so it needs the policy here or it has none.
-      allowedTools: agentIdentity.allowedTools,
-    })
+    .select(AGENT_FOR_SCHEDULER)
     .from(agentIdentity)
-    .where(eq(agentIdentity.organizationId, organizationId))
+    .where(and(eq(agentIdentity.organizationId, organizationId), eq(agentIdentity.status, "active")))
+    .orderBy(agentIdentity.createdAt)
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * The agent a task runs as: the one it was assigned to, if that agent is still active
+ * in the same workspace; with no assignment, the oldest active agent. An assigned agent
+ * that is missing or disabled yields null, so the task is refused rather than quietly
+ * executed by someone else with different tools.
+ */
+export async function agentIdentityForTask(organizationId: string, ownerAgentId: string | null) {
+  if (!ownerAgentId) return firstAgentIdentity(organizationId);
+  const [row] = await db
+    .select(AGENT_FOR_SCHEDULER)
+    .from(agentIdentity)
+    .where(
+      and(
+        eq(agentIdentity.id, ownerAgentId),
+        eq(agentIdentity.organizationId, organizationId),
+        eq(agentIdentity.status, "active")
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * The workspace's OAuth connection for a provider, through the tenant handle.
+ *
+ * Connecting (OAuth or a pasted token) writes OAuthConnection; the worker used to read
+ * only the older integration_connection store, so reconnecting refreshed the card and
+ * left the dead token where the worker looked. Both are read now, OAuth first.
+ */
+export async function getWorkspaceOAuthConnection(
+  organizationId: string,
+  provider: string
+): Promise<{ encryptedTokens: string; tokenExpiresAt: Date | null } | null> {
+  // Ask before reading. A denied SELECT would abort the tenant transaction, and
+  // everything the worker does after this (opening the attempt, recording the
+  // evidence) would then fail with it. The tenant runtime role is not granted this
+  // table, so on that connection the answer is simply "no OAuth row".
+  const [access] = (await db.execute(sql`
+    select case
+      when to_regclass('public."OAuthConnection"') is null then false
+      else has_table_privilege(current_user, 'public."OAuthConnection"', 'SELECT')
+    end as ok
+  `)) as unknown as Array<{ ok?: boolean }>;
+  if (!access?.ok) return null;
+
+  const rows = (await db.execute(sql`
+    select "encryptedTokens", "tokenExpiresAt" from "OAuthConnection"
+    where "organizationId"::text = ${organizationId}
+      and provider = ${provider}
+    limit 1
+  `)) as unknown as Array<{ encryptedTokens?: string; tokenExpiresAt?: Date | string | null }>;
+  const row = rows[0];
+  if (!row?.encryptedTokens) return null;
+  const expires = row.tokenExpiresAt ? new Date(row.tokenExpiresAt) : null;
+  return { encryptedTokens: row.encryptedTokens, tokenExpiresAt: expires };
 }
 
 /**
