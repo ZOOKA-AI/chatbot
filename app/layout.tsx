@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   alternates: { canonical: "./" },
+  verification: {
+    other: {
+      "p:domain_verify": "f6cbf0cf80175d361a3df212368f409d",
+    },
+  },
   icons: { icon: [{ url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" }, { url: "/icon.svg", type: "image/svg+xml" }], apple: "/brand/apple-touch-icon-180.png" },
   openGraph: {
     type: "website",
