@@ -19,6 +19,7 @@ SELECT 'aad414a8-46a5-4d40-b83c-c569daca8b7c'::uuid,
        'super_admin',
        'migration:0066',
        'Bootstrap: first platform administrator after the role tables were created'
-WHERE NOT EXISTS (SELECT 1 FROM "PlatformRole" WHERE "role" = 'super_admin')
+WHERE EXISTS (SELECT 1 FROM "User" WHERE "id" = 'aad414a8-46a5-4d40-b83c-c569daca8b7c'::uuid)
+  AND NOT EXISTS (SELECT 1 FROM "PlatformRole" WHERE "role" = 'super_admin')
 ON CONFLICT ("userId") DO NOTHING;`,
 ];

@@ -87,3 +87,23 @@ test("a deliberate revoke is not undone while an administrator remains", async (
   assert.equal(rows.rows.length, 1, "an existing super_admin must keep the bootstrap silent");
   assert.equal(rows.rows[0].userId, other);
 });
+
+test("it is silent on a database where the account does not exist yet", async () => {
+  // CI applies every pending file to a fresh Postgres. There the owner's row is
+  // absent, and an unguarded insert would violate the foreign key and fail the
+  // migration step rather than skipping quietly.
+  const db = new PGlite();
+  await db.exec(`CREATE TABLE "User" ("id" uuid PRIMARY KEY);`);
+  await db.exec(`CREATE TABLE "PlatformRole" (
+    "userId" uuid PRIMARY KEY NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+    "role" varchar NOT NULL,
+    "grantedBy" varchar(128) NOT NULL,
+    "reason" text NOT NULL,
+    "grantedAt" timestamp DEFAULT now() NOT NULL
+  );`);
+
+  for (const statement of PLATFORM_OWNER_BOOTSTRAP_DDL) await db.exec(statement);
+
+  const rows = await db.query(`SELECT "userId" FROM "PlatformRole"`);
+  assert.equal(rows.rows.length, 0, "an empty database must not receive a grant");
+});
