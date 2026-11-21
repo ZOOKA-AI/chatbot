@@ -7,9 +7,9 @@ import { MAIL_DDL } from "@/lib/mail/ddl";
 
 const TABLES: Record<string, string[]> = {
   // TikTok per-creator integration (migration 0063). Same statements as
-  // lib/db/migrations/pending/0063_tiktok_integration.sql; a unit test keeps
+  // lib/db/migrations/pending/0064_tiktok_integration.sql; a unit test keeps
   // them equal. Two tables only, both owner-scoped by (organizationId, userId).
-  tiktok_integration_0063: TIKTOK_DDL,
+  tiktok_integration_0064: TIKTOK_DDL,
   // ZOOKA Mail (migration 0060). Same statements as
   // lib/db/migrations/pending/0060_zooka_mail.sql; a unit test keeps them equal.
   zooka_mail_0060: MAIL_DDL,

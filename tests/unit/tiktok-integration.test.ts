@@ -198,7 +198,7 @@ test("an upload chunk carries the exact Content-Range and length", async () => {
 
 test("the pending migration file equals the DDL the admin path executes", () => {
   const file = readFileSync(
-    join(process.cwd(), "lib/db/migrations/pending/0063_tiktok_integration.sql"),
+    join(process.cwd(), "lib/db/migrations/pending/0064_tiktok_integration.sql"),
     "utf8"
   );
   const statements = file
