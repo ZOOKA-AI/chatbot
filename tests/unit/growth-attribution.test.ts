@@ -119,6 +119,15 @@ describe("acquisition paths", () => {
     expect(laterDirect).toBeNull();
     expect(deserializeAttribution(cookie)?.source).toBe("chatgpt.com");
   });
+  test("a look-alike domain is a referral, not internal navigation", () => {
+    const url = new URL("https://zooka-ai.com/");
+    expect(parseAttribution(url, "https://evilzooka-ai.com/x")).toEqual({
+      source: "evilzooka-ai.com",
+      medium: "referral",
+      campaign: null,
+      referrer: "https://evilzooka-ai.com/x",
+    });
+  });
 });
 
 function assertChannel(

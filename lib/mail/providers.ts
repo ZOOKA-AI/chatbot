@@ -20,8 +20,9 @@
 import { guardedFetch } from "@/lib/studio/outbound-guard";
 import { getIntegrationTokens } from "@/lib/integrations/catalog";
 
-import { htmlToText, sanitizeHtml } from "./sanitize";
+import { displayName, htmlToText, sanitizeHtml } from "./sanitize";
 import type { MailFolder, MailProviderId } from "./types";
+
 
 export class MailProviderNotActivated extends Error {
   readonly providerId: MailProviderId;
@@ -178,7 +179,7 @@ export async function readGmailMessages(input: {
       messages.push({
         providerMessageId: id,
         fromAddress: header(payload.headers, "from").replace(/.*<([^>]+)>.*/, "$1").trim(),
-        fromName: header(payload.headers, "from").replace(/<[^>]*>/, "").replace(/"/g, "").trim() || null,
+        fromName: displayName(header(payload.headers, "from")),
         subject: header(payload.headers, "subject") || "(no subject)",
         snippet: String(detail.snippet ?? "").slice(0, 200),
         // Sanitised before it is ever stored or rendered.

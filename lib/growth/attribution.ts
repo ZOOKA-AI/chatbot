@@ -76,7 +76,11 @@ export function parseAttribution(
   }
 
   // Internal navigation is not an acquisition source.
-  if (host.endsWith("zooka-ai.com") || host === "localhost") {
+  if (
+    host === "zooka-ai.com" ||
+    host.endsWith(".zooka-ai.com") ||
+    host === "localhost"
+  ) {
     return null;
   }
 

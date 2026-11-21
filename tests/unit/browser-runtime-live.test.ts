@@ -11,23 +11,21 @@ import { browserRuntime } from "@/lib/browser/runtime";
  * suite skips instead of pretending to have verified anything.
  */
 const hasChromium = await (async () => {
-  // The module being importable says nothing about a browser being installed: pnpm installs the
-  // playwright package everywhere, while the binary only exists after `playwright install`. CI
-  // proved the difference - the suite ran against a missing executable and failed instead of
-  // skipping, which is a false signal in both directions. The check is the executable itself.
-  const { existsSync } = await import("node:fs");
-  for (const candidate of ["playwright", "@playwright/test"]) {
-    try {
-      const loaded = (await import(/* @vite-ignore */ candidate)) as {
-        chromium?: { executablePath?: () => string };
-      };
-      const binary = loaded.chromium?.executablePath?.();
-      if (binary && existsSync(binary)) return true;
-    } catch {
-      // try the next candidate
-    }
+  // The module being importable says nothing about a browser being installed, and an existing
+  // full-Chrome binary says nothing about the headless shell the runtime actually launches: a
+  // machine can have one revision without the other, and the suite then ran and failed instead of
+  // skipping. The only honest probe is the launch the runtime itself performs.
+  if (process.env.BROWSER_CDP_URL || process.env.BROWSERLESS_TOKEN || process.env.BROWSERBASE_API_KEY) {
+    return true;
   }
-  return false;
+  try {
+    const { chromium } = await import("playwright-core");
+    const browser = await chromium.launch({ headless: true });
+    await browser.close();
+    return true;
+  } catch {
+    return false;
+  }
 })();
 
 const SESSION = "live-runtime-test";
