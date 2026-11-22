@@ -17,7 +17,7 @@ Production: لم يُلمس.
 | الهيدر داكن في الوضع الفاتح | COMPLETED | ألوان من tokens السمة | site-header.tsx | d7ec26d | لقطة |
 | فشل prerender `/support` | COMPLETED | `next build` نجح | app/support/page.tsx، app/tv/page.tsx | 5cad1bd | build نجح |
 | فشل بناء Vercel مع الفيديوهات | COMPLETED | Preview نجح | next.config.ts | 5cad1bd | Vercel success |
-| مشغل عمودي داخل إطار أفقي على الجوال | COMPLETED | لقطة tv-player-playing-390 | components/tv/tv-player.tsx | آخر commit | E2E نجح |
+| مشغل عمودي داخل إطار أفقي على الجوال | COMPLETED | لقطة tv-player-playing-390 | components/tv/tv-player.tsx | b771c6e | E2E نجح |
 
 ## ADDED
 | المهمة | Status | Evidence | File | Commit | Test Result |
@@ -30,8 +30,8 @@ Production: لم يُلمس.
 | مركز الإعدادات (14 قسمًا) | COMPLETED | يحوّل لـ /login دون جلسة | app/(chat)/settings/page.tsx | d7ec26d | E2E |
 | الفوتر الجديد | COMPLETED | لقطات | components/site-footer.tsx | d7ec26d | E2E overflow |
 | روابط المساعدة في الشريط الجانبي | COMPLETED | tsc | components/app-sidebar.tsx | 033b128 | tsc |
-| الوثائق (15 + Solas Social) | COMPLETED | docs/experience-2 | — | 033b128 وآخر commit | — |
-| E2E Experience 2.0 | COMPLETED | 11/11 | tests/e2e/experience-2.test.ts | آخر commit | نجح |
+| الوثائق (15 + Solas Social) | COMPLETED | docs/experience-2 | — | 033b128، b771c6e | — |
+| E2E Experience 2.0 | COMPLETED | 11/11 | tests/e2e/experience-2.test.ts | b771c6e | نجح |
 
 ## TESTED
 انظر TEST-RESULTS.md: tsc، lint، 1451 unit، build، 11 E2E على 7 عروض، Vercel preview.
