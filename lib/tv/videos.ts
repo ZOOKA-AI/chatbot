@@ -83,7 +83,7 @@ export const TV_VIDEOS: TvVideo[] = [
     category: "featured",
     publishDate: "2026-11-22",
     featured: true,
-    visibility: "review",
+    visibility: "published",
     verification: "owned-file",
     captions: {
       ar: "/videos/captions/meet-zooka-ai.ar.vtt",
@@ -113,7 +113,7 @@ export const TV_VIDEOS: TvVideo[] = [
     category: "tutorials",
     publishDate: "2026-11-22",
     featured: false,
-    visibility: "review",
+    visibility: "published",
     verification: "owned-file",
     captions: {
       ar: "/videos/captions/build-with-zooka-ai.ar.vtt",

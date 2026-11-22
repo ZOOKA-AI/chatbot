@@ -23,8 +23,8 @@ Production: لم يُلمس.
 | المهمة | Status | Evidence | File | Commit | Test Result |
 |---|---|---|---|---|---|
 | ZOOKA AI TV | COMPLETED | `/tv` 200، E2E تشغيل فعلي | app/tv، components/tv، lib/tv/videos.ts | d7ec26d، 033b128 | 13 unit + E2E |
-| فيديو 01 Meet ZOOKA-AI | COMPLETED (بانتظار موافقة النشر) | ملفات MP4 قابلة للتشغيل 40.6s | public/videos/brand | 033b128 | ffprobe + تشغيل |
-| فيديو 02 What Can You Build | COMPLETED (بانتظار موافقة النشر) | 50.7s | public/videos/brand | 033b128 | ffprobe + تشغيل |
+| فيديو 01 Meet ZOOKA-AI | COMPLETED (وافق المالك، published) | ملفات MP4 قابلة للتشغيل 40.6s | public/videos/brand | 033b128 | ffprobe + تشغيل |
+| فيديو 02 What Can You Build | COMPLETED (وافق المالك، published) | 50.7s | public/videos/brand | 033b128 | ffprobe + تشغيل |
 | ترجمات AR/EN | COMPLETED | 4 ملفات VTT | public/videos/captions | 033b128 | unit (وجود الملفات) |
 | مركز الدعم | COMPLETED | `/support` 200 | app/support، lib/support/content.ts | d7ec26d | E2E |
 | مركز الإعدادات (14 قسمًا) | COMPLETED | يحوّل لـ /login دون جلسة | app/(chat)/settings/page.tsx | d7ec26d | E2E |
@@ -49,7 +49,7 @@ Production: لم يُلمس.
 
 ## NEEDS APPROVAL
 1. دمج PR #218 (ويتضمن commits PR #191).
-2. نشر الفيديوهين: تغيير `visibility` من `review` إلى `published` بعد مراجعة المحتوى.
+2. ~~نشر الفيديوهين~~: وافق المالك؛ الحالة الآن `published` وتظهر على Production عند الدمج. النشر على المنصات الاجتماعية ما زال يحتاج موافقة منفصلة.
 3. تأكيد ملكية Facebook وReddit؛ قرار g.dev في `sameAs` بصفحة `/developer`.
 4. أي Migration لقاعدة البيانات.
 5. إعادة ربط Vercel بصلاحية على فريق zooka-ai1 إذا أردت أن أفحص المعاينة المحمية مباشرة.

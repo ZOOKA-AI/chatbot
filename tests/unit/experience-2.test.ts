@@ -61,11 +61,25 @@ describe("ZOOKA AI TV catalog", () => {
   });
 
   test("videos waiting for review never reach production", () => {
-    const prod = visibleVideos(TV_VIDEOS, true);
+    const draft = {
+      ...TV_VIDEOS[0],
+      id: "draft-check",
+      visibility: "review" as const,
+    };
+    const catalog = [...TV_VIDEOS, draft];
+    const prod = visibleVideos(catalog, true);
     expect(prod.every((video) => video.visibility === "published")).toBe(true);
-    expect(prod.some((video) => video.id === "meet-zooka-ai")).toBe(false);
-    const preview = visibleVideos(TV_VIDEOS, false);
-    expect(preview.some((video) => video.id === "meet-zooka-ai")).toBe(true);
+    expect(prod.some((video) => video.id === "draft-check")).toBe(false);
+    const preview = visibleVideos(catalog, false);
+    expect(preview.some((video) => video.id === "draft-check")).toBe(true);
+  });
+
+  test("owner-approved brand videos are published", () => {
+    for (const id of ["meet-zooka-ai", "build-with-zooka-ai"]) {
+      expect(TV_VIDEOS.find((video) => video.id === id)?.visibility).toBe(
+        "published"
+      );
+    }
   });
 
   test("required fields are filled in both languages", () => {
