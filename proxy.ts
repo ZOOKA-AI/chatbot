@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 import { isNavigation, requestIdFrom } from "./lib/http/request-id";
+import { verifySharedSecret } from "./lib/webhooks/security";
 import {
   ATTRIBUTION_COOKIE,
   ATTRIBUTION_MAX_AGE_SECONDS,
@@ -22,11 +23,11 @@ import {
 const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
 
 /**
- * The one endpoint the n8n publishing scheduler calls. It authenticates with a
- * shared secret inside the route handler, not with a session, so the proxy must
- * let the request through - and only for POST on this exact path.
+ * TikTok keeps its existing route-level authentication. The growth report
+ * requires a valid machine credential at both the proxy and the handler.
  */
 const N8N_SERVICE_ENDPOINT = "/api/integrations/n8n/tiktok/run";
+const N8N_GROWTH_REPORT = "/api/integrations/n8n/growth/report";
 
 const PROTECTED_PREFIXES = [
   "/chat",
@@ -122,14 +123,18 @@ async function route(request: NextRequest, requestId: string) {
   }
 
   /*
-   * The publishing scheduler runs in n8n, which has no browser session. It calls
-   * exactly one endpoint, with POST, and proves itself with the x-n8n-secret
-   * header that the handler compares in constant time. The exemption is written
-   * as that single path plus that single method: a GET, a sibling route under
-   * /api/integrations/n8n, or any other API keeps the session gate, so this is a
-   * doorway for one machine caller rather than a hole in the boundary.
+   * Machine access is scoped to POST on exact paths. The growth route must
+   * never be added to the anonymous-route inventory.
    */
   if (request.method === "POST" && pathname === N8N_SERVICE_ENDPOINT) {
+    return NextResponse.next();
+  }
+
+  if (request.method === "POST" && pathname === N8N_GROWTH_REPORT) {
+    const secret = process.env.N8N_GROWTH_REPORT_SECRET;
+    if (!verifySharedSecret(request.headers.get("x-n8n-secret"), secret)) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
     return NextResponse.next();
   }
 

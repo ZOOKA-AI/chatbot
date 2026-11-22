@@ -49,19 +49,19 @@ function isPublicHttpUrl(value: string) {
 function decodeEntities(input: string) {
   return input
     .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/&#x27;/gi, "'");
+    .replace(/&#x27;/gi, "'")
+    .replace(/&amp;/gi, "&");
 }
 
 export function htmlToText(html: string) {
   const withoutNoise = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script\b[^>]*>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style\b[^>]*>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript\b[^>]*>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ");
 
   const titleMatch = withoutNoise.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
