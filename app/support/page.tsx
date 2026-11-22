@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SocialIconRow } from "@/components/social-icon-row";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
@@ -64,7 +65,16 @@ const SUPPORT_PROMPTS = [
   },
 ];
 
-export default async function SupportPage() {
+export default function SupportPage() {
+  // getLang reads a cookie, so the shell stays static and the content streams.
+  return (
+    <Suspense fallback={null}>
+      <SupportContent />
+    </Suspense>
+  );
+}
+
+async function SupportContent() {
   const lang = await getLang();
   const ar = lang === "ar";
   const l = (value: { ar: string; en: string }) => value[lang];

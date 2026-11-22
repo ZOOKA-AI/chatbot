@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SocialIconRow } from "@/components/social-icon-row";
 import { TvPlayer } from "@/components/tv/tv-player";
@@ -27,11 +28,23 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function TvPage({
+type TvSearchParams = Promise<{ v?: string; c?: string }>;
+
+export default function TvPage({
   searchParams,
 }: {
-  searchParams: Promise<{ v?: string; c?: string }>;
+  searchParams: TvSearchParams;
 }) {
+  // The language cookie and the query string are request data, so the shell stays static and
+  // the channel streams in (required by cacheComponents).
+  return (
+    <Suspense fallback={null}>
+      <TvContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function TvContent({ searchParams }: { searchParams: TvSearchParams }) {
   const [{ v, c }, lang] = await Promise.all([searchParams, getLang()]);
   const ar = lang === "ar";
   const videos = visibleVideos();
