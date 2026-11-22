@@ -48,6 +48,8 @@ describe("ZOOKA AI TV catalog", () => {
         video.sourceUrl,
         video.thumbnail,
         video.vertical,
+        video.englishVersion,
+        video.englishVertical,
         video.captions?.ar,
         video.captions?.en,
       ]) {
@@ -112,7 +114,9 @@ describe("official accounts", () => {
   });
 
   test("pending accounts carry no link", () => {
-    for (const account of SOCIAL_ACCOUNTS.filter((a) => a.status === "pending")) {
+    for (const account of SOCIAL_ACCOUNTS.filter(
+      (a) => a.status === "pending"
+    )) {
       expect(account.href).toBeUndefined();
       expect(liveAccounts([account.id])).toHaveLength(0);
     }

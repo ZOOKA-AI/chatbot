@@ -14,6 +14,14 @@ type Lang = "ar" | "en";
 export function TvPlayer({ video, lang }: { video: TvVideo; lang: Lang }) {
   const ar = lang === "ar";
   const [copied, setCopied] = useState(false);
+  // Brand videos ship an Arabic cut (default) and an English cut. Visitors pick
+  // the voice-over; the page language only sets the starting choice.
+  const [voice, setVoice] = useState<Lang>(
+    video.englishVersion && !ar ? "en" : video.language === "en" ? "en" : "ar"
+  );
+  const useEnglishCut = voice === "en" && Boolean(video.englishVersion);
+  const mainSource = useEnglishCut ? video.englishVersion : video.sourceUrl;
+  const verticalSource = useEnglishCut ? video.englishVertical : video.vertical;
   const pageUrl = `https://zooka-ai.com/tv?v=${video.id}`;
 
   async function share() {
@@ -43,19 +51,19 @@ export function TvPlayer({ video, lang }: { video: TvVideo; lang: Lang }) {
           className="h-full w-full"
           controls
           crossOrigin="anonymous"
-          key={video.id}
+          key={`${video.id}-${voice}`}
           playsInline
           poster={video.thumbnail}
           preload="metadata"
         >
-          {video.vertical ? (
+          {verticalSource ? (
             <source
               media="(max-width: 640px) and (orientation: portrait)"
-              src={video.vertical}
+              src={verticalSource}
               type="video/mp4"
             />
           ) : null}
-          <source src={video.sourceUrl} type="video/mp4" />
+          <source src={mainSource} type="video/mp4" />
           {video.captions?.ar ? (
             <track
               default={ar}
@@ -100,24 +108,44 @@ export function TvPlayer({ video, lang }: { video: TvVideo; lang: Lang }) {
             {video.description[lang]}
           </p>
         </div>
-        <button
-          className="border-border hover:bg-muted focus-visible:ring-ring inline-flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
-          onClick={share}
-          type="button"
-        >
-          {copied ? (
-            <Check className="size-4" />
-          ) : (
-            <Share2 className="size-4" />
-          )}
-          {copied
-            ? ar
-              ? "تم نسخ الرابط"
-              : "Link copied"
-            : ar
-              ? "مشاركة"
-              : "Share"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {video.englishVersion ? (
+            <fieldset className="border-border inline-flex rounded-lg border p-1">
+              <legend className="sr-only">
+                {ar ? "لغة التعليق الصوتي" : "Voice-over language"}
+              </legend>
+              {(["ar", "en"] as const).map((option) => (
+                <button
+                  aria-pressed={voice === option}
+                  className={`focus-visible:ring-ring min-h-9 rounded-md px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none ${voice === option ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  key={option}
+                  onClick={() => setVoice(option)}
+                  type="button"
+                >
+                  {option === "ar" ? "العربية" : "English"}
+                </button>
+              ))}
+            </fieldset>
+          ) : null}
+          <button
+            className="border-border hover:bg-muted focus-visible:ring-ring inline-flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            onClick={share}
+            type="button"
+          >
+            {copied ? (
+              <Check className="size-4" />
+            ) : (
+              <Share2 className="size-4" />
+            )}
+            {copied
+              ? ar
+                ? "تم نسخ الرابط"
+                : "Link copied"
+              : ar
+                ? "مشاركة"
+                : "Share"}
+          </button>
+        </div>
       </div>
     </article>
   );

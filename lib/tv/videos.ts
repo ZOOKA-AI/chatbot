@@ -56,6 +56,10 @@ export interface TvVideo {
   captions?: { ar?: string; en?: string };
   /** Alternate renditions, e.g. the vertical cut for phones. */
   vertical?: string;
+  /** Same video with English visuals and English voice-over (landscape). */
+  englishVersion?: string;
+  /** Vertical cut of the English version. */
+  englishVertical?: string;
 }
 
 export const TV_VIDEOS: TvVideo[] = [
@@ -69,8 +73,10 @@ export const TV_VIDEOS: TvVideo[] = [
     platform: "site",
     sourceUrl: "/videos/brand/meet-zooka-ai-1920x1080.mp4",
     vertical: "/videos/brand/meet-zooka-ai-1080x1920.mp4",
+    englishVersion: "/videos/brand/meet-zooka-ai-en-1920x1080.mp4",
+    englishVertical: "/videos/brand/meet-zooka-ai-en-1080x1920.mp4",
     thumbnail: "/videos/brand/meet-zooka-ai-thumb.jpg",
-    duration: 38,
+    duration: 41,
     width: 1920,
     height: 1080,
     language: "ar",
@@ -97,8 +103,10 @@ export const TV_VIDEOS: TvVideo[] = [
     platform: "site",
     sourceUrl: "/videos/brand/build-with-zooka-ai-1920x1080.mp4",
     vertical: "/videos/brand/build-with-zooka-ai-1080x1920.mp4",
+    englishVersion: "/videos/brand/build-with-zooka-ai-en-1920x1080.mp4",
+    englishVertical: "/videos/brand/build-with-zooka-ai-en-1080x1920.mp4",
     thumbnail: "/videos/brand/build-with-zooka-ai-thumb.jpg",
-    duration: 52,
+    duration: 51,
     width: 1920,
     height: 1080,
     language: "ar",
