@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { ChevronDown, Menu, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -47,7 +47,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("فيديو تعريفي", "Demo video"),
           href: "/#video",
-          hint: t("دقيقة واحدة تشرح كل حاجة", "One minute that explains it all"),
+          hint: t(
+            "دقيقة واحدة تشرح كل حاجة",
+            "One minute that explains it all"
+          ),
         },
         {
           label: t("قوالب مهام جاهزة", "Ready-made tasks"),
@@ -72,7 +75,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("شركات التنظيف والخدمات", "Cleaning & services"),
           href: "/#use-cases",
-          hint: t("ردود العملاء، الفواتير، المتابعة", "Customer replies, invoices, follow-up"),
+          hint: t(
+            "ردود العملاء، الفواتير، المتابعة",
+            "Customer replies, invoices, follow-up"
+          ),
         },
         {
           label: t("المتاجر والمبيعات", "Retail & sales"),
@@ -97,7 +103,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("الباقات الأربع", "The four plans"),
           href: "/#plans",
-          hint: t("مجاني، احترافي، أعمال، مؤسسات", "Free, Pro, Business, Enterprise"),
+          hint: t(
+            "مجاني، احترافي، أعمال، مؤسسات",
+            "Free, Pro, Business, Enterprise"
+          ),
         },
         {
           label: t("الأمان والخصوصية", "Security & privacy"),
@@ -127,7 +136,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("المطورون — MCP", "Developers — MCP"),
           href: "/settings/mcp",
-          hint: t("مفاتيح MCP وكتالوج الأدوات", "MCP keys and the tool catalog"),
+          hint: t(
+            "مفاتيح MCP وكتالوج الأدوات",
+            "MCP keys and the tool catalog"
+          ),
         },
         {
           label: "ZOOKA AI TV",
@@ -151,7 +163,7 @@ export function SiteHeader({ lang }: { lang: Lang }) {
   const flat = groups.flatMap((group) => group.items);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-xl">
+    <header className="border-border bg-background/85 sticky top-0 z-40 border-b backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3">
         <Link className="flex items-center gap-2 font-semibold" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -162,7 +174,9 @@ export function SiteHeader({ lang }: { lang: Lang }) {
             src="/brand/zooka-mark-256.png"
             width={36}
           />
-          <span className="text-base tracking-tight">Zooka AI</span>
+          <span className="text-base font-bold tracking-wide" dir="ltr">
+            ZOOKA-AI
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-1 text-sm lg:flex">
@@ -170,20 +184,20 @@ export function SiteHeader({ lang }: { lang: Lang }) {
             <div className="group relative" key={group.label}>
               <button
                 aria-haspopup="true"
-                className="flex items-center gap-1 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-1 rounded-lg px-3 py-2 transition-colors"
                 type="button"
               >
                 {group.label}
                 <ChevronDown className="size-3.5 transition-transform group-hover:rotate-180" />
               </button>
-              <div className="invisible absolute start-0 top-full w-[22rem] translate-y-1 rounded-2xl border border-border bg-popover p-2 opacity-0 shadow-2xl transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+              <div className="border-border bg-popover invisible absolute start-0 top-full w-[22rem] translate-y-1 rounded-2xl border p-2 opacity-0 shadow-2xl transition-all duration-150 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
                 {group.items.map((item) => (
                   <a
-                    className="flex flex-col gap-0.5 rounded-xl px-3 py-2 transition-colors hover:bg-muted"
+                    className="hover:bg-muted flex flex-col gap-0.5 rounded-xl px-3 py-2 transition-colors"
                     href={item.href}
                     key={item.label}
                   >
-                    <span className="font-medium text-foreground">
+                    <span className="text-foreground font-medium">
                       {item.label}
                     </span>
                     <span className="text-muted-foreground text-xs">
@@ -198,21 +212,21 @@ export function SiteHeader({ lang }: { lang: Lang }) {
 
         <div className="flex items-center gap-2">
           <LanguageToggle
-            className="hidden rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-muted sm:block"
+            className="border-border hover:bg-muted hidden rounded-lg border px-3 py-1.5 text-sm transition-colors sm:block"
             lang={lang}
           />
           <ThemeToggle
-            className="hidden size-10 items-center justify-center rounded-lg border border-border transition-colors hover:bg-muted sm:inline-flex"
+            className="border-border hover:bg-muted hidden size-10 items-center justify-center rounded-lg border transition-colors sm:inline-flex"
             lang={lang}
           />
           <Link
-            className="hidden rounded-lg px-3 py-2 text-muted-foreground text-sm transition-colors hover:text-foreground sm:block"
+            className="zk-btn-ghost hidden min-h-10 rounded-xl px-4 py-1.5 text-sm sm:inline-flex"
             href="/login"
           >
             {t("تسجيل الدخول", "Sign in")}
           </Link>
           <Link
-            className="rounded-lg bg-foreground px-4 py-2 font-medium text-background text-sm"
+            className="zk-btn-primary min-h-10 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs sm:px-4 sm:text-sm"
             href={CTA.workspace.href}
           >
             {isArabic ? CTA.workspace.ar : CTA.workspace.en}
@@ -221,9 +235,9 @@ export function SiteHeader({ lang }: { lang: Lang }) {
             aria-controls="site-mobile-menu"
             aria-expanded={open}
             aria-label={t("القائمة", "Menu")}
-            className="inline-flex size-11 items-center justify-center rounded-lg border border-border lg:hidden"
-            ref={menuButton}
+            className="border-border inline-flex size-11 items-center justify-center rounded-lg border lg:hidden"
             onClick={() => setOpen((value) => !value)}
+            ref={menuButton}
             type="button"
           >
             {open ? <X className="size-4" /> : <Menu className="size-4" />}
@@ -233,13 +247,13 @@ export function SiteHeader({ lang }: { lang: Lang }) {
 
       {open ? (
         <div
-          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border bg-background lg:hidden"
+          className="border-border bg-background max-h-[calc(100dvh-4rem)] overflow-y-auto border-t lg:hidden"
           id="site-mobile-menu"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-1 px-5 py-3">
             {flat.map((item) => (
               <a
-                className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-muted"
+                className="hover:bg-muted flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors"
                 href={item.href}
                 key={`${item.href}-${item.label}`}
                 onClick={() => setOpen(false)}
@@ -250,16 +264,16 @@ export function SiteHeader({ lang }: { lang: Lang }) {
                 </span>
               </a>
             ))}
-            <div className="mt-2 flex items-center gap-2 border-border border-t pt-3">
+            <div className="border-border mt-2 flex items-center gap-2 border-t pt-3">
               <Link
-                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border px-3 py-2 text-sm"
+                className="border-border inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border px-3 py-2 text-sm"
                 href="/login"
                 onClick={() => setOpen(false)}
               >
                 {t("تسجيل الدخول", "Sign in")}
               </Link>
               <LanguageToggle
-                className="min-h-11 rounded-lg border border-border px-3 py-2 text-sm"
+                className="border-border min-h-11 rounded-lg border px-3 py-2 text-sm"
                 lang={lang}
               />
               <ThemeToggle lang={lang} />

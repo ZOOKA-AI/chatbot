@@ -120,60 +120,143 @@ export function LoginClient({
     });
   };
 
+  const isArabic = lang === "ar";
+
   return (
-    <div className="flex min-h-dvh w-full items-start justify-center bg-background px-0 pt-16 pb-10 md:items-center md:py-10">
+    <div className="dark zk-brand zk-brand-bg relative grid min-h-dvh w-full overflow-hidden lg:grid-cols-[1.05fr_0.95fr]">
       <LanguageToggle lang={lang} />
-      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl sm:gap-10">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h1 className="font-semibold text-2xl dark:text-zinc-50">{t.title}</h1>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">
-            {t.subtitle}
-          </p>
+
+      <aside className="relative hidden flex-col justify-between gap-10 overflow-hidden border-border border-e p-10 lg:flex">
+        <Link className="flex items-center gap-3" href="/">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt="ZOOKA-AI"
+            className="size-11 rounded-xl"
+            height={44}
+            src="/brand/zooka-mark-256.png"
+            width={44}
+          />
+          <span className="font-bold text-xl tracking-wide" dir="ltr">
+            ZOOKA-AI
+          </span>
+        </Link>
+
+        <div className="relative flex flex-1 items-center justify-center">
+          <span aria-hidden="true" className="zk-orbit inset-x-0 top-[24%] h-[48%]" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt={
+              isArabic
+                ? "شخصية زوكا AI الروبوتية — رسم توضيحي للعلامة"
+                : "The ZOOKA-AI robot character — a brand illustration"
+            }
+            className="zk-mascot relative w-full max-w-xl object-cover"
+            decoding="async"
+            height={675}
+            src="/images/zooka-mascot.webp"
+            width={1200}
+          />
         </div>
-        {hasAuthError ? (
-          <p className="px-4 text-center text-red-600 text-sm" role="alert">
-            {t.authError}
+
+        <div className="flex flex-col gap-4">
+          <p className="font-bold text-3xl leading-snug">
+            {isArabic ? "ذكاء اصطناعي يعمل معك، " : "AI that works with you, "}
+            <span className="zk-gradient-text">
+              {isArabic ? "وينجز عنك" : "and gets it done for you"}
+            </span>
           </p>
-        ) : null}
-        {justRegistered && !hasAuthError ? (
-          <p
-            className="px-4 text-center text-emerald-600 text-sm dark:text-emerald-400"
-            data-testid="register-notice"
-            role="status"
-          >
-            {t.justRegistered}
+          <p className="text-muted-foreground">
+            {isArabic ? "تقنية بإيمان، تقدم بأخلاق" : "Innovate · Automate · Grow"}
           </p>
-        ) : null}
-        {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
-        <SocialSignInButtons
-          facebook={facebookEnabled}
-          google={googleEnabled}
-          lang={lang}
-          microsoft={microsoftEnabled}
-        />
-        <AuthForm
-          action={handleSubmit}
-          defaultEmail={email}
-          labels={{ email: t.email, password: t.password }}
-        >
-          <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
-          <Link
-            className="inline-flex min-h-11 items-center justify-center self-center px-2 text-muted-foreground text-sm underline underline-offset-4"
-            href="/forgot-password"
-          >
-            {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
-          </Link>
-          <p className="text-center text-gray-600 text-sm dark:text-zinc-400">
-            {`${t.noAccount} `}
-            <Link
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
-              href="/register"
-            >
-              {t.signUpLink}
+          <ul className="grid gap-2 text-sm">
+            {(isArabic
+              ? [
+                  "الربط بصفحة موافقة المزوّد الرسمية — لا نطلب كلمة مرور حساباتك",
+                  "رموز مشفّرة ومعزولة لمساحة عملك فقط",
+                  "أي إرسال لطرف خارجي ينتظر موافقتك",
+                ]
+              : [
+                  "Connections use the provider's own consent screen — we never ask for your account passwords",
+                  "Tokens encrypted and isolated to your workspace",
+                  "Anything sent to an outside party waits for your approval",
+                ]
+            ).map((item) => (
+              <li className="zk-card flex items-center gap-3 px-4 py-2.5" key={item}>
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 shrink-0 rounded-full bg-[#24D6E6] shadow-[0_0_10px_#24D6E6]"
+                />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+
+      <main className="relative flex w-full items-start justify-center px-4 pt-20 pb-10 md:items-center md:py-10">
+        <div className="zk-frame flex w-full max-w-md flex-col gap-6 px-2 py-8 sm:gap-8 sm:px-4">
+          <div className="flex flex-col items-center justify-center gap-3 px-4 text-center sm:px-10">
+            <Link aria-label="ZOOKA-AI" className="flex items-center gap-2 lg:hidden" href="/">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt=""
+                className="size-10 rounded-xl"
+                height={40}
+                src="/brand/zooka-mark-256.png"
+                width={40}
+              />
+              <span className="font-bold text-lg tracking-wide" dir="ltr">
+                ZOOKA-AI
+              </span>
             </Link>
-          </p>
-        </AuthForm>
-      </div>
+            <h1 className="font-bold text-2xl">{t.title}</h1>
+            <p className="text-muted-foreground text-sm">{t.subtitle}</p>
+          </div>
+          {hasAuthError ? (
+            <p className="px-4 text-center text-red-400 text-sm" role="alert">
+              {t.authError}
+            </p>
+          ) : null}
+          {justRegistered && !hasAuthError ? (
+            <p
+              className="px-4 text-center text-emerald-400 text-sm"
+              data-testid="register-notice"
+              role="status"
+            >
+              {t.justRegistered}
+            </p>
+          ) : null}
+          {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
+          <SocialSignInButtons
+            facebook={facebookEnabled}
+            google={googleEnabled}
+            lang={lang}
+            microsoft={microsoftEnabled}
+          />
+          <AuthForm
+            action={handleSubmit}
+            defaultEmail={email}
+            labels={{ email: t.email, password: t.password }}
+          >
+            <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
+            <Link
+              className="inline-flex min-h-11 items-center justify-center self-center px-2 text-muted-foreground text-sm underline underline-offset-4"
+              href="/forgot-password"
+            >
+              {isArabic ? "نسيت كلمة المرور؟" : "Forgot password?"}
+            </Link>
+            <p className="text-center text-muted-foreground text-sm">
+              {`${t.noAccount} `}
+              <Link
+                className="font-semibold text-[#8fb2ff] hover:underline"
+                href="/register"
+              >
+                {t.signUpLink}
+              </Link>
+            </p>
+          </AuthForm>
+        </div>
+      </main>
     </div>
   );
 }
