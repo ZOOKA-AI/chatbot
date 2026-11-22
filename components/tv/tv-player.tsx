@@ -44,7 +44,7 @@ export function TvPlayer({ video, lang }: { video: TvVideo; lang: Lang }) {
   return (
     <article className="flex flex-col gap-4" data-testid="tv-player">
       <div
-        className={`border-border overflow-hidden rounded-2xl border bg-black ${portrait ? "mx-auto aspect-[9/16] h-[min(70vh,640px)] max-w-full" : "aspect-video"}`}
+        className={`border-border overflow-hidden rounded-2xl border bg-black ${portrait ? "mx-auto aspect-[9/16] h-[min(70vh,640px)] max-w-full" : verticalSource ? "aspect-video [@media(max-width:640px)_and_(orientation:portrait)]:mx-auto [@media(max-width:640px)_and_(orientation:portrait)]:aspect-[9/16] [@media(max-width:640px)_and_(orientation:portrait)]:h-[min(70vh,640px)] [@media(max-width:640px)_and_(orientation:portrait)]:max-w-full" : "aspect-video"}`}
       >
         {/* biome-ignore lint/a11y/useMediaCaption: caption tracks are rendered below when the video has speech; silent product clips have none */}
         <video
@@ -66,7 +66,7 @@ export function TvPlayer({ video, lang }: { video: TvVideo; lang: Lang }) {
           <source src={mainSource} type="video/mp4" />
           {video.captions?.ar ? (
             <track
-              default={ar}
+              default={voice === "ar"}
               kind="captions"
               label="العربية"
               src={video.captions.ar}
@@ -75,7 +75,7 @@ export function TvPlayer({ video, lang }: { video: TvVideo; lang: Lang }) {
           ) : null}
           {video.captions?.en ? (
             <track
-              default={!ar}
+              default={voice === "en"}
               kind="captions"
               label="English"
               src={video.captions.en}

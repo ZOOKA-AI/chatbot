@@ -130,7 +130,7 @@ export function SiteFooter({
             <p>
               {ar ? "الدعم: " : "Support: "}
               <a
-                className="text-foreground underline-offset-4 hover:underline"
+                className="text-foreground inline-flex min-h-11 items-center underline-offset-4 hover:underline"
                 href={`mailto:${SUPPORT_EMAIL}`}
               >
                 {SUPPORT_EMAIL}

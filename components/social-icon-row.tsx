@@ -70,7 +70,7 @@ export function SocialIconRow({
       </ul>
       {showHubLink ? (
         <Link
-          className="text-muted-foreground hover:text-foreground w-fit text-xs underline-offset-4 hover:underline"
+          className="text-muted-foreground hover:text-foreground inline-flex min-h-11 w-fit items-center text-xs underline-offset-4 hover:underline"
           href="/social"
         >
           {ar
