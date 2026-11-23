@@ -17,7 +17,7 @@ export const OWNER_TESTING_FLAG = "OWNER_TESTING_EMAILS";
 export function ownerTestingEmails(
   env: Record<string, string | undefined> = process.env
 ): Set<string> {
-  const raw = env[OWNER_TESTING_FLAG] ?? "";
+  const raw = env.OWNER_TESTING_EMAILS ?? "";
   return new Set(
     raw
       .split(/[\s,;]+/)
