@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   deserializeAttribution,
+  isInternalHost,
   parseAttribution,
   serializeAttribution,
 } from "../../lib/growth/attribution";
@@ -139,3 +140,31 @@ function assertChannel(
   expect(parsed?.source).toBe(source);
   expect(parsed?.medium).toBe(medium);
 }
+
+/**
+ * A lookalike domain must never be treated as ours. This is not cosmetic: an
+ * internal host is dropped from attribution, so "evilzooka-ai.com" slipping
+ * through would silently erase real traffic from every channel report.
+ */
+describe("internal host detection", () => {
+  test("our own host and its real subdomains are internal", () => {
+    expect(isInternalHost("zooka-ai.com")).toBe(true);
+    expect(isInternalHost("www.zooka-ai.com")).toBe(true);
+    expect(isInternalHost("WWW.ZOOKA-AI.COM")).toBe(true);
+    expect(isInternalHost("localhost")).toBe(true);
+  });
+
+  test("a lookalike domain is not internal", () => {
+    expect(isInternalHost("evilzooka-ai.com")).toBe(false);
+    expect(isInternalHost("zooka-ai.com.evil.tld")).toBe(false);
+    expect(isInternalHost("notzooka-ai.com")).toBe(false);
+  });
+
+  test("a referrer from a lookalike domain is recorded as a channel", () => {
+    const parsed = parseAttribution(
+      new URL("https://zooka-ai.com/"),
+      "https://evilzooka-ai.com/landing"
+    );
+    expect(parsed?.source).toBe("evilzooka-ai.com");
+  });
+});
