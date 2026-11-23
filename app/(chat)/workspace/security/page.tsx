@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
-
-import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { AdminDenied, adminPageContext } from "@/lib/admin/page-guard";
 import {
   auditReportUrl,
   openActions,
@@ -17,17 +15,15 @@ const stateClass: Record<string, string> = {
 };
 
 export default async function WorkspaceSecurityPage() {
-  const context = await getWorkspaceContext();
-  if (!context) {
-    redirect("/login");
-  }
-
-  const canManage = ["owner", "admin"].includes(String(context.role));
-  if (!canManage) {
+  // The rows below describe the platform owner's own accounts and devices.
+  // Owning a workspace (which every sign-up does) must not reveal them, so
+  // the page requires the platform admin grant, like /admin.
+  const admin = await adminPageContext();
+  if (!admin) {
     return (
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
         <h1 className="text-lg font-semibold">الأمان · Security</h1>
-        <p className="text-sm opacity-70">هذا القسم متاح لمالك المساحة ومديريها فقط.</p>
+        <AdminDenied />
       </main>
     );
   }
