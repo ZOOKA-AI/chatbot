@@ -50,6 +50,12 @@ type WorkerAgent = {
   allowedTools?: unknown;
 };
 
+import {
+  connectorCatalog,
+  connectorLink,
+  connectorRead,
+  connectorStatus,
+} from "./worker-tools/connectors";
 import { browserTaskRun } from "./worker-tools/browser-task";
 import {
   studioAssetList,
@@ -74,6 +80,13 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   studio_ai_generate: studioAiGenerate,
   studio_narration: studioNarration,
   studio_audio_edit: studioAudioEdit,
+  // Connector skills: the chat surface could inspect and call integrations, a
+  // queued task could not. Read-only tools, and connector_link returns a path,
+  // never a token.
+  [connectorCatalog.name]: connectorCatalog,
+  [connectorStatus.name]: connectorStatus,
+  [connectorRead.name]: connectorRead,
+  [connectorLink.name]: connectorLink,
 };
 
 export class WorkerRefusal extends Error {
