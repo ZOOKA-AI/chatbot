@@ -4,12 +4,15 @@ import {
   createUIMessageStreamResponse,
   streamText,
   type UIMessage,
+  wrapLanguageModel,
 } from "ai";
+import { demoBusyMessage, demoRetryMiddleware, rateLimitRetrySeconds } from "@/lib/ai/demo-rate-limit";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { ChatbotError } from "@/lib/errors";
 import {
   commitGuestMessage,
+  checkDemoMinuteLimit,
   releaseGuestHold,
   reserveGuestMessage,
 } from "@/lib/guest-quota";
@@ -60,12 +63,26 @@ export async function POST(request: Request) {
     return new ChatbotError("bad_request:api").toResponse();
   }
 
+  const lang = await getLang();
   const hold = await reserveGuestMessage(request);
   if (!hold.ok) {
     return new ChatbotError("payment_required:chat").toResponse();
   }
 
-  const lang = await getLang();
+  let allowed: boolean;
+  try {
+    allowed = await checkDemoMinuteLimit(hold.id);
+  } catch {
+    await releaseGuestHold(hold.id);
+    return new ChatbotError("offline:chat").toResponse();
+  }
+  if (!allowed) {
+    await releaseGuestHold(hold.id);
+    return Response.json(
+      { code: "demo_busy", message: demoBusyMessage(60, lang), retryAfter: 60 },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
   let committed = false;
   const commit = () => {
     if (committed) {
@@ -82,7 +99,7 @@ export async function POST(request: Request) {
     void releaseGuestHold(hold.id);
   };
 
-  // A visitor who drops the connection before the first token keeps the message.
+  // A visitor who drops the connection before the first token keeps their allowance.
   request.signal.addEventListener("abort", releaseOnce, { once: true });
 
   const history = (body.history ?? [])
@@ -98,9 +115,17 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       execute: ({ writer }) => {
         const result = streamText({
-          model: getLanguageModel(DEFAULT_CHAT_MODEL),
+          model: wrapLanguageModel({
+            model: getLanguageModel(DEFAULT_CHAT_MODEL),
+            middleware: demoRetryMiddleware,
+          }),
           system: DEMO_SYSTEM,
           messages: modelMessages,
+          providerOptions: {
+            gateway: { models: [DEFAULT_CHAT_MODEL, "google/gemini-2.5-flash-lite"] },
+          },
+          maxRetries: 0,
+          abortSignal: request.signal,
           experimental_activeTools: [],
           onChunk: commit,
         });
@@ -108,6 +133,10 @@ export async function POST(request: Request) {
           result.toUIMessageStream({
             onError: (error) => {
               releaseOnce();
+              const retrySeconds = rateLimitRetrySeconds(error);
+              if (retrySeconds !== null) {
+                return `demo_busy:${retrySeconds}:${demoBusyMessage(retrySeconds, lang)}`;
+              }
               console.error({
                 code: "offline:chat",
                 surface: "demo",
@@ -123,6 +152,10 @@ export async function POST(request: Request) {
       generateId: generateUUID,
       onError: (error) => {
         releaseOnce();
+        const retrySeconds = rateLimitRetrySeconds(error);
+        if (retrySeconds !== null) {
+          return `demo_busy:${retrySeconds}:${demoBusyMessage(retrySeconds, lang)}`;
+        }
         console.error({
           code: "offline:chat",
           surface: "demo",
@@ -137,6 +170,13 @@ export async function POST(request: Request) {
     return createUIMessageStreamResponse({ stream });
   } catch (error) {
     releaseOnce();
+    const retrySeconds = rateLimitRetrySeconds(error);
+    if (retrySeconds !== null) {
+      return Response.json(
+        { code: "demo_busy", message: demoBusyMessage(retrySeconds, lang), retryAfter: retrySeconds },
+        { status: 429, headers: { "Retry-After": String(retrySeconds) } }
+      );
+    }
     console.error({
       code: "offline:chat",
       surface: "demo",
