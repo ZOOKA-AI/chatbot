@@ -189,31 +189,54 @@ const PurePreviewMessage = ({
                   </p>
                 );
               }
+              // Sources are supporting evidence, not the answer: a compact,
+              // collapsed list (title + domain) instead of dumping every
+              // snippet above the reply.
+              const results = part.output.results;
+              const domainOf = (url: string) => {
+                try {
+                  return new URL(url).hostname.replace(/^www\./, "");
+                } catch {
+                  return url;
+                }
+              };
               return (
-                <section
+                <details
                   aria-label="Web search sources"
-                  className="rounded-lg border p-3"
+                  className="group rounded-lg border px-3 py-2 text-sm"
+                  data-testid="search-sources"
                   key={toolCallId}
                 >
-                  <h3 className="mb-2 font-medium text-sm">مصادر البحث</h3>
-                  <ul className="flex flex-col gap-2">
-                    {part.output.results.map((result) => (
-                      <li className="text-sm" key={result.url}>
+                  <summary className="cursor-pointer select-none text-muted-foreground">
+                    مصادر البحث ({results.length})
+                    <span className="ms-2 text-xs">
+                      {results
+                        .slice(0, 3)
+                        .map((result) => domainOf(result.url))
+                        .join(" · ")}
+                    </span>
+                  </summary>
+                  <ol className="mt-2 flex flex-col gap-2">
+                    {results.map((result, index) => (
+                      <li key={result.url}>
                         <a
                           className="font-medium text-primary underline"
                           href={result.url}
                           rel="noopener noreferrer"
                           target="_blank"
                         >
-                          {result.title}
+                          [{index + 1}] {result.title}
                         </a>
-                        <p className="text-muted-foreground">
+                        <span className="ms-2 text-muted-foreground text-xs" dir="ltr">
+                          {domainOf(result.url)}
+                        </span>
+                        <p className="line-clamp-2 text-muted-foreground text-xs">
                           {result.content}
                         </p>
                       </li>
                     ))}
-                  </ul>
-                </section>
+                  </ol>
+                </details>
               );
             }
 
