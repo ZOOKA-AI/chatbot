@@ -34,7 +34,6 @@ const SAME_AS = [
   "https://t.me/zooka_ai_official_bot",
   "https://discord.gg/7ynqJxMZfQ",
   "https://bsky.app/profile/zookaai.bsky.social",
-  "https://www.reddit.com/user/Simple-Suggestion-26",
   "https://dev.to/zoka_ai",
 ];
 
