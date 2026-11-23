@@ -4,6 +4,7 @@ import { z } from "zod";
 import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { createTask, getTask, listTasks } from "@/lib/agents/command-center";
 import { executionReport } from "@/lib/agents/worker";
+import { completedSkillSnapshot } from "@/lib/agents/skill-snapshot";
 
 /**
  * The bridge between a conversation and real work.
@@ -106,6 +107,7 @@ export function createCommanderTools(input: {
         // shared handle, which is a cross-tenant read in production and a hard
         // failure under enforced row-level security.
         const run = await scoped(() => executionReport(input.organizationId, task.id));
+        const skillSnapshot = completedSkillSnapshot(task, run);
         return {
           ok: true,
           taskId: task.id,
@@ -116,6 +118,7 @@ export function createCommanderTools(input: {
           reportedAt: task.reportedAt,
           lastError: (task as { error?: string | null }).error ?? null,
           approvalRequired: task.approvalRequired,
+          ...(skillSnapshot ? { skillSnapshot } : {}),
           // The one honest sentence about completion available to the model.
           completion:
             task.status === "completed" && run?.status === "succeeded"

@@ -4,6 +4,7 @@ import {
   finishExecution,
   getTask,
   latestExecution,
+  reportLoadedSkill,
   reportTask,
   startExecution,
 } from "@/lib/agents/command-center";
@@ -14,6 +15,7 @@ import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-documen
 import { studioPromoVideo } from "@/lib/agents/worker-tools/studio-promo";
 import { studioAiGenerate } from "@/lib/agents/worker-tools/studio-ai-generate";
 import { workspaceReadinessInspect } from "@/lib/agents/worker-tools/workspace-readiness";
+import { loadSkill } from "@/lib/agents/worker-tools/load-skill";
 import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
 import { INTERNAL_WRITE_TOOLS } from "@/lib/agents/worker-types";
 import type { WorkerTool } from "@/lib/agents/worker-types";
@@ -70,6 +72,7 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
+  [loadSkill.name]: loadSkill,
   [projectDocumentCreate.name]: projectDocumentCreate,
   browser_task_run: browserTaskRun,
   studio_asset_list: studioAssetList,
@@ -315,15 +318,16 @@ export async function runTask(
       };
     }
 
-    const evidence = JSON.stringify({ tool: tool.name, summary: result.summary, result: result.evidence }).slice(
-      0,
-      8000
-    );
-    const reported = await reportTask(agent as never, {
-      taskId: input.taskId,
-      status: "completed",
-      evidence,
-    });
+    const reported = tool.name === loadSkill.name
+      ? await reportLoadedSkill(agent as never, {
+          taskId: input.taskId,
+          ...(result.evidence as { name: string; instructions: string }),
+        })
+      : await reportTask(agent as never, {
+          taskId: input.taskId,
+          status: "completed",
+          evidence: JSON.stringify({ tool: tool.name, summary: result.summary, result: result.evidence }).slice(0, 8000),
+        });
     if (!reported) {
       // The task moved out from under us (cancelled or already settled). The
       // execution is recorded as cancelled; nothing claims a completion.

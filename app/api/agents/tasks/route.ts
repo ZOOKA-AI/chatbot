@@ -12,6 +12,14 @@ import {
   unauthorized,
 } from "@/lib/agents/auth";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
+import { parseSkillSnapshot } from "@/lib/agents/skill-snapshot";
+
+function visibleTasks<T extends { evidence: string | null }>(tasks: T[], isAgent: boolean): T[] {
+  if (!isAgent) return tasks;
+  return tasks.map((task) =>
+    parseSkillSnapshot(task.evidence) ? { ...task, evidence: null } : task
+  );
+}
 
 async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
@@ -54,17 +62,17 @@ async function GETHandler(request: Request) {
       limit: query.data.limit ?? 25,
       cursor,
     });
-    return json(page);
+    return json({ ...page, tasks: visibleTasks(page.tasks, caller.kind === "agent") });
   }
 
   return json({
-    tasks: await listTasks({
+    tasks: visibleTasks(await listTasks({
       organizationId: callerOrganizationId(caller),
       status: query.data.status,
       ownerAgentId: query.data.ownerAgentId,
       available: query.data.available === "true",
       limit: query.data.limit ?? 50,
-    }),
+    }), caller.kind === "agent"),
   });
 }
 

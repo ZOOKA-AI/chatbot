@@ -792,6 +792,27 @@ export type ReportInput = {
 };
 
 export async function reportTask(agent: AgentIdentity, input: ReportInput) {
+  return reportTaskInternal(agent, input, input.evidence.slice(0, 8000));
+}
+
+/** Worker-only snapshot: structured, bounded, and not routed through user-supplied reports. */
+export async function reportLoadedSkill(
+  agent: AgentIdentity,
+  input: { taskId: string; name: string; instructions: string }
+) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.name) || input.name.length > 64 ||
+      input.instructions.length > 16000) {
+    throw new Error("invalid_skill_snapshot");
+  }
+  const evidence = JSON.stringify({
+    tool: "load_skill",
+    summary: "Loaded workspace skill instructions.",
+    result: { name: input.name, instructions: input.instructions },
+  });
+  return reportTaskInternal(agent, { taskId: input.taskId, status: "completed", evidence }, evidence);
+}
+
+async function reportTaskInternal(agent: AgentIdentity, input: ReportInput, evidence: string) {
   const [target] = await db
     .select({ approvalRequired: agentTask.approvalRequired })
     .from(agentTask)
@@ -821,7 +842,7 @@ export async function reportTask(agent: AgentIdentity, input: ReportInput) {
     .update(agentTask)
     .set({
       status: input.status,
-      evidence: input.evidence.slice(0, 8000),
+      evidence,
       reportedAt: new Date(),
     })
     .where(
