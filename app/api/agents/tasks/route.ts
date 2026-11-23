@@ -13,6 +13,7 @@ import {
 } from "@/lib/agents/auth";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { parseSkillSnapshot } from "@/lib/agents/skill-snapshot";
+import { namedGithubProbePayload } from "@/lib/agents/named-github-probe";
 
 function visibleTasks<T extends { evidence: string | null }>(tasks: T[], isAgent: boolean): T[] {
   if (!isAgent) return tasks;
@@ -99,6 +100,7 @@ async function POSTHandler(request: Request) {
         environment: fields.environment,
         approvalRequired: z.boolean().optional(),
         rollbackPlan: z.string().trim().max(4000).nullish(),
+        payload: namedGithubProbePayload.optional(),
       })
       .strict()
   );
@@ -115,6 +117,7 @@ async function POSTHandler(request: Request) {
     environment: parsed.data.environment ?? "production",
     approvalRequired: parsed.data.approvalRequired === true,
     rollbackPlan: parsed.data.rollbackPlan ?? null,
+    payload: parsed.data.payload ?? null,
     createdBy: `owner:${caller.userId.slice(0, 8)}`,
   });
 

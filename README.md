@@ -206,6 +206,32 @@ self-service accepted yet. Chat and document data, subscription records, and
 usage events are scoped to the validated active workspace. The `free` plan
 includes 1,000 messages each month; paid plans use Stripe Checkout.
 
+### Workspace secrets
+
+Set `WORKSPACE_SECRETS_ENCRYPTION_KEY` to a dedicated, securely stored base64
+32-byte key (`openssl rand -base64 32`) before using the vault. Keep the same key
+across deployments and backups: changing or losing it makes existing values
+unreadable; rotate individual values through the API instead. Values are
+AES-256-GCM encrypted with fresh nonces and workspace/name binding. Names use
+uppercase letters, digits and underscores (up to 64 characters, starting with
+a letter or underscore); values are 1–8192 characters.
+
+Owners and admins can list and create secrets at `/api/workspace/secrets`,
+and inspect metadata, rotate (`PATCH { "value": "..." }`) or delete by name at
+`/api/workspace/secrets/[name]`. Responses never include secret values.
+Detection settings are workspace-scoped, default on, and owner/admin-managed at
+`/api/workspace/secrets/settings`. Before migration `0029_workspace_secrets` is
+applied, chat secret detection is off and pasted credentials are not redacted.
+Apply the migrations and configure the encryption key before relying on detection.
+`lastUsedAt` changes on server-side reads,
+not metadata access. To check GitHub access without inspecting files, create a task
+with `payload: { "tool": "github_repo_probe", "repo": "owner/repo", "secretName": "GITHUB_KEY" }`.
+The probe selects the named workspace secret, never falls back to another
+credential, and returns only a fixed success/failure result. Repository inspection
+does not accept named secrets and will refuse rather than claim a probe was an inspection.
+Only assign that tool to trusted agents: it can send a named workspace secret as
+a GitHub credential to the allowlisted repository endpoint.
+
 Apply `pnpm db:migrate` after setting `POSTGRES_URL` in `.env.local` to create
 the workspace tables and backfill existing users, chats, and documents. Use
 `/workspace` to manage a workspace and `/workspace/billing` to inspect its plan

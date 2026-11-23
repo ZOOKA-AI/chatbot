@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import {
   claimTask,
   countExecutions,
@@ -9,7 +10,7 @@ import {
   startExecution,
 } from "@/lib/agents/command-center";
 import { agentAllowsTool } from "@/lib/agents/agent-tools";
-import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
+import { githubRepoInspect, githubRepoProbe } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
 import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
 import { studioPromoVideo } from "@/lib/agents/worker-tools/studio-promo";
@@ -19,6 +20,7 @@ import { loadSkill } from "@/lib/agents/worker-tools/load-skill";
 import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
 import { INTERNAL_WRITE_TOOLS } from "@/lib/agents/worker-types";
 import type { WorkerTool } from "@/lib/agents/worker-types";
+import { namedGithubProbePayload } from "@/lib/agents/named-github-probe";
 
 /**
  * The first real execution worker.
@@ -70,6 +72,7 @@ import {
 
 export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
+  [githubRepoProbe.name]: githubRepoProbe,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
   [loadSkill.name]: loadSkill,
@@ -166,6 +169,23 @@ export async function runTask(
     };
   }
 
+  const storedPayload = task.payload as Record<string, unknown> | null;
+  const isStoredProbe = storedPayload?.tool === "github_repo_probe";
+  if (isStoredProbe && (
+    input.tool !== "github_repo_probe" ||
+    !namedGithubProbePayload.safeParse(storedPayload).success ||
+    (input.payload !== undefined && !isDeepStrictEqual(input.payload, storedPayload))
+  )) {
+    return {
+      ok: false,
+      taskId: input.taskId,
+      executionId: null,
+      status: "rejected",
+      tool: input.tool,
+      error: "stored_probe_mismatch",
+    };
+  }
+
   const attempts = await countExecutions(agent.organizationId, input.taskId);
   const claim = await claimTask(agent as never, input.taskId);
   if (!claim.ok) {
@@ -238,8 +258,9 @@ export async function runTask(
       // The task is the record of what was asked for. A caller that claims by task id, or one
       // that lets the worker take the next queued task, gets that task's own inputs; an explicit
       // payload from the caller wins only when it is actually provided, so a scheduler can still
-      // re-run a task with different inputs.
-      payload: input.payload ?? ((task?.payload as Record<string, unknown> | null) ?? {}),
+      // re-run a task with different inputs. Named credential probes are pinned to
+      // the persisted request so a caller cannot substitute different work.
+      payload: isStoredProbe && storedPayload ? storedPayload : input.payload ?? storedPayload ?? {},
       signal: controller.signal,
       fetchImpl: input.fetchImpl ?? fetch,
     });

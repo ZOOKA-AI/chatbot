@@ -1,5 +1,9 @@
+import "server-only";
+
 import { getWorkspaceConnection, getWorkspaceOAuthConnection } from "@/lib/agents/command-center";
+import { getWorkspaceSecretValue } from "@/lib/db/workspace-secrets";
 import { decryptTokens } from "@/lib/integrations/catalog";
+import { secretName } from "@/lib/workspace/secrets/validation";
 
 /**
  * Credentials for a worker run come from the workspace that owns the task.
@@ -62,6 +66,24 @@ function pickToken(tokens: Record<string, unknown>): unknown {
 
 /** Providers whose connect flow (OAuth or a pasted token) writes OAuthConnection. */
 const OAUTH_STORE_PROVIDERS = new Set(["github", "vercel", "x", "meta", "linkedin"]);
+
+/** Explicit secret references never fall back to another credential. */
+export async function resolveNamedWorkspaceCredential(
+  organizationId: string,
+  name: unknown
+): Promise<ResolvedCredential | CredentialRefusal> {
+  if (!secretName.safeParse(name).success) {
+    return { ok: false, error: "credential_malformed", detail: "Invalid workspace secret name." };
+  }
+  try {
+    const raw = await getWorkspaceSecretValue(organizationId, name as string);
+    if (raw === null) return { ok: false, error: "credential_missing", detail: "Workspace secret not found." };
+    const problem = inspect(raw);
+    return problem ?? { ok: true, token: raw, source: "workspace" };
+  } catch {
+    return { ok: false, error: "credential_unreadable", detail: "Workspace secret could not be read." };
+  }
+}
 
 /**
  * A usable token from OAuthConnection, or null so the caller falls back to the older
