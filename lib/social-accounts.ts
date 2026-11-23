@@ -34,7 +34,7 @@ export const SOCIAL_ACCOUNTS: SocialAccount[] = [
     id: "facebook",
     label: "Facebook",
     handle: "ZOOKA AI",
-    href: "https://www.facebook.com/61596724862442",
+    href: "https://www.facebook.com/1356651964207575",
     category: "social",
     status: "live",
     path: "M13.5 22v-8h2.7l.4-3.1h-3.1V8.9c0-.9.3-1.5 1.6-1.5h1.6V4.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.1v2.3H7.6V14h2.7v8h3.2Z",

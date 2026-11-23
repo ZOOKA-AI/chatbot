@@ -24,7 +24,7 @@ const SAME_AS = [
   "https://zooka-ai.com",
   "https://github.com/ZOOKA-AI",
   "https://github.com/ZOOKA-AI/chatbot",
-  "https://www.facebook.com/61596724862442",
+  "https://www.facebook.com/1356651964207575",
   "https://x.com/zooka_ai",
   "https://www.youtube.com/@zooka_ai_official",
   "https://www.linkedin.com/company/zooka-ai/",
