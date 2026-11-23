@@ -183,9 +183,33 @@ const PurePreviewMessage = ({
                 return null;
               }
               if ("error" in part.output) {
+                const output = part.output as {
+                  error: string;
+                  reason?: string;
+                  upgradeUrl?: string;
+                };
+                // A plan limit is not a fault: muted text plus the upgrade
+                // link instead of the red error style.
+                if (output.upgradeUrl) {
+                  return (
+                    <p
+                      className="text-muted-foreground text-sm"
+                      data-testid="search-upgrade"
+                      key={toolCallId}
+                    >
+                      {output.error}{" "}
+                      <a
+                        className="font-medium text-primary underline"
+                        href={output.upgradeUrl}
+                      >
+                        عرض الخطط
+                      </a>
+                    </p>
+                  );
+                }
                 return (
                   <p className="text-sm text-destructive" key={toolCallId}>
-                    {part.output.error}
+                    {output.error}
                   </p>
                 );
               }
