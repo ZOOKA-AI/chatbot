@@ -1,8 +1,18 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
 import { workspaceSkill } from "@/lib/db/schema";
+
+async function workspaceSkillTableExists() {
+  const [row] = await db.select({
+    exists: sql<boolean>`to_regclass('"WorkspaceSkill"') is not null`,
+  }).from(sql`(select 1) as table_check`);
+  if (!row) {
+    throw new Error("Unable to check workspace skills table");
+  }
+  return row.exists;
+}
 
 export type WorkspaceSkill = typeof workspaceSkill.$inferSelect;
 export type CreateWorkspaceSkill = {
@@ -16,6 +26,9 @@ export type CreateWorkspaceSkill = {
 export type WorkspaceSkillPatch = Partial<Pick<CreateWorkspaceSkill, "name" | "description" | "instructions" | "enabled">>;
 
 export async function listWorkspaceSkills(organizationId: string): Promise<WorkspaceSkill[]> {
+  if (!(await workspaceSkillTableExists())) {
+    return [];
+  }
   return db.select().from(workspaceSkill)
     .where(eq(workspaceSkill.organizationId, organizationId))
     .orderBy(asc(workspaceSkill.name));
@@ -25,6 +38,9 @@ export async function getWorkspaceSkillByName(
   organizationId: string,
   name: string
 ): Promise<WorkspaceSkill | null> {
+  if (!(await workspaceSkillTableExists())) {
+    return null;
+  }
   const [skill] = await db.select().from(workspaceSkill)
     .where(and(eq(workspaceSkill.organizationId, organizationId), eq(workspaceSkill.name, name)))
     .limit(1);

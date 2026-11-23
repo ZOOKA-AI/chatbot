@@ -32,6 +32,7 @@ vi.mock("server-only", () => ({}));
 
 const CENTER = "@/lib/agents/command-center";
 let center: typeof import("@/lib/agents/command-center");
+let runTask: typeof import("@/lib/agents/worker").runTask;
 let pg: PGlite;
 
 const ORG_A = "org-alpha";
@@ -57,8 +58,10 @@ beforeAll(async () => {
   await apply(sqlFile("pending/0039_launch_plan.sql"));
   await apply(sqlFile("pending/0040_agent_tools_and_instructions.sql"));
   await apply(sqlFile("pending/0041_workspace_projects.sql"));
+  await apply(sqlFile("pending/0070_agent_permissions.sql"));
   holder.db = drizzle(pg, { schema });
   center = (await import(CENTER)) as typeof import("@/lib/agents/command-center");
+  ({ runTask } = await import("@/lib/agents/worker"));
 });
 
 afterAll(async () => {
@@ -245,6 +248,137 @@ test("decisions, deployments, approvals and the status board are per organisatio
   assert.equal(bIdentity.organizationId, ORG_B);
 });
 
+test("per-agent permissions persist only in their workspace", async () => {
+  const a = await register(ORG_A, "alpha-permission-worker");
+  const b = await register(ORG_B, "beta-permission-worker");
+
+  const changed = await center.updateAgentConfig({
+    organizationId: ORG_A,
+    agentId: a.agent.id,
+    patch: {
+      updateWithoutApproval: false,
+      deleteWithoutApproval: true,
+      sendMessagesWithoutApproval: true,
+    },
+  });
+  assert.equal(changed?.updateWithoutApproval, false);
+  assert.equal(changed?.deleteWithoutApproval, true);
+  assert.equal(changed?.sendMessagesWithoutApproval, true);
+
+  const crossWorkspace = await center.updateAgentConfig({
+    organizationId: ORG_B,
+    agentId: a.agent.id,
+    patch: { updateWithoutApproval: true },
+  });
+  assert.equal(crossWorkspace, null);
+
+  const alphaResult = await pg.query(
+    `select "updateWithoutApproval", "deleteWithoutApproval", "sendMessagesWithoutApproval"
+     from "AgentIdentity" where id = $1`,
+    [a.agent.id]
+  );
+  const betaResult = await pg.query(
+    `select "updateWithoutApproval", "deleteWithoutApproval", "sendMessagesWithoutApproval"
+     from "AgentIdentity" where id = $1`,
+    [b.agent.id]
+  );
+  assert.deepEqual(alphaResult.rows[0], {
+    updateWithoutApproval: false,
+    deleteWithoutApproval: true,
+    sendMessagesWithoutApproval: true,
+  });
+  assert.deepEqual(betaResult.rows[0], {
+    updateWithoutApproval: true,
+    deleteWithoutApproval: false,
+    sendMessagesWithoutApproval: false,
+  });
+});
+
+test("a disallowed worker action creates a task approval before any tool runs", async () => {
+  const registered = await register(ORG_A, "alpha-gated-worker");
+  const task = await center.createTask({
+    organizationId: ORG_A,
+    title: "Create a document",
+    instruction: "Create a project document.",
+  });
+  const outcome = await runTask(
+    {
+      ...registered.agent,
+      allowedTools: ["project_document_create"],
+      updateWithoutApproval: false,
+    } as never,
+    { taskId: task.id, tool: "project_document_create" }
+  );
+
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.status, "awaiting_approval");
+  assert.equal(outcome.error, "approval_required");
+
+  const retried = await runTask(
+    {
+      ...registered.agent,
+      allowedTools: ["project_document_create"],
+      updateWithoutApproval: false,
+    } as never,
+    { taskId: task.id, tool: "project_document_create" }
+  );
+  assert.equal(retried.status, "awaiting_approval");
+
+  const taskResult = await pg.query(
+    `select status, "approvalRequired" from "AgentTask" where id = $1`,
+    [task.id]
+  );
+  assert.deepEqual(taskResult.rows[0], { status: "pending", approvalRequired: true });
+
+  const approvals = await pg.query(
+    `select "organizationId", "taskId", reason from "AgentApproval" where "taskId" = $1`,
+    [task.id]
+  );
+  const approvalRows = approvals.rows as Array<{ organizationId: string; taskId: string; reason: string }>;
+  assert.equal(approvalRows.length, 1);
+  assert.equal(approvalRows[0].organizationId, ORG_A);
+  assert.equal(approvalRows[0].taskId, task.id);
+  assert.match(
+    approvalRows[0].reason,
+    /^Agent action requires approval: update permission for project_document_create \(payload sha256:[a-f0-9]{64}\)\.$/
+  );
+});
+
+test("approval is not reusable after the worker payload changes", async () => {
+  const registered = await register(ORG_A, "alpha-payload-bound-worker");
+  const task = await center.createTask({
+    organizationId: ORG_A,
+    title: "Use a browser",
+    instruction: "Open the requested page.",
+    payload: { startUrl: "https://example.com", steps: [{ action: "click", selector: "#first" }] },
+  });
+  const agent = {
+    ...registered.agent,
+    allowedTools: ["browser_task_run"],
+    updateWithoutApproval: true,
+  } as never;
+
+  const first = await runTask(agent, {
+    taskId: task.id,
+    tool: "browser_task_run",
+  });
+  const changed = await runTask(agent, {
+    taskId: task.id,
+    tool: "browser_task_run",
+    payload: { startUrl: "https://example.com", steps: [{ action: "click", selector: "#second" }] },
+  });
+
+  assert.equal(first.status, "awaiting_approval");
+  assert.equal(changed.status, "awaiting_approval");
+  const approvals = await pg.query(
+    `select reason from "AgentApproval" where "taskId" = $1 order by "createdAt"`,
+    [task.id]
+  );
+  const approvalRows = approvals.rows as Array<{ reason: string }>;
+  assert.equal(approvalRows.length, 2);
+  assert.notEqual(approvalRows[0].reason, approvalRows[1].reason);
+});
+
 test("a row left at the migration default is visible to nobody", async () => {
   const a = await register(ORG_A, "alpha-worker");
   await pg.exec(
@@ -407,4 +541,33 @@ test("the recent-activity audit trail is per organisation", async () => {
   const activityB = JSON.stringify(await center.recentAgentActivity(ORG_B));
   assert.ok(!activityA.includes("B only"));
   assert.ok(!activityB.includes("A only"));
+});
+
+test("permission reads use defaults before the additive migration is applied", async () => {
+  const registered = await register(ORG_A, "alpha-pre-migration");
+  await pg.exec(
+    `alter table "AgentIdentity"
+     drop column "updateWithoutApproval",
+     drop column "deleteWithoutApproval",
+     drop column "sendMessagesWithoutApproval"`
+  );
+
+  try {
+    const agents = await center.listAgents(ORG_A);
+    assert.equal(agents[0]?.updateWithoutApproval, true);
+    assert.equal(agents[0]?.deleteWithoutApproval, false);
+    assert.equal(agents[0]?.sendMessagesWithoutApproval, false);
+
+    const authenticated = await center.authenticateAgent(bearer(registered.key));
+    assert.equal(authenticated?.updateWithoutApproval, true);
+    assert.equal(authenticated?.deleteWithoutApproval, false);
+    assert.equal(authenticated?.sendMessagesWithoutApproval, false);
+
+    const scheduled = await center.firstAgentIdentity(ORG_A);
+    assert.equal(scheduled?.updateWithoutApproval, true);
+    assert.equal(scheduled?.deleteWithoutApproval, false);
+    assert.equal(scheduled?.sendMessagesWithoutApproval, false);
+  } finally {
+    await apply(sqlFile("pending/0070_agent_permissions.sql"));
+  }
 });

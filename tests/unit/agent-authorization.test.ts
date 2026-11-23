@@ -79,6 +79,7 @@ describe.skipIf(!ready)("agent authorization", () => {
       "pending/0039_launch_plan.sql",
       "pending/0040_agent_tools_and_instructions.sql",
       "pending/0041_workspace_projects.sql",
+      "pending/0070_agent_permissions.sql",
       "pending/0034_agent_execution.sql",
       "pending/0035_worker_lease_and_scheduler.sql",
     ];
