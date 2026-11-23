@@ -12,6 +12,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  Sparkles,
   Tv,
   UserRound,
   Users,
@@ -134,6 +135,11 @@ export function AppSidebar({
           href: "/workspace/agents",
           icon: <Bot />,
           label: isArabic ? "الوكلاء" : "Agents",
+        },
+        {
+          href: "/workspace/skills",
+          icon: <Sparkles />,
+          label: isArabic ? "المهارات" : "Skills",
         },
         {
           href: "/workspace/schedules",

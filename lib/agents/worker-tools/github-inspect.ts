@@ -1,6 +1,6 @@
 import type { WorkerTool } from "../worker-types";
 import { redact } from "../worker-types";
-import { resolvePlatformCredential, resolveWorkspaceCredential } from "../worker-credentials";
+import { resolveNamedWorkspaceCredential, resolvePlatformCredential, resolveWorkspaceCredential } from "../worker-credentials";
 
 /**
  * Read-only inspection of one authorised repository.
@@ -52,6 +52,10 @@ export const githubRepoInspect: WorkerTool = {
       };
     }
 
+    if (payload.secretName !== undefined) {
+      return { ok: false, summary: "Named secrets are supported only by github_repo_probe, not repository inspection.", error: "named_secret_not_supported" };
+    }
+
     // The workspace's own connection comes first. A shared platform token is only
     // reachable when the deployment declares itself single-tenant, and a workspace
     // whose stored credential is malformed is refused rather than quietly served
@@ -74,6 +78,7 @@ export const githubRepoInspect: WorkerTool = {
       Accept: "application/vnd.github+json",
       "User-Agent": "zooka-worker",
     };
+
     const base = "https://api.github.com";
 
     const metaResponse = await fetchImpl(`${base}/repos/${repo}`, { headers, signal });
@@ -166,5 +171,39 @@ export const githubRepoInspect: WorkerTool = {
         files,
       },
     };
+  },
+};
+
+/** A separate probe cannot be mistaken for a full repository inspection. */
+export const githubRepoProbe: WorkerTool = {
+  name: "github_repo_probe",
+  readOnly: true,
+  timeoutMs: 20_000,
+  maxAttempts: 3,
+  description: "Checks whether a named workspace GitHub credential can access an allowlisted repository. Does not inspect files.",
+  async run({ organizationId, payload, signal, fetchImpl }) {
+    const repo = payload.repo === undefined
+      ? "zooka-ai/chatbot"
+      : typeof payload.repo === "string" ? payload.repo.toLowerCase() : "";
+    if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(repo) || !allowedRepos().includes(repo)) {
+      return { ok: false, summary: "Repository is invalid or outside the authorized scope.", error: "repo_not_authorized" };
+    }
+    const credential = await resolveNamedWorkspaceCredential(organizationId, payload.secretName);
+    if (!credential.ok) return { ok: false, summary: credential.detail, error: credential.error };
+    try {
+      const response = await fetchImpl(`https://api.github.com/repos/${repo}`, {
+        headers: {
+          Authorization: ["Bearer", credential.token].join(" "),
+          Accept: "application/vnd.github+json",
+          "User-Agent": "zooka-worker",
+        },
+        signal,
+        redirect: "error",
+      });
+      if (!response.ok) return { ok: false, summary: "GitHub refused the repository probe.", error: "github_probe_failed" };
+      return { ok: true, summary: "GitHub repository access probe succeeded; no files were inspected.", evidence: { accessible: true } };
+    } catch {
+      return { ok: false, summary: "GitHub repository probe failed.", error: "github_probe_failed" };
+    }
   },
 };

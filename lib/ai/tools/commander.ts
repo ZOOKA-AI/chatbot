@@ -4,6 +4,8 @@ import { z } from "zod";
 import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { createTask, getTask, listTasks } from "@/lib/agents/command-center";
 import { executionReport } from "@/lib/agents/worker";
+import { completedSkillSnapshot } from "@/lib/agents/skill-snapshot";
+import { namedGithubProbePayload, type NamedGithubProbePayload } from "@/lib/agents/named-github-probe";
 
 /**
  * The bridge between a conversation and real work.
@@ -45,17 +47,20 @@ export function createCommanderTools(input: {
           .boolean()
           .optional()
           .describe("True for anything that changes production, spends money or touches credentials"),
+        payload: namedGithubProbePayload.optional().describe("For an explicitly requested GitHub access probe only: tool github_repo_probe, repository and the name of an existing workspace secret. Never put a credential value here."),
       }),
       execute: async ({
         title,
         instruction,
         priority,
         approvalRequired,
+        payload,
       }: {
         title: string;
         instruction: string;
         priority?: "low" | "normal" | "high" | "critical";
         approvalRequired?: boolean;
+        payload?: NamedGithubProbePayload;
       }) => {
         if (!input.canManage) {
           return {
@@ -64,6 +69,9 @@ export function createCommanderTools(input: {
               "Only the workspace owner or an admin can create execution tasks. Explain this to the user; do not claim the work was queued.",
           };
         }
+        if (payload !== undefined && !namedGithubProbePayload.safeParse(payload).success) {
+          return { ok: false, error: "Invalid probe payload." };
+        }
         const task = await scoped(() =>
           createTask({
             organizationId: input.organizationId,
@@ -71,6 +79,7 @@ export function createCommanderTools(input: {
             instruction,
             priority: priority ?? "normal",
             approvalRequired: approvalRequired ?? false,
+            payload: payload ?? null,
             createdBy,
           })
         );
@@ -106,6 +115,7 @@ export function createCommanderTools(input: {
         // shared handle, which is a cross-tenant read in production and a hard
         // failure under enforced row-level security.
         const run = await scoped(() => executionReport(input.organizationId, task.id));
+        const skillSnapshot = completedSkillSnapshot(task, run);
         return {
           ok: true,
           taskId: task.id,
@@ -116,6 +126,7 @@ export function createCommanderTools(input: {
           reportedAt: task.reportedAt,
           lastError: (task as { error?: string | null }).error ?? null,
           approvalRequired: task.approvalRequired,
+          ...(skillSnapshot ? { skillSnapshot } : {}),
           // The one honest sentence about completion available to the model.
           completion:
             task.status === "completed" && run?.status === "succeeded"

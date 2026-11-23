@@ -172,6 +172,15 @@ export function Chat({
       },
     }),
     onData: (dataPart) => {
+      if (dataPart.type === "data-redacted-messages") {
+        const redacted = new Map(dataPart.data.map((message) => [message.id, message.parts]));
+        setMessages((current) => current.map((message) =>
+          redacted.has(message.id)
+            ? { ...message, parts: redacted.get(message.id) as ChatMessage["parts"] }
+            : message,
+        ));
+        return;
+      }
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: ({ isAbort, isDisconnect, isError }) => {
