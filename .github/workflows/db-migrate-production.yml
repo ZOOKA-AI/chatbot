@@ -1,8 +1,11 @@
 name: db-migrate-production
 
 # Manual only. Vercel builds do not run migrations; this is the deliberate release step.
-# - mode=plan (default): read-only, lists the migrations the production database has not applied.
-# - mode=apply: runs `pnpm db:migrate`; requires typing APPLY in the confirm input.
+# Production has no drizzle tracking table, so `pnpm db:migrate` must not be used against it.
+# - mode=plan (default): read-only, lists migration files whose tables are missing in production.
+# - mode=apply: runs exactly the files named in `files` (comma-separated, e.g.
+#   0028_workspace_skills.sql,pending/0068_workspace_skills_grants.sql), each in its own
+#   transaction, then re-plans. Requires typing APPLY in `confirm`.
 # The connection string lives only in the repository secret PRODUCTION_DATABASE_URL.
 
 on:
@@ -14,8 +17,12 @@ on:
         default: plan
         type: choice
         options: [plan, apply]
+      files:
+        description: "apply only: comma-separated migration files, in order"
+        required: false
+        default: ""
       confirm:
-        description: "Type APPLY to run migrations (ignored for plan)"
+        description: "apply only: type APPLY"
         required: false
         default: ""
 
@@ -40,10 +47,10 @@ jobs:
             exit 1
           fi
 
-      - name: Require confirmation to apply
-        if: inputs.mode == 'apply' && inputs.confirm != 'APPLY'
+      - name: Require files and confirmation to apply
+        if: inputs.mode == 'apply' && (inputs.confirm != 'APPLY' || inputs.files == '')
         run: |
-          echo "::error::mode=apply needs confirm=APPLY."
+          echo "::error::mode=apply needs files=... and confirm=APPLY."
           exit 1
 
       - uses: actions/checkout@v4
@@ -56,12 +63,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Plan (read-only)
+        if: inputs.mode == 'plan'
         run: node scripts/release/migration-plan.mjs
 
-      - name: Apply
+      - name: Apply the named files
         if: inputs.mode == 'apply'
-        run: pnpm db:migrate
-
-      - name: Plan after apply
-        if: inputs.mode == 'apply'
-        run: node scripts/release/migration-plan.mjs
+        env:
+          FILES: ${{ inputs.files }}
+        run: node scripts/release/migration-plan.mjs --apply "$FILES"
