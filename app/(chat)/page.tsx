@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
@@ -8,6 +9,20 @@ import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { generateUUID } from "@/lib/utils";
 import { starterTemplates } from "@/lib/studio";
+import { SITE_URL } from "@/lib/site";
+
+// Reciprocal hreflang: /ar already declares this page as its English
+// alternate; without the return link search engines ignore the pair.
+export const metadata: Metadata = {
+  alternates: {
+    canonical: SITE_URL,
+    languages: {
+      en: SITE_URL,
+      ar: `${SITE_URL}/ar`,
+      "x-default": SITE_URL,
+    },
+  },
+};
 
 export default function Page({
   searchParams,
