@@ -27,7 +27,7 @@ export function createCommanderTools(input: {
   const createdBy = `user:${input.userId.slice(0, 8)}`;
 
   /** Every task read goes through the tenant scope, never the shared handle. */
-  const scoped = <T,>(work: () => Promise<T>) => withCommanderScope(input.organizationId, work);
+  const scoped = <T,>(work: () => Promise<T>) => withCommanderScope(input.organizationId, work, input.userId);
 
   return {
     createExecutionTask: tool({

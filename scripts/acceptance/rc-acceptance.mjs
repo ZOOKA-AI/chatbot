@@ -74,7 +74,8 @@ try {
   await submitAuth(page, "/register", emailB, PASS);
   await page.waitForTimeout(4000);
   const afterRegister = page.url();
-  const registered = !/register/.test(afterRegister);
+  // Registration ends on /login?registered=1 by design; only staying on /register is a failure.
+  const registered = !new URL(afterRegister).pathname.startsWith("/register");
   await shot(page, "01-register");
   record("registration", registered, `landed ${afterRegister.replace(BASE, "")}`);
 

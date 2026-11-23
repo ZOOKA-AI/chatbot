@@ -21,7 +21,8 @@ import { runInTenantTransaction } from "@/lib/db/tenant-client";
  */
 export async function withCommanderScope<T>(
   organizationId: string | null | undefined,
-  work: () => Promise<T>
+  work: () => Promise<T>,
+  userId: string | null = null
 ): Promise<T> {
   if (!tenantScopeEnabled()) {
     return work();
@@ -29,7 +30,10 @@ export async function withCommanderScope<T>(
   if (!organizationId) {
     throw new TenantScopeError("missing_context", "no authenticated organisation");
   }
-  return runInTenantTransaction({ organizationId, userId: null }, work);
+  // The policies resolve the organisation through app_platform_org(), which honours
+  // it only for an authenticated member (request.jwt.claims.sub). Without the user
+  // every owner read came back empty and every insert failed its WITH CHECK.
+  return runInTenantTransaction({ organizationId, userId: userId ?? null }, work);
 }
 
 type SimpleHandler = (request: Request) => Promise<Response>;
@@ -57,6 +61,7 @@ export function withCommanderTenant(
       : null;
     if (!organizationId) return handler(request, context);
 
-    return withCommanderScope(organizationId, () => handler(request, context));
+    const userId = caller && caller.kind === "owner" ? caller.userId : null;
+    return withCommanderScope(organizationId, () => handler(request, context), userId);
   };
 }

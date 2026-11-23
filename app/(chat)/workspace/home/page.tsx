@@ -69,9 +69,9 @@ async function Dashboard() {
   const org = context.organizationId;
 
   const [agents, projects, chats, schedules, integrations, plan, wallet] = await Promise.all([
-    section(async () => summarizeAgents(await withCommanderScope(org, () => listAgents(org)))),
+    section(async () => summarizeAgents(await withCommanderScope(org, () => listAgents(org), context.user.id))),
     // Same AgentProject source as /workspace/projects, which the card links to.
-    section(async () => await withCommanderScope(org, () => listProjects(org))),
+    section(async () => await withCommanderScope(org, () => listProjects(org), context.user.id)),
     section(
       async () =>
         (
