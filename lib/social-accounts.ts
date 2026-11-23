@@ -151,7 +151,7 @@ export const SOCIAL_ACCOUNTS: SocialAccount[] = [
     id: "discord",
     label: "Discord",
     handle: "ZOOKA AI",
-    href: "https://discord.gg/D42nEaUhnb",
+    href: "https://discord.gg/7ynqJxMZfQ",
     category: "community",
     status: "live",
     path: "M19.3 5.6A16 16 0 0 0 15.4 4l-.3.6a12 12 0 0 1 3.4 1.6 11.6 11.6 0 0 0-9-1.5c-.6.1-1.3.4-2 .7a12 12 0 0 1 3.4-1.6L10.6 4a16 16 0 0 0-3.9 1.6C4 9.4 3.3 13 3.6 16.6a16 16 0 0 0 4.8 2.4l.9-1.4c-.7-.3-1.4-.6-2-1l.5-.3a11.5 11.5 0 0 0 9.8 0l.5.3c-.6.4-1.3.7-2 1l.9 1.4a16 16 0 0 0 4.8-2.4c.4-4.2-.6-7.8-2.5-11ZM9.3 14.4c-.9 0-1.7-.9-1.7-2s.7-2 1.7-2 1.7.9 1.7 2-.7 2-1.7 2Zm5.4 0c-.9 0-1.7-.9-1.7-2s.7-2 1.7-2 1.7.9 1.7 2-.7 2-1.7 2Z",
