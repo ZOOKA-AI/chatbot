@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
-import { Chat } from "@/components/chat";
-import { DataStreamHandler } from "@/components/data-stream-handler";
+import { LazyChat as Chat, LazyDataStreamHandler as DataStreamHandler } from "@/components/chat-lazy";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { starterTemplates } from "@/lib/studio";
 import { generateUUID } from "@/lib/utils";

@@ -39,9 +39,9 @@ async function RootPage({
   if (!session?.user) {
     return <LandingPage lang={lang} />;
   }
-  // Loaded only for signed-in users: the chat client (editors, artifacts,
-  // markdown renderers, ~2 MB of JS) was shipped to every anonymous visitor of
-  // the landing page because it was imported at the top of this module.
+  // Signed-in users only. The chat client itself is split out through
+  // next/dynamic in components/chat-lazy.tsx so anonymous visitors of the
+  // landing page do not download it.
   const { NewChatPage } = await import("./new-chat-page");
   return <NewChatPage searchParams={searchParams} />;
 }
