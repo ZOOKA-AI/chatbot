@@ -124,6 +124,17 @@ async function POSTImpl(request: Request) {
     ).toResponse();
   }
 
+  // Session first: an anonymous caller is unauthorized whatever its body says,
+  // and must get 401 rather than a 400 that describes our validation rules.
+  // `/api/chat` is session-only; anonymous visitors use `/api/demo-chat`.
+  // The bot verdict is started alongside the session read, as before, so the
+  // early 401 does not turn two parallel lookups into sequential ones.
+  const botVerdict = checkBotId().catch(() => null);
+  const workspaceContext = await getWorkspaceContext();
+  if (!workspaceContext) {
+    return new ChatbotError("unauthorized:chat").toResponse();
+  }
+
   try {
     const json = await request.json();
     const parsed = postRequestBodySchema.safeParse(json);
@@ -163,10 +174,7 @@ async function POSTImpl(request: Request) {
       agentMode,
     } = requestBody;
 
-    const [botResult, workspaceContext] = await Promise.all([
-      checkBotId().catch(() => null),
-      getWorkspaceContext(),
-    ]);
+    const botResult = await botVerdict;
 
     /*
      * BotID is advisory unless BOTID_ENFORCE is "true".
@@ -211,9 +219,6 @@ async function POSTImpl(request: Request) {
      * `/api/chat` is session-only. Anonymous visitors use `/api/demo-chat`,
      * a narrow preview that cannot read another user's chatId or write rows.
      */
-    if (!workspaceContext) {
-      return new ChatbotError("unauthorized:chat").toResponse();
-    }
     if (!agentMode && hasApprovedGoogleDriveCall(messages)) {
       return new ChatbotError("forbidden:chat").toResponse();
     }
