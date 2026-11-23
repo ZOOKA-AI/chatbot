@@ -43,6 +43,7 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
   const [issuedKey, setIssuedKey] = useState<{ slug: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [queueNote, setQueueNote] = useState<string | null>(null);
+  const [templateLinks, setTemplateLinks] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,6 +109,45 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
     setError(null);
     setEditing(null);
     await load();
+  }
+
+  async function createTemplateLink(agent: Agent) {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/agents/registry/${agent.id}/template`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || typeof body.url !== "string") {
+        setError(response.status === 404 ? "That agent is no longer available." : "Could not create the template link.");
+        return;
+      }
+      setTemplateLinks((current) => ({ ...current, [agent.id]: body.url }));
+      setError(null);
+    } catch {
+      setError("Could not create the template link.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeTemplateLink(agent: Agent) {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/agents/registry/${agent.id}/template`, { method: "DELETE" });
+      if (!response.ok) {
+        setError(response.status === 404 ? "There is no active template link for this agent." : "Could not revoke the template link.");
+        return;
+      }
+      setTemplateLinks((current) => {
+        const next = { ...current };
+        delete next[agent.id];
+        return next;
+      });
+      setError(null);
+    } catch {
+      setError("Could not revoke the template link.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function showHistory(agent: Agent) {
@@ -291,10 +331,32 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
                       >
                         Edit
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => createTemplateLink(agent)}
+                        disabled={busy}
+                        className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+                      >
+                        Create template link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => revokeTemplateLink(agent)}
+                        disabled={busy}
+                        className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+                      >
+                        Revoke link
+                      </button>
                     </>
                   ) : null}
                 </div>
               </div>
+
+              {templateLinks[agent.id] ? (
+                <p className="mt-2 break-all border-t pt-2 text-xs">
+                  Public template: <a className="underline" href={templateLinks[agent.id]}>{templateLinks[agent.id]}</a>
+                </p>
+              ) : null}
 
               {openHistory === agent.id ? (
                 <div className="mt-2 border-t pt-2">

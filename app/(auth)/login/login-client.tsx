@@ -58,6 +58,7 @@ export function LoginClient({
   phoneEnabled = false,
   hasAuthError = false,
   justRegistered = false,
+  callbackUrl = "/workspace/home",
 }: {
   lang: "ar" | "en";
   googleEnabled?: boolean;
@@ -66,6 +67,7 @@ export function LoginClient({
   phoneEnabled?: boolean;
   hasAuthError?: boolean;
   justRegistered?: boolean;
+  callbackUrl?: string;
 }) {
   const t = strings[lang];
   const router = useRouter();
@@ -118,7 +120,7 @@ export function LoginClient({
       router.refresh();
       // A full assign is intentional: the middleware has to see the new cookie on
       // the very next navigation.
-      window.location.assign("/workspace/home");
+      window.location.assign(callbackUrl);
     });
   };
 
@@ -140,8 +142,9 @@ export function LoginClient({
               {t.justRegistered}
             </p>
           ) : null}
-          {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
+          {phoneEnabled ? <PhoneSignInForm callbackUrl={callbackUrl} lang={lang} /> : null}
           <SocialSignInButtons
+            callbackUrl={callbackUrl}
             facebook={facebookEnabled}
             google={googleEnabled}
             lang={lang}

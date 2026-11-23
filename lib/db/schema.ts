@@ -812,6 +812,24 @@ export const agentIdentity = pgTable(
   })
 );
 
+export const agentTemplateLink = pgTable(
+  "AgentTemplateLink",
+  {
+    agentId: uuid("agentId")
+      .primaryKey()
+      .notNull()
+      .references(() => agentIdentity.id, { onDelete: "cascade" }),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revokedAt", { withTimezone: true }),
+  },
+  (table) => ({
+    organizationIdx: index("AgentTemplateLink_organizationId_idx").on(table.organizationId),
+  })
+);
+
 export const agentSchedule = pgTable(
   "AgentSchedule",
   {

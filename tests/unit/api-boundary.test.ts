@@ -92,6 +92,7 @@ test("unchanged: every route that authenticates itself still reaches its handler
     "/api/phone-auth",
     "/api/mcp",
     "/api/publish",
+    "/api/templates/public-template-token",
     "/api/blog/publish",
     "/api/auth/session",
     "/",
