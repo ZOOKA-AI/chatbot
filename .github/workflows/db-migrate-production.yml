@@ -1,0 +1,73 @@
+name: db-migrate-production
+
+# Manual only. Vercel builds do not run migrations; this is the deliberate release step.
+# Production has no drizzle tracking table, so `pnpm db:migrate` must not be used against it.
+# - mode=plan (default): read-only, lists migration files whose tables are missing in production.
+# - mode=apply: runs exactly the files named in `files` (comma-separated, e.g.
+#   0028_workspace_skills.sql,pending/0068_workspace_skills_grants.sql), each in its own
+#   transaction, then re-plans. Requires typing APPLY in `confirm`.
+# The connection string lives only in the repository secret PRODUCTION_DATABASE_URL.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan (read-only) or apply"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply]
+      files:
+        description: "apply only: comma-separated migration files, in order"
+        required: false
+        default: ""
+      confirm:
+        description: "apply only: type APPLY"
+        required: false
+        default: ""
+
+concurrency:
+  group: db-migrate-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+    steps:
+      - name: Require the secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Repository secret PRODUCTION_DATABASE_URL is not set."
+            exit 1
+          fi
+
+      - name: Require files and confirmation to apply
+        if: inputs.mode == 'apply' && (inputs.confirm != 'APPLY' || inputs.files == '')
+        run: |
+          echo "::error::mode=apply needs files=... and confirm=APPLY."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      - name: Plan (read-only)
+        if: inputs.mode == 'plan'
+        run: node scripts/release/migration-plan.mjs
+
+      - name: Apply the named files
+        if: inputs.mode == 'apply'
+        env:
+          FILES: ${{ inputs.files }}
+        run: node scripts/release/migration-plan.mjs --apply "$FILES"
