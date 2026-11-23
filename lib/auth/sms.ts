@@ -15,7 +15,17 @@ export const smsProvider: SmsProvider | null =
       ? "unifonic"
       : null;
 
-export const phoneLoginEnabled = smsProvider !== null;
+/**
+ * Phone sign-in is shown to users only when it can actually deliver.
+ *
+ * A configured provider is not the same as a working one: the Twilio trial
+ * account refuses every UAE recipient, so gating on the credentials alone put a
+ * form in front of real users that always ended in "could not send". The switch
+ * is therefore explicit - the owner turns it on once a sender is proven with a
+ * real delivery, not because a variable happens to exist.
+ */
+export const phoneLoginEnabled =
+  smsProvider !== null && process.env.PHONE_LOGIN_ENABLED === "on";
 
 export type SendResult = { ok: true } | { ok: false; error: string };
 
