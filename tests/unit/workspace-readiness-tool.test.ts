@@ -40,7 +40,7 @@ beforeEach(async () => {
   await apply("pending/0038_schedule_and_agent_model.sql");
   await apply("pending/0040_agent_tools_and_instructions.sql");
   await apply("pending/0041_workspace_projects.sql");
-  await apply("pending/0068_agent_permissions.sql");
+  await apply("pending/0070_agent_permissions.sql");
 });
 
 afterEach(async () => {

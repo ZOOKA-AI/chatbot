@@ -15,6 +15,7 @@ export type ToolPayload = Record<string, unknown>;
 const DEFAULTS: Record<string, ToolPayload> = {
   // The authorised installation scope; the tool refuses anything outside it.
   github_repo_inspect: { repo: "zooka-ai/chatbot" },
+  github_repo_probe: { repo: "zooka-ai/chatbot" },
   vercel_inspect: {},
 };
 
@@ -33,8 +34,10 @@ export function defaultToolPayload(tool: string): ToolPayload {
  */
 const ACCEPTED: Record<string, string[]> = {
   github_repo_inspect: ["repo", "paths"],
+  github_repo_probe: ["repo", "secretName"],
   vercel_deployment_inspect: ["project"],
   workspace_readiness_inspect: ["label"],
+  load_skill: ["name"],
   project_document_create: ["title", "brief", "projectId"],
   browser_task_run: ["startUrl", "steps"],
 };

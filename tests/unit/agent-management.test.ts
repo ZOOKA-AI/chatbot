@@ -139,7 +139,7 @@ beforeAll(async () => {
   process.env.DATABASE_URL = ADMIN_URL;
   process.env.TENANT_RLS_ENABLED = "off";
   sql = postgres(ADMIN_URL, { max: 2, onnotice: () => {} });
-  const migration = readFileSync(join(process.cwd(), "lib/db/migrations/pending/0068_agent_permissions.sql"), "utf8");
+  const migration = readFileSync(join(process.cwd(), "lib/db/migrations/pending/0070_agent_permissions.sql"), "utf8");
   for (const statement of migration.split("--> statement-breakpoint")) {
     if (statement.trim()) await sql.unsafe(statement.trim());
   }

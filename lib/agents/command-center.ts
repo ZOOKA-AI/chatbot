@@ -38,6 +38,12 @@ const db = new Proxy({} as typeof queriesModule.db, {
   },
 }) as typeof queriesModule.db;
 
+const AGENT_PERMISSION_FIELDS = {
+  updateWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'updateWithoutApproval')::boolean, true)`,
+  deleteWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'deleteWithoutApproval')::boolean, false)`,
+  sendMessagesWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'sendMessagesWithoutApproval')::boolean, false)`,
+};
+
 
 /**
  * ZOOKA AGENT COMMAND CENTER — shared coordination state for every agent.
@@ -113,9 +119,7 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
-      updateWithoutApproval: agentIdentity.updateWithoutApproval,
-      deleteWithoutApproval: agentIdentity.deleteWithoutApproval,
-      sendMessagesWithoutApproval: agentIdentity.sendMessagesWithoutApproval,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       lastSeenAt: agentIdentity.lastSeenAt,
@@ -170,9 +174,7 @@ export async function registerAgent(input: RegisterInput) {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
-      updateWithoutApproval: agentIdentity.updateWithoutApproval,
-      deleteWithoutApproval: agentIdentity.deleteWithoutApproval,
-      sendMessagesWithoutApproval: agentIdentity.sendMessagesWithoutApproval,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       lastSeenAt: agentIdentity.lastSeenAt,
@@ -219,9 +221,7 @@ export async function listAgents(organizationId: string) {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
-      updateWithoutApproval: agentIdentity.updateWithoutApproval,
-      deleteWithoutApproval: agentIdentity.deleteWithoutApproval,
-      sendMessagesWithoutApproval: agentIdentity.sendMessagesWithoutApproval,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       // The console reads its own state from this list. Without the assignment here the
@@ -298,9 +298,7 @@ export async function updateAgentConfig(input: {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
-      updateWithoutApproval: agentIdentity.updateWithoutApproval,
-      deleteWithoutApproval: agentIdentity.deleteWithoutApproval,
-      sendMessagesWithoutApproval: agentIdentity.sendMessagesWithoutApproval,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       modelProvider: agentIdentity.modelProvider,
@@ -438,9 +436,7 @@ const AGENT_FOR_SCHEDULER = {
   organizationId: agentIdentity.organizationId,
   // The scheduler runs tools without an HTTP request, so it needs the policy here or it has none.
   allowedTools: agentIdentity.allowedTools,
-  updateWithoutApproval: agentIdentity.updateWithoutApproval,
-  deleteWithoutApproval: agentIdentity.deleteWithoutApproval,
-  sendMessagesWithoutApproval: agentIdentity.sendMessagesWithoutApproval,
+  ...AGENT_PERMISSION_FIELDS,
 };
 
 /**
@@ -833,6 +829,27 @@ export type ReportInput = {
 };
 
 export async function reportTask(agent: AgentIdentity, input: ReportInput) {
+  return reportTaskInternal(agent, input, input.evidence.slice(0, 8000));
+}
+
+/** Worker-only snapshot: structured, bounded, and not routed through user-supplied reports. */
+export async function reportLoadedSkill(
+  agent: AgentIdentity,
+  input: { taskId: string; name: string; instructions: string }
+) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.name) || input.name.length > 64 ||
+      input.instructions.length > 16000) {
+    throw new Error("invalid_skill_snapshot");
+  }
+  const evidence = JSON.stringify({
+    tool: "load_skill",
+    summary: "Loaded workspace skill instructions.",
+    result: { name: input.name, instructions: input.instructions },
+  });
+  return reportTaskInternal(agent, { taskId: input.taskId, status: "completed", evidence }, evidence);
+}
+
+async function reportTaskInternal(agent: AgentIdentity, input: ReportInput, evidence: string) {
   const [target] = await db
     .select({ approvalRequired: agentTask.approvalRequired })
     .from(agentTask)
@@ -862,7 +879,7 @@ export async function reportTask(agent: AgentIdentity, input: ReportInput) {
     .update(agentTask)
     .set({
       status: input.status,
-      evidence: input.evidence.slice(0, 8000),
+      evidence,
       reportedAt: new Date(),
     })
     .where(

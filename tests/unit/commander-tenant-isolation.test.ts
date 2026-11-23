@@ -58,7 +58,7 @@ beforeAll(async () => {
   await apply(sqlFile("pending/0039_launch_plan.sql"));
   await apply(sqlFile("pending/0040_agent_tools_and_instructions.sql"));
   await apply(sqlFile("pending/0041_workspace_projects.sql"));
-  await apply(sqlFile("pending/0068_agent_permissions.sql"));
+  await apply(sqlFile("pending/0070_agent_permissions.sql"));
   holder.db = drizzle(pg, { schema });
   center = (await import(CENTER)) as typeof import("@/lib/agents/command-center");
   ({ runTask } = await import("@/lib/agents/worker"));
@@ -541,4 +541,33 @@ test("the recent-activity audit trail is per organisation", async () => {
   const activityB = JSON.stringify(await center.recentAgentActivity(ORG_B));
   assert.ok(!activityA.includes("B only"));
   assert.ok(!activityB.includes("A only"));
+});
+
+test("permission reads use defaults before the additive migration is applied", async () => {
+  const registered = await register(ORG_A, "alpha-pre-migration");
+  await pg.exec(
+    `alter table "AgentIdentity"
+     drop column "updateWithoutApproval",
+     drop column "deleteWithoutApproval",
+     drop column "sendMessagesWithoutApproval"`
+  );
+
+  try {
+    const agents = await center.listAgents(ORG_A);
+    assert.equal(agents[0]?.updateWithoutApproval, true);
+    assert.equal(agents[0]?.deleteWithoutApproval, false);
+    assert.equal(agents[0]?.sendMessagesWithoutApproval, false);
+
+    const authenticated = await center.authenticateAgent(bearer(registered.key));
+    assert.equal(authenticated?.updateWithoutApproval, true);
+    assert.equal(authenticated?.deleteWithoutApproval, false);
+    assert.equal(authenticated?.sendMessagesWithoutApproval, false);
+
+    const scheduled = await center.firstAgentIdentity(ORG_A);
+    assert.equal(scheduled?.updateWithoutApproval, true);
+    assert.equal(scheduled?.deleteWithoutApproval, false);
+    assert.equal(scheduled?.sendMessagesWithoutApproval, false);
+  } finally {
+    await apply(sqlFile("pending/0070_agent_permissions.sql"));
+  }
 });

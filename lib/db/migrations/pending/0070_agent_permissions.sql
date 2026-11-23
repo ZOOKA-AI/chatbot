@@ -1,4 +1,5 @@
--- Per-agent permissions. Existing agents retain the product defaults.
+-- Add permission settings to the existing RLS-protected agent identity table.
+-- Existing agents retain the product defaults; no policy or tenant boundary changes.
 ALTER TABLE "AgentIdentity"
   ADD COLUMN IF NOT EXISTS "updateWithoutApproval" boolean NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS "deleteWithoutApproval" boolean NOT NULL DEFAULT false,

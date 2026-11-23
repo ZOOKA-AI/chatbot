@@ -1,4 +1,8 @@
-import { AdminDenied, adminPageContext } from "@/lib/admin/page-guard";
+import { redirect } from "next/navigation";
+import { SecurityConsole } from "@/components/security-console";
+import { adminPageContext } from "@/lib/admin/page-guard";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { loadSecurityPosture, stateLabel } from "@/lib/security/posture";
 
 const stateClass: Record<string, string> = {
@@ -8,25 +12,40 @@ const stateClass: Record<string, string> = {
 };
 
 export default async function WorkspaceSecurityPage() {
+  const context = await getWorkspaceContext();
+  if (!context) {
+    redirect("/login");
+  }
+  const lang = await getLang();
+  const admin = await adminPageContext();
+
+  return (
+    <main
+      className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4"
+      dir={dirOf(lang)}
+      lang={lang}
+      style={{ fontFamily: fontOf(lang) }}
+    >
+      <SecurityConsole
+        canManage={context.role === "owner" || context.role === "admin"}
+        key={context.organizationId}
+        lang={lang}
+      />
+      {admin ? <SecurityPosture /> : null}
+    </main>
+  );
+}
+
+function SecurityPosture() {
   // The rows below describe the platform owner's own accounts and devices.
   // Owning a workspace (which every sign-up does) must not reveal them, so
   // the page requires the platform admin grant, like /admin.
-  const admin = await adminPageContext();
-  if (!admin) {
-    return (
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
-        <h1 className="text-lg font-semibold">الأمان · Security</h1>
-        <AdminDenied />
-      </main>
-    );
-  }
-
   const { measuredAt, rows, actions, release, auditReportUrl } = loadSecurityPosture();
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <h1 className="text-lg font-semibold">الأمان · Security</h1>
+        <h2 className="text-lg font-semibold">حالة أمان المنصة · Platform security posture</h2>
         <p className="text-sm opacity-70">
           كل صف في هذه الصفحة ناتج فحص حقيقي بتاريخه. ما لم يُقس مكتوب أنه غير مقيس، لا مُقدَّرًا. الصفحة لا تفحص
           جهازك ولا تطلب صلاحيات: هي سجل حالة وخطوات تنفيذ.
@@ -150,6 +169,6 @@ export default async function WorkspaceSecurityPage() {
         </div>
       </section>
       ) : null}
-    </main>
+    </div>
   );
 }

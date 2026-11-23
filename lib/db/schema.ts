@@ -639,6 +639,48 @@ export const agentProject = pgTable(
 
 export type AgentProject = InferSelectModel<typeof agentProject>;
 
+export const workspaceSkill = pgTable(
+  "WorkspaceSkill",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 64 }).notNull(),
+    description: text("description").notNull(),
+    instructions: text("instructions").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdBy: uuid("createdBy").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    nameUnique: unique("WorkspaceSkill_organizationId_name_key").on(table.organizationId, table.name),
+  })
+);
+
+export type WorkspaceSkill = InferSelectModel<typeof workspaceSkill>;
+
+export const workspaceSecret = pgTable(
+  "WorkspaceSecret",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 64 }).notNull(),
+    encryptedValue: text("encryptedValue").notNull(),
+    createdBy: uuid("createdBy").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("lastUsedAt", { withTimezone: true }),
+  },
+  (table) => ({
+    nameUnique: unique("WorkspaceSecret_organizationId_name_key").on(table.organizationId, table.name),
+  })
+);
+
+export const workspaceSecretSettings = pgTable("WorkspaceSecretSettings", {
+  organizationId: uuid("organizationId").primaryKey().references(() => organization.id, { onDelete: "cascade" }),
+  detectionEnabled: boolean("detectionEnabled").notNull().default(true),
+});
+
 /**
  * A document an agent produced for one project, kept with the task that made it.
  *

@@ -20,7 +20,8 @@ vi.mock("@/lib/db/queries", () => ({
   },
 }));
 
-import { runScheduler } from "@/lib/agents/scheduler";
+import { argumentsFromText, runScheduler } from "@/lib/agents/scheduler";
+import { toolPayloadFor } from "@/lib/agents/tool-payload";
 import { withCommanderScope } from "@/lib/agents/commander-scope";
 import { createTask } from "@/lib/agents/command-center";
 
@@ -33,6 +34,20 @@ const ORG_B = "22222222-2222-4222-8222-222222222222";
 const AGENT_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const AGENT_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const LOCK_KEY = 8135713;
+
+describe("skill arguments in task text", () => {
+  const task = { id: "task", organizationId: "org", createdAt: new Date(), payload: null };
+  test("accepts one explicit command and lets payload override it", () => {
+    const args = argumentsFromText("load_skill", { ...task, title: "load_skill brand-writing" });
+    assert.deepEqual(args, { name: "brand-writing" });
+    assert.deepEqual(toolPayloadFor("load_skill", { ...args, name: "other" }), { name: "other" });
+  });
+  test("does not guess names or choose between ambiguous commands", () => {
+    for (const instruction of ["load_skill", "load_skill foo--bar", "load_skill foo load_skill bar"]) {
+      assert.deepEqual(argumentsFromText("load_skill", { ...task, instruction }), {});
+    }
+  });
+});
 
 let admin: ReturnType<typeof postgres>;
 
