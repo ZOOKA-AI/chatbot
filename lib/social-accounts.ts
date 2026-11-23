@@ -87,10 +87,10 @@ export const SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: "instagram",
     label: "Instagram",
-    handle: "@zooka_ai_official",
+    handle: "@zookaai",
+    href: "https://www.instagram.com/zookaai/",
     category: "social",
-    status: "pending",
-    note: "الحساب قيد مراجعة المنصة ولا يظهر للعامة بعد.",
+    status: "live",
     path: "M12 7.4A4.6 4.6 0 1 0 12 16.6 4.6 4.6 0 0 0 12 7.4Zm0 7.6A3 3 0 1 1 12 9a3 3 0 0 1 0 6Zm5.9-7.8a1.1 1.1 0 1 1-2.2 0 1.1 1.1 0 0 1 2.2 0ZM21 8.1c-.1-1.4-.4-2.7-1.4-3.7S17.3 3.1 15.9 3c-1.5-.1-6.3-.1-7.8 0-1.4.1-2.7.4-3.7 1.4S3.1 6.7 3 8.1c-.1 1.5-.1 6.3 0 7.8.1 1.4.4 2.7 1.4 3.7s2.3 1.3 3.7 1.4c1.5.1 6.3.1 7.8 0 1.4-.1 2.7-.4 3.7-1.4s1.3-2.3 1.4-3.7c.1-1.5.1-6.3 0-7.8Z",
   },
   {
