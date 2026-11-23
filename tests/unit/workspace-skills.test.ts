@@ -147,4 +147,18 @@ describe("workspace skills", () => {
     state.caller = owner(ORG_A);
     expect((await item.DELETE(request("DELETE"), context("research"))).status).toBe(200);
   });
+
+  test("reads return empty results while the manual table migration is pending", async () => {
+    const instance = new PGlite();
+    try {
+      state.db = drizzle(instance);
+      expect(await store.listWorkspaceSkills(ORG_A)).toEqual([]);
+      expect(await store.getWorkspaceSkillByName(ORG_A, "research")).toBeNull();
+      expect(await (await collection.GET(request("GET"))).json()).toEqual({ skills: [], count: 0 });
+      expect((await item.GET(request("GET"), context("research"))).status).toBe(404);
+    } finally {
+      state.db = drizzle(pg);
+      await instance.close();
+    }
+  });
 });

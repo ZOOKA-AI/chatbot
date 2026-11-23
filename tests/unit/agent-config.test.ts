@@ -4,6 +4,12 @@ import { describe, test, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { guardLastActiveAgent, modelCredentialStatus, parseAgentPatch } from "@/lib/agents/agent-config";
+import {
+  permissionForTool,
+  permissionNeedsApproval,
+  permissionsRequiringApproval,
+  toolCatalog,
+} from "@/lib/agents/agent-tools";
 
 /**
  * An agent's scopes are its authority, so these tests treat a rejected patch as the
@@ -131,5 +137,72 @@ describe("model selection is validated before it is stored", () => {
     assert.equal(modelCredentialStatus("google", { GEMINI_API_KEY: "k" }).ok, true);
     assert.equal(modelCredentialStatus("openai-compatible", { MODEL_API_KEY: "k" }).ok, true);
     assert.equal(modelCredentialStatus("nope", {}).reason, "unsupported_provider");
+  });
+});
+
+describe("per-agent action permissions", () => {
+  test("settings accept only the three editable no-approval permissions", () => {
+    const parsed = parseAgentPatch({
+      updateWithoutApproval: false,
+      deleteWithoutApproval: true,
+      sendMessagesWithoutApproval: true,
+    });
+    assert.deepEqual(parsed, {
+      ok: true,
+      patch: {
+        updateWithoutApproval: false,
+        deleteWithoutApproval: true,
+        sendMessagesWithoutApproval: true,
+      },
+    });
+    assert.equal(parseAgentPatch({ updateWithoutApproval: "true" }).ok, false);
+    assert.equal(parseAgentPatch({ spendWithoutApproval: true }).ok, false);
+  });
+
+  test("read is always allowed; update defaults on and delete/send default off", () => {
+    assert.equal(permissionNeedsApproval("read", undefined), false);
+    assert.equal(permissionNeedsApproval("update", undefined), false);
+    assert.equal(permissionNeedsApproval("update", { updateWithoutApproval: false }), true);
+    assert.equal(permissionNeedsApproval("delete", undefined), true);
+    assert.equal(permissionNeedsApproval("delete", { deleteWithoutApproval: true }), false);
+    assert.equal(permissionNeedsApproval("send", undefined), true);
+    assert.equal(permissionNeedsApproval("send", { sendMessagesWithoutApproval: true }), false);
+  });
+
+  test("spend always requires approval, regardless of supplied settings", () => {
+    assert.equal(permissionNeedsApproval("spend", undefined), true);
+    assert.equal(
+      permissionNeedsApproval("spend", { updateWithoutApproval: true, spendWithoutApproval: true } as never),
+      true
+    );
+  });
+
+  test("worker tools and browser actions are classified by action", () => {
+    const catalog = toolCatalog();
+    assert.ok(catalog.every((tool) => ["read", "update", "delete", "send", "spend"].includes(tool.permission)));
+    assert.equal(permissionForTool("github_repo_inspect"), "read");
+    assert.equal(permissionForTool("project_document_create"), "update");
+    assert.equal(permissionForTool("studio_ai_generate"), "spend");
+    assert.equal(permissionForTool("browser_task_run", { steps: [{ action: "click" }] }), "spend");
+    assert.equal(permissionForTool("browser_task_run", { steps: [{ action: "delete" }] }), "delete");
+    assert.equal(permissionForTool("browser_task_run", { steps: [{ action: "message" }] }), "send");
+    assert.equal(permissionForTool("browser_task_run", { steps: [{ action: "consequential" }] }), "spend");
+    assert.equal(permissionForTool("unregistered_tool"), "spend");
+    assert.deepEqual(
+      permissionsRequiringApproval(
+        "browser_task_run",
+        { steps: [{ action: "submit" }] },
+        { updateWithoutApproval: true, sendMessagesWithoutApproval: true }
+      ),
+      ["spend"]
+    );
+    assert.deepEqual(
+      permissionsRequiringApproval(
+        "browser_task_run",
+        { steps: [{ action: "delete" }, { action: "message" }] },
+        { deleteWithoutApproval: true, sendMessagesWithoutApproval: false }
+      ),
+      ["send"]
+    );
   });
 });

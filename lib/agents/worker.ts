@@ -7,9 +7,13 @@ import {
   latestExecution,
   reportLoadedSkill,
   reportTask,
+  requestTaskApproval,
   startExecution,
 } from "@/lib/agents/command-center";
-import { agentAllowsTool } from "@/lib/agents/agent-tools";
+import {
+  agentAllowsTool,
+  permissionsRequiringApproval,
+} from "@/lib/agents/agent-tools";
 import { githubRepoInspect, githubRepoProbe } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
 import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
@@ -52,6 +56,9 @@ type WorkerAgent = {
    * the second gate, and it is the one that holds when the queue was filled by something other than the route.
    */
   allowedTools?: unknown;
+   updateWithoutApproval?: boolean;
+   deleteWithoutApproval?: boolean;
+   sendMessagesWithoutApproval?: boolean;
 };
 
 import {
@@ -186,6 +193,36 @@ export async function runTask(
     };
   }
 
+  const effectivePayload = isStoredProbe && storedPayload ? storedPayload : input.payload ?? storedPayload ?? {};
+  const permissions = permissionsRequiringApproval(input.tool, effectivePayload, agent);
+  if (permissions.length > 0) {
+    const approval = await requestTaskApproval(agent, {
+      organizationId: agent.organizationId,
+      taskId: input.taskId,
+      permissions,
+      tool: input.tool,
+      payload: effectivePayload,
+    });
+    if (approval.outcome !== "approved") {
+      const error =
+        approval.outcome === "rejected"
+          ? "approval_rejected"
+          : approval.outcome === "not_found"
+            ? "task_not_found"
+            : approval.outcome === "not_pending"
+              ? "task_not_pending"
+              : "approval_required";
+      return {
+        ok: false,
+        taskId: input.taskId,
+        executionId: null,
+        status: approval.outcome === "pending" ? "awaiting_approval" : "rejected",
+        tool: input.tool,
+        error,
+      };
+    }
+  }
+
   const attempts = await countExecutions(agent.organizationId, input.taskId);
   const claim = await claimTask(agent as never, input.taskId);
   if (!claim.ok) {
@@ -260,7 +297,7 @@ export async function runTask(
       // payload from the caller wins only when it is actually provided, so a scheduler can still
       // re-run a task with different inputs. Named credential probes are pinned to
       // the persisted request so a caller cannot substitute different work.
-      payload: isStoredProbe && storedPayload ? storedPayload : input.payload ?? storedPayload ?? {},
+      payload: effectivePayload,
       signal: controller.signal,
       fetchImpl: input.fetchImpl ?? fetch,
     });

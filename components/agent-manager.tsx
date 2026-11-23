@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { Lang } from "@/lib/i18n";
 
 type Agent = {
   id: string;
@@ -10,6 +11,10 @@ type Agent = {
   status: string;
   environment: string;
   scopes: string[];
+  updateWithoutApproval: boolean;
+  deleteWithoutApproval: boolean;
+  sendMessagesWithoutApproval: boolean;
+  spendWithoutApproval: false;
   modelProvider: string | null;
   modelId: string | null;
   allowedTools?: string[] | null;
@@ -27,7 +32,7 @@ type HistoryRow = { id: string; title: string; status: string; createdAt: string
  * not implement, or a provider this deployment holds no credential for, must not appear as a
  * choice the customer can make and then watch fail.
  */
-export function AgentManager({ canManage }: { canManage: boolean }) {
+export function AgentManager({ canManage, lang }: { canManage: boolean; lang: Lang }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tools, setTools] = useState<ToolEntry[]>([]);
   const [providers, setProviders] = useState<ProviderEntry[]>([]);
@@ -381,6 +386,7 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
                   agent={agent}
                   tools={tools}
                   providers={providers}
+                  lang={lang}
                   onCancel={() => setEditing(null)}
                   onSave={(patch) => save(agent, patch)}
                 />
@@ -397,12 +403,14 @@ function AgentEditor({
   agent,
   tools,
   providers,
+  lang,
   onCancel,
   onSave,
 }: {
   agent: Agent;
   tools: ToolEntry[];
   providers: ProviderEntry[];
+  lang: Lang;
   onCancel: () => void;
   onSave: (patch: Record<string, unknown>) => void;
 }) {
@@ -410,6 +418,11 @@ function AgentEditor({
   const [instructions, setInstructions] = useState(agent.instructions ?? "");
   const [provider, setProvider] = useState(agent.modelProvider ?? "");
   const [modelId, setModelId] = useState(agent.modelId ?? "");
+  const [updateWithoutApproval, setUpdateWithoutApproval] = useState(agent.updateWithoutApproval ?? true);
+  const [deleteWithoutApproval, setDeleteWithoutApproval] = useState(agent.deleteWithoutApproval ?? false);
+  const [sendMessagesWithoutApproval, setSendMessagesWithoutApproval] = useState(
+    agent.sendMessagesWithoutApproval ?? false
+  );
   // An omitted or null list is the legacy state: not restricted, still reaching every tool.
   const [restricted, setRestricted] = useState(Array.isArray(agent.allowedTools));
   const [selected, setSelected] = useState<string[]>(agent.allowedTools ?? []);
@@ -488,6 +501,38 @@ function AgentEditor({
         </div>
       ) : null}
 
+      <section className="flex flex-col gap-2 rounded border p-3" dir={lang === "ar" ? "rtl" : "ltr"}>
+        <h3 className="font-semibold">{lang === "ar" ? "الصلاحيات" : "Permissions"}</h3>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={updateWithoutApproval}
+            onChange={(event) => setUpdateWithoutApproval(event.target.checked)}
+          />
+          {lang === "ar" ? "السماح بالتحديث دون موافقة" : "Allow updates without approval"}
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={deleteWithoutApproval}
+            onChange={(event) => setDeleteWithoutApproval(event.target.checked)}
+          />
+          {lang === "ar" ? "السماح بالحذف دون موافقة" : "Allow deletes without approval"}
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={sendMessagesWithoutApproval}
+            onChange={(event) => setSendMessagesWithoutApproval(event.target.checked)}
+          />
+          {lang === "ar" ? "السماح بإرسال الرسائل دون موافقة" : "Allow sending messages without approval"}
+        </label>
+        <label className="flex items-center gap-2 opacity-70">
+          <input type="checkbox" checked={false} disabled />
+          {lang === "ar" ? "السماح بالإنفاق دون موافقة (متوقف دائمًا)" : "Allow spending without approval (always off)"}
+        </label>
+      </section>
+
       <div className="flex gap-2">
         <button
           type="button"
@@ -498,6 +543,9 @@ function AgentEditor({
               modelProvider: provider === "" ? null : provider,
               modelId: provider === "" ? null : modelId,
               allowedTools: restricted ? selected : null,
+              updateWithoutApproval,
+              deleteWithoutApproval,
+              sendMessagesWithoutApproval,
             })
           }
           disabled={restricted && selected.length === 0}

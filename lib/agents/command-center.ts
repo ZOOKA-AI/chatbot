@@ -38,6 +38,12 @@ const db = new Proxy({} as typeof queriesModule.db, {
   },
 }) as typeof queriesModule.db;
 
+const AGENT_PERMISSION_FIELDS = {
+  updateWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'updateWithoutApproval')::boolean, true)`,
+  deleteWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'deleteWithoutApproval')::boolean, false)`,
+  sendMessagesWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'sendMessagesWithoutApproval')::boolean, false)`,
+};
+
 
 /**
  * ZOOKA AGENT COMMAND CENTER — shared coordination state for every agent.
@@ -80,6 +86,9 @@ export type AgentIdentity = {
   displayName: string;
   role: string;
   scopes: string[];
+  updateWithoutApproval: boolean;
+  deleteWithoutApproval: boolean;
+  sendMessagesWithoutApproval: boolean;
   environment: string;
   status: string;
   lastSeenAt: Date | null;
@@ -110,6 +119,7 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       lastSeenAt: agentIdentity.lastSeenAt,
@@ -164,6 +174,7 @@ export async function registerAgent(input: RegisterInput) {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       lastSeenAt: agentIdentity.lastSeenAt,
@@ -210,6 +221,7 @@ export async function listAgents(organizationId: string) {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       // The console reads its own state from this list. Without the assignment here the
@@ -240,6 +252,9 @@ export async function updateAgentConfig(input: {
     displayName?: string;
     status?: string;
     scopes?: string[];
+    updateWithoutApproval?: boolean;
+    deleteWithoutApproval?: boolean;
+    sendMessagesWithoutApproval?: boolean;
     environment?: string;
     modelProvider?: string | null;
     modelId?: string | null;
@@ -256,6 +271,15 @@ export async function updateAgentConfig(input: {
       ...(input.patch.displayName === undefined ? {} : { displayName: input.patch.displayName }),
       ...(input.patch.status === undefined ? {} : { status: input.patch.status }),
       ...(input.patch.scopes === undefined ? {} : { scopes: input.patch.scopes }),
+      ...(input.patch.updateWithoutApproval === undefined
+        ? {}
+        : { updateWithoutApproval: input.patch.updateWithoutApproval }),
+      ...(input.patch.deleteWithoutApproval === undefined
+        ? {}
+        : { deleteWithoutApproval: input.patch.deleteWithoutApproval }),
+      ...(input.patch.sendMessagesWithoutApproval === undefined
+        ? {}
+        : { sendMessagesWithoutApproval: input.patch.sendMessagesWithoutApproval }),
       ...(input.patch.environment === undefined ? {} : { environment: input.patch.environment }),
       ...(input.patch.modelProvider === undefined ? {} : { modelProvider: input.patch.modelProvider }),
       ...(input.patch.modelId === undefined ? {} : { modelId: input.patch.modelId }),
@@ -274,6 +298,7 @@ export async function updateAgentConfig(input: {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       modelProvider: agentIdentity.modelProvider,
@@ -411,6 +436,7 @@ const AGENT_FOR_SCHEDULER = {
   organizationId: agentIdentity.organizationId,
   // The scheduler runs tools without an HTTP request, so it needs the policy here or it has none.
   allowedTools: agentIdentity.allowedTools,
+  ...AGENT_PERMISSION_FIELDS,
 };
 
 /**
@@ -724,6 +750,7 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
       and(
         eq(agentTask.id, taskId),
         eq(agentTask.organizationId, agent.organizationId),
+        eq(agentTask.approvalRequired, target.approvalRequired),
         eq(agentTask.status, "pending"),
         or(isNull(agentTask.ownerAgentId), eq(agentTask.ownerAgentId, agent.id))
       )
@@ -736,6 +763,7 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
         status: agentTask.status,
         ownerAgentId: agentTask.ownerAgentId,
         title: agentTask.title,
+        approvalRequired: agentTask.approvalRequired,
       })
       .from(agentTask)
       .where(
@@ -748,6 +776,15 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
 
     if (!current) {
       return { ok: false as const, error: "task_not_found" };
+    }
+    if (current.approvalRequired) {
+      const state = await approvalState(taskId, agent.organizationId);
+      if (state !== "approved") {
+        return {
+          ok: false as const,
+          error: state === "rejected" ? "approval_rejected" : "approval_required",
+        };
+      }
     }
     return {
       ok: false as const,
@@ -905,6 +942,90 @@ export async function requestApproval(
     })
     .returning();
   return row;
+}
+
+function approvalPayloadHash(payload: Record<string, unknown> | undefined) {
+  const sortKeys = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(sortKeys);
+    if (value !== null && typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      return Object.fromEntries(Object.keys(record).sort().map((key) => [key, sortKeys(record[key])]));
+    }
+    return value;
+  };
+  const serialized = JSON.stringify(sortKeys(payload ?? {})) ?? "{}";
+  return createHash("sha256").update(serialized).digest("hex");
+}
+
+/**
+ * Persist the approval gate and request together while holding the task row lock.
+ * A concurrent worker can therefore neither claim the task between the setting
+ * and its approval request, nor create duplicate pending requests.
+ */
+export async function requestTaskApproval(
+  agent: Pick<AgentIdentity, "id">,
+  input: {
+    organizationId: string;
+    taskId: string;
+    permissions: Array<"read" | "update" | "delete" | "send" | "spend">;
+    tool: string;
+    payload?: Record<string, unknown>;
+  }
+) {
+  return db.transaction(async (tx) => {
+    const [task] = await tx
+      .select({ status: agentTask.status })
+      .from(agentTask)
+      .where(and(eq(agentTask.id, input.taskId), eq(agentTask.organizationId, input.organizationId)))
+      .for("update")
+      .limit(1);
+    if (!task) return { outcome: "not_found" as const };
+    if (task.status !== "pending") return { outcome: "not_pending" as const };
+
+    const permissions = [...input.permissions].sort().join(", ");
+    const reason = `Agent action requires approval: ${permissions} permission for ${input.tool} (payload sha256:${approvalPayloadHash(input.payload)}).`;
+    const [existing] = await tx
+      .select({ status: agentApproval.status, reason: agentApproval.reason })
+      .from(agentApproval)
+      .where(
+        and(
+          eq(agentApproval.taskId, input.taskId),
+          eq(agentApproval.organizationId, input.organizationId)
+        )
+      )
+      .orderBy(desc(agentApproval.createdAt))
+      .limit(1);
+    if (existing?.reason === reason && existing.status === "approved") {
+      return { outcome: "approved" as const };
+    }
+    if (existing?.reason === reason && existing.status === "pending") {
+      return { outcome: "pending" as const };
+    }
+    if (existing?.reason === reason && existing.status === "rejected") {
+      return { outcome: "rejected" as const };
+    }
+
+    await tx
+      .update(agentTask)
+      .set({ approvalRequired: true })
+      .where(
+        and(
+          eq(agentTask.id, input.taskId),
+          eq(agentTask.organizationId, input.organizationId),
+          eq(agentTask.status, "pending")
+        )
+      );
+    const [approval] = await tx
+      .insert(agentApproval)
+      .values({
+        organizationId: input.organizationId,
+        taskId: input.taskId,
+        requestedBy: agent.id,
+        reason,
+      })
+      .returning({ id: agentApproval.id });
+    return { outcome: "pending" as const, approvalId: approval?.id ?? null };
+  });
 }
 
 export async function listDeployments(organizationId: string, limit = 50) {
