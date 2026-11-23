@@ -3,7 +3,6 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { unlinkAgentChannel } from "@/lib/db/agent-channels";
 
-export const dynamic = "force-dynamic";
 
 async function DELETEImpl(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const context = await getWorkspaceContext();

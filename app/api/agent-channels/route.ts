@@ -9,7 +9,6 @@ import {
   normalizeExternalId,
 } from "@/lib/agent/channels/providers";
 
-export const dynamic = "force-dynamic";
 
 async function GETImpl() {
   const context = await getWorkspaceContext();

@@ -5,7 +5,6 @@ import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { listAgentChannels } from "@/lib/db/agent-channels";
 import { listWorkspaceSecrets } from "@/lib/db/workspace-secrets";
 
-export const dynamic = "force-dynamic";
 
 export const metadata = { title: "القنوات — ZOOKA-AI" };
 
