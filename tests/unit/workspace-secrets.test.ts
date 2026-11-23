@@ -77,6 +77,24 @@ describe("workspace secrets", () => {
     }
   });
 
+  test("reads use safe defaults while the manual secret tables are missing", async () => {
+    const instance = new PGlite();
+    try {
+      state.db = drizzle(instance);
+      expect(await store.listWorkspaceSecrets(ORG_A)).toEqual([]);
+      expect(await store.getWorkspaceSecretMetadata(ORG_A, "KEY")).toBeNull();
+      expect(await store.getWorkspaceSecretValue(ORG_A, "KEY")).toBeNull();
+      expect(await store.getWorkspaceSecretDetectionEnabled(ORG_A)).toBe(true);
+      expect(await store.getChatSecretDetectionEnabled(ORG_A)).toBe(false);
+      expect(await (await collection.GET(request("GET"))).json()).toEqual({ secrets: [], count: 0 });
+      expect((await item.GET(request("GET"), context("KEY"))).status).toBe(404);
+      expect(await (await settings.GET(request("GET"))).json()).toEqual({ enabled: true });
+    } finally {
+      state.db = drizzle(pg);
+      await instance.close();
+    }
+  });
+
   test("authenticated encryption uses fresh nonces and binds tenant and name", () => {
     const a = encryptWorkspaceSecret(value, ORG_A, "KEY");
     const b = encryptWorkspaceSecret(value, ORG_A, "KEY");

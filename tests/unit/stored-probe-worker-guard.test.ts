@@ -27,6 +27,7 @@ vi.mock("@/lib/agents/command-center", () => ({
 }));
 vi.mock("@/lib/agents/agent-tools", () => ({
   agentAllowsTool: () => true,
+  permissionsRequiringApproval: () => [],
   toolCatalog: () => [{ id: "github_repo_probe" }, { id: "github_repo_inspect" }],
 }));
 vi.mock("@/lib/agents/commander-scope", () => ({ withCommanderTenant: (handler: unknown) => handler }));
