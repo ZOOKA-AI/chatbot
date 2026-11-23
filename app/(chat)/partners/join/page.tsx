@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
 export const metadata: Metadata = {
@@ -34,14 +34,15 @@ export default async function PartnerJoinPage() {
   );
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
       <div className="absolute end-4 top-4 z-10">
-        <LanguageToggle lang={lang} />
       </div>
 
       <header className="text-center">
@@ -102,5 +103,6 @@ export default async function PartnerJoinPage() {
         </Link>
       </p>
     </main>
+    </>
   );
 }

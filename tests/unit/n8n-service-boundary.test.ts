@@ -52,6 +52,9 @@ test("neighbouring n8n routes keep the session gate", async () => {
     "/api/integrations/n8n/tiktok",
     "/api/integrations/n8n/tiktok/run/extra",
     "/api/integrations/n8n/tiktok/run/",
+    "/api/integrations/n8n/growth",
+    "/api/integrations/n8n/growth/report/",
+    "/api/integrations/n8n/growth/report/extra",
     "/api/integrations/tiktok/queue",
     "/api/integrations/tiktok/status",
   ];
@@ -97,4 +100,22 @@ test("the machine exemptions that already existed are unchanged", async () => {
     const response = await call(path, "POST");
     assert.equal(passes(response), true, `${path} is a documented machine exemption`);
   }
+});
+
+test("only an authenticated growth machine POST reaches the report handler", async () => {
+  const REPORT = "/api/integrations/n8n/growth/report";
+  vi.stubEnv("N8N_GROWTH_REPORT_SECRET", "growth-secret");
+  vi.stubEnv("N8N_WEBHOOK_SECRET", "publishing-secret");
+  for (const candidate of ["wrong", "publishing-secret", "growth"]) {
+    assert.equal((await call(REPORT, "POST", { "x-n8n-secret": candidate })).status, 401);
+  }
+  assert.equal((await call(REPORT, "POST")).status, 401);
+  const headers = { "x-n8n-secret": "growth-secret" };
+  assert.equal(passes(await call(REPORT, "POST", headers)), true);
+  for (const method of ["GET", "PUT", "PATCH", "DELETE", "HEAD"]) {
+    const other = await call(REPORT, method, headers);
+    assert.equal(other.status, 401, `${method} must not be exempted`);
+  }
+  vi.stubEnv("N8N_GROWTH_REPORT_SECRET", "");
+  assert.equal((await call(REPORT, "POST", headers)).status, 401);
 });

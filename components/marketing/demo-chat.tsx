@@ -190,7 +190,12 @@ export function DemoChat({ lang }: { lang: Lang }) {
   }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // Nothing to follow on first paint: scrolling here dragged the whole
+    // page down to the demo before the visitor saw the hero.
+    if (messages.length === 0) {
+      return;
+    }
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, status, agentStep]);
 
   useEffect(() => {
