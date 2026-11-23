@@ -69,20 +69,6 @@ export async function POST(request: Request) {
     return new ChatbotError("payment_required:chat").toResponse();
   }
 
-  let allowed: boolean;
-  try {
-    allowed = await checkDemoMinuteLimit(hold.id);
-  } catch {
-    await releaseGuestHold(hold.id);
-    return new ChatbotError("offline:chat").toResponse();
-  }
-  if (!allowed) {
-    await releaseGuestHold(hold.id);
-    return Response.json(
-      { code: "demo_busy", message: demoBusyMessage(60, lang), retryAfter: 60 },
-      { status: 429, headers: { "Retry-After": "60" } }
-    );
-  }
   let committed = false;
   const commit = () => {
     if (committed) {
@@ -101,6 +87,29 @@ export async function POST(request: Request) {
 
   // A visitor who drops the connection before the first token keeps their allowance.
   request.signal.addEventListener("abort", releaseOnce, { once: true });
+  if (request.signal.aborted) {
+    releaseOnce();
+    return new Response(null, { status: 499 });
+  }
+
+  let allowed: boolean;
+  try {
+    allowed = await checkDemoMinuteLimit(hold.id);
+  } catch {
+    releaseOnce();
+    return new ChatbotError("offline:chat").toResponse();
+  }
+  if (request.signal.aborted) {
+    releaseOnce();
+    return new Response(null, { status: 499 });
+  }
+  if (!allowed) {
+    releaseOnce();
+    return Response.json(
+      { code: "demo_busy", message: demoBusyMessage(60, lang), retryAfter: 60 },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
 
   const history = (body.history ?? [])
     .filter((entry) => entry.role === "user" || entry.role === "assistant")
@@ -124,7 +133,7 @@ export async function POST(request: Request) {
           providerOptions: {
             gateway: { models: ["google/gemini-2.5-flash-lite"] },
           },
-          maxRetries: 0,
+          maxRetries: 2,
           abortSignal: request.signal,
           experimental_activeTools: [],
           onChunk: commit,

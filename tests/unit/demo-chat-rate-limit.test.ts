@@ -1,4 +1,7 @@
 import { createGateway } from "@ai-sdk/gateway";
+import { APICallError } from "@ai-sdk/provider";
+import { simulateReadableStream, streamText, wrapLanguageModel } from "ai";
+import { MockLanguageModelV3 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -23,7 +26,7 @@ vi.mock("@/lib/ai/providers", () => ({
 }));
 
 import { POST } from "@/app/api/demo-chat/route";
-import { rateLimitRetrySeconds } from "@/lib/ai/demo-rate-limit";
+import { demoRetryMiddleware, rateLimitRetrySeconds } from "@/lib/ai/demo-rate-limit";
 
 function request() {
   return new Request("http://localhost/api/demo-chat", {
@@ -118,6 +121,40 @@ describe("public demo gateway limits", () => {
     expect(state.release).toHaveBeenCalledOnce();
   });
 
+  test("preserves the SDK retry for non-429 transient provider errors", async () => {
+    let attempts = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new APICallError({
+            message: "temporary failure",
+            url: "https://example.test",
+            requestBodyValues: {},
+            statusCode: 503,
+            isRetryable: true,
+          });
+        }
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "text-start", id: "text" },
+              { type: "text-delta", id: "text", delta: "recovered" },
+              { type: "text-end", id: "text" },
+            ],
+          }),
+        };
+      },
+    });
+    const result = streamText({
+      model: wrapLanguageModel({ model, middleware: demoRetryMiddleware }),
+      prompt: "hello",
+      maxRetries: 2,
+    });
+    expect(await result.text).toBe("recovered");
+    expect(attempts).toBe(2);
+  });
+
   test("visitor throttling returns 429 before calling the gateway", async () => {
     state.check.mockResolvedValue(false);
     const response = await POST(request());
@@ -132,6 +169,20 @@ describe("public demo gateway limits", () => {
     state.check.mockRejectedValue(new Error("database unavailable"));
     const response = await POST(request());
     expect(response.status).toBe(503);
+    expect(state.release).toHaveBeenCalledOnce();
+    expect(state.fetch).not.toHaveBeenCalled();
+  });
+
+  test("releases the hold and skips the gateway when aborted during throttling", async () => {
+    let finishCheck!: (allowed: boolean) => void;
+    state.check.mockReturnValue(new Promise<boolean>((resolve) => { finishCheck = resolve; }));
+    const controller = new AbortController();
+    const original = request();
+    const pending = POST(new Request(original, { signal: controller.signal }));
+    await vi.waitFor(() => expect(state.check).toHaveBeenCalledOnce());
+    controller.abort();
+    finishCheck(true);
+    expect((await pending).status).toBe(499);
     expect(state.release).toHaveBeenCalledOnce();
     expect(state.fetch).not.toHaveBeenCalled();
   });

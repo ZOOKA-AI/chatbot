@@ -697,6 +697,13 @@ export async function tryClaimDemoMinute(key: string, limit: number) {
   return typeof rows?.[0]?.count === "number";
 }
 
+export async function pruneDemoMinuteLimits() {
+  const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  await adminDb()
+    .delete(guestUsage)
+    .where(and(like(guestUsage.key, "demo-minute:%"), lt(guestUsage.updatedAt, cutoff)));
+}
+
 /* Hand a claimed unit back, e.g. when the reply failed before its first token. */
 export async function releaseGuestUsage(key: string) {
   try {

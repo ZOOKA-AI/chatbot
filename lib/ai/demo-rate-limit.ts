@@ -45,11 +45,21 @@ export const demoRetryMiddleware: LanguageModelMiddleware = {
       return await doStream();
     } catch (error) {
       const seconds = rateLimitRetrySeconds(error);
-      if (seconds === null || seconds * 1000 > MAX_RETRY_DELAY_MS) {
+      if (seconds === null) {
         throw error;
       }
-      await delay(seconds * 1000, undefined, { signal: params.abortSignal });
-      return doStream();
+      if (seconds * 1000 <= MAX_RETRY_DELAY_MS) {
+        await delay(seconds * 1000, undefined, { signal: params.abortSignal });
+        try {
+          return await doStream();
+        } catch (retryError) {
+          if (rateLimitRetrySeconds(retryError) === null) {
+            throw retryError;
+          }
+          throw new Error("Demo rate limited", { cause: retryError });
+        }
+      }
+      throw new Error("Demo rate limited", { cause: error });
     }
   },
 };
