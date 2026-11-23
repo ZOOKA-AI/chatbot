@@ -7,6 +7,7 @@ import FacebookProvider from "next-auth/providers/facebook";
 import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
 import { randomBytes } from "node:crypto";
 import { DUMMY_PASSWORD } from "@/lib/constants";
+import { loginAttemptAllowed, loginSucceeded } from "@/lib/auth/throttle";
 import {
   createGuestUser,
   createUser,
@@ -113,7 +114,16 @@ export const {
       : []),
     Credentials({
       credentials: {},
-      async authorize({ email, password }: any) {
+      async authorize({ email, password }: any, request?: Request) {
+        // Bounded guessing. A throttled attempt does the same bcrypt work and
+        // gives the same neutral failure, so it reveals nothing about the account.
+        const forwarded = request?.headers?.get?.("x-forwarded-for") ?? "";
+        const ip = forwarded.split(",")[0]?.trim() ?? "";
+        if (!loginAttemptAllowed(String(email ?? ""), ip)) {
+          await compare(String(password ?? ""), DUMMY_PASSWORD);
+          return null;
+        }
+
         const users = await getUser(email);
 
         if (users.length === 0) {
@@ -134,6 +144,7 @@ export const {
           return null;
         }
 
+        loginSucceeded(String(email ?? ""));
         return { ...user, type: "regular" };
       },
     }),
