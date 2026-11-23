@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   createLiveSessionClient,
+  fetchLiveToken,
   type LiveSessionClient,
 } from "@/lib/live/client";
 import {
@@ -41,6 +42,12 @@ import {
   type MediaSupport,
   supportNotice,
 } from "@/lib/live/media-support";
+import {
+  ANDROID_APP_URL,
+  createNativeScreenBridge,
+  getNativePort,
+  type NativeScreenBridge,
+} from "@/lib/live/native-bridge";
 import { cn } from "@/lib/utils";
 
 type QualityMode = "balanced" | "performance" | "high";
@@ -267,9 +274,45 @@ export function LiveSessionConsole({
   useEffect(() => {
     setSupport(detectMediaSupport(navigator, window.isSecureContext));
   }, []);
-  const screenUnavailable = support !== null && !support.screen;
+  // Inside the ZOOKA-AI Android app, the app captures the screen natively for this room.
+  const nativeBridgeRef = useRef<NativeScreenBridge | null>(null);
+  const [nativeScreen, setNativeScreen] = useState(false);
+  const [nativeScreenEnabled, setNativeScreenEnabled] = useState(false);
+  useEffect(() => {
+    const port = getNativePort(window as unknown as { ZookaNative?: unknown });
+    if (!port) {
+      return;
+    }
+    const bridge = createNativeScreenBridge(port, (message) => {
+      if (message.type === "hello") {
+        setNativeScreen(message.screen);
+        return;
+      }
+      if (message.state === "started") {
+        setNativeScreenEnabled(true);
+        return;
+      }
+      setNativeScreenEnabled(false);
+      if (message.state === "error") {
+        setActionError(message.message ?? "screen_share_failed");
+      }
+    });
+    nativeBridgeRef.current = bridge;
+    bridge.hello();
+    return () => {
+      bridge.stop();
+      bridge.dispose();
+      nativeBridgeRef.current = null;
+    };
+  }, []);
+  const useNativeScreen = nativeScreen && support !== null && !support.screen;
+  const screenUnavailable = support !== null && !support.screen && !nativeScreen;
   const userMediaUnavailable = support !== null && (!support.camera || !support.microphone);
-  const notice = support ? supportNotice(support, isArabic ? "ar" : "en") : null;
+  const notice = support
+    ? supportNotice(support, isArabic ? "ar" : "en", { nativeScreen })
+    : null;
+  const offerAndroidApp =
+    support !== null && support.platform === "android" && !support.screen && !nativeScreen;
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -558,6 +601,33 @@ export function LiveSessionConsole({
     stopStream,
   ]);
 
+  const toggleNativeScreenShare = useCallback(async () => {
+    setActionError(null);
+    const bridge = nativeBridgeRef.current;
+    if (!bridge) {
+      return;
+    }
+    if (nativeScreenEnabled) {
+      bridge.stop();
+      return;
+    }
+    try {
+      // A fresh token for the app's own participant; the page's connection keeps its own.
+      const response = await fetchLiveToken(slug);
+      if (!response.configured) {
+        setActionError(
+          isArabic
+            ? "الجلسة المباشرة غير مهيأة حاليًا."
+            : "Live sessions are not configured right now."
+        );
+        return;
+      }
+      bridge.start(response.url, response.token);
+    } catch (error) {
+      setActionError(errorMessage(error));
+    }
+  }, [isArabic, nativeScreenEnabled, slug]);
+
   const toggleScreenShare = useCallback(async () => {
     setActionError(null);
     const client = clientRef.current;
@@ -670,7 +740,7 @@ export function LiveSessionConsole({
     releaseLocalCapture();
   }, [releaseLocalCapture]);
 
-  const isSessionLive = cameraEnabled || micEnabled || screenEnabled;
+  const isSessionLive = cameraEnabled || micEnabled || screenEnabled || nativeScreenEnabled;
   const summary = useMemo(() => {
     const tracks: string[] = [];
     if (micEnabled) {
@@ -679,11 +749,11 @@ export function LiveSessionConsole({
     if (cameraEnabled) {
       tracks.push(isArabic ? "كاميرا" : "Camera");
     }
-    if (screenEnabled) {
+    if (screenEnabled || nativeScreenEnabled) {
       tracks.push(isArabic ? "شاشة" : "Screen");
     }
     return tracks.join(" + ");
-  }, [cameraEnabled, isArabic, micEnabled, screenEnabled]);
+  }, [cameraEnabled, isArabic, micEnabled, nativeScreenEnabled, screenEnabled]);
 
   return (
     <>
@@ -798,13 +868,17 @@ export function LiveSessionConsole({
               </Button>
               <Button
                 aria-describedby={notice ? "live-media-support" : undefined}
-                aria-pressed={screenEnabled}
+                aria-pressed={useNativeScreen ? nativeScreenEnabled : screenEnabled}
                 data-testid="live-screen-button"
                 disabled={connecting || screenUnavailable}
-                onClick={toggleScreenShare}
+                onClick={useNativeScreen ? toggleNativeScreenShare : toggleScreenShare}
                 title={screenUnavailable && notice ? notice : undefined}
                 type="button"
-                variant={screenEnabled ? "default" : "outline"}
+                variant={
+                  (useNativeScreen ? nativeScreenEnabled : screenEnabled)
+                    ? "default"
+                    : "outline"
+                }
               >
                 <MonitorUp className="size-4" />
                 {isArabic ? "شاشة" : "Screen"}
@@ -820,6 +894,19 @@ export function LiveSessionConsole({
               >
                 {notice}
               </p>
+            )}
+
+            {offerAndroidApp && (
+              <a
+                className="text-primary text-xs underline underline-offset-4"
+                data-testid="live-android-app"
+                href={ANDROID_APP_URL}
+                rel="noopener"
+              >
+                {isArabic
+                  ? "تحميل تطبيق ZOOKA-AI لأندرويد (مشاركة شاشة الجوال)"
+                  : "Download the ZOOKA-AI Android app (share your phone screen)"}
+              </a>
             )}
 
             {actionError && (
