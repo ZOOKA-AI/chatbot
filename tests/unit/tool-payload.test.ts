@@ -46,6 +46,12 @@ describe("tool payloads have one source", () => {
     );
   });
 
+  test("a scheduled skill keeps its name but not an injected workspace", () => {
+    assert.deepEqual(toolPayloadFor("load_skill", { name: "writing", organizationId: "other" }), {
+      name: "writing",
+    });
+  });
+
   test("the accepted list is the defaults plus what the tool reads", () => {
     assert.deepEqual(acceptedPayloadKeys("github_repo_inspect"), ["repo", "paths"]);
     assert.deepEqual(acceptedPayloadKeys("workspace_readiness_inspect"), ["label"]);

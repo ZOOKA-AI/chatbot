@@ -14,6 +14,7 @@ import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-documen
 import { studioPromoVideo } from "@/lib/agents/worker-tools/studio-promo";
 import { studioAiGenerate } from "@/lib/agents/worker-tools/studio-ai-generate";
 import { workspaceReadinessInspect } from "@/lib/agents/worker-tools/workspace-readiness";
+import { loadSkill } from "@/lib/agents/worker-tools/load-skill";
 import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
 import { INTERNAL_WRITE_TOOLS } from "@/lib/agents/worker-types";
 import type { WorkerTool } from "@/lib/agents/worker-types";
@@ -70,6 +71,7 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
+  [loadSkill.name]: loadSkill,
   [projectDocumentCreate.name]: projectDocumentCreate,
   browser_task_run: browserTaskRun,
   studio_asset_list: studioAssetList,
@@ -315,7 +317,14 @@ export async function runTask(
       };
     }
 
-    const evidence = JSON.stringify({ tool: tool.name, summary: result.summary, result: result.evidence }).slice(
+    const storedResult = tool.name === loadSkill.name
+      ? {
+          name: (result.evidence as { name: string }).name,
+          instructionsStored: false,
+          note: "Reload the skill for instructions; they may have changed since this run.",
+        }
+      : result.evidence;
+    const evidence = JSON.stringify({ tool: tool.name, summary: result.summary, result: storedResult }).slice(
       0,
       8000
     );
