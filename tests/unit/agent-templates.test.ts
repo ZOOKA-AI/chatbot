@@ -53,7 +53,8 @@ beforeEach(async () => {
     "pending/0038_schedule_and_agent_model.sql",
     "pending/0040_agent_tools_and_instructions.sql",
     "pending/0041_workspace_projects.sql",
-    "pending/0070_agent_template_links.sql",
+    "pending/0070_agent_permissions.sql",
+    "pending/0071_agent_template_links.sql",
   ]) {
     await apply(
       readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8")
@@ -90,6 +91,9 @@ async function createSourceAgent() {
       allowedTools: ["github_repo_inspect"],
       modelProvider: "anthropic",
       modelId: "private-model-choice",
+      updateWithoutApproval: false,
+      deleteWithoutApproval: true,
+      sendMessagesWithoutApproval: true,
     },
   });
   return created;
@@ -244,6 +248,9 @@ describe("agent template links and copies", () => {
         instructions: agentIdentity.instructions,
         keyHash: agentIdentity.keyHash,
         modelProvider: agentIdentity.modelProvider,
+        updateWithoutApproval: agentIdentity.updateWithoutApproval,
+        deleteWithoutApproval: agentIdentity.deleteWithoutApproval,
+        sendMessagesWithoutApproval: agentIdentity.sendMessagesWithoutApproval,
       })
       .from(agentIdentity);
     const copies = agents.filter(
@@ -257,6 +264,30 @@ describe("agent template links and copies", () => {
     assert.equal(copies[0].instructions, "Summarize public research.");
     const sourceAgent = agents.find((agent) => agent.id === source.agent.id);
     assert.ok(sourceAgent);
+    assert.deepEqual(
+      {
+        updateWithoutApproval: copies[0].updateWithoutApproval,
+        deleteWithoutApproval: copies[0].deleteWithoutApproval,
+        sendMessagesWithoutApproval: copies[0].sendMessagesWithoutApproval,
+      },
+      {
+        updateWithoutApproval: true,
+        deleteWithoutApproval: false,
+        sendMessagesWithoutApproval: false,
+      }
+    );
+    assert.deepEqual(
+      {
+        updateWithoutApproval: sourceAgent.updateWithoutApproval,
+        deleteWithoutApproval: sourceAgent.deleteWithoutApproval,
+        sendMessagesWithoutApproval: sourceAgent.sendMessagesWithoutApproval,
+      },
+      {
+        updateWithoutApproval: false,
+        deleteWithoutApproval: true,
+        sendMessagesWithoutApproval: true,
+      }
+    );
     assert.notEqual(copies[0].keyHash, sourceAgent.keyHash);
     assert.equal(copies[0].modelProvider, null);
 

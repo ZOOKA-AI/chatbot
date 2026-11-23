@@ -3,7 +3,10 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { isKnownTool } from "@/lib/agents/agent-tools";
+import {
+  DEFAULT_AGENT_PERMISSIONS,
+  isKnownTool,
+} from "@/lib/agents/agent-tools";
 import {
   AGENT_SCOPES,
   registerAgent,
@@ -287,6 +290,11 @@ export async function copyAgentTemplate(token: string, organizationId: string) {
       scopes: template.agent.scopes,
       allowedTools: template.agent.allowedTools,
       instructions: template.agent.instructions,
+      updateWithoutApproval:
+        DEFAULT_AGENT_PERMISSIONS.updateWithoutApproval,
+      deleteWithoutApproval: DEFAULT_AGENT_PERMISSIONS.deleteWithoutApproval,
+      sendMessagesWithoutApproval:
+        DEFAULT_AGENT_PERMISSIONS.sendMessagesWithoutApproval,
     },
   });
   if (!agent) {
