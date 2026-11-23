@@ -16,15 +16,18 @@ type Brand = { id?: string; title?: string | null; status?: string | null; is_de
 type Skill = { name?: string; description?: string | null; enabled?: boolean };
 
 function brandsOf(body: unknown): Brand[] {
-  const page = body as { data?: Brand[]; brands?: Brand[] } | Brand[] | null;
+  // The management API answers a list as { items, total }; older paths answered
+  // a bare array or { data } / { brands }. Read every shape so the report shows
+  // what the workspace really has instead of an empty list.
+  const page = body as { data?: Brand[]; brands?: Brand[]; items?: Brand[] } | Brand[] | null;
   if (Array.isArray(page)) return page;
-  return page?.data ?? page?.brands ?? [];
+  return page?.items ?? page?.data ?? page?.brands ?? [];
 }
 
 function skillsOf(body: unknown): Skill[] {
-  const page = body as { data?: Skill[]; skills?: Skill[] } | Skill[] | null;
+  const page = body as { data?: Skill[]; skills?: Skill[]; items?: Skill[] } | Skill[] | null;
   if (Array.isArray(page)) return page;
-  return page?.data ?? page?.skills ?? [];
+  return page?.items ?? page?.data ?? page?.skills ?? [];
 }
 
 export async function GET() {
