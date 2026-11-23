@@ -1,0 +1,160 @@
+{
+  "generated_at": "2026-11-24T00:40:00+04:00",
+  "project": "ZOOKA-AI",
+  "scope_excludes": [
+    "ROYAL HAROON assets",
+    "royal social accounts",
+    "royal credentials"
+  ],
+  "meta_app": {
+    "app_id": "2062960087756529",
+    "name": "ZOOKA-AI Publisher",
+    "business_portfolio_id": "1485893133427003",
+    "mode": "LIVE",
+    "published_at": "2026-11-23T19:37:27Z",
+    "required_actions": 0,
+    "category": "Business and Pages",
+    "privacy_url": "https://zoka-ai.com/privacy",
+    "terms_url": "https://zoka-ai.com/terms",
+    "data_deletion_url": "https://zoka-ai.com/privacy",
+    "use_cases": [
+      "WhatsApp messaging",
+      "Instagram messaging & content"
+    ]
+  },
+  "whatsapp": {
+    "waba_id": "2947118629014155",
+    "phone_number_id": "1427408287124962",
+    "display_phone": "+971 50 172 1887",
+    "verified_name": "ZOOKA AI",
+    "platform_type": "CLOUD_API",
+    "code_verification_status": "VERIFIED",
+    "account_mode": "LIVE",
+    "system_user_id": "61596929697936",
+    "token_type": "system_user_permanent",
+    "token_length": 201,
+    "scopes": [
+      "whatsapp_business_messaging",
+      "whatsapp_business_management"
+    ],
+    "n8n_credential": {
+      "id": "UixNCHZIhHP3GFVO",
+      "name": "Meta — ZOOKA WhatsApp (System User, no expiry)",
+      "type": "httpHeaderAuth"
+    },
+    "webhook": {
+      "callback_url": "https://helmyharoon817979.n8n-wsk.com/webhook/zoka-wa",
+      "verify_token_location": "vault.json:logins_index.meta_whatsapp_zooka.webhook_verify_token",
+      "n8n_workflow_id": "LcfaYc2oKawoMuLr",
+      "active": true,
+      "node_count": 9,
+      "auto_reply": "AR + EN greeting, team will reply shortly",
+      "guard": "fail-closed: wa_id ^[1-9]\\d{7,14}$ and non-empty text",
+      "verification_runs": {
+        "57724": "simulated text -> parsed",
+        "57726": "statuses only -> no send",
+        "57727": "invalid number -> guard 0 items, send not executed"
+      }
+    }
+  },
+  "business_login": {
+    "config_name": "ZOOKA-AI Business Login",
+    "config_id": "3613821525452887",
+    "variation": "General",
+    "token_type": "User access token",
+    "permissions": [
+      "whatsapp_business_management",
+      "whatsapp_business_messaging"
+    ]
+  },
+  "facebook_page": {
+    "page_id": "1356651964207575",
+    "profile_photo_id": "122100654693557495",
+    "cover_photo_id": "122100655329557495"
+  },
+  "instagram": {
+    "user_id": "40165817413033001",
+    "username": "zokaai",
+    "account_type": "MEDIA_CREATOR",
+    "media_count": 0,
+    "last_media_container": "17991761606882367",
+    "published": false
+  },
+  "n8n_workflows": [
+    {
+      "id": "LcfaYc2oKawoMuLr",
+      "name": "WhatsApp — ZOOKA Cloud API inbound (webhook)",
+      "active": true
+    },
+    {
+      "id": "2SqXTSGqELniGw7R",
+      "name": "TikTok — ZOOKA-AI Publish Queue Drain",
+      "active": false
+    },
+    {
+      "id": "WdS8KKtBpnaVxBUW",
+      "name": "ZOOKA-AI — Arabic Article Drafts",
+      "active": false
+    },
+    {
+      "id": "DCAz9fB9Jcxnx33O",
+      "name": "daily integrations",
+      "active": true
+    },
+    {
+      "id": "atQRub1B807bC3Aq",
+      "name": "publishing token health",
+      "active": true
+    },
+    {
+      "id": "IEOvk8WrIoPbAaOR",
+      "name": "daily backup",
+      "active": true
+    },
+    {
+      "id": "DtSdBqfYIFkRp7MR",
+      "name": "ZOOKA error center",
+      "active": true
+    },
+    {
+      "id": "oTvddobYugMyYvbz",
+      "name": "telegram relay to owner",
+      "active": true
+    }
+  ],
+  "social_links": {
+    "website": "https://zoka-ai.com",
+    "hub": "https://zoka-ai.com/social",
+    "instagram": "https://www.instagram.com/zokaai/",
+    "facebook": "https://www.facebook.com/1356651964207575",
+    "tiktok": "https://www.tiktok.com/@zoka.ai7",
+    "youtube": "https://www.youtube.com/@zoka_ai_official",
+    "x": "https://x.com/zoka_ai",
+    "linkedin": "https://www.linkedin.com/company/zoka-ai/",
+    "bluesky": "https://bsky.app/profile/zokaai.bsky.social",
+    "reddit": "https://www.reddit.com/user/Simple-Suggestion-26",
+    "pinterest": "https://www.pinterest.com/zokaai/",
+    "telegram": "https://t.me/zoka_ai_official",
+    "telegram_bot": "https://t.me/zoka_ai_official_bot",
+    "discord": "https://discord.gg/7ynqJxMZfQ",
+    "dev": "https://dev.to/zoka_ai",
+    "github": "https://github.com/ZOOKA-AI"
+  },
+  "secrets_policy": {
+    "values_in_repo": false,
+    "reason": "Repository code must never contain live tokens, passwords or verification secrets.",
+    "locations": [
+      "vault.json (encrypted, outside repo)",
+      "n8n credential store (encrypted)",
+      "platform connector store"
+    ]
+  },
+  "readiness": "PARTIALLY READY",
+  "blockers": [
+    "Instagram API cannot change profile picture or bio",
+    "Instagram permissions not offered in Facebook Login for Business",
+    "n8n OAuth redirect not yet registered in the login configuration",
+    "TikTok public posting rejected by platform policy",
+    "Reddit Data API app creation blocked pending approval NJ739Z-2JZXN"
+  ]
+}
