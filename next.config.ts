@@ -19,6 +19,16 @@ const nextConfig: NextConfig = {
   // Media under public/ is served by the CDN and never read by server code. Some routes use
   // dynamic filesystem paths, which makes tracing pull the whole project (public included) into
   // every function; excluding the videos keeps the brand clips out of the function bundles.
+  // playwright-core 1.65 reads browsers.json with a computed require when it loads. The tracer does
+  // not follow it, and the production build of the 2026-11-23 release shipped without the file:
+  // every function that imports the browser runtime (including /api/chat) failed at load with
+  // "Cannot find module .../playwright-core/browsers.json". Listing it keeps it in every bundle.
+  outputFileTracingIncludes: {
+    "*": [
+      "./node_modules/playwright-core/browsers.json",
+      "./node_modules/.pnpm/playwright-core@*/node_modules/playwright-core/browsers.json",
+    ],
+  },
   outputFileTracingExcludes: {
     "*": ["public/videos/**"],
   },
