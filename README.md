@@ -220,7 +220,10 @@ Owners and admins can list and create secrets at `/api/workspace/secrets`,
 and inspect metadata, rotate (`PATCH { "value": "..." }`) or delete by name at
 `/api/workspace/secrets/[name]`. Responses never include secret values.
 Detection settings are workspace-scoped, default on, and owner/admin-managed at
-`/api/workspace/secrets/settings`. `lastUsedAt` changes on server-side reads,
+`/api/workspace/secrets/settings`. Before migration `0029_workspace_secrets` is
+applied, chat secret detection is off and pasted credentials are not redacted.
+Apply the migrations and configure the encryption key before relying on detection.
+`lastUsedAt` changes on server-side reads,
 not metadata access. To check GitHub access without inspecting files, create a task
 with `payload: { "tool": "github_repo_probe", "repo": "owner/repo", "secretName": "GITHUB_KEY" }`.
 The probe selects the named workspace secret, never falls back to another

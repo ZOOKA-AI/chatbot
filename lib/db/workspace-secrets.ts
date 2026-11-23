@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
 import { workspaceSecret, workspaceSecretSettings } from "@/lib/db/schema";
 import { decryptWorkspaceSecret, encryptWorkspaceSecret } from "@/lib/workspace/secrets/crypto";
@@ -44,6 +44,15 @@ export async function getWorkspaceSecretDetectionEnabled(organizationId: string)
   const [row] = await db.select({ enabled: workspaceSecretSettings.detectionEnabled }).from(workspaceSecretSettings)
     .where(eq(workspaceSecretSettings.organizationId, organizationId)).limit(1);
   return row?.enabled ?? true;
+}
+
+export async function getChatSecretDetectionEnabled(organizationId: string): Promise<boolean> {
+  // Avoid aborting a tenant transaction by querying a table that has not been migrated yet.
+  const [row] = await db.select({
+    exists: sql<boolean>`to_regclass('"WorkspaceSecretSettings"') is not null`,
+  }).from(sql`(select 1) as settings_check`);
+  if (!row) throw new Error("Unable to check workspace secret settings");
+  return row.exists ? getWorkspaceSecretDetectionEnabled(organizationId) : false;
 }
 
 export async function setWorkspaceSecretDetectionEnabled(organizationId: string, enabled: boolean): Promise<void> {

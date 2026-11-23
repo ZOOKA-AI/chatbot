@@ -25,7 +25,7 @@ vi.mock("@/lib/auth/workspace", () => ({
   }),
 }));
 vi.mock("@/lib/db/workspace-secrets", () => ({
-  getWorkspaceSecretDetectionEnabled: mocks.enabled,
+  getChatSecretDetectionEnabled: mocks.enabled,
   createWorkspaceSecret: mocks.create,
 }));
 vi.mock("@/lib/db/queries", () => ({
@@ -149,9 +149,13 @@ describe("chat POST secret handling", () => {
     log.mockRestore();
   });
 
-  it("fails closed when the workspace setting cannot be read", async () => {
+  it.each([
+    new Error("database unavailable"),
+    Object.assign(new Error("permission denied"), { code: "42501" }),
+    Object.assign(new Error('relation "OtherTable" does not exist'), { code: "42P01" }),
+  ])("fails closed when the workspace setting cannot be read: %s", async (error) => {
     const { POST } = await import("@/app/(chat)/api/chat/route");
-    mocks.enabled.mockImplementation(() => { throw new Error(secret); });
+    mocks.enabled.mockRejectedValue(error);
     const response = await POST(post({ message: message() }));
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain(secret);

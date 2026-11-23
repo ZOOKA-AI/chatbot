@@ -57,6 +57,26 @@ afterAll(async () => {
 });
 
 describe("workspace secrets", () => {
+  test("chat disables detection only when the settings table is missing", async () => {
+    const instance = new PGlite();
+    try {
+      state.db = drizzle(instance);
+      await instance.exec("BEGIN");
+      expect(await store.getChatSecretDetectionEnabled(ORG_A)).toBe(false);
+      await instance.exec('CREATE TABLE "WorkspaceSecretSettings" ("organizationId" uuid PRIMARY KEY, "detectionEnabled" boolean NOT NULL)');
+      expect(await store.getChatSecretDetectionEnabled(ORG_A)).toBe(true);
+      await instance.exec(`INSERT INTO "WorkspaceSecretSettings" VALUES ('${ORG_A}', false)`);
+      expect(await store.getChatSecretDetectionEnabled(ORG_A)).toBe(false);
+      await instance.exec("COMMIT");
+
+      await instance.exec('ALTER TABLE "WorkspaceSecretSettings" DROP COLUMN "detectionEnabled"');
+      await expect(store.getChatSecretDetectionEnabled(ORG_A)).rejects.toThrow();
+    } finally {
+      state.db = drizzle(pg);
+      await instance.close();
+    }
+  });
+
   test("authenticated encryption uses fresh nonces and binds tenant and name", () => {
     const a = encryptWorkspaceSecret(value, ORG_A, "KEY");
     const b = encryptWorkspaceSecret(value, ORG_A, "KEY");
@@ -112,6 +132,8 @@ describe("workspace secrets", () => {
     expect(await store.getWorkspaceSecretValue(ORG_B, "B")).toBeNull();
     expect(await store.deleteWorkspaceSecret(ORG_B, "B")).toBe(false);
     expect(await store.getWorkspaceSecretDetectionEnabled(ORG_B)).toBe(true);
+    await pg.exec('RESET ROLE; REVOKE SELECT ON "WorkspaceSecretSettings" FROM zooka_runtime; SET ROLE zooka_runtime');
+    await expect(store.getChatSecretDetectionEnabled(ORG_A)).rejects.toThrow();
     await expect(store.setWorkspaceSecretDetectionEnabled(ORG_B, true)).rejects.toThrow();
     await expect(store.createWorkspaceSecret({ organizationId: ORG_B, name: "BLOCKED", value, createdBy: USER })).rejects.toThrow();
   });

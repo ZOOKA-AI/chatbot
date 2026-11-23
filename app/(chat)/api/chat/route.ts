@@ -14,7 +14,7 @@ import { createChatTracing } from "@/lib/ai/tracing";
 import { generateChatTitle } from "@/lib/ai/generate-chat-title";
 import { storeChatSecret } from "@/lib/ai/store-chat-secret";
 import { redactChatMessages } from "@/lib/chat-secret-detection";
-import { getWorkspaceSecretDetectionEnabled } from "@/lib/db/workspace-secrets";
+import { getChatSecretDetectionEnabled } from "@/lib/db/workspace-secrets";
 import { createResumableStreamContext } from "resumable-stream";
 import type { UserType } from "@/app/(auth)/auth";
 import {
@@ -354,7 +354,7 @@ async function POSTImpl(request: Request) {
     let redactedMessages: Array<{ id: string; parts: unknown[] }> = [];
     let secretDetectionEnabled: boolean;
     try {
-      secretDetectionEnabled = await getWorkspaceSecretDetectionEnabled(workspaceContext.organizationId);
+      secretDetectionEnabled = await getChatSecretDetectionEnabled(workspaceContext.organizationId);
     } catch {
       return new ChatbotError("offline:chat", "Unable to securely process this message.").toResponse();
     }
