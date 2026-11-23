@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthBrandShell } from "@/components/auth-brand-shell";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
@@ -7,7 +8,6 @@ import { useActionState, useEffect, useState } from "react";
 import { AuthForm } from "@/components/auth-form";
 import { SocialSignInButtons } from "@/components/social-sign-in-buttons";
 import { PhoneSignInForm } from "@/components/phone-sign-in-form";
-import { LanguageToggle } from "@/components/language-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
 import {
@@ -124,15 +124,7 @@ export function RegisterClient({
   };
 
   return (
-    <div className="flex min-h-dvh w-full items-start justify-center bg-background px-0 pt-16 pb-10 md:items-center md:py-10">
-      <LanguageToggle lang={lang} />
-      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl sm:gap-10">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h1 className="font-semibold text-2xl dark:text-zinc-50">{t.title}</h1>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">
-            {t.subtitle}
-          </p>
-        </div>
+    <AuthBrandShell lang={lang} subtitle={t.subtitle} title={t.title}>
         {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
         <SocialSignInButtons
           lang={lang}
@@ -147,26 +139,26 @@ export function RegisterClient({
           passwordAutoComplete="new-password"
         >
           <SubmitButton isSuccessful={submitLocked}>{t.submit}</SubmitButton>
-          <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
+          <p className="mt-4 text-center text-muted-foreground text-sm">
             {`${t.hasAccount} `}
             <Link
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+              className="font-semibold text-[#8fb2ff] hover:underline"
               href="/login"
             >
               {t.signInLink}
             </Link>
           </p>
-          <p className="mt-2 text-center text-xs text-gray-500 dark:text-zinc-500">
+          <p className="mt-2 text-center text-muted-foreground text-xs">
             {t.agreePrefix}
             <Link
-              className="font-medium text-gray-700 underline dark:text-zinc-300"
+              className="font-medium text-foreground underline"
               href="/terms"
             >
               {t.terms}
             </Link>
             {t.and}
             <Link
-              className="font-medium text-gray-700 underline dark:text-zinc-300"
+              className="font-medium text-foreground underline"
               href="/privacy"
             >
               {t.privacy}
@@ -174,7 +166,6 @@ export function RegisterClient({
             {"."}
           </p>
         </AuthForm>
-      </div>
-    </div>
+    </AuthBrandShell>
   );
 }

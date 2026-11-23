@@ -96,7 +96,7 @@ export function UseCaseLanding({
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              className="bg-foreground text-background rounded-xl px-6 py-3 font-medium"
+              className="zk-btn-primary px-6"
               href="/register"
             >
               ابدأ بإنشاء حساب

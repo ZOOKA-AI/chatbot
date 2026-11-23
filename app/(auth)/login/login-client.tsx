@@ -8,7 +8,7 @@ import { useActionState, useEffect, useState } from "react";
 import { AuthForm } from "@/components/auth-form";
 import { PhoneSignInForm } from "@/components/phone-sign-in-form";
 import { SocialSignInButtons } from "@/components/social-sign-in-buttons";
-import { LanguageToggle } from "@/components/language-toggle";
+import { AuthBrandShell } from "@/components/auth-brand-shell";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
 import { type LoginActionState, login } from "../actions";
@@ -120,60 +120,53 @@ export function LoginClient({
     });
   };
 
+  const isArabic = lang === "ar";
+
   return (
-    <div className="flex min-h-dvh w-full items-start justify-center bg-background px-0 pt-16 pb-10 md:items-center md:py-10">
-      <LanguageToggle lang={lang} />
-      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl sm:gap-10">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h1 className="font-semibold text-2xl dark:text-zinc-50">{t.title}</h1>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">
-            {t.subtitle}
-          </p>
-        </div>
-        {hasAuthError ? (
-          <p className="px-4 text-center text-red-600 text-sm" role="alert">
-            {t.authError}
-          </p>
-        ) : null}
-        {justRegistered && !hasAuthError ? (
-          <p
-            className="px-4 text-center text-emerald-600 text-sm dark:text-emerald-400"
-            data-testid="register-notice"
-            role="status"
-          >
-            {t.justRegistered}
-          </p>
-        ) : null}
-        {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
-        <SocialSignInButtons
-          facebook={facebookEnabled}
-          google={googleEnabled}
-          lang={lang}
-          microsoft={microsoftEnabled}
-        />
-        <AuthForm
-          action={handleSubmit}
-          defaultEmail={email}
-          labels={{ email: t.email, password: t.password }}
-        >
-          <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
-          <Link
-            className="inline-flex min-h-11 items-center justify-center self-center px-2 text-muted-foreground text-sm underline underline-offset-4"
-            href="/forgot-password"
-          >
-            {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
-          </Link>
-          <p className="text-center text-gray-600 text-sm dark:text-zinc-400">
-            {`${t.noAccount} `}
-            <Link
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
-              href="/register"
+    <AuthBrandShell lang={lang} subtitle={t.subtitle} title={t.title}>
+          {hasAuthError ? (
+            <p className="px-4 text-center text-red-400 text-sm" role="alert">
+              {t.authError}
+            </p>
+          ) : null}
+          {justRegistered && !hasAuthError ? (
+            <p
+              className="px-4 text-center text-emerald-400 text-sm"
+              data-testid="register-notice"
+              role="status"
             >
-              {t.signUpLink}
+              {t.justRegistered}
+            </p>
+          ) : null}
+          {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
+          <SocialSignInButtons
+            facebook={facebookEnabled}
+            google={googleEnabled}
+            lang={lang}
+            microsoft={microsoftEnabled}
+          />
+          <AuthForm
+            action={handleSubmit}
+            defaultEmail={email}
+            labels={{ email: t.email, password: t.password }}
+          >
+            <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
+            <Link
+              className="inline-flex min-h-11 items-center justify-center self-center px-2 text-muted-foreground text-sm underline underline-offset-4"
+              href="/forgot-password"
+            >
+              {isArabic ? "نسيت كلمة المرور؟" : "Forgot password?"}
             </Link>
-          </p>
-        </AuthForm>
-      </div>
-    </div>
+            <p className="text-center text-muted-foreground text-sm">
+              {`${t.noAccount} `}
+              <Link
+                className="font-semibold text-[#8fb2ff] hover:underline"
+                href="/register"
+              >
+                {t.signUpLink}
+              </Link>
+            </p>
+          </AuthForm>
+    </AuthBrandShell>
   );
 }
