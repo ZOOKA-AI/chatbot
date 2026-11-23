@@ -5,6 +5,7 @@ import { BillingEvent } from "@/components/billing-event";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { getWorkspaceBilling } from "@/lib/db/queries";
 import { getLang } from "@/lib/i18n";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { workspacePlans } from "@/lib/saas/plans";
 import { displayWorkspaceName } from "@/lib/workspace-name";
 
@@ -21,17 +22,26 @@ async function WorkspaceBillingPageImpl({
   }
 
   const lang = await getLang();
-  const billing = await getWorkspaceBilling(context.organizationId);
-  const planKey =
+  const [billing, entitlements] = await Promise.all([
+    getWorkspaceBilling(context.organizationId),
+    getWorkspaceEntitlements(context.organizationId),
+  ]);
+  const subscribedPlan =
     billing.subscription &&
     ["active", "trialing"].includes(billing.subscription.status)
       ? billing.subscription.plan
       : "free";
-  const plan = workspacePlans[planKey];
+  // Limits follow the same entitlement source as the API routes and the usage
+  // page, so every screen shows one plan.
+  const planKey = entitlements.plan;
+  const plan = workspacePlans[planKey] ?? workspacePlans.free;
+  const grantedByProgram =
+    entitlements.grant === "owner_testing" ||
+    entitlements.grant === "launch_program";
   const isPaid =
     billing.subscription &&
     ["active", "trialing"].includes(billing.subscription.status) &&
-    planKey !== "free";
+    subscribedPlan !== "free";
   const hasBillingAccount =
     billing.subscription &&
     ["active", "trialing", "past_due"].includes(billing.subscription.status) &&
@@ -100,6 +110,13 @@ async function WorkspaceBillingPageImpl({
               : ` · Renews ${billing.subscription.periodEnd.toLocaleDateString()}`
             : ""}
         </p>
+        {grantedByProgram ? (
+          <p className="rounded-md border p-3 text-sm text-muted-foreground">
+            {isArabic
+              ? `مفعّلة كباقة الأعمال عبر ${entitlements.grant === "owner_testing" ? "وصول المالك للاختبار" : "برنامج الإطلاق"}. اشتراكك المدفوع: ${subscribedPlan === "free" ? "لا يوجد" : workspacePlans[subscribedPlan]?.name ?? subscribedPlan}.`
+              : `Business features are granted by ${entitlements.grant === "owner_testing" ? "owner testing access" : "the launch program"}. Paid subscription: ${subscribedPlan === "free" ? "none" : workspacePlans[subscribedPlan]?.name ?? subscribedPlan}.`}
+          </p>
+        ) : null}
         <ul
           aria-label={isArabic ? "الاستخدام الشهري" : "Monthly usage"}
           className="flex flex-col gap-3 text-sm"
@@ -143,7 +160,7 @@ async function WorkspaceBillingPageImpl({
             {isArabic ? "ترقية الباقة" : "Upgrade"}
           </Link>
         )}
-        {canUpgrade && isPaid && planKey !== "business" && (
+        {canUpgrade && isPaid && subscribedPlan !== "business" && (
           <Link
             className="w-fit rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground"
             href="/pricing"

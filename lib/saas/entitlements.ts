@@ -14,8 +14,16 @@ import { type WorkspacePlan, workspacePlans } from "@/lib/saas/plans";
  */
 const ENTITLED_STATUSES = ["active", "trialing"] as const;
 
+export type EntitlementGrant =
+  | "subscription"
+  | "owner_testing"
+  | "launch_program"
+  | "none";
+
 export type WorkspaceEntitlements = {
   plan: WorkspacePlan;
+  /** Why the workspace has this plan. Screens show it so the plan name never contradicts billing. */
+  grant: EntitlementGrant;
   isPaid: boolean;
   canConnectIntegrations: boolean;
   canUseAgentMode: boolean;
@@ -25,6 +33,7 @@ export type WorkspaceEntitlements = {
 
 const freeEntitlements: WorkspaceEntitlements = {
   plan: "free",
+  grant: "none",
   isPaid: false,
   canConnectIntegrations: false,
   canUseAgentMode: false,
@@ -56,17 +65,19 @@ export async function getWorkspaceEntitlements(
       ownerTestingOn && ownerId
         ? await getUserEmailById(ownerId).catch(() => null)
         : null;
-    if (
-      isOwnerTestingEmail(ownerEmail) ||
-      (launchOpen && (await hasLaunchSlot(ownerId)))
-    ) {
+    const ownerTesting = isOwnerTestingEmail(ownerEmail);
+    if (ownerTesting || (launchOpen && (await hasLaunchSlot(ownerId)))) {
       const launchPlan = workspacePlans.business;
+      const used = await getWorkspaceBilling(organizationId)
+        .then((b) => b?.usage.agentRuns ?? 0)
+        .catch(() => 0);
       return {
         plan: "business",
+        grant: ownerTesting ? "owner_testing" : "launch_program",
         isPaid: true,
         canConnectIntegrations: true,
         canUseAgentMode: true,
-        agentRunsRemaining: launchPlan.monthlyAgentRuns,
+        agentRunsRemaining: Math.max(0, launchPlan.monthlyAgentRuns - used),
         messagesLimit: launchPlan.monthlyMessages,
       };
     }
@@ -91,6 +102,7 @@ export async function getWorkspaceEntitlements(
 
   return {
     plan: subscription.plan as WorkspacePlan,
+    grant: "subscription",
     isPaid: true,
     canConnectIntegrations: true,
     canUseAgentMode: agentRunsRemaining > 0,

@@ -25,7 +25,7 @@ function isSafeResultUrl(value: string) {
   }
 }
 
-async function searchTavily(query: string) {
+export async function searchTavily(query: string) {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {

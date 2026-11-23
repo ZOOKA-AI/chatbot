@@ -5,6 +5,7 @@ import {
   getWorkspaceForUser,
   trackWorkspaceUsage,
 } from "@/lib/db/queries";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 import { getQuotaStatus, type QuotaFeature } from "@/lib/saas/quota-utils";
 
 export async function checkQuota(
@@ -24,12 +25,13 @@ export async function checkQuota(
     };
   }
 
-  const billing = await getWorkspaceBilling(organizationId);
-  const plan =
-    billing.subscription &&
-    ["active", "trialing"].includes(billing.subscription.status)
-      ? billing.subscription.plan
-      : "free";
+  // Plan comes from the shared entitlement source so owner testing and the
+  // launch program grant the same limits here as on every screen.
+  const [billing, entitlements] = await Promise.all([
+    getWorkspaceBilling(organizationId),
+    getWorkspaceEntitlements(organizationId),
+  ]);
+  const plan = entitlements.plan;
   const used =
     feature === "chat_message"
       ? billing.usage.messages

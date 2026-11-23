@@ -27,7 +27,7 @@ import {
   summarizeSchedules,
   type Section,
 } from "@/lib/dashboard/sections";
-import { listProjects } from "@/lib/db/projects";
+import { listProjects } from "@/lib/projects/store";
 import { getChatsByOrganizationId } from "@/lib/db/queries";
 import { withTenantPage } from "@/lib/db/request-tenant";
 import {
@@ -70,7 +70,8 @@ async function Dashboard() {
 
   const [agents, projects, chats, schedules, integrations, plan, wallet] = await Promise.all([
     section(async () => summarizeAgents(await withCommanderScope(org, () => listAgents(org)))),
-    section(async () => await listProjects(org)),
+    // Same AgentProject source as /workspace/projects, which the card links to.
+    section(async () => await withCommanderScope(org, () => listProjects(org))),
     section(
       async () =>
         (
@@ -266,8 +267,8 @@ async function Dashboard() {
                   <li className="flex items-center justify-between gap-3 py-2.5" key={project.id}>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-sm">{project.name}</p>
-                      <p className="truncate text-muted-foreground text-xs" dir="ltr">
-                        {project.customDomain ?? project.subdomain}
+                      <p className="truncate text-muted-foreground text-xs">
+                        {project.summary ?? ""}
                       </p>
                     </div>
                     <StatusPill lang={lang} status={project.status} />
