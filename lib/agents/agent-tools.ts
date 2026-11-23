@@ -22,6 +22,10 @@ export type ToolCatalogEntry = {
 };
 
 const DESCRIPTIONS: Record<string, Omit<ToolCatalogEntry, "id">> = {
+  load_skill: {
+    summary: "Reads the instructions for an enabled skill in this workspace.",
+    writes: false,
+  },
   github_repo_inspect: {
     summary: "Reads a repository's branches, recent commits and open pull requests.",
     writes: false,

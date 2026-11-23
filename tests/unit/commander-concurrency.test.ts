@@ -33,6 +33,7 @@ import {
   claimTask,
   decideApproval,
   reportTask,
+  reportLoadedSkill,
   requestApproval,
   createTask,
 } from "@/lib/agents/command-center";
@@ -101,6 +102,30 @@ async function newTask(organizationId = ORG_A) {
     createdBy: "owner-1",
   });
 }
+
+describe("skill snapshot reporting", () => {
+  test("stores full escaped instructions and keeps completed evidence immutable", async () => {
+    const task = await newTask();
+    await claimTask(agent(ORG_A), task.id);
+    const instructions = "\"\\\n\u0000".repeat(4000);
+    const row = await reportLoadedSkill(agent(ORG_A), { taskId: task.id, name: "writing", instructions });
+    assert.ok(row);
+    assert.ok(row.evidence!.length > 16000);
+    assert.deepEqual(JSON.parse(row.evidence!).result, { name: "writing", instructions });
+    assert.equal(await reportTask(agent(ORG_A), { taskId: task.id, status: "completed", evidence: "overwrite" }), null);
+    const [persisted] = (await pg.query<{ evidence: string }>(
+      `select evidence from "AgentTask" where id = $1`, [task.id]
+    )).rows;
+    assert.deepEqual(JSON.parse(persisted.evidence).result, { name: "writing", instructions });
+  });
+
+  test("ordinary reports retain the existing evidence limit", async () => {
+    const task = await newTask();
+    await claimTask(agent(ORG_A), task.id);
+    const row = await reportTask(agent(ORG_A), { taskId: task.id, status: "completed", evidence: "x".repeat(16000) });
+    assert.equal(row?.evidence?.length, 8000);
+  });
+});
 
 describe("claiming", () => {
   test("two agents claiming at once: one wins, the other learns it lost", async () => {

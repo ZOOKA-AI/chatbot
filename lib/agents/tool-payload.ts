@@ -35,6 +35,7 @@ const ACCEPTED: Record<string, string[]> = {
   github_repo_inspect: ["repo", "paths"],
   vercel_deployment_inspect: ["project"],
   workspace_readiness_inspect: ["label"],
+  load_skill: ["name"],
   project_document_create: ["title", "brief", "projectId"],
   browser_task_run: ["startUrl", "steps"],
 };
