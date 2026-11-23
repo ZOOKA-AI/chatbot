@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 import Link from "next/link";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
+import { LEGAL_ADDRESS, LEGAL_ENTITY_NAME, CONTACT_EMAIL } from "@/lib/legal-entity";
 
 async function TermsContent() {
   const lang = await getLang();
@@ -37,6 +38,16 @@ async function TermsContent() {
           {ar ? "آخر تحديث: 23 أكتوبر 2026" : "Last updated: October 23, 2026"}
         </p>
       </header>
+
+      <section className="border-border bg-muted/40 flex flex-col gap-1 rounded-lg border p-4 text-sm leading-relaxed">
+        <p className="font-semibold">{ar ? "الجهة المشغّلة للخدمة" : "Who operates this service"}</p>
+        <p>{ar ? LEGAL_ENTITY_NAME.ar : LEGAL_ENTITY_NAME.en}</p>
+        <p className="text-muted-foreground">{ar ? LEGAL_ADDRESS.ar : LEGAL_ADDRESS.en}</p>
+        <p className="text-muted-foreground">
+          {ar ? "للتواصل: " : "Contact: "}
+          <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        </p>
+      </section>
 
       <section className="flex flex-col gap-4 text-sm leading-relaxed">
         {ar ? (
