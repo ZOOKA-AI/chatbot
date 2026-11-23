@@ -28,7 +28,7 @@ export type StudioCapability =
   | "image_generate"
   | "video_generate";
 
-export type EngineTier = "local" | "self_hosted" | "paid_api";
+export type EngineTier = "local" | "self_hosted" | "free_api" | "paid_api";
 
 export type EngineDescriptor = {
   id: string;
@@ -52,7 +52,7 @@ export type EngineDecision = {
 };
 
 /** Tier order is the policy: cheaper and more local wins, always. */
-const TIER_ORDER: Record<EngineTier, number> = { local: 0, self_hosted: 1, paid_api: 2 };
+const TIER_ORDER: Record<EngineTier, number> = { local: 0, self_hosted: 1, free_api: 2, paid_api: 3 };
 
 /**
  * The engines this deployment knows about.
@@ -105,6 +105,25 @@ export function engineRegistry(env: Env = process.env): EngineDescriptor[] {
       paid: false,
       configured: () => Boolean(env.COMFYUI_ENDPOINT?.trim() && env.COMFYUI_WORKFLOW_FILE?.trim()),
       note: "an instance the owner operates; no third-party billing",
+    },
+    {
+      id: "cloudflare-workers-ai",
+      tier: "free_api",
+      capabilities: ["image_generate"],
+      paid: false,
+      priority: 10,
+      configured: () =>
+        Boolean(env.CLOUDFLARE_ACCOUNT_ID?.trim() && (env.CLOUDFLARE_AI_TOKEN?.trim() || env.CLOUDFLARE_API_TOKEN?.trim())),
+      note: "FLUX.1 schnell on Cloudflare's free daily allowance; refuses rather than bills when it runs out",
+    },
+    {
+      id: "ovhcloud-sdxl",
+      tier: "free_api",
+      capabilities: ["image_generate"],
+      paid: false,
+      priority: 20,
+      configured: () => Boolean(env.OVH_AI_ENDPOINTS_ACCESS_TOKEN?.trim()),
+      note: "Stable Diffusion XL on OVHcloud AI Endpoints, free and rate limited; retiring 2027-02-10",
     },
     {
       id: "cloud-gpu",

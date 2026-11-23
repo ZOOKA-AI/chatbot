@@ -7,6 +7,7 @@ import type { createGoogleDriveTools } from "./ai/tools/google-drive";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
 import type { updateDocument } from "./ai/tools/update-document";
 import type { createWebSearch } from "./ai/tools/web-search";
+import type { createGenerateImage } from "./ai/tools/generate-image";
 import type { Suggestion } from "./db/schema";
 
 export type DataPart = { type: "append-message"; message: string };
@@ -24,6 +25,7 @@ type requestSuggestionsTool = InferUITool<
   ReturnType<typeof requestSuggestions>
 >;
 type webSearchTool = InferUITool<ReturnType<typeof createWebSearch>>;
+type generateImageTool = InferUITool<ReturnType<typeof createGenerateImage>>;
 type googleDriveSearchTool = InferUITool<
   ReturnType<typeof createGoogleDriveTools>["searchGoogleDrive"]
 >;
@@ -37,6 +39,7 @@ export type ChatTools = {
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;
   searchWeb: webSearchTool;
+  generateImage: generateImageTool;
   searchGoogleDrive: googleDriveSearchTool;
   readGoogleDriveFile: googleDriveReadTool;
 };

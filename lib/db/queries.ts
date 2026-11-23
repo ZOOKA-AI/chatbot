@@ -2082,6 +2082,46 @@ export async function reserveGatewayImage(input: {
   });
 }
 
+/**
+ * Free-provider image admission: one job row per attempt, counted per UTC day.
+ * A separate action type keeps it from eating the owner-only gateway pilot's cap.
+ */
+export async function reserveFreeImage(input: {
+  organizationId: string;
+  prompt: string;
+  dailyLimit: number;
+}) {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`free-image:${input.organizationId}`}))`
+    );
+    const [usage] = await tx
+      .select({ total: count() })
+      .from(mediaJob)
+      .where(
+        and(
+          eq(mediaJob.organizationId, input.organizationId),
+          eq(mediaJob.actionType, "FREE_IMAGE"),
+          sql`${mediaJob.createdAt} >= (now() at time zone 'UTC')::date`
+        )
+      );
+    const used = Number(usage?.total ?? 0);
+    if (used >= input.dailyLimit) {
+      return { job: null, used };
+    }
+    const [job] = await tx
+      .insert(mediaJob)
+      .values({
+        organizationId: input.organizationId,
+        actionType: "FREE_IMAGE",
+        prompt: input.prompt,
+        status: "running",
+      })
+      .returning();
+    return { job, used: used + 1 };
+  });
+}
+
 export async function getAgentHistory(
   organizationId: string,
   conversationKey: string,
