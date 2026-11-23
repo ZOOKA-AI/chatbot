@@ -3,7 +3,7 @@
  * The values returned by this module must never be logged.
  */
 const patterns: Array<[string, RegExp]> = [
-  ["GITHUB_TOKEN", /(?:gh[po]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})/g],
+  ["GITHUB_TOKEN", /(?:gh[posur]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})/g],
   ["VERCEL_TOKEN", /vcp_[A-Za-z0-9_-]{20,}/g],
   ["SUPABASE_TOKEN", /sbp_[A-Za-z0-9_-]{20,}/g],
   ["ANTHROPIC_KEY", /sk-ant-[A-Za-z0-9_-]{20,}/g],

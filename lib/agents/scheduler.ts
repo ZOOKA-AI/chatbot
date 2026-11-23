@@ -275,7 +275,9 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
             taskId: task.id,
             tool,
             fetchImpl: config.fetchImpl,
-            payload: toolPayloadFor(tool, { ...argumentsFromText(tool, task), ...(task.payload ?? {}) }),
+            payload: task.payload?.tool === "github_repo_probe"
+              ? task.payload
+              : toolPayloadFor(tool, { ...argumentsFromText(tool, task), ...(task.payload ?? {}) }),
           })
         );
         outcomes.push({

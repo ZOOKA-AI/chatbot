@@ -4,6 +4,9 @@ import { detectChatSecrets, redactChatMessages } from "@/lib/chat-secret-detecti
 const fixtures = [
   ["GITHUB_TOKEN", ["gh", "p_", "a".repeat(36)].join("")],
   ["GITHUB_TOKEN", ["gh", "o_", "a".repeat(36)].join("")],
+  ["GITHUB_TOKEN", ["gh", "s_", "a".repeat(36)].join("")],
+  ["GITHUB_TOKEN", ["gh", "u_", "a".repeat(36)].join("")],
+  ["GITHUB_TOKEN", ["gh", "r_", "a".repeat(36)].join("")],
   ["GITHUB_TOKEN", ["github", "_pat_", "a".repeat(24), "_"].join("")],
   ["VERCEL_TOKEN", ["vc", "p_", "b".repeat(24), "-"].join("")],
   ["SUPABASE_TOKEN", ["sb", "p_", "c".repeat(24), "_"].join("")],
@@ -27,7 +30,12 @@ describe("chat secret detection", () => {
   });
 
   it("ignores ordinary text, placeholders and short prefixes", () => {
-    for (const text of ["hello world", "use a key in settings", "ghp_short", ["gh", "o_", "short"].join(""), "sk-test", "example.com", "abc.def.ghi"]) {
+    for (const text of [
+      "hello world", "use a key in settings", "ghp_short",
+      ...["o", "s", "u", "r"].map((prefix) => ["gh", prefix, "_short"].join("")),
+      ["gh", "x_", "a".repeat(36)].join(""),
+      "sk-test", "example.com", "abc.def.ghi",
+    ]) {
       expect(detectChatSecrets(text)).toEqual([]);
     }
   });
