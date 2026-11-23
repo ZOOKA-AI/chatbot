@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { SocialHub } from "@/components/social-hub";
 
 const SOCIAL_URL = "https://zooka-ai.com/social";
@@ -50,7 +51,9 @@ export default function SocialPage() {
   };
 
   return (
-    <main
+    <>
+      <SiteHeader lang="ar" />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-10 p-6 py-14"
       dir="rtl"
       lang="ar"
@@ -95,5 +98,6 @@ export default function SocialPage() {
         </p>
       </footer>
     </main>
+    </>
   );
 }

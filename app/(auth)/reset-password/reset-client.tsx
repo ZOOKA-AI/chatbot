@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthBrandShell } from "@/components/auth-brand-shell";
 import Link from "next/link";
 import { useActionState } from "react";
 import { LoaderIcon } from "@/components/icons";
@@ -36,14 +37,11 @@ export function ResetPasswordClient({
           : null;
 
   return (
-    <main
-      className="flex min-h-dvh items-start justify-center px-4 pt-16 pb-10 sm:items-center sm:py-10"
-      dir={ar ? "rtl" : "ltr"}
+    <AuthBrandShell
+      lang={lang}
+      title={ar ? "كلمة مرور جديدة" : "Choose a new password"}
     >
-      <div className="w-full max-w-md rounded-2xl border bg-card p-5 shadow-sm sm:p-8">
-        <h1 className="mb-6 font-semibold text-2xl">
-          {ar ? "كلمة مرور جديدة" : "Choose a new password"}
-        </h1>
+      <div className="px-3 sm:px-6">
         {state.status === "success" ? (
           <div className="flex flex-col gap-4">
             <p
@@ -110,6 +108,6 @@ export function ResetPasswordClient({
           </div>
         )}
       </div>
-    </main>
+    </AuthBrandShell>
   );
 }

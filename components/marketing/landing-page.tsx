@@ -347,16 +347,19 @@ export function LandingPage({ lang }: { lang: Lang }) {
               )}
             </span>
             <h1 className="max-w-4xl text-4xl leading-[1.25] font-bold text-balance md:text-6xl">
-              {t("ذكاء اصطناعي يعمل معك، ", "AI that works with you, ")}
+              {t(
+                "ردود عملائك وفواتيرك ومتابعة طلباتك — ",
+                "Customer replies, invoices and follow-ups — "
+              )}
               <br className="hidden sm:block" />
-              <span className="zk-gradient-text">
-                {t("وينجز عنك", "and gets it done for you")}
+              <span className="zk-gradient-text inline-block">
+                {t("من محادثة واحدة", "from one chat")}
               </span>
             </h1>
             <p className="text-muted-foreground max-w-2xl text-lg text-balance">
               {t(
-                "ردود عملائك وفواتيرك ومتابعة طلباتك من محادثة واحدة. تربط جيميل ودرايف بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
-                "Customer replies, invoices and follow-ups from one chat. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it."
+                "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
+                "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it."
               )}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">

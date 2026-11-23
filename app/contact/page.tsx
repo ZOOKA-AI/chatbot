@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SiteHeader } from "@/components/marketing/site-header";
 import Link from "next/link";
 
 const CONTACT_EMAIL = "info@zooka-ai.com";
@@ -30,7 +31,9 @@ const B2B_POINTS = [
 
 export default function ContactPage() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 p-6 py-16">
+    <>
+      <SiteHeader lang="ar" />
+      <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 p-6 py-16">
       <header className="flex flex-col gap-3 text-center">
         <span className="mx-auto w-fit rounded-full border px-3 py-1 text-muted-foreground text-xs">
           B2B · للأعمال والشركات
@@ -104,5 +107,6 @@ export default function ContactPage() {
         <Link href="/">الرئيسية</Link>
       </nav>
     </main>
+    </>
   );
 }

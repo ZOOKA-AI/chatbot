@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/site";
 
@@ -173,7 +173,9 @@ async function DeveloperContent() {
   const ar = lang === "ar";
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-12 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
@@ -188,7 +190,6 @@ async function DeveloperContent() {
         <Link className="text-muted-foreground text-sm hover:underline" href="/">
           ← ZOOKA AI
         </Link>
-        <LanguageToggle lang={lang} />
       </div>
 
       <header className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/10 p-8 sm:p-12">
@@ -209,7 +210,7 @@ async function DeveloperContent() {
         </p>
         <div className="relative mt-6 flex flex-wrap gap-3">
           <a
-            className="inline-flex h-10 items-center rounded-full bg-foreground px-5 font-medium text-background text-sm"
+            className="zk-btn-primary min-h-10 rounded-full px-5 text-sm"
             href="https://g.dev/zooka-ai"
             rel="me noopener"
             target="_blank"
@@ -297,7 +298,7 @@ async function DeveloperContent() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            className="inline-flex h-10 items-center rounded-full bg-foreground px-5 font-medium text-background text-sm"
+            className="zk-btn-primary min-h-10 rounded-full px-5 text-sm"
             href="/"
           >
             {ar ? "جرّب زوكا" : "Try Zooka"}
@@ -317,5 +318,6 @@ async function DeveloperContent() {
         </div>
       </section>
     </main>
+    </>
   );
 }

@@ -134,7 +134,7 @@ export default function DemoVideoPage() {
 
       <section className="mt-10 flex flex-wrap gap-3">
         <Link
-          className="rounded-lg bg-foreground px-6 py-3 font-medium text-background"
+          className="zk-btn-primary px-6"
           href="/register"
         >
           ابدأ مجانًا

@@ -52,39 +52,43 @@
 
 /* define design tokens (dark mode) */
 .dark {
-  --background: hsl(240 10% 3.9%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(240 10% 3.9%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(240 10% 3.9%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(0 0% 98%);
-  --primary-foreground: hsl(240 5.9% 10%);
-  --secondary: hsl(240 3.7% 15.9%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(240 3.7% 15.9%);
-  --muted-foreground: hsl(240 5% 64.9%);
-  --accent: hsl(240 3.7% 15.9%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 62.8% 30.6%);
+  /* ZOOKA-AI brand palette (docs/experience-2/BRAND-DESIGN-SYSTEM.md). */
+  --background: #080d1b;
+  --foreground: #f7f9ff;
+  --card: #10182b;
+  --card-foreground: #f7f9ff;
+  --popover: #0e1528;
+  --popover-foreground: #f7f9ff;
+  --primary: #3978ff;
+  --primary-foreground: #ffffff;
+  --secondary: #16213d;
+  --secondary-foreground: #f7f9ff;
+  --muted: #141d36;
+  --muted-foreground: #a7b5cf;
+  --accent: #18234a;
+  --accent-foreground: #f7f9ff;
+  --destructive: hsl(0 62.8% 42%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 3.7% 15.9%);
-  --input: hsl(240 3.7% 15.9%);
-  --ring: hsl(240 4.9% 83.9%);
-  --chart-1: hsl(220 70% 50%);
-  --chart-2: hsl(160 60% 45%);
-  --chart-3: hsl(30 80% 55%);
-  --chart-4: hsl(280 65% 60%);
+  --border: rgb(120 145 255 / 0.16);
+  --input: rgb(120 145 255 / 0.22);
+  --ring: #24d6e6;
+  --chart-1: #3978ff;
+  --chart-2: #24d6e6;
+  --chart-3: #8058f5;
+  --chart-4: hsl(30 80% 55%);
   --chart-5: hsl(340 75% 55%);
-  --sidebar-background: hsl(240 5.9% 10%);
-  --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 3.7% 15.9%);
-  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
-  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-background: #0b1224;
+  --sidebar-foreground: #e6ebf7;
+  --sidebar-primary: #3978ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #16213d;
+  --sidebar-accent-foreground: #f7f9ff;
+  --sidebar-border: rgb(120 145 255 / 0.14);
+  --sidebar-ring: #24d6e6;
+  --sidebar: #0b1224;
+  --zk-neon-a: 36 214 230;
+  --zk-neon-b: 128 88 245;
+  --zk-blue: 57 120 255;
 }
 
 /* define theme */
@@ -325,6 +329,7 @@
 :root {
   --zk-neon-a: 34 211 238; /* cyan */
   --zk-neon-b: 167 139 250; /* violet */
+  --zk-blue: 57 120 255;
 }
 
 @keyframes zk-breathe {
