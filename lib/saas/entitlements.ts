@@ -1,4 +1,9 @@
-import { getWorkspaceBilling, getWorkspaceOwnerId } from "@/lib/db/queries";
+import {
+  getUserEmailById,
+  getWorkspaceBilling,
+  getWorkspaceOwnerId,
+} from "@/lib/db/queries";
+import { isOwnerTestingEmail, ownerTestingEmails } from "@/lib/billing/owner-testing";
 import { hasLaunchSlot, isLaunchProgramOpen } from "@/lib/billing/launch-program";
 import { type WorkspacePlan, workspacePlans } from "@/lib/saas/plans";
 
@@ -39,12 +44,22 @@ export async function getWorkspaceEntitlements(
     return freeEntitlements;
   }
 
-  // Launch testing program: the first twenty registered accounts keep full
-  // features until the owner ends the program. Checked before billing so a
-  // missing Subscription row cannot block them.
-  if (isLaunchProgramOpen()) {
+  // Launch testing program (first twenty accounts) and owner testing access
+  // (addresses in OWNER_TESTING_EMAILS) keep full features without a
+  // subscription. Checked before billing so a missing Subscription row cannot
+  // block them.
+  const launchOpen = isLaunchProgramOpen();
+  const ownerTestingOn = ownerTestingEmails().size > 0;
+  if (launchOpen || ownerTestingOn) {
     const ownerId = await getWorkspaceOwnerId(organizationId).catch(() => null);
-    if (await hasLaunchSlot(ownerId)) {
+    const ownerEmail =
+      ownerTestingOn && ownerId
+        ? await getUserEmailById(ownerId).catch(() => null)
+        : null;
+    if (
+      isOwnerTestingEmail(ownerEmail) ||
+      (launchOpen && (await hasLaunchSlot(ownerId)))
+    ) {
       const launchPlan = workspacePlans.business;
       return {
         plan: "business",

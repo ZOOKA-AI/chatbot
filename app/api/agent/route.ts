@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 import { hasLaunchSlot, isLaunchProgramOpen } from "@/lib/billing/launch-program";
+import { isOwnerTestingEmail } from "@/lib/billing/owner-testing";
 import { awardFirstTask } from "@/lib/growth/referrals";
 
 /**
@@ -91,7 +92,9 @@ async function POSTImpl(request: Request) {
   const plan = normalizePlan(subscription?.plan);
   const limit = limitFor(plan);
 
-  const launchFree = isLaunchProgramOpen() && (await hasLaunchSlot(context.user.id));
+  const launchFree =
+    isOwnerTestingEmail(context.user.email) ||
+    (isLaunchProgramOpen() && (await hasLaunchSlot(context.user.id)));
 
   if (!launchFree && usage.agentRuns >= limit) {
     return Response.json(
