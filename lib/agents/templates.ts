@@ -128,6 +128,18 @@ function hashToken(token: string) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
+function isUndefinedTableError(error: unknown): boolean {
+  const seen = new Set<object>();
+  while (typeof error === "object" && error !== null && !seen.has(error)) {
+    if ("code" in error && error.code === "42P01") {
+      return true;
+    }
+    seen.add(error);
+    error = "cause" in error ? error.cause : null;
+  }
+  return false;
+}
+
 export async function createAgentTemplateLink(input: {
   organizationId: string;
   agentId: string;
@@ -218,21 +230,28 @@ export async function getPublicAgentTemplate(
   if (!tokenPattern.test(token)) {
     return null;
   }
-  const [row] = await adminDb()
-    .select({ payload: agentTemplateLink.payload })
-    .from(agentTemplateLink)
-    .where(
-      and(
-        eq(agentTemplateLink.tokenHash, hashToken(token)),
-        isNull(agentTemplateLink.revokedAt)
+  try {
+    const [row] = await adminDb()
+      .select({ payload: agentTemplateLink.payload })
+      .from(agentTemplateLink)
+      .where(
+        and(
+          eq(agentTemplateLink.tokenHash, hashToken(token)),
+          isNull(agentTemplateLink.revokedAt)
+        )
       )
-    )
-    .limit(1);
-  if (!row) {
-    return null;
+      .limit(1);
+    if (!row) {
+      return null;
+    }
+    const parsed = templateSchema.safeParse(row.payload);
+    return parsed.success ? parsed.data : null;
+  } catch (error) {
+    if (isUndefinedTableError(error)) {
+      return null;
+    }
+    throw error;
   }
-  const parsed = templateSchema.safeParse(row.payload);
-  return parsed.success ? parsed.data : null;
 }
 
 export async function copyAgentTemplate(token: string, organizationId: string) {

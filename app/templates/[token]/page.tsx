@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 
 import { getPublicAgentTemplate } from "@/lib/agents/templates";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { UseAgentTemplateButton } from "./use-template-button";
 
 export default async function AgentTemplatePage({ params }: { params: Promise<{ token: string }> }) {
+  await connection();
   const { token } = await params;
   const template = await getPublicAgentTemplate(token);
   if (!template) notFound();

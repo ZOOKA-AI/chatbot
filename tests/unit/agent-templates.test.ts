@@ -169,6 +169,11 @@ describe("agent template serialization", () => {
 });
 
 describe("agent template links and copies", () => {
+  test("treats a missing template-link migration as an unavailable template", async () => {
+    await pg.exec('DROP TABLE "AgentTemplateLink"');
+
+    assert.equal(await getPublicAgentTemplate("A".repeat(43)), null);
+  });
   test("a revoked token immediately stops resolving", async () => {
     const source = await createSourceAgent();
     const link = await createAgentTemplateLink({
