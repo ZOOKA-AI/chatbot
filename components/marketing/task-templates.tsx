@@ -211,7 +211,7 @@ export function TaskTemplates({ lang }: { lang: Lang }) {
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {ROUTINES.map((routine) => (
               <div
-                className="rounded-2xl border border-white/10 p-4"
+                className="zk-card p-4"
                 key={routine.en}
               >
                 <span className="text-lg">{routine.icon}</span>

@@ -2127,6 +2127,16 @@ export async function appendAgentMessage({
   });
 }
 
+/** Email of one account, used to match the owner testing allowlist. */
+export async function getUserEmailById(userId: string) {
+  const [row] = await adminDb()
+    .select({ email: user.email })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return row?.email ?? null;
+}
+
 /** Owner of a workspace, used by the launch testing program to resolve a claim. */
 export async function getWorkspaceOwnerId(organizationId: string) {
   const [row] = await adminDb()

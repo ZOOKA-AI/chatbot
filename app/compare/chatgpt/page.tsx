@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/site";
 
@@ -175,7 +175,9 @@ async function CompareChatGptContent() {
   };
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col gap-10 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
@@ -191,7 +193,6 @@ async function CompareChatGptContent() {
         <Link className="text-muted-foreground text-sm hover:underline" href="/">
           ZOOKA AI
         </Link>
-        <LanguageToggle lang={lang} />
       </div>
 
       <header className="flex flex-col gap-4">
@@ -327,7 +328,7 @@ async function CompareChatGptContent() {
         </ol>
         <div className="flex flex-wrap gap-3 pt-1 text-sm">
           <Link
-            className="rounded-lg bg-foreground px-4 py-2 font-medium text-background"
+            className="zk-btn-primary px-4"
             href="/"
           >
             {t("جرّب زوكا الآن", "Try Zooka now")}
@@ -367,5 +368,6 @@ async function CompareChatGptContent() {
         <Link href="/terms">{t("شروط الخدمة", "Terms")}</Link>
       </nav>
     </main>
+    </>
   );
 }

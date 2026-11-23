@@ -7,10 +7,18 @@ const nextConfig: NextConfig = {
   // the bundler cannot trace. Keeping it external makes the package part of the deployed function;
   // without this the import resolves to nothing inside the lambda.
   serverExternalPackages: ["playwright-core"],
+  // Media under public/ is served by the CDN and never read by server code. Some routes use
+  // dynamic filesystem paths, which makes tracing pull the whole project (public included) into
+  // every function; excluding the videos keeps the brand clips out of the function bundles.
+  outputFileTracingExcludes: {
+    "*": ["public/videos/**"],
+  },
   // Standalone output is what the self-hosted web image runs (see deploy/docker). It is
   // opt-in so the hosted build is byte-for-byte what it was before this package existed:
   // Vercel never sets this variable.
-  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
+  ...(process.env.NEXT_OUTPUT === "standalone"
+    ? { output: "standalone" as const }
+    : {}),
   async headers() {
     return [
       {

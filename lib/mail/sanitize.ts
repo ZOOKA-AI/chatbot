@@ -336,14 +336,24 @@ export function sanitizeHtml(input: string, options: SanitizeOptions = {}): stri
  */
 export function htmlToText(input: string): string {
   return String(input ?? "")
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<(script|style)[\s\S]*?<\/\1\s*>/gi, " ")
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    // &amp; is decoded last so "&amp;lt;" stays the literal text "&lt;".
+    .replace(/&amp;/gi, "&")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Display name of an RFC 5322 From header: everything before the address. Splitting on "<"
+ * keeps no markup at all, where stripping tags with a regex could leave a partial "<script".
+ */
+export function displayName(from: string): string | null {
+  const name = from.split("<")[0].replace(/["<>]/g, "").trim();
+  return name || null;
 }
