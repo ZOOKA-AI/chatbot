@@ -87,10 +87,10 @@ export const SOCIAL_ACCOUNTS: SocialAccount[] = [
   {
     id: "instagram",
     label: "Instagram",
-    handle: "@zooka_ai_official",
+    handle: "@zookaai",
+    href: "https://www.instagram.com/zookaai/",
     category: "social",
-    status: "pending",
-    note: "الحساب قيد مراجعة المنصة ولا يظهر للعامة بعد.",
+    status: "live",
     path: "M12 7.4A4.6 4.6 0 1 0 12 16.6 4.6 4.6 0 0 0 12 7.4Zm0 7.6A3 3 0 1 1 12 9a3 3 0 0 1 0 6Zm5.9-7.8a1.1 1.1 0 1 1-2.2 0 1.1 1.1 0 0 1 2.2 0ZM21 8.1c-.1-1.4-.4-2.7-1.4-3.7S17.3 3.1 15.9 3c-1.5-.1-6.3-.1-7.8 0-1.4.1-2.7.4-3.7 1.4S3.1 6.7 3 8.1c-.1 1.5-.1 6.3 0 7.8.1 1.4.4 2.7 1.4 3.7s2.3 1.3 3.7 1.4c1.5.1 6.3.1 7.8 0 1.4-.1 2.7-.4 3.7-1.4s1.3-2.3 1.4-3.7c.1-1.5.1-6.3 0-7.8Z",
   },
   {
@@ -151,7 +151,7 @@ export const SOCIAL_ACCOUNTS: SocialAccount[] = [
     id: "discord",
     label: "Discord",
     handle: "ZOOKA AI",
-    href: "https://discord.gg/7ynqJxMZfQ",
+    href: "https://discord.gg/D42nEaUhnb",
     category: "community",
     status: "live",
     path: "M19.3 5.6A16 16 0 0 0 15.4 4l-.3.6a12 12 0 0 1 3.4 1.6 11.6 11.6 0 0 0-9-1.5c-.6.1-1.3.4-2 .7a12 12 0 0 1 3.4-1.6L10.6 4a16 16 0 0 0-3.9 1.6C4 9.4 3.3 13 3.6 16.6a16 16 0 0 0 4.8 2.4l.9-1.4c-.7-.3-1.4-.6-2-1l.5-.3a11.5 11.5 0 0 0 9.8 0l.5.3c-.6.4-1.3.7-2 1l.9 1.4a16 16 0 0 0 4.8-2.4c.4-4.2-.6-7.8-2.5-11ZM9.3 14.4c-.9 0-1.7-.9-1.7-2s.7-2 1.7-2 1.7.9 1.7 2-.7 2-1.7 2Zm5.4 0c-.9 0-1.7-.9-1.7-2s.7-2 1.7-2 1.7.9 1.7 2-.7 2-1.7 2Z",
