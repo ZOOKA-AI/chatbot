@@ -40,8 +40,29 @@ const PROTECTED_PREFIXES = [
   "/api",
 ];
 
+/**
+ * `/templates/<token>` renders a public agent template. The page resolves the
+ * token inside a Suspense boundary, so an unknown token streams a 200 shell and
+ * only then renders "not found" — a soft 404 on an unbounded URL space. A token
+ * that cannot possibly exist is refused here, before the app renders, with a
+ * real 404 status and without touching the database.
+ */
+const TEMPLATE_PATH = /^\/templates\/([^/]+)\/?$/;
+const TEMPLATE_TOKEN = /^[A-Za-z0-9_-]{16,64}$/;
+
+function isImpossibleTemplateToken(pathname: string): boolean {
+  const match = TEMPLATE_PATH.exec(pathname);
+  return Boolean(match && !TEMPLATE_TOKEN.test(match[1]));
+}
+
 export async function proxy(request: NextRequest) {
   const requestId = requestIdFrom(request.headers);
+  if (request.method === "GET" && isImpossibleTemplateToken(request.nextUrl.pathname)) {
+    return new NextResponse("<!doctype html><title>404</title><h1>404 — Page not found</h1>", {
+      status: 404,
+      headers: { "content-type": "text/html; charset=utf-8", "x-request-id": requestId, "cache-control": "no-store" },
+    });
+  }
   const response = await route(request, requestId);
   response.headers.set("x-request-id", requestId);
   rememberAttribution(request, response);
