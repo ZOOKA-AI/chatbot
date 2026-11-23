@@ -130,12 +130,17 @@ function hashToken(token: string) {
 
 function isUndefinedTableError(error: unknown): boolean {
   const seen = new Set<object>();
-  while (typeof error === "object" && error !== null && !seen.has(error)) {
-    if ("code" in error && error.code === "42P01") {
+  let current = error;
+  while (
+    typeof current === "object" &&
+    current !== null &&
+    !seen.has(current)
+  ) {
+    if ("code" in current && current.code === "42P01") {
       return true;
     }
-    seen.add(error);
-    error = "cause" in error ? error.cause : null;
+    seen.add(current);
+    current = "cause" in current ? current.cause : null;
   }
   return false;
 }

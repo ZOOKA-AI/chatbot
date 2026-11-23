@@ -53,7 +53,7 @@ beforeEach(async () => {
     "pending/0038_schedule_and_agent_model.sql",
     "pending/0040_agent_tools_and_instructions.sql",
     "pending/0041_workspace_projects.sql",
-    "pending/0068_agent_template_links.sql",
+    "pending/0070_agent_template_links.sql",
   ]) {
     await apply(
       readFileSync(join(process.cwd(), "lib/db/migrations", name), "utf8")

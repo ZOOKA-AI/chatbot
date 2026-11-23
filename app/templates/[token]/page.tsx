@@ -1,12 +1,27 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { Suspense } from "react";
 
 import { getPublicAgentTemplate } from "@/lib/agents/templates";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { UseAgentTemplateButton } from "./use-template-button";
 
-export default async function AgentTemplatePage({ params }: { params: Promise<{ token: string }> }) {
+export default function AgentTemplatePage({ params }: { params: Promise<{ token: string }> }) {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center p-6">
+          <p>Loading agent template…</p>
+        </main>
+      }
+    >
+      <AgentTemplateContent params={params} />
+    </Suspense>
+  );
+}
+
+async function AgentTemplateContent({ params }: { params: Promise<{ token: string }> }) {
   await connection();
   const { token } = await params;
   const template = await getPublicAgentTemplate(token);
