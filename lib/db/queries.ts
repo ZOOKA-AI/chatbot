@@ -27,7 +27,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzleDateSafe } from "@/lib/db/date-params";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
@@ -82,7 +82,7 @@ const client = postgres(connectionString, {
   idle_timeout: 20,
   connect_timeout: 10,
 });
-const sharedDb = drizzle(client);
+const sharedDb = drizzleDateSafe(client);
 
 /**
  * Handle for writes that legitimately happen before, or outside, a tenant scope:

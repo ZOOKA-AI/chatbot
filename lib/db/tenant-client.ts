@@ -1,7 +1,7 @@
 import "server-only";
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzleDateSafe } from "@/lib/db/date-params";
 import postgres from "postgres";
 
 import {
@@ -96,7 +96,7 @@ export function tenantRunner(): TenantRunner {
 
 /** Drizzle over the same connection, for callers that want the query builder. */
 export function tenantDb() {
-  return drizzle(client(), { logger: false });
+  return drizzleDateSafe(client(), { logger: false });
 }
 
 /** Drops the cached pool. For tests and for shutdown. */
@@ -124,7 +124,7 @@ export async function runInTenantTransaction<T>(
     throw new TenantScopeError("invalid_context", "organisation is not a valid identifier");
   }
 
-  const base = drizzle(client());
+  const base = drizzleDateSafe(client());
 
   // drizzle's own transaction, so the handle published below is a real query
   // builder over one pinned connection rather than a foreign object.
