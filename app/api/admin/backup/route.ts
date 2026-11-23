@@ -16,24 +16,11 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import postgres from "postgres";
+import { mergeTableList, missingCoreTables } from "@/lib/admin/backup-tables";
 import { verifySharedSecret } from "@/lib/webhooks/security";
 
-const TABLES = [
-  "User",
-  "Organization",
-  "OrganizationMember",
-  "Invitation",
-  "Subscription",
-  "UsageEvent",
-  "Chat",
-  "Message",
-  "Message_v2",
-  "Vote",
-  "Vote_v2",
-  "Document",
-  "Suggestion",
-  "Stream",
-] as const;
+// The table list is discovered from the database at run time; see
+// lib/admin/backup-tables.ts for why a hardcoded list is not enough.
 
 const NO_STORE = {
   "cache-control": "private, no-store, max-age=0, must-revalidate",
@@ -112,8 +99,24 @@ export async function GET(request: Request) {
 
   const client = postgres(connectionString, { max: 1, prepare: false });
   try {
+    // Discover every base table in the public schema so a table added after
+    // this file was written is still backed up. A discovery failure must not
+    // silently shrink the backup: it falls back to the core list and says so.
+    let discovered: string[] = [];
+    let discoveryFailed = false;
+    try {
+      const rows = await client.unsafe(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
+      );
+      discovered = rows.map((row) => String((row as unknown as { table_name: unknown }).table_name));
+    } catch (error) {
+      discoveryFailed = true;
+      console.error("[admin/backup] table discovery failed", String(error).slice(0, 200));
+    }
+    const tableList = mergeTableList(discovered);
+
     const tables: Record<string, unknown[]> = {};
-    for (const table of TABLES) {
+    for (const table of tableList) {
       const rows = await client.unsafe(`SELECT * FROM "${table}"`);
       tables[table] =
         mode === "redacted"
@@ -130,6 +133,9 @@ export async function GET(request: Request) {
         generatedAt: new Date().toISOString(),
         requestId,
         rowCount,
+        tableCount: tableList.length,
+        tableDiscovery: discoveryFailed ? "failed" : "ok",
+        missingCoreTables: missingCoreTables(discovered),
         tables,
       },
       { headers }
