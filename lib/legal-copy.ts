@@ -1,5 +1,10 @@
 import type { Lang } from "@/lib/i18n";
-import { fillLegalTokens } from "@/lib/legal-entity";
+import {
+  CONTACT_EMAIL,
+  LEGAL_ADDRESS,
+  LEGAL_ENTITY_NAME,
+  fillLegalTokens,
+} from "@/lib/legal-entity";
 
 type LegalPageId =
   | "about"
@@ -21,11 +26,11 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       sections: [
         {
           title: "عن Zooka AI",
-          body: "تقدّم [LEGAL_ENTITY_NAME] أدوات ذكاء اصطناعي ومحادثة للعمل والأفراد عبر zooka-ai.com.",
+          body: `تقدّم ${LEGAL_ENTITY_NAME.ar} أدوات ذكاء اصطناعي ومحادثة للعمل والأفراد عبر zooka-ai.com.`,
         },
         {
           title: "تواصل معنا",
-          body: "العنوان: [LEGAL_ADDRESS]. البريد الإلكتروني: [CONTACT_EMAIL].",
+          body: `العنوان: ${LEGAL_ADDRESS.ar}. البريد الإلكتروني: ${CONTACT_EMAIL}.`,
         },
       ],
     },
@@ -34,11 +39,11 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       sections: [
         {
           title: "الدعم والاستفسارات",
-          body: "للدعم أو الأسئلة المتعلقة بالخدمة، راسلنا على [CONTACT_EMAIL].",
+          body: `للدعم أو الأسئلة المتعلقة بالخدمة، راسلنا على ${CONTACT_EMAIL}.`,
         },
         {
           title: "الجهة المشغّلة",
-          body: "[LEGAL_ENTITY_NAME]، [LEGAL_ADDRESS].",
+          body: `${LEGAL_ENTITY_NAME.ar}، ${LEGAL_ADDRESS.ar}.`,
         },
       ],
     },
@@ -55,7 +60,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "التواصل",
-          body: "[LEGAL_ENTITY_NAME]، [LEGAL_ADDRESS]، [CONTACT_EMAIL].",
+          body: `${LEGAL_ENTITY_NAME.ar}، ${LEGAL_ADDRESS.ar}، ${CONTACT_EMAIL}.`,
         },
       ],
     },
@@ -88,7 +93,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "حقوقك والتواصل",
-          body: "لطلب الوصول أو الحذف أو للاستفسار، تواصل مع [CONTACT_EMAIL]. الجهة المشغّلة: [LEGAL_ENTITY_NAME]، [LEGAL_ADDRESS].",
+          body: `لطلب الوصول أو الحذف أو للاستفسار، تواصل مع ${CONTACT_EMAIL}. الجهة المشغّلة: ${LEGAL_ENTITY_NAME.ar}، ${LEGAL_ADDRESS.ar}.`,
         },
       ],
     },
@@ -109,7 +114,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "طلب المساعدة",
-          body: "للاستفسار عن دفعة أو طلب استرداد، أرسل رقم الفاتورة إلى [CONTACT_EMAIL]. الجهة المشغّلة: [LEGAL_ENTITY_NAME]، [LEGAL_ADDRESS].",
+          body: `للاستفسار عن دفعة أو طلب استرداد، أرسل رقم الفاتورة إلى ${CONTACT_EMAIL}. الجهة المشغّلة: ${LEGAL_ENTITY_NAME.ar}، ${LEGAL_ADDRESS.ar}.`,
         },
       ],
     },
@@ -138,7 +143,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "الجهة المشغّلة والتواصل",
-          body: "[LEGAL_ENTITY_NAME]، [LEGAL_ADDRESS]، [CONTACT_EMAIL].",
+          body: `${LEGAL_ENTITY_NAME.ar}، ${LEGAL_ADDRESS.ar}، ${CONTACT_EMAIL}.`,
         },
       ],
     },
@@ -149,11 +154,11 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       sections: [
         {
           title: "About Zooka AI",
-          body: "[LEGAL_ENTITY_NAME] provides AI and chat tools for individuals and teams at zooka-ai.com.",
+          body: `${LEGAL_ENTITY_NAME.en} provides AI and chat tools for individuals and teams at zooka-ai.com.`,
         },
         {
           title: "Contact",
-          body: "Address: [LEGAL_ADDRESS]. Email: [CONTACT_EMAIL].",
+          body: `Address: ${LEGAL_ADDRESS.en}. Email: ${CONTACT_EMAIL}.`,
         },
       ],
     },
@@ -162,11 +167,11 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       sections: [
         {
           title: "Support and questions",
-          body: "For support or service questions, email [CONTACT_EMAIL].",
+          body: `For support or service questions, email ${CONTACT_EMAIL}.`,
         },
         {
           title: "Operator",
-          body: "[LEGAL_ENTITY_NAME], [LEGAL_ADDRESS].",
+          body: `${LEGAL_ENTITY_NAME.en}, ${LEGAL_ADDRESS.en}.`,
         },
       ],
     },
@@ -183,7 +188,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "Contact",
-          body: "[LEGAL_ENTITY_NAME], [LEGAL_ADDRESS], [CONTACT_EMAIL].",
+          body: `${LEGAL_ENTITY_NAME.en}, ${LEGAL_ADDRESS.en}, ${CONTACT_EMAIL}.`,
         },
       ],
     },
@@ -216,7 +221,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "Your rights and contact",
-          body: "For access, deletion, or questions, contact [CONTACT_EMAIL]. Operator: [LEGAL_ENTITY_NAME], [LEGAL_ADDRESS].",
+          body: `For access, deletion, or questions, contact ${CONTACT_EMAIL}. Operator: ${LEGAL_ENTITY_NAME.en}, ${LEGAL_ADDRESS.en}.`,
         },
       ],
     },
@@ -237,7 +242,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "Request help",
-          body: "For a payment question or refund request, email the invoice number to [CONTACT_EMAIL]. Operator: [LEGAL_ENTITY_NAME], [LEGAL_ADDRESS].",
+          body: `For a payment question or refund request, email the invoice number to ${CONTACT_EMAIL}. Operator: ${LEGAL_ENTITY_NAME.en}, ${LEGAL_ADDRESS.en}.`,
         },
       ],
     },
@@ -266,7 +271,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
         },
         {
           title: "Operator and contact",
-          body: "[LEGAL_ENTITY_NAME], [LEGAL_ADDRESS], [CONTACT_EMAIL].",
+          body: `${LEGAL_ENTITY_NAME.en}, ${LEGAL_ADDRESS.en}, ${CONTACT_EMAIL}.`,
         },
       ],
     },
@@ -275,7 +280,8 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
 
 export function getLegalPageCopy(lang: Lang, page: LegalPageId) {
   const copy = legalCopy[lang][page];
-  // Legal pages must never render a raw [TOKEN] to a visitor.
+  // Bodies interpolate the operating entity, address and contact directly, so no
+  // unfilled token can reach a visitor or a crawler reading the repository.
   return {
     ...copy,
     sections: copy.sections.map((section) => ({
