@@ -6,7 +6,6 @@ import {
   staticRemoteEndpoint,
 } from "@/lib/browser/remote";
 import { assessUrl } from "@/lib/browser/url-policy";
-import { chromium as playwrightChromium } from "playwright-core";
 
 /**
  * The real browser.
@@ -84,16 +83,38 @@ type SessionHandle = {
 };
 
 /**
- * The Chromium driver.
+ * The Chromium driver, loaded on demand.
  *
- * This is a static import on purpose. The previous version resolved the module by name at request
- * time, which cannot be traced by the bundler and fails inside a deployed function with
- * browser_runtime_unavailable no matter what is configured - a failure that looks exactly like a
- * missing token. playwright-core is a declared runtime dependency, so importing it directly is both
- * simpler and honest: if it is missing, the build says so.
+ * Two failures shaped this. A specifier held in a variable cannot be traced by the bundler, so the
+ * module was missing inside the deployed function and looked exactly like a missing token. A static
+ * import fixed that and created a worse one: every route that so much as imported this file crashed
+ * at module load when the installed package was incomplete, which took `/api/chat` down for every
+ * user while the browser itself was never called. The specifier is a literal now — the bundler can
+ * still trace it — but the load happens only when a browser is actually requested, and a broken
+ * install returns a recorded refusal instead of killing the request.
  */
-async function loadChromium() {
-  return playwrightChromium;
+type ChromiumLauncher = typeof import("playwright-core").chromium;
+
+let chromiumPromise: Promise<ChromiumLauncher> | null = null;
+
+export class BrowserUnavailableError extends Error {
+  readonly code = "browser_runtime_unavailable";
+  constructor(readonly reason: string) {
+    super(`browser_runtime_unavailable: ${reason}`);
+    this.name = "BrowserUnavailableError";
+  }
+}
+
+async function loadChromium(): Promise<ChromiumLauncher> {
+  chromiumPromise ??= import("playwright-core")
+    .then((mod) => mod.chromium)
+    .catch((error: unknown) => {
+      chromiumPromise = null;
+      throw new BrowserUnavailableError(
+        error instanceof Error ? error.message.slice(0, 200) : "playwright-core did not load"
+      );
+    });
+  return chromiumPromise;
 }
 
 class BrowserRuntime {
