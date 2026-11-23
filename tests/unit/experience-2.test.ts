@@ -179,3 +179,18 @@ describe("support center content", () => {
     }
   });
 });
+
+describe("official account notes say what is actually true", () => {
+  test("g.dev explains the Google sign-in wall instead of 'being prepared'", () => {
+    const gdev = SOCIAL_ACCOUNTS.find((a) => a.id === "gdev");
+    expect(gdev?.status).toBe("pending");
+    expect(gdev?.href).toBeUndefined();
+    expect(gdev?.note ?? "").toMatch(/تسجيل الدخول بحساب Google/);
+  });
+
+  test("Reddit no longer claims ownership is unconfirmed", () => {
+    const reddit = SOCIAL_ACCOUNTS.find((a) => a.id === "reddit");
+    expect(reddit?.status).toBe("pending");
+    expect(reddit?.note ?? "").not.toMatch(/تأكيد ملكية/);
+  });
+});
