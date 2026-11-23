@@ -15,15 +15,30 @@ function expectedKey(): string | null {
   return createHmac("sha256", secret).update("zooka-blog-publish").digest("hex");
 }
 
-function authorised(request: Request): boolean {
-  const provided = request.headers.get("x-blog-key") ?? "";
-  const expected = expectedKey();
+/**
+ * The publish key can be supplied two ways:
+ *  1. `BLOG_PUBLISH_KEY`, an explicit secret, so the workflow can publish without
+ *     anyone having to read AUTH_SECRET (which is write-only in the hosting env).
+ *  2. the original HMAC(AUTH_SECRET) derivation, kept for compatibility.
+ */
+function explicitKey(): string | null {
+  const key = process.env.BLOG_PUBLISH_KEY;
+  return key && key.length >= 32 ? key : null;
+}
+
+function matches(provided: string, expected: string | null): boolean {
   if (!expected || provided.length !== expected.length) return false;
   try {
     return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
   } catch {
     return false;
   }
+}
+
+function authorised(request: Request): boolean {
+  const provided = request.headers.get("x-blog-key") ?? "";
+  if (!provided) return false;
+  return matches(provided, explicitKey()) || matches(provided, expectedKey());
 }
 
 export async function POST(request: Request) {
