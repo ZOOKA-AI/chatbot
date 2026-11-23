@@ -122,7 +122,7 @@ export async function POST(request: Request) {
           system: DEMO_SYSTEM,
           messages: modelMessages,
           providerOptions: {
-            gateway: { models: [DEFAULT_CHAT_MODEL, "google/gemini-2.5-flash-lite"] },
+            gateway: { models: ["google/gemini-2.5-flash-lite"] },
           },
           maxRetries: 0,
           abortSignal: request.signal,

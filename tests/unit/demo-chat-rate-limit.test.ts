@@ -75,8 +75,8 @@ describe("public demo gateway limits", () => {
     state.fetch.mockImplementation(async (_url, init: RequestInit) => {
       const body = JSON.parse(String(init.body));
       const models = body.providerOptions.gateway.models as string[];
-      attempted.push(models[0]); // Simulate the gateway receiving a 429 from the first provider.
-      attempted.push(models[1]);
+      attempted.push(new Headers(init.headers).get("ai-language-model-id") ?? "");
+      attempted.push(...models); // Simulate the primary returning 429 inside the gateway.
       return successfulStream();
     });
 
