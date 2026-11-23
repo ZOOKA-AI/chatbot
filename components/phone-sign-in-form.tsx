@@ -64,7 +64,7 @@ function messageFor(error: string, t: (typeof copy)["ar"] | (typeof copy)["en"])
   }
 }
 
-export function PhoneSignInForm({ lang }: { lang: Lang }) {
+export function PhoneSignInForm({ lang, callbackUrl = "/" }: { lang: Lang; callbackUrl?: string }) {
   const t = copy[lang];
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -111,7 +111,7 @@ export function PhoneSignInForm({ lang }: { lang: Lang }) {
         setError(messageFor(data.error ?? "", t));
         return;
       }
-      await signIn("phone-otp", { ticket: data.ticket, callbackUrl: "/" });
+      await signIn("phone-otp", { ticket: data.ticket, callbackUrl });
     } catch {
       setError(t.generic);
     } finally {

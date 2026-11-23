@@ -206,6 +206,7 @@ async function route(request: NextRequest, requestId: string) {
     pathname === "/api/mcp" ||
     // Private publishing endpoint for n8n: bearer workspace key, not a session.
     pathname === "/api/publish" ||
+    pathname.startsWith("/api/templates/") ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||

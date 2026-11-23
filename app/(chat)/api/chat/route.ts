@@ -115,8 +115,6 @@ function getStreamContext() {
   }
 }
 
-export { getStreamContext };
-
 async function POSTImpl(request: Request) {
   let requestBody: PostRequestBody;
 
