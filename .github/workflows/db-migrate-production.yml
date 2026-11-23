@@ -1,0 +1,67 @@
+name: db-migrate-production
+
+# Manual only. Vercel builds do not run migrations; this is the deliberate release step.
+# - mode=plan (default): read-only, lists the migrations the production database has not applied.
+# - mode=apply: runs `pnpm db:migrate`; requires typing APPLY in the confirm input.
+# The connection string lives only in the repository secret PRODUCTION_DATABASE_URL.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan (read-only) or apply"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply]
+      confirm:
+        description: "Type APPLY to run migrations (ignored for plan)"
+        required: false
+        default: ""
+
+concurrency:
+  group: db-migrate-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+    steps:
+      - name: Require the secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Repository secret PRODUCTION_DATABASE_URL is not set."
+            exit 1
+          fi
+
+      - name: Require confirmation to apply
+        if: inputs.mode == 'apply' && inputs.confirm != 'APPLY'
+        run: |
+          echo "::error::mode=apply needs confirm=APPLY."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      - name: Plan (read-only)
+        run: node scripts/release/migration-plan.mjs
+
+      - name: Apply
+        if: inputs.mode == 'apply'
+        run: pnpm db:migrate
+
+      - name: Plan after apply
+        if: inputs.mode == 'apply'
+        run: node scripts/release/migration-plan.mjs
