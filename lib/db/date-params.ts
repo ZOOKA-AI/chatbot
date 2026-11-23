@@ -29,7 +29,7 @@ export function restoreDateSerializers(client: postgres.Sql): void {
 
 /** drizzle() that leaves Date parameters in raw sql templates working. */
 export function drizzleDateSafe(client: postgres.Sql, config?: { logger?: boolean }) {
-  const db = drizzle(client, config);
+  const db = config ? drizzle(client, config) : drizzle(client);
   // drizzle() rewrites the serializers on every call, so re-apply each time.
   restoreDateSerializers(client);
   return db;
