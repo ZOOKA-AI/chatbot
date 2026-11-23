@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requirePlatformRole } from "@/lib/auth/platform-role";
 import { getGrowthFunnel } from "@/lib/growth/funnel";
+import { getJourney } from "@/lib/growth/journey";
 
 export async function GET(request: Request) {
   const admin = await requirePlatformRole("admin", "api.admin.growth");
@@ -14,8 +15,11 @@ export async function GET(request: Request) {
   const days = Number(new URL(request.url).searchParams.get("days") ?? 30);
 
   try {
-    const funnel = await getGrowthFunnel(Number.isFinite(days) ? days : 30);
-    return NextResponse.json(funnel, {
+    const window = Number.isFinite(days) ? days : 30;
+    const funnel = await getGrowthFunnel(window);
+    // Journey steps are read independently; a failure there never hides the funnel.
+    const journey = await getJourney(window).catch(() => null);
+    return NextResponse.json({ ...funnel, journey }, {
       headers: { "cache-control": "private, no-store" },
     });
   } catch {

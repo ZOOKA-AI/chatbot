@@ -8,6 +8,8 @@ import { getTrafficSnapshotForOrganization } from "@/lib/analytics/growth";
 import { growthNotice } from "@/lib/analytics/growth-notice";
 import { readSettings } from "@/lib/growth/referrals";
 import { getGrowthFunnel } from "@/lib/growth/funnel";
+import { JourneySection } from "./journey-section";
+import { getJourney } from "@/lib/growth/journey";
 import { getLang } from "@/lib/i18n";
 
 export default async function GrowthAdminPage() {
@@ -32,6 +34,7 @@ export default async function GrowthAdminPage() {
   const funnel = platformAdmin
     ? await getGrowthFunnel(30).catch(() => null)
     : null;
+  const journey = platformAdmin ? await getJourney(30).catch(() => null) : null;
 
   let recent: Array<Record<string, unknown>> = [];
   let audit: Array<Record<string, unknown>> = [];
@@ -167,6 +170,8 @@ export default async function GrowthAdminPage() {
           </>
         )}
       </section>
+
+      {platformAdmin ? <JourneySection ar={ar} journey={journey} /> : null}
 
       <section className="rounded-2xl border bg-card p-4">
         <h2 className="text-sm font-semibold">{ar ? "أحدث المكافآت" : "Recent rewards"}</h2>

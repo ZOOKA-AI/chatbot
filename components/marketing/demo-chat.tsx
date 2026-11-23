@@ -347,10 +347,10 @@ export function DemoChat({ lang }: { lang: Lang }) {
 
       <div className="relative flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {empty ? (
-          <div className="flex h-full flex-col justify-center gap-4">
+          <div className="flex min-h-full flex-col justify-center gap-4">
             <div>
               <p className="font-semibold text-xl">
-                {t("اسأل أو أمُر… وشوف النتيجة بنفسك", "Ask or command it, and watch it work")}
+                {t("ابدأ بطلب جاهز أو اكتب مهمتك", "Start from a ready request or write your task")}
               </p>
               <p className="mt-1 text-muted-foreground text-sm">
                 {t(

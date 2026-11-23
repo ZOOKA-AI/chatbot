@@ -335,7 +335,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
 
       <main className="flex-1">
         <section className="zk-brand-bg relative overflow-hidden">
-          <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-7 px-5 pt-14 pb-10 text-center md:pt-20">
+          <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-5 px-5 pt-10 pb-6 text-center md:pt-14">
             <span className="zk-kicker">
               <span
                 aria-hidden="true"
@@ -347,45 +347,16 @@ export function LandingPage({ lang }: { lang: Lang }) {
               )}
             </span>
             <h1 className="max-w-4xl text-4xl leading-[1.25] font-bold text-balance md:text-6xl">
-              {t(
-                "ردود عملائك وفواتيرك ومتابعة طلباتك — ",
-                "Customer replies, invoices and follow-ups — "
-              )}
-              <br className="hidden sm:block" />
+              {t("قل لزوكا ", "Tell Zooka ")}
               <span className="zk-gradient-text inline-block">
-                {t("من محادثة واحدة", "from one chat")}
+                {t("ماذا تريد إنجازه", "what you want done")}
               </span>
             </h1>
             <p className="text-muted-foreground max-w-2xl text-lg text-balance">
               {t(
-                "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
-                "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it."
+                "اكتب مهمة حقيقية من شغلك. جرّب مجانًا بدون تسجيل.",
+                "Write a real task from your work. Try it free, no sign-up."
               )}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link className="zk-btn-primary px-7" href={CTA.workspace.href}>
-                <Sparkles aria-hidden="true" className="size-4" />
-                {isArabic ? CTA.workspace.ar : CTA.workspace.en}
-              </Link>
-              <a className="zk-btn-ghost px-7" href={CTA.demo.href}>
-                <PlayCircle aria-hidden="true" className="size-4" />
-                {isArabic ? CTA.demo.ar : CTA.demo.en}
-              </a>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              {t(
-                "10 رسائل مجانية كل يوم · كتابة فقط، بدون فتح بريدك أو ملفاتك · ",
-                "10 free messages a day · writing only, we never open your mail or files · "
-              )}
-              <Link
-                className="text-[#8fb2ff] underline-offset-4 hover:underline"
-                href="/pricing"
-              >
-                {t(
-                  "ربط الأدوات ووضع الوكيل من الاحترافي — 19$ شهريًا",
-                  "Tool connections and Agent mode on Pro — $19 a month"
-                )}
-              </Link>
             </p>
           </div>
 
@@ -440,6 +411,50 @@ export function LandingPage({ lang }: { lang: Lang }) {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-5 pt-10 pb-4 text-center">
+            <h2 className="max-w-4xl text-3xl leading-[1.3] font-bold text-balance md:text-5xl">
+              {t(
+                "ردود عملائك وفواتيرك ومتابعة طلباتك — ",
+                "Customer replies, invoices and follow-ups — "
+              )}
+              <br className="hidden sm:block" />
+              <span className="zk-gradient-text inline-block">
+                {t("من محادثة واحدة", "from one chat")}
+              </span>
+            </h2>
+            <p className="text-muted-foreground max-w-2xl text-lg text-balance">
+              {t(
+                "لشركات التنظيف والصيانة والعقارات الصغيرة في الإمارات. تربط جيميل ودرايف بحسابك، والوكيل ينفّذ الخطوات بنفسه ويوريك الناتج قبل ما ترسله.",
+                "For small cleaning, maintenance and real-estate teams in the UAE. Connect your own Gmail and Drive, and the agent runs the steps and shows you the output before you send it."
+              )}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link className="zk-btn-primary px-7" href={CTA.workspace.href}>
+                <Sparkles aria-hidden="true" className="size-4" />
+                {isArabic ? CTA.workspace.ar : CTA.workspace.en}
+              </Link>
+              <a className="zk-btn-ghost px-7" href={CTA.demo.href}>
+                <PlayCircle aria-hidden="true" className="size-4" />
+                {isArabic ? CTA.demo.ar : CTA.demo.en}
+              </a>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              {t(
+                "10 رسائل مجانية كل يوم · كتابة فقط، بدون فتح بريدك أو ملفاتك · ",
+                "10 free messages a day · writing only, we never open your mail or files · "
+              )}
+              <Link
+                className="text-[#8fb2ff] underline-offset-4 hover:underline"
+                href="/pricing"
+              >
+                {t(
+                  "ربط الأدوات ووضع الوكيل من الاحترافي — 19$ شهريًا",
+                  "Tool connections and Agent mode on Pro — $19 a month"
+                )}
+              </Link>
+            </p>
           </div>
 
           <div className="relative mx-auto w-full max-w-6xl px-5 pt-4 pb-16">
