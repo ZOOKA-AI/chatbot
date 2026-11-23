@@ -7,10 +7,17 @@ import {
   mediaError,
   recordingMime,
 } from "@/lib/studio-media";
+import {
+  detectMediaSupport,
+  getDisplayMediaCompat,
+  type MediaSupport,
+  supportNotice,
+} from "@/lib/live/media-support";
 import styles from "./studio.module.css";
 
 export function ScreenRecorder() {
   const [supported, setSupported] = useState(false);
+  const [support, setSupport] = useState<MediaSupport | null>(null);
   const [state, setState] = useState<
     "idle" | "choosing" | "recording" | "paused" | "stopping"
   >("idle");
@@ -44,11 +51,9 @@ export function ScreenRecorder() {
   };
   useEffect(() => {
     active.current = true;
-    setSupported(
-      window.isSecureContext &&
-        !!navigator.mediaDevices?.getDisplayMedia &&
-        typeof MediaRecorder !== "undefined",
-    );
+    const detected = detectMediaSupport(navigator, window.isSecureContext);
+    setSupport(detected);
+    setSupported(detected.screen && typeof MediaRecorder !== "undefined");
     return () => {
       active.current = false;
       discard.current = true;
@@ -72,7 +77,7 @@ export function ScreenRecorder() {
     setMessage("");
     discard.current = false;
     try {
-      const capture = await navigator.mediaDevices.getDisplayMedia({
+      const capture = await getDisplayMediaCompat(navigator, {
         video: true,
         audio,
       });
@@ -190,8 +195,8 @@ export function ScreenRecorder() {
       </label>
       {!supported && (
         <p className={styles.muted}>
-          المتصفح لا يوفّر تسجيل الشاشة هنا. جرّب Chrome أو Edge على الكمبيوتر
-          وHTTPS؛ دعم الجوال متفاوت.
+          {(support && !support.screen && supportNotice(support, "ar")) ||
+            "المتصفح لا يوفّر تسجيل الشاشة هنا. حدّثه أو استخدم Chrome أو Edge أو Firefox أو Safari."}
         </p>
       )}
       <div className={styles.transferActions}>
