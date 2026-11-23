@@ -4,6 +4,7 @@ import {
   finishExecution,
   getTask,
   latestExecution,
+  reportLoadedSkill,
   reportTask,
   startExecution,
 } from "@/lib/agents/command-center";
@@ -317,22 +318,16 @@ export async function runTask(
       };
     }
 
-    const storedResult = tool.name === loadSkill.name
-      ? {
-          name: (result.evidence as { name: string }).name,
-          instructionsStored: false,
-          note: "Reload the skill for instructions; they may have changed since this run.",
-        }
-      : result.evidence;
-    const evidence = JSON.stringify({ tool: tool.name, summary: result.summary, result: storedResult }).slice(
-      0,
-      8000
-    );
-    const reported = await reportTask(agent as never, {
-      taskId: input.taskId,
-      status: "completed",
-      evidence,
-    });
+    const reported = tool.name === loadSkill.name
+      ? await reportLoadedSkill(agent as never, {
+          taskId: input.taskId,
+          ...(result.evidence as { name: string; instructions: string }),
+        })
+      : await reportTask(agent as never, {
+          taskId: input.taskId,
+          status: "completed",
+          evidence: JSON.stringify({ tool: tool.name, summary: result.summary, result: result.evidence }).slice(0, 8000),
+        });
     if (!reported) {
       // The task moved out from under us (cancelled or already settled). The
       // execution is recorded as cancelled; nothing claims a completion.
