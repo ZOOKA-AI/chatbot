@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 /**
  * Deliberately small Markdown renderer: the blog stores plain Markdown from the
  * writing workflow, and this covers exactly the constructs it produces
- * (headings, paragraphs, lists, quotes, code fences, bold/italic/code/links).
- * No raw HTML is ever injected, so untrusted drafts cannot add markup.
+ * (headings, paragraphs, lists, quotes, code fences, bold/italic/code/links and
+ * one image line). No raw HTML is ever injected, so untrusted drafts cannot add
+ * markup, and images must be https URLs.
  */
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -133,6 +134,23 @@ export function renderMarkdown(markdown: string): ReactNode {
 
     if (!line.trim()) {
       flushAll();
+      continue;
+    }
+
+    const image = /^!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)$/.exec(line);
+    if (image) {
+      flushAll();
+      blocks.push(
+        // eslint-disable-next-line @next/next/no-img-element -- stored Markdown, size unknown
+        <img
+          key={`img${key++}`}
+          src={image[2]}
+          alt={image[1]}
+          loading="lazy"
+          decoding="async"
+          className="my-6 w-full rounded-xl border border-border object-cover"
+        />
+      );
       continue;
     }
 
