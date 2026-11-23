@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { webQuotaRefusal } from "@/lib/saas/quota-messages";
 
 const searchInputSchema = z.object({
   query: z.string().trim().min(2).max(400),
@@ -92,7 +93,7 @@ export function createWebSearch({
 
       const quota = await checkQuota(userId, "web_search", organizationId);
       if (!quota.allowed) {
-        return { error: "انتهى رصيد البحث الشهري لمساحة العمل." };
+        return webQuotaRefusal(quota, "search");
       }
 
       try {

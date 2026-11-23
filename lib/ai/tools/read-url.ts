@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { webQuotaRefusal } from "@/lib/saas/quota-messages";
 
 const readUrlInputSchema = z.object({
   url: z.string().trim().url().max(2000).describe("Full http(s) URL to read"),
@@ -130,7 +131,7 @@ export function createReadUrl({
 
       const quota = await checkQuota(userId, "web_search", organizationId);
       if (!quota.allowed) {
-        return { error: "انتهى رصيد قراءة الروابط الشهري لمساحة العمل." };
+        return webQuotaRefusal(quota, "read_url");
       }
 
       try {
