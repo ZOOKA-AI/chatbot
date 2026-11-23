@@ -55,6 +55,21 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return nodes;
 }
 
+const IMAGE_LINE = /^!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)$/;
+
+/**
+ * First image line in a post body, as the renderer sees it. Used for og:image so
+ * a shared link shows the same cover the article opens with. Only standalone
+ * https image lines count; http and inline occurrences are ignored.
+ */
+export function firstImageUrl(markdown: string): string | null {
+  for (const raw of markdown.replace(/\r\n/g, "\n").split("\n")) {
+    const match = IMAGE_LINE.exec(raw.trim());
+    if (match) return match[2];
+  }
+  return null;
+}
+
 export function renderMarkdown(markdown: string): ReactNode {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { renderMarkdown } from "@/lib/blog/markdown";
+import { firstImageUrl, renderMarkdown } from "@/lib/blog/markdown";
 import { getPublishedPost, listPublishedPosts } from "@/lib/blog/store";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -15,6 +15,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!post) return { title: "Article not found" };
 
   const url = `${SITE_URL}/blog/${post.slug}`;
+  // The article's own cover, so a shared link previews the same image the page opens with.
+  const cover = firstImageUrl(post.body);
   return {
     title: post.title,
     description: post.excerpt ?? undefined,
@@ -28,11 +30,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       publishedTime: post.publishedAt,
       siteName: SITE_NAME,
       locale: post.lang === "ar" ? "ar_AR" : "en_US",
+      ...(cover ? { images: [{ url: cover, alt: post.title }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: post.title,
       description: post.excerpt ?? undefined,
+      ...(cover ? { images: [cover] } : {}),
     },
   };
 }
@@ -56,6 +60,7 @@ async function BlogPostContent({ params }: PageProps) {
     inLanguage: post.lang,
     datePublished: post.publishedAt,
     dateModified: post.publishedAt,
+    ...(firstImageUrl(post.body) ? { image: firstImageUrl(post.body) } : {}),
     author: { "@type": "Organization", name: post.author ?? SITE_NAME, url: SITE_URL },
     publisher: {
       "@type": "Organization",
