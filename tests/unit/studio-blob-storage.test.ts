@@ -36,6 +36,7 @@ const holder = vi.hoisted(() => ({
   deletes: [] as string[],
   writes: [] as string[],
   fakeProbe: false,
+  probeMissing: false,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -94,6 +95,9 @@ vi.mock("node:child_process", async (importOriginal) => {
   const execFile = ((...args: unknown[]) => (actual.execFile as (...a: unknown[]) => unknown)(...args)) as typeof actual.execFile;
   Object.defineProperty(execFile, promisify.custom, {
     value: async (command: string, commandArgs: string[], options?: object) => {
+      if (holder.probeMissing && (command === "ffprobe" || command === "ffmpeg")) {
+        throw Object.assign(new Error(`spawn ${command} ENOENT`), { code: "ENOENT" });
+      }
       if (holder.fakeProbe && command === "ffprobe") {
         return { stdout: JSON.stringify({ streams: [{ codec_type: "video", width: 64, height: 64 }], format: {} }), stderr: "" };
       }
@@ -151,6 +155,7 @@ beforeEach(async () => {
   holder.deletes.length = 0;
   holder.writes.length = 0;
   holder.fakeProbe = !hasFfmpeg;
+  holder.probeMissing = false;
   process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_test";
   scratchBefore = scratchDirectories();
 });
@@ -256,6 +261,28 @@ describe("an upload is written to Blob and read back from Blob", () => {
       readAssetBytes(ORG, (inserted.rows[0] as { id: string }).id),
       (error: { code?: string }) => error.code === "asset_bytes_missing"
     );
+  });
+});
+
+describe("an image stored where there is no ffprobe (Vercel) is still usable", () => {
+  test("the header gives the size, the asset is ready, and it opens from Blob", async () => {
+    holder.probeMissing = true;
+    const { store, readAssetBytes } = await import("@/lib/studio/media");
+    const row = await store({ organizationId: ORG, projectId: null, createdBy: null, mimeType: "image/png", bytes: FAKE_PNG });
+    assert.equal(row.status, "ready");
+    assert.equal(row.width, 64);
+    assert.equal(row.height, 64);
+    const { bytes } = await readAssetBytes(ORG, row.id);
+    assert.deepEqual(Buffer.from(bytes), FAKE_PNG);
+    assert.equal(holder.writes.length, 0, "an image needs no scratch copy to be measured");
+  });
+
+  test("an image whose header does not match its type still falls back to ffprobe and is marked failed", async () => {
+    holder.probeMissing = true;
+    const { store } = await import("@/lib/studio/media");
+    const row = await store({ organizationId: ORG, projectId: null, createdBy: null, mimeType: "image/jpeg", bytes: FAKE_PNG });
+    assert.equal(row.status, "failed");
+    assertNothingPersistedLocally();
   });
 });
 

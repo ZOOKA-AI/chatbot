@@ -10,6 +10,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
 import * as schema from "@/lib/db/schema";
 import { StudioError } from "@/lib/studio/errors";
+import { readImageSize } from "@/lib/studio/image-size";
 import {
   assertDurableStorageConfigured,
   assertDurableStoragePath,
@@ -107,18 +108,23 @@ export async function store(input: {
   assertDurableStorageConfigured();
   const assetId = randomUUID();
 
-  const { width, height, duration, status } = await withScratch(async (directory) => {
-    // ffprobe needs a file; the scratch copy is deleted when this block ends.
-    const path = join(directory, `probe${accepted.ext}`);
-    await writeFile(path, input.bytes);
-    try {
-      const details = await inspect(path);
-      return { width: details.width, height: details.height, duration: details.durationSeconds, status: "ready" };
-    } catch {
-      // A file ffprobe cannot read is kept and marked failed, never presented as usable.
-      return { width: null, height: null, duration: null, status: "failed" };
-    }
-  });
+  // Images are measured from their header: Vercel has no ffprobe, and an image ffprobe cannot read
+  // there would otherwise be marked failed and never open. Video and audio still need ffprobe.
+  const headerSize = accepted.kind === "image" ? readImageSize(input.bytes, input.mimeType) : null;
+  const { width, height, duration, status } = headerSize
+    ? { width: headerSize.width, height: headerSize.height, duration: null, status: "ready" }
+    : await withScratch(async (directory) => {
+        // ffprobe needs a file; the scratch copy is deleted when this block ends.
+        const path = join(directory, `probe${accepted.ext}`);
+        await writeFile(path, input.bytes);
+        try {
+          const details = await inspect(path);
+          return { width: details.width, height: details.height, duration: details.durationSeconds, status: "ready" };
+        } catch {
+          // A file ffprobe cannot read is kept and marked failed, never presented as usable.
+          return { width: null, height: null, duration: null, status: "failed" };
+        }
+      });
 
   const storagePath = await persistBytes({
     organizationId: input.organizationId,
