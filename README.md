@@ -109,10 +109,10 @@ This section is deliberately narrow, because it is the part most easily overstat
 - `LICENSE` carries the **Apache License 2.0** notice inherited from the upstream Vercel AI
   Chatbot template, which is credited there as `Copyright 2024 Vercel, Inc.`. `NOTICE` records
   that provenance and the project's own additions.
-- The `LICENSE` file currently holds the short Apache notice rather than the full license text,
-  which is why GitHub reports the repository as `NOASSERTION` instead of `Apache-2.0`. Publishing
-  the full text, or relicensing, is an owner decision and is tracked as an open item in
-  [docs/MOZILLA_FELLOWSHIP.md](docs/MOZILLA_FELLOWSHIP.md).
+- `LICENSE` now holds the complete, unmodified Apache License 2.0 text (published 2026-11-23, byte
+  identical to `apache.org/licenses/LICENSE-2.0.txt` apart from the copyright line, which keeps
+  `Copyright 2024 Vercel, Inc.`). GitHub detects the repository as `Apache-2.0`. Relicensing under
+  MIT remains an option for the owner, and would require replacing this file deliberately.
 
 ## Running locally
 
@@ -172,11 +172,10 @@ Honest list as of 2026-11-23:
 
 1. The chat UI does not use the local-model path yet (see above).
 2. No offline compose or send queue.
-3. `LICENSE` is a notice, not the full Apache text, so GitHub shows `NOASSERTION`.
-4. Wallet consumption and top-up flows are not implemented; message and agent quotas are.
-5. Pending workspace invitations are stored but not emailed or self-service accepted.
-6. Video generation is not implemented; image generation is.
-7. Row level security is available but not enabled in production.
+3. Wallet consumption and top-up flows are not implemented; message and agent quotas are.
+4. Pending workspace invitations are stored but not emailed or self-service accepted.
+5. Video generation is not implemented; image generation is.
+6. Row level security is available but not enabled in production.
 
 ## Operations reference
 

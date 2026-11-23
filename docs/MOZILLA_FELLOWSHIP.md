@@ -176,14 +176,11 @@ conversations, 388 stored messages, 399 usage events across 14 tables, with `res
 1. **No default ≤10B model in the main chat path.** The local-model layer exists and is tested, but
    the chat route still resolves through the hosted providers.
 2. **Offline is a shell only.** No queue, no sync, no offline compose, and no on-device inference.
-3. **LICENSE file is incomplete.** It holds the short Apache 2.0 notice inherited from the upstream
-   Vercel template rather than the full licence text, so GitHub reports the repository as
-   `NOASSERTION`. Publishing the full text or relicensing under MIT is an owner decision.
-4. **Row level security is available but disabled in production.**
-5. **Wallet consumption and top-up flows are not implemented**; message and agent quotas are.
-6. **Bus factor of one.** Documentation and test coverage are the mitigation, not a solved problem.
-7. **Pending workspace invitations are stored but not delivered.**
-8. **Activation is weak.** Of 282 accounts, 18 have sent a message. That is a product problem, and
+3. **Row level security is available but disabled in production.**
+4. **Wallet consumption and top-up flows are not implemented**; message and agent quotas are.
+5. **Bus factor of one.** Documentation and test coverage are the mitigation, not a solved problem.
+6. **Pending workspace invitations are stored but not delivered.**
+7. **Activation is weak.** Of 282 accounts, 18 have sent a message. That is a product problem, and
    it is what the community workstream is meant to address.
 
 ## Verification log
@@ -199,6 +196,9 @@ Performed 2026-11-23 against `origin/main` at `319ad7d`:
   construction fix in `lib/auth/google-transaction.ts`.
 - `npx vitest run tests/unit/platform-models.test.ts`: 1 file passed, 8 tests passed.
 - `sitemap.xml` contains 36 URLs, 18 of them distinct `/blog/` articles.
+- `LICENSE` replaced with the canonical Apache License 2.0 text from
+  `apache.org/licenses/LICENSE-2.0.txt` (sha256 `cfc7749b…23d30` before the copyright line was
+  filled), so the repository is no longer reported as `NOASSERTION`.
 
 What this log does not prove: an end-to-end signed-in conversation. That needs a real account
 session, which is an owner action, so chat persistence is verified at code and error-signature
@@ -206,8 +206,9 @@ level rather than by a live message.
 
 ## Owner decisions needed before the full application
 
-1. Licence: publish the full Apache 2.0 text, or relicense under MIT. Settle it before reviewers
-   read the repository.
+1. Licence: done on 2026-11-23. The full Apache 2.0 text is published and GitHub detects
+   `Apache-2.0`. Relicensing under MIT stays available as an owner option and is no longer a
+   blocker.
 2. Confirm the demo surface: which URL a reviewer opens, and whether a demo account is provided.
 3. Approve the funding allocation shares above.
 4. Enable row level security in production, or record the reason it stays off.
