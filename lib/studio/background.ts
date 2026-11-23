@@ -1,12 +1,18 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { db } from "@/lib/db/queries";
 import * as schema from "@/lib/db/schema";
-import { getAsset, inspect, mediaRoot, StudioError } from "@/lib/studio/media";
+import { getAsset, inspect, StudioError } from "@/lib/studio/media";
+import {
+  assertDurableStorageConfigured,
+  assertDurableStoragePath,
+  materialize,
+  persistFile,
+  withScratch,
+} from "@/lib/studio/storage";
 
 const run = promisify(execFile);
 
@@ -94,36 +100,47 @@ export async function removeBackground(input: {
   if (!engine.ready) throw new StudioError("engine_missing", engine.detail);
   const model = resolveModel(input.model);
 
+  assertDurableStorageConfigured();
+
   const outId = randomUUID();
-  const directory = join(mediaRoot(), input.organizationId);
-  await mkdir(directory, { recursive: true });
-  const outPath = join(directory, `${outId}.png`);
+  const produced = await withScratch(async (directory) => {
+    const sourcePath = await materialize(source.storagePath, directory, "source");
+    const outPath = join(directory, `${outId}.png`);
 
-  const script = join(process.cwd(), "scripts/studio/remove_bg.py");
-  try {
-    await run(pythonBinary(), [script, source.storagePath, outPath, model], {
-      timeout: Number(process.env.STUDIO_BG_TIMEOUT_MS ?? 180_000),
-      maxBuffer: 8 * 1024 * 1024,
-      env: { ...process.env, REMBG_MODEL: model },
+    const script = join(process.cwd(), "scripts/studio/remove_bg.py");
+    try {
+      await run(pythonBinary(), [script, sourcePath, outPath, model], {
+        timeout: Number(process.env.STUDIO_BG_TIMEOUT_MS ?? 180_000),
+        maxBuffer: 8 * 1024 * 1024,
+        env: { ...process.env, REMBG_MODEL: model },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new StudioError("background_failed", message.slice(0, 300));
+    }
+
+    // The alpha channel is the proof: a cutout with no transparency is just a re-encode.
+    const probe = await run(pythonBinary(), [
+      "-c",
+      "from PIL import Image; import sys; im=Image.open(sys.argv[1]).convert('RGBA'); px=im.load(); print(im.mode, px[0,0][3], px[im.size[0]//2, im.size[1]//2][3])",
+      outPath,
+    ]);
+    const [mode, cornerAlpha, centreAlpha] = probe.stdout.trim().split(/\s+/);
+    if (mode !== "RGBA" || Number(cornerAlpha) > 40) {
+      throw new StudioError("no_transparency", `corner alpha ${cornerAlpha}`);
+    }
+
+    const details = await inspect(outPath);
+    const stored = await persistFile({
+      organizationId: input.organizationId,
+      assetId: outId,
+      extension: ".png",
+      mimeType: "image/png",
+      path: outPath,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new StudioError("background_failed", message.slice(0, 300));
-  }
-
-  // The alpha channel is the proof: a cutout with no transparency is just a re-encode.
-  const probe = await run(pythonBinary(), [
-    "-c",
-    "from PIL import Image; import sys; im=Image.open(sys.argv[1]).convert('RGBA'); px=im.load(); print(im.mode, px[0,0][3], px[im.size[0]//2, im.size[1]//2][3])",
-    outPath,
-  ]);
-  const [mode, cornerAlpha, centreAlpha] = probe.stdout.trim().split(/\s+/);
-  if (mode !== "RGBA" || Number(cornerAlpha) > 40) {
-    throw new StudioError("no_transparency", `corner alpha ${cornerAlpha}`);
-  }
-
-  const details = await inspect(outPath);
-  const bytes = (await stat(outPath)).size;
+    return { details, cornerAlpha, centreAlpha, ...stored };
+  });
+  const { details, bytes, cornerAlpha, centreAlpha } = produced;
   const [row] = await db
     .insert(schema.studioAsset)
     .values({
@@ -132,7 +149,7 @@ export async function removeBackground(input: {
       projectId: input.projectId ?? source.projectId,
       kind: "image",
       source: "derived",
-      storagePath: outPath,
+      storagePath: assertDurableStoragePath(produced.storagePath),
       mimeType: "image/png",
       bytes,
       width: details.width,
@@ -169,15 +186,3 @@ export async function alphaCoverage(path: string): Promise<number | null> {
   }
 }
 
-/** Writes bytes to a temporary path, for engines that insist on a file rather than a buffer. */
-export async function writeTemp(bytes: Buffer, extension: string): Promise<string> {
-  const directory = join(mediaRoot(), "_tmp");
-  await mkdir(directory, { recursive: true });
-  const path = join(directory, `${randomUUID()}${extension}`);
-  await writeFile(path, bytes);
-  return path;
-}
-
-export async function readFileBytes(path: string): Promise<Buffer> {
-  return readFile(path);
-}

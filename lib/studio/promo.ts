@@ -11,6 +11,7 @@ import {
   store,
   type Aspect,
 } from "./media";
+import { materialize } from "./storage";
 import { synthesizeArabic } from "./tts";
 
 const run = promisify(execFile);
@@ -45,8 +46,8 @@ export type ComposePromoInput = {
   scenes: PromoScene[];
   aspect?: Aspect;
   logoAssetId?: string | null;
-  /** Local paths of already-resolved images, in scene order, used as backdrops. */
-  backdropPaths?: string[];
+  /** Stored asset paths (`blob:...`), copied into scratch before the frame is drawn. */
+  backdropStoragePaths?: string[];
   brand?: PromoBrand;
   label?: string | null;
 };
@@ -149,6 +150,15 @@ export async function composePromo(input: ComposePromoInput) {
   const workDirectory = await mkdtemp(join(tmpdir(), "zooka-promo-"));
 
   try {
+    // The engines need files: the logo and the backdrops are copied into scratch once, read from Blob.
+    const logoFile = input.logoAssetId
+      ? await materialize(await logoStoragePath(input.organizationId, input.logoAssetId), workDirectory, "logo")
+      : null;
+    const backdropFiles: Array<string | null> = [];
+    for (const [index, storagePath] of (input.backdropStoragePaths ?? []).entries()) {
+      backdropFiles.push(storagePath ? await materialize(storagePath, workDirectory, `backdrop-${index + 1}`) : null);
+    }
+
     for (const [index, scene] of scenes.entries()) {
       const out = join(workDirectory, `scene-${index + 1}.png`);
       const bytes = await drawFrame({
@@ -157,8 +167,8 @@ export async function composePromo(input: ComposePromoInput) {
         height: target.height,
         title: scene.title,
         subtitle: scene.subtitle,
-        base: input.backdropPaths?.[index] ?? null,
-        logo: input.logoAssetId ? await logoPath(input.organizationId, input.logoAssetId) : null,
+        base: backdropFiles[index] ?? null,
+        logo: logoFile,
         brand: input.brand,
       });
       const stored = await store({
@@ -197,7 +207,7 @@ export async function composePromo(input: ComposePromoInput) {
 }
 
 /** Resolves the logo inside the caller's own workspace, never from a path or a URL. */
-async function logoPath(organizationId: string, assetId: string): Promise<string> {
+async function logoStoragePath(organizationId: string, assetId: string): Promise<string> {
   const { getAsset } = await import("./media");
   const asset = await getAsset(organizationId, assetId);
   if (!asset) throw new StudioError("logo_not_found");
