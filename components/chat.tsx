@@ -25,6 +25,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { localizeAgentModeErrorCause } from "@/lib/ai/agent-mode-errors";
+import { CHAT_TEXT_TOO_LONG, chatTextLimitMessage } from "@/lib/chat-input-limit";
 import { refreshAgentQuotaIfNeeded } from "@/lib/ai/agent-quota-refresh";
 import { modelSupportsTools } from "@/lib/ai/models";
 import { templateChatPrompt } from "@/lib/studio";
@@ -217,7 +218,10 @@ export function Chat({
       ) {
         setShowCreditCardAlert(true);
       } else if (error instanceof ChatbotError) {
-        const cause = localizeAgentModeErrorCause(error.cause, lang);
+        const cause =
+          error.cause === CHAT_TEXT_TOO_LONG
+            ? chatTextLimitMessage(lang)
+            : localizeAgentModeErrorCause(error.cause, lang);
         toast({
           type: "error",
           description:

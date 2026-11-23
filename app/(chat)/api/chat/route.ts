@@ -91,6 +91,7 @@ import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 import { uuidSchema as idSchema } from "@/lib/validation/chat";
+import { CHAT_TEXT_TOO_LONG } from "@/lib/chat-input-limit";
 
 /** Hard ceiling for one assistant turn (Vercel Pro allows 300s). */
 // Must stay below `maxDuration` on the line above, or the platform kills the
@@ -125,7 +126,14 @@ async function POSTImpl(request: Request) {
 
   try {
     const json = await request.json();
-    requestBody = postRequestBodySchema.parse(json);
+    const parsed = postRequestBodySchema.safeParse(json);
+    if (!parsed.success) {
+      const cause = parsed.error.issues.find(
+        (issue) => issue.code === "too_big" && issue.message === CHAT_TEXT_TOO_LONG,
+      )?.message;
+      return new ChatbotError("bad_request:api", cause).toResponse();
+    }
+    requestBody = parsed.data;
   } catch (_) {
     return new ChatbotError("bad_request:api").toResponse();
   }
