@@ -1,6 +1,7 @@
 import { cancelTask, getTask } from "@/lib/agents/command-center";
 import { buildTaskDetail } from "@/lib/agents/task-detail";
 import { executionReport } from "@/lib/agents/worker";
+import { completedSkillSnapshot } from "@/lib/agents/skill-snapshot";
 import { z } from "zod";
 
 import {
@@ -43,7 +44,9 @@ async function GETHandler(
   }
 
   const execution = await executionReport(organizationId, parsedId.data);
-  return json(buildTaskDetail(task as never, (execution as never) ?? null));
+  const detail = buildTaskDetail(task as never, (execution as never) ?? null);
+  const skillSnapshot = caller.kind === "owner" ? completedSkillSnapshot(task, execution) : null;
+  return json(skillSnapshot ? { ...detail, skillSnapshot } : detail);
 }
 
 /** Cancelling is a human action, like deciding an approval. */
