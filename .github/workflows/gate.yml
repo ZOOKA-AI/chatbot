@@ -58,10 +58,22 @@ jobs:
         timeout-minutes: 15
         run: |
           for attempt in 1 2 3; do
-            pnpm exec playwright install --with-deps chromium && exit 0
+            if pnpm exec playwright install chromium; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
             echo "Attempt $attempt failed; retrying"
+            sleep 5
           done
-          exit 1
+          check_chromium() {
+            node -e 'require("playwright-core").chromium.launch({ headless: true }).then(browser => browser.close()).catch(error => { console.error(error); process.exitCode = 1; })'
+          }
+          if ! check_chromium; then
+            pnpm exec playwright install-deps chromium
+            check_chromium
+          fi
 
       - name: Placeholder check
         timeout-minutes: 3
