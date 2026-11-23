@@ -215,7 +215,9 @@ async function DeveloperContent() {
             rel="me noopener"
             target="_blank"
           >
-            {ar ? "ملف مطوّر جوجل" : "Google developer profile"}
+            {ar
+              ? "ملف مطوّر جوجل (يتطلب تسجيل الدخول بحساب Google)"
+              : "Google developer profile (requires a Google sign-in)"}
           </a>
           <a
             className="inline-flex h-10 items-center rounded-full border px-5 font-medium text-sm hover:bg-accent"
