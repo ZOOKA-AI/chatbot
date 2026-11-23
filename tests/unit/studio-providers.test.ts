@@ -56,9 +56,12 @@ describe("generative is a separate claim from ready", () => {
   test("no generative provider means the caller must report a blocker, not pick the editor", () => {
     const registry = providerRegistry({ env: {} });
     const usable = registry.filter((provider) => provider.generative);
-    // With no endpoint configured, ComfyUI exists but cannot answer, so nothing may be selected.
-    assert.equal(usable.length, 1);
-    assert.equal(usable[0].id, "comfyui");
+    // With no endpoint or key configured, ComfyUI and the free cloud tiers exist but cannot answer,
+    // so nothing may be selected; the local editor is never among them.
+    assert.deepEqual(
+      usable.map((provider) => provider.id),
+      ["comfyui", "cloudflare-workers-ai", "ovhcloud-sdxl"]
+    );
   });
 });
 
@@ -207,8 +210,8 @@ describe("a real job against an answering endpoint", () => {
     if (result.ok === false) assert.equal(result.code, "timeout");
   });
 
-  test("the registry lists the local provider first and the adapter second", () => {
+  test("the registry lists the local provider first, the owner's adapter second, then the free tiers", () => {
     const ids = providerRegistry({ env: {} }).map((provider) => provider.id);
-    assert.deepEqual(ids, ["local-ffmpeg", "comfyui"]);
+    assert.deepEqual(ids, ["local-ffmpeg", "comfyui", "cloudflare-workers-ai", "ovhcloud-sdxl"]);
   });
 });

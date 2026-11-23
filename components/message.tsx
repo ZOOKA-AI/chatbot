@@ -177,6 +177,72 @@ const PurePreviewMessage = ({
               }
             }
 
+            if (type === "tool-generateImage") {
+              const { toolCallId, state } = part;
+              if (state === "input-available" || state === "input-streaming") {
+                return (
+                  <p
+                    className="animate-pulse text-muted-foreground text-sm"
+                    data-testid="image-generating"
+                    key={toolCallId}
+                  >
+                    جارٍ توليد الصورة…
+                  </p>
+                );
+              }
+              if (state !== "output-available") {
+                return null;
+              }
+              const output = part.output as {
+                url?: string;
+                error?: string;
+                upgradeUrl?: string;
+                provider?: string;
+              };
+              if (!output.url) {
+                return (
+                  <p
+                    className="text-muted-foreground text-sm"
+                    data-testid="image-refused"
+                    key={toolCallId}
+                  >
+                    {output.error}{" "}
+                    {output.upgradeUrl ? (
+                      <a
+                        className="font-medium text-primary underline"
+                        href={output.upgradeUrl}
+                      >
+                        عرض الخطط
+                      </a>
+                    ) : null}
+                  </p>
+                );
+              }
+              return (
+                <figure
+                  className="flex max-w-md flex-col gap-1"
+                  data-testid="generated-image"
+                  key={toolCallId}
+                >
+                  <a href={output.url} rel="noopener" target="_blank">
+                    {/* biome-ignore lint/performance/noImgElement: private same-origin file, not optimizable */}
+                    <img
+                      alt="صورة مولّدة"
+                      className="h-auto w-full rounded-lg border"
+                      height={512}
+                      src={output.url}
+                      width={512}
+                    />
+                  </a>
+                  <figcaption className="text-muted-foreground text-xs">
+                    <a className="underline" download href={output.url}>
+                      تنزيل
+                    </a>
+                  </figcaption>
+                </figure>
+              );
+            }
+
             if (type === "tool-searchWeb") {
               const { toolCallId, state } = part;
               if (state !== "output-available") {

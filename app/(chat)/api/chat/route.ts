@@ -57,6 +57,7 @@ import { createEmailRoutingTools } from "@/lib/ai/tools/email-routing";
 import { createGoogleAdsTools } from "@/lib/ai/tools/google-ads";
 import { createIntegrationSetupTools } from "@/lib/ai/tools/integration-setup";
 import { createConnectorTools } from "@/lib/ai/tools/connectors";
+import { createGenerateImage } from "@/lib/ai/tools/generate-image";
 import { createSaveMemory } from "@/lib/ai/tools/save-memory";
 import { listAgentMemories } from "@/lib/db/agent-memory";
 import { createReadUrl } from "@/lib/ai/tools/read-url";
@@ -496,6 +497,9 @@ async function POSTImpl(request: Request) {
           }),
           readUrl: createReadUrl({
             userId: session.user.id,
+            organizationId: workspaceContext.organizationId,
+          }),
+          generateImage: createGenerateImage({
             organizationId: workspaceContext.organizationId,
           }),
           saveMemory: createSaveMemory({
