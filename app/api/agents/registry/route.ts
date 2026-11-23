@@ -21,6 +21,7 @@ import {
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { toolCatalog } from "@/lib/agents/agent-tools";
 import { SELECTABLE_MODEL_PROVIDERS, modelCredentialStatus } from "@/lib/agents/agent-config";
+import { isUniqueViolation } from "@/lib/db/errors";
 
 async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
@@ -76,7 +77,7 @@ async function POSTHandler(request: Request) {
     organizationId: callerOrganizationId(caller), slug, displayName, role, scopes, environment });
     return json({ ...created, warning: "store_this_key_now_it_is_never_returned_again" }, 201);
   } catch (error) {
-    if (error instanceof Error && /duplicate key/.test(error.message)) {
+    if (isUniqueViolation(error)) {
       return badRequest("slug_already_registered");
     }
     throw error;

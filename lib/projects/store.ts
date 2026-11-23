@@ -11,6 +11,7 @@ import {
   agentSchedule,
   agentTask,
 } from "@/lib/db/schema";
+import { isUniqueViolation as isPgUniqueViolation } from "@/lib/db/errors";
 
 /**
  * Workspace projects: the container that agent work belongs to.
@@ -58,8 +59,7 @@ export type ProjectPatchResult =
   | { ok: false; error: string };
 
 function isUniqueViolation(error: unknown): boolean {
-  const text = String((error as { message?: string })?.message ?? error);
-  return text.includes("AgentProject_organizationId_name_key") || text.includes("duplicate key value");
+  return isPgUniqueViolation(error);
 }
 
 export async function createProject(input: {

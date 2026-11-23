@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AdminRow, AdminTable, Metric, MetricState } from "@/lib/admin/types";
+import { pgError } from "@/lib/db/errors";
 
 /**
  * Every panel read is bounded. A query that never returns used to hang the whole
@@ -68,14 +69,21 @@ export async function probe(
 }
 
 export function stateOf(error: unknown): MetricState {
-  const message = messageOf(error) ?? "";
+  // drizzle 0.45 puts the driver message on `cause`; read the whole chain.
+  const details = pgError(error);
+  if (details.code === "42P01" || details.code === "42703") return "not_configured";
+  const message = details.message;
   return /does not exist|undefined table|undefined column|relation .* does not exist/i.test(message)
     ? "not_configured"
     : "error";
 }
 
 export function messageOf(error: unknown): string | null {
-  if (error instanceof Error) return error.message.slice(0, 160);
+  if (error instanceof Error) {
+    const cause = (error as { cause?: unknown }).cause;
+    const inner = cause instanceof Error ? ` (${cause.message})` : "";
+    return `${error.message.split("\n")[0]}${inner}`.slice(0, 160);
+  }
   if (typeof error === "string") return error.slice(0, 160);
   return null;
 }
