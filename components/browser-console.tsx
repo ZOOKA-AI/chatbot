@@ -110,13 +110,23 @@ export function BrowserConsole({ initialUrl = "" }: { initialUrl?: string }) {
   useEffect(() => {
     if (!activeId) return;
     void loadDetail(activeId);
+    // Session state refreshes every 2s. The frame does NOT: a remote screenshot
+    // (Browserless) can take longer than 2s, and re-keying the <img> on a timer
+    // cancelled every request before it finished, so the live view stayed blank.
+    // The next frame is requested only after the current one loads or fails.
     const timer = setInterval(() => {
       void loadDetail(activeId);
-      frameKey.current += 1;
-      setFrameTick(frameKey.current);
     }, 2000);
     return () => clearInterval(timer);
   }, [activeId, loadDetail]);
+
+  const nextFrame = useCallback((delayMs: number) => {
+    const id = window.setTimeout(() => {
+      frameKey.current += 1;
+      setFrameTick(frameKey.current);
+    }, delayMs);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const createSession = async () => {
     setBusy(true);
@@ -304,9 +314,11 @@ export function BrowserConsole({ initialUrl = "" }: { initialUrl?: string }) {
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      key={frameTick}
                       src={`/api/workspace/browser/sessions/${session.id}/frame?t=${frameTick}`}
                       alt="لقطة حية من المتصفح"
+                      data-testid="browser-live-frame"
+                      onLoad={() => nextFrame(1000)}
+                      onError={() => nextFrame(3000)}
                       className="w-full rounded"
                       style={{ cursor: session.controlHolder === "human" ? "crosshair" : "default" }}
                       onClick={(event) => {
