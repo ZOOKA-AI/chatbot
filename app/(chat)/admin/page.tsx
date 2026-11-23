@@ -3,7 +3,7 @@ import { getCommandOverview } from "@/lib/admin/overview";
 import { getPlatformOverview } from "@/lib/admin/platform-overview";
 import { DataTable, MetricGrid, SectionView } from "@/components/admin/ui";
 
-export const metadata = { title: "مركز القيادة — ZOOKA AI" };
+export const metadata = { title: "مركز القيادة — ZOOKA-AI" };
 
 export default async function AdminOverviewPage() {
   const admin = await adminPageContext();

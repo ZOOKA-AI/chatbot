@@ -32,7 +32,7 @@ export function PlatformHeader({ lang }: { lang: Lang }) {
   return (
     <header className={styles.header}>
       <Link
-        aria-label="Zooka AI — الرئيسية"
+        aria-label="ZOOKA-AI — الرئيسية"
         className={styles.logo}
         href="/explore"
       >

@@ -256,7 +256,7 @@ export function AppSidebar({
         {
           href: "/tv",
           icon: <Tv />,
-          label: "ZOOKA AI TV",
+          label: "ZOOKA-AI TV",
         },
         {
           href: "/social",

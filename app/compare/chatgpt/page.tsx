@@ -8,9 +8,9 @@ import { SITE_URL } from "@/lib/site";
 export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/compare/chatgpt` },
   description:
-    "مقارنة صريحة بين ZOOKA AI وChatGPT: أيهما أفضل للذكاء العام وأيهما أفضل لتنفيذ المهام على أدوات شركتك، وحقيقة التجربة المجانية. An honest ZOOKA AI vs ChatGPT comparison.",
+    "مقارنة صريحة بين ZOOKA-AI وChatGPT: أيهما أفضل للذكاء العام وأيهما أفضل لتنفيذ المهام على أدوات شركتك، وحقيقة التجربة المجانية. An honest ZOOKA-AI vs ChatGPT comparison.",
   keywords: [
-    "Zooka AI vs ChatGPT",
+    "ZOOKA-AI vs ChatGPT",
     "مقارنة ChatGPT",
     "وكيل أعمال ذكي",
     "AI agent عربي",
@@ -91,8 +91,8 @@ const ROWS = [
 const FAQ = [
   {
     q: {
-      ar: "هل Zooka AI أفضل من ChatGPT؟",
-      en: "Is Zooka AI better than ChatGPT?",
+      ar: "هل ZOOKA-AI أفضل من ChatGPT؟",
+      en: "Is ZOOKA-AI better than ChatGPT?",
     },
     a: {
       ar: "في المجمل لا. ChatGPT أقوى كمساعد ذكاء عام. زوكا أفضل في حالة واحدة: لما تحتاج وكيل ينفّذ مهمة على بريدك وملفاتك وكودك داخل مساحة عمل شركتك.",
@@ -100,7 +100,7 @@ const FAQ = [
     },
   },
   {
-    q: { ar: "هل Zooka AI مجاني؟", en: "Is Zooka AI free?" },
+    q: { ar: "هل ZOOKA-AI مجاني؟", en: "Is ZOOKA-AI free?" },
     a: {
       ar: "فيه تجربة مجانية للتعريف: 10 رسائل يوميًا بدون حساب، أو 1,000 رسالة شهريًا بحساب مجاني. لكن الخدمة نفسها مش مجانية: ربط تكاملات شركتك وتشغيل الوكيل يحتاج باقة مدفوعة تبدأ من 19$ شهريًا.",
       en: "There is a free preview: 10 messages a day without an account, or 1,000 messages a month with a free account. The service itself is not free: connecting your company tools and running the agent needs a paid plan from $19 per month.",
@@ -160,7 +160,7 @@ async function CompareChatGptContent() {
           {
             "@type": "ListItem",
             item: `${SITE_URL}/`,
-            name: "Zooka AI",
+            name: "ZOOKA-AI",
             position: 1,
           },
           {
@@ -191,7 +191,7 @@ async function CompareChatGptContent() {
 
       <div className="flex items-center justify-between">
         <Link className="text-muted-foreground text-sm hover:underline" href="/">
-          ZOOKA AI
+          ZOOKA-AI
         </Link>
       </div>
 
@@ -201,8 +201,8 @@ async function CompareChatGptContent() {
         </span>
         <h1 className="font-semibold text-3xl leading-tight">
           {t(
-            "Zooka AI مقابل ChatGPT: أيهما يناسب شغلك؟",
-            "Zooka AI vs ChatGPT: which one fits your work?"
+            "ZOOKA-AI مقابل ChatGPT: أيهما يناسب شغلك؟",
+            "ZOOKA-AI vs ChatGPT: which one fits your work?"
           )}
         </h1>
         <p className="text-muted-foreground">
@@ -225,7 +225,7 @@ async function CompareChatGptContent() {
                   {t("الجانب", "Aspect")}
                 </th>
                 <th className="p-3 text-start font-medium">ChatGPT</th>
-                <th className="p-3 text-start font-medium">Zooka AI</th>
+                <th className="p-3 text-start font-medium">ZOOKA-AI</th>
               </tr>
             </thead>
             <tbody>
@@ -361,7 +361,7 @@ async function CompareChatGptContent() {
       </section>
 
       <nav className="flex flex-wrap gap-4 border-t pt-6 text-muted-foreground text-sm">
-        <Link href="/">ZOOKA AI</Link>
+        <Link href="/">ZOOKA-AI</Link>
         <Link href="/pricing">{t("الأسعار", "Pricing")}</Link>
         <Link href="/contact">{t("تواصل معنا", "Contact")}</Link>
         <Link href="/privacy">{t("سياسة الخصوصية", "Privacy")}</Link>

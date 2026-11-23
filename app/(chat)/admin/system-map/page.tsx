@@ -4,7 +4,7 @@ import { StatePill } from "@/components/admin/ui";
 import { SectionView } from "@/components/admin/ui";
 import type { MetricState } from "@/lib/admin/types";
 
-export const metadata = { title: "خريطة النظام — ZOOKA AI" };
+export const metadata = { title: "خريطة النظام — ZOOKA-AI" };
 
 type Node = { key: string; labelAr: string; labelEn: string; metricKey: string; children?: string[] };
 

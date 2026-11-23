@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       body,
       excerpt: typeof payload.excerpt === "string" ? payload.excerpt : null,
       keyword: typeof payload.keyword === "string" ? payload.keyword : null,
-      author: typeof payload.author === "string" ? payload.author : "Zooka AI",
+      author: typeof payload.author === "string" ? payload.author : "ZOOKA-AI",
       status: payload.status === "published" ? "published" : "draft",
       publishedAt: typeof payload.publishedAt === "string" ? payload.publishedAt : null,
     });

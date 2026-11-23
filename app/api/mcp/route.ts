@@ -22,14 +22,14 @@ export async function POST(request: Request) {
 
   if (!token) {
     return jsonError(401, "missing_bearer_token", {
-      "WWW-Authenticate": 'Bearer realm="Zooka AI MCP"',
+      "WWW-Authenticate": 'Bearer realm="ZOOKA-AI MCP"',
     });
   }
 
   const key = await verifyMcpKey(token);
   if (!key) {
     return jsonError(401, "invalid_api_key", {
-      "WWW-Authenticate": 'Bearer realm="Zooka AI MCP", error="invalid_token"',
+      "WWW-Authenticate": 'Bearer realm="ZOOKA-AI MCP", error="invalid_token"',
     });
   }
 

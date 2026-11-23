@@ -9,7 +9,7 @@ const VIDEO = {
     "عرض سريع بالعربي لزوكا AI: ربط الأدوات بعد موافقتك، تنفيذ المهام خطوة بخطوة، التكاملات، المحادثة الصوتية، والنشر على فيرسل.",
   duration: "PT28S",
   name: "زوكا AI — فيديو تعريفي",
-  nameEn: "Zooka AI demo video",
+  nameEn: "ZOOKA-AI demo video",
   poster: `${SITE_URL}/images/zooka-demo-poster.png`,
   uploadDate: "2026-10-31T09:00:00+04:00",
   url: `${SITE_URL}/videos/zooka-demo`,
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
         height: 720,
       },
     ],
-    images: [{ url: "/images/zooka-demo-poster.png", alt: "Zooka AI demo" }],
+    images: [{ url: "/images/zooka-demo-poster.png", alt: "ZOOKA-AI demo" }],
   },
 };
 

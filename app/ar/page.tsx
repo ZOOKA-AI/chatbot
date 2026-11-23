@@ -331,7 +331,7 @@ export default function ArabicLandingPage() {
               الشروط
             </Link>
           </p>
-          <p className="mt-3">© 2026 Zooka AI</p>
+          <p className="mt-3">© 2026 ZOOKA-AI</p>
         </footer>
       </main>
     </div>

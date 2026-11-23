@@ -30,10 +30,10 @@ export function renderShell(
   return `<!doctype html><html dir="${dir}"><body style="margin:0;background:#0b0f19;padding:32px 12px;font-family:Segoe UI,Tahoma,Arial,sans-serif;color:#e5e7eb">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
 <table role="presentation" width="560" style="max-width:560px;background:#111827;border:1px solid #1f2937;border-radius:16px;padding:32px">
-<tr><td style="text-align:center;padding-bottom:20px"><table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto"><tr><td width="60" height="60" align="center" valign="middle" style="width:60px;height:60px;background:#16213a;border:1px solid #2f4368;border-radius:16px"><img src="${base}/images/zooka-email-logo.png" width="60" height="60" alt="Zooka AI" style="display:block;width:60px;height:60px;border:0;border-radius:16px"></td></tr></table><div style="font-size:20px;font-weight:700;margin-top:10px;color:#fff;letter-spacing:.2px">Zooka AI</div></td></tr>
+<tr><td style="text-align:center;padding-bottom:20px"><table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto"><tr><td width="60" height="60" align="center" valign="middle" style="width:60px;height:60px;background:#16213a;border:1px solid #2f4368;border-radius:16px"><img src="${base}/images/zooka-email-logo.png" width="60" height="60" alt="ZOOKA-AI" style="display:block;width:60px;height:60px;border:0;border-radius:16px"></td></tr></table><div style="font-size:20px;font-weight:700;margin-top:10px;color:#fff;letter-spacing:.2px">ZOOKA-AI</div></td></tr>
 <tr><td style="font-size:18px;font-weight:600;color:#fff;padding-bottom:12px">${title}</td></tr>
 <tr><td style="font-size:15px;line-height:1.7;color:#d1d5db">${body}</td></tr>
-<tr><td style="padding-top:28px;font-size:12px;color:#6b7280;border-top:1px solid #1f2937;margin-top:24px">Zooka AI · <a href="${base}/privacy" style="color:#9ca3af">${lang === "ar" ? "سياسة الخصوصية" : "Privacy"}</a> · <a href="${base}/contact" style="color:#9ca3af">${lang === "ar" ? "تواصل معنا" : "Contact"}</a></td></tr>
+<tr><td style="padding-top:28px;font-size:12px;color:#6b7280;border-top:1px solid #1f2937;margin-top:24px">ZOOKA-AI · <a href="${base}/privacy" style="color:#9ca3af">${lang === "ar" ? "سياسة الخصوصية" : "Privacy"}</a> · <a href="${base}/contact" style="color:#9ca3af">${lang === "ar" ? "تواصل معنا" : "Contact"}</a></td></tr>
 </table></td></tr></table></body></html>`;
 }
 
@@ -86,10 +86,10 @@ export async function sendMail(to: string, subject: string, html: string) {
 
 export function sendWelcomeEmail(to: string, lang: "ar" | "en" = "ar") {
   const ar = lang === "ar";
-  const title = ar ? "مرحبًا بك في Zooka AI 👋" : "Welcome to Zooka AI 👋";
+  const title = ar ? "مرحبًا بك في ZOOKA-AI 👋" : "Welcome to ZOOKA-AI 👋";
   const body = ar
     ? `<p>تم إنشاء حسابك بنجاح. من لوحة التحكم تقدر تبدأ محادثة، تفعّل وضع الوكيل، وتربط تكاملاتك (Google Drive، Gmail، n8n وغيرها) من صفحة الإعدادات.</p>${button(`${BASE}/`, "ابدأ الآن")}<p style="font-size:13px;color:#9ca3af">لو ما كنتش أنت صاحب هذا التسجيل تجاهل هذه الرسالة.</p>`
-    : `<p>Your account is ready. Start a chat, switch on agent mode, and connect your integrations (Google Drive, Gmail, n8n and more) from Settings.</p>${button(`${BASE}/`, "Open Zooka AI")}<p style="font-size:13px;color:#9ca3af">If you did not sign up, you can ignore this email.</p>`;
+    : `<p>Your account is ready. Start a chat, switch on agent mode, and connect your integrations (Google Drive, Gmail, n8n and more) from Settings.</p>${button(`${BASE}/`, "Open ZOOKA-AI")}<p style="font-size:13px;color:#9ca3af">If you did not sign up, you can ignore this email.</p>`;
   return sendMail(to, title, renderShell(title, body, lang, BASE));
 }
 

@@ -144,7 +144,7 @@ export async function publishPost(input: PublishInput) {
       ${input.body},
       ${input.keyword ?? null},
       ${status},
-      ${input.author ?? "Zooka AI"},
+      ${input.author ?? "ZOOKA-AI"},
       ${publishedAt}
     )
     on conflict (slug) do update set

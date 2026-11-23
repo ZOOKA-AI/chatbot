@@ -15,16 +15,16 @@ import {
 } from "@/lib/tv/videos";
 
 export const metadata: Metadata = {
-  title: "ZOOKA AI TV — فيديوهات المنصة",
+  title: "ZOOKA-AI TV — فيديوهات المنصة",
   description:
-    "قناة فيديو ZOOKA-AI: جولات المنتج، الشروحات، وتحديثات المنصة. ZOOKA AI TV: product tours, tutorials and platform updates.",
+    "قناة فيديو ZOOKA-AI: جولات المنتج، الشروحات، وتحديثات المنصة. ZOOKA-AI TV: product tours, tutorials and platform updates.",
   alternates: { canonical: "/tv" },
   openGraph: {
-    title: "ZOOKA AI TV",
+    title: "ZOOKA-AI TV",
     description: "جولات المنتج، الشروحات، وتحديثات المنصة.",
     url: `${SITE_URL}/tv`,
     type: "website",
-    images: [{ url: "/images/zooka-demo-poster.png", alt: "ZOOKA AI TV" }],
+    images: [{ url: "/images/zooka-demo-poster.png", alt: "ZOOKA-AI TV" }],
   },
 };
 
@@ -81,7 +81,7 @@ async function TvContent({ searchParams }: { searchParams: TvSearchParams }) {
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 py-12">
         <header className="flex flex-col gap-3">
           <span className="border-border text-muted-foreground w-fit rounded-full border px-3 py-1 font-mono text-xs tracking-[0.18em]">
-            ZOOKA AI TV
+            ZOOKA-AI TV
           </span>
           <h1 className="text-3xl font-semibold md:text-4xl">
             {ar ? "شاهد المنصة وهي تعمل" : "Watch the platform at work"}
@@ -167,10 +167,10 @@ function EmptyChannel({ ar }: { ar: boolean }) {
   return (
     <div className="border-border flex flex-col items-center gap-3 rounded-2xl border border-dashed px-6 py-14 text-center">
       <p className="text-muted-foreground font-mono text-xs tracking-[0.2em]">
-        ZOOKA AI TV
+        ZOOKA-AI TV
       </p>
       <h2 className="text-2xl font-semibold">
-        {ar ? "قريبًا على ZOOKA AI TV" : "Coming soon to ZOOKA AI TV"}
+        {ar ? "قريبًا على ZOOKA-AI TV" : "Coming soon to ZOOKA-AI TV"}
       </h2>
       <p className="text-muted-foreground max-w-md text-sm">
         {ar

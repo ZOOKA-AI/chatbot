@@ -2,7 +2,7 @@ import { AdminDenied, adminPageContext } from "@/lib/admin/page-guard";
 import { getDevelopment } from "@/lib/admin/sections";
 import { DataTable, MetricGrid, SectionView } from "@/components/admin/ui";
 
-export const metadata = { title: "التطوير — ZOOKA AI" };
+export const metadata = { title: "التطوير — ZOOKA-AI" };
 
 export default async function DevelopmentPage() {
   const admin = await adminPageContext();

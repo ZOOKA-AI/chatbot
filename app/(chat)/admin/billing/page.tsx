@@ -3,7 +3,7 @@ import { getBilling } from "@/lib/admin/sections";
 import { MetricGrid, SectionView } from "@/components/admin/ui";
 import type { Metric } from "@/lib/admin/types";
 
-export const metadata = { title: "الفوترة — ZOOKA AI" };
+export const metadata = { title: "الفوترة — ZOOKA-AI" };
 
 export default async function BillingPage() {
   const admin = await adminPageContext();

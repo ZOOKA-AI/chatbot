@@ -5,7 +5,7 @@ import { getBilling } from "@/lib/admin/sections";
 import { COMMANDS } from "@/lib/agent/commands";
 import { SectionView } from "@/components/admin/ui";
 
-export const metadata = { title: "الوكيل الأعلى — ZOOKA AI" };
+export const metadata = { title: "الوكيل الأعلى — ZOOKA-AI" };
 
 const PLAN_LIMITS: Record<string, number> = {
   free: 30,
