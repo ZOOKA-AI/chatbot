@@ -57,6 +57,7 @@ export type CustomUIDataTypes = {
   clear: null;
   finish: null;
   "chat-title": string;
+  "redacted-messages": Array<{ id: string; parts: unknown[] }>;
 };
 
 export type ChatMessage = UIMessage<

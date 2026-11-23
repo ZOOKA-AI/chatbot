@@ -107,6 +107,12 @@ function clip(value: string, max: number): string {
  * explicit payload value always wins over these.
  */
 export function argumentsFromText(tool: string, task: Candidate): Record<string, unknown> {
+  if (tool === "load_skill") {
+    const text = `${task.title ?? ""}\n${task.instruction ?? ""}`;
+    const matches = [...text.matchAll(/\bload_skill[ \t]+([a-z0-9]+(?:-[a-z0-9]+)*)(?![a-zA-Z0-9_-])/g)];
+    if (matches.length === 1 && matches[0][1].length <= 64) return { name: matches[0][1] };
+    return {};
+  }
   const title = clip(task.title ?? "", 120);
   const instruction = clip(task.instruction ?? "", 2000);
   if (tool === "workspace_readiness_inspect" && title.length >= 3) {
@@ -254,12 +260,24 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
           continue;
         }
         const tool = toolForTask(task, config);
+        if (tool === "github_repo_inspect" && task.payload?.secretName !== undefined) {
+          outcomes.push({
+            taskId: task.id,
+            organizationId: task.organizationId,
+            status: "rejected",
+            tool,
+            error: "named_secret_not_supported",
+          });
+          continue;
+        }
         const outcome = await withCommanderScope(task.organizationId, () =>
           runTask(agent as never, {
             taskId: task.id,
             tool,
             fetchImpl: config.fetchImpl,
-            payload: toolPayloadFor(tool, { ...argumentsFromText(tool, task), ...(task.payload ?? {}) }),
+            payload: task.payload?.tool === "github_repo_probe"
+              ? task.payload
+              : toolPayloadFor(tool, { ...argumentsFromText(tool, task), ...(task.payload ?? {}) }),
           })
         );
         outcomes.push({

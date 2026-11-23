@@ -22,8 +22,16 @@ export type ToolCatalogEntry = {
 };
 
 const DESCRIPTIONS: Record<string, Omit<ToolCatalogEntry, "id">> = {
+  load_skill: {
+    summary: "Reads the instructions for an enabled skill in this workspace.",
+    writes: false,
+  },
   github_repo_inspect: {
     summary: "Reads a repository's branches, recent commits and open pull requests.",
+    writes: false,
+  },
+  github_repo_probe: {
+    summary: "Checks whether a named workspace GitHub credential can access an allowlisted repository; does not inspect files.",
     writes: false,
   },
   vercel_deployment_inspect: {
