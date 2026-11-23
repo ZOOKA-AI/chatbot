@@ -1,0 +1,92 @@
+name: android
+
+# Builds the ZOOKA-AI Android app (mobile/android) and, on main, publishes the APK at a fixed URL:
+# https://github.com/ZOOKA-AI/chatbot/releases/download/android-latest/zooka-live.apk
+# The site links to that URL from the live session on Android. No production credential is used.
+
+on:
+  pull_request:
+    paths:
+      - "mobile/android/**"
+      - ".github/workflows/android.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mobile/android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mobile/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      # One signing key across runs, so each new APK installs over the previous one.
+      - name: Restore signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: zooka-android-signing-v1
+
+      - name: Build APK
+        env:
+          ZOOKA_VERSION_CODE: ${{ github.run_number }}
+        run: gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Name and fingerprint the APK
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk zooka-live.apk
+          sha256sum zooka-live.apk | tee zooka-live.apk.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zooka-live-apk
+          path: |
+            mobile/android/zooka-live.apk
+            mobile/android/zooka-live.apk.sha256
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: zooka-live-apk
+
+      - name: Publish to the android-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view android-latest --repo "$REPO" >/dev/null 2>&1; then
+            gh release create android-latest --repo "$REPO" --target "$GITHUB_SHA" \
+              --title "ZOOKA-AI Android" --latest=false \
+              --notes "ZOOKA-AI for Android: the site plus native screen sharing in live sessions. Install zooka-live.apk."
+          fi
+          gh release upload android-latest zooka-live.apk zooka-live.apk.sha256 --repo "$REPO" --clobber

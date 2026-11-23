@@ -117,8 +117,14 @@ export async function getDisplayMediaCompat(nav: NavigatorLike, options: Display
 }
 
 /** The sentence shown under the controls when something cannot work here, or null when all can. */
-export function supportNotice(support: MediaSupport, lang: "ar" | "en"): string | null {
+export function supportNotice(
+  detected: MediaSupport,
+  lang: "ar" | "en",
+  options: { nativeScreen?: boolean } = {}
+): string | null {
   const ar = lang === "ar";
+  // Inside the ZOOKA-AI Android app the screen is captured natively, so the browser's gap is closed.
+  const support = options.nativeScreen ? { ...detected, screen: true } : detected;
   if (!support.secureContext) {
     return ar
       ? "الصوت والكاميرا والشاشة تحتاج اتصالًا آمنًا (https). افتح الجلسة من zooka-ai.com."
@@ -137,8 +143,8 @@ export function supportNotice(support: MediaSupport, lang: "ar" | "en"): string 
   if (!support.screen) {
     if (support.platform === "android") {
       return ar
-        ? "مشاركة الشاشة غير متاحة في متصفحات أندرويد (Chrome وSamsung وFirefox). الصوت والكاميرا يعملان. لمشاركة الشاشة افتح الجلسة من الكمبيوتر."
-        : "Screen sharing is not available in Android browsers (Chrome, Samsung, Firefox). Microphone and camera work. To share your screen, open the session on a computer.";
+        ? "مشاركة الشاشة غير متاحة في متصفحات أندرويد (Chrome وSamsung وFirefox). الصوت والكاميرا يعملان. لمشاركة شاشة الجوال ثبّت تطبيق ZOOKA-AI لأندرويد، أو افتح الجلسة من الكمبيوتر."
+        : "Screen sharing is not available in Android browsers (Chrome, Samsung, Firefox). Microphone and camera work. To share your phone's screen, install the ZOOKA-AI Android app, or open the session on a computer.";
     }
     if (support.platform === "ios") {
       return ar
