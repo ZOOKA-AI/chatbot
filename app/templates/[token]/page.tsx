@@ -1,32 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { Suspense } from "react";
 
 import { getPublicAgentTemplate } from "@/lib/agents/templates";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { UseAgentTemplateButton } from "./use-template-button";
 
-export default function AgentTemplatePage({ params }: { params: Promise<{ token: string }> }) {
-  return (
-    <Suspense
-      fallback={
-        <main className="mx-auto flex min-h-screen w-full max-w-3xl items-center p-6">
-          <p>Loading agent template…</p>
-        </main>
-      }
-    >
-      <AgentTemplateContent params={params} />
-    </Suspense>
-  );
-}
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
 
-async function AgentTemplateContent({ params }: { params: Promise<{ token: string }> }) {
+/**
+ * Resolved before anything renders. The lookup used to run inside a Suspense
+ * boundary, which streamed a 200 shell first, so every unknown token answered
+ * 200 with a not-found body (a soft 404 on an unbounded URL space). Awaiting
+ * here keeps the real 404 status and skips the database for malformed tokens.
+ */
+export default async function AgentTemplatePage({ params }: { params: Promise<{ token: string }> }) {
   await connection();
   const { token } = await params;
+  if (!TOKEN_PATTERN.test(token)) {
+    notFound();
+  }
   const template = await getPublicAgentTemplate(token);
-  if (!template) notFound();
-
+  if (!template) {
+    notFound();
+  }
   const workspace = await getWorkspaceContext();
   const canCopy = workspace && workspace.user.type !== "guest" && ["owner", "admin"].includes(workspace.role);
   const needsAdmin = workspace && workspace.user.type !== "guest" && !canCopy;
