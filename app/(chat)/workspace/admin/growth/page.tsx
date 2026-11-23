@@ -16,6 +16,14 @@ export default async function GrowthAdminPage() {
   const context = await getWorkspaceContext();
   if (!context) redirect("/login");
   if (context.role !== "owner") redirect("/workspace");
+  /*
+   * Everything on this page is platform-wide: the referral economy in
+   * GrowthSettings, the RewardLedger of every workspace and the GrowthAudit log.
+   * Owning one workspace is not a grant over those — every new sign-up owns its
+   * own workspace — so the page requires the platform admin role.
+   */
+  const platformAdmin = await requirePlatformRole("admin", "page.admin.growth");
+  if (!platformAdmin) redirect("/workspace");
 
   const lang = await getLang();
   const ar = lang === "ar";
@@ -30,7 +38,6 @@ export default async function GrowthAdminPage() {
    * owner of one workspace. A workspace owner who is not a platform admin gets
    * no funnel at all rather than a slice of everyone else's numbers.
    */
-  const platformAdmin = await requirePlatformRole("admin", "page.admin.growth");
   const funnel = platformAdmin
     ? await getGrowthFunnel(30).catch(() => null)
     : null;

@@ -1,6 +1,15 @@
 import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
+const mediaPermissions = {
+  key: "Permissions-Policy",
+  value: "camera=(), microphone=(self), display-capture=(self), geolocation=()",
+};
+const chatMediaPermissions = {
+  ...mediaPermissions,
+  value: "camera=(self), microphone=(self), display-capture=(self), geolocation=()",
+};
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   // The browser runtime loads a Chromium driver at request time through a computed import, which
@@ -37,13 +46,13 @@ const nextConfig: NextConfig = {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
-          {
-            key: "Permissions-Policy",
-            value:
-              "camera=(), microphone=(self), display-capture=(self), geolocation=()",
-          },
+          mediaPermissions,
         ],
       },
+      // Next.js uses the last matching header value. Only chat pages with
+      // the live console may ask for the user's camera; /embed stays denied.
+      { source: "/", headers: [chatMediaPermissions] },
+      { source: "/chat/:id", headers: [chatMediaPermissions] },
     ];
   },
   async redirects() {

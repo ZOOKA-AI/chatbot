@@ -13,7 +13,12 @@ import { mkdirSync, writeFileSync } from "node:fs";
 const BASE = process.env.ACCEPT_BASE || "https://localhost:3444";
 const OUT = process.env.ACCEPT_OUT || "acceptance-rc/brand";
 const EMAIL = process.env.ACCEPT_EMAIL || "rc-b-mwjc8sws@zooka-test.dev";
-const PASS = process.env.ACCEPT_PASSWORD || "Rc-Accept-2026!x7Qm";
+// The password of an existing test account comes from the environment only.
+const PASS = process.env.ACCEPT_PASSWORD;
+if (!PASS) {
+  console.error("ACCEPT_PASSWORD is required (never commit a password)");
+  process.exit(2);
+}
 /**
  * Vercel Deployment Protection: a host that protects its previews answers 302 to
  * vercel.com/sso-api for any scripted client. When the owner has stored a Protection

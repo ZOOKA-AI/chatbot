@@ -24,7 +24,8 @@ const strings = {
     signUpLink: "أنشئ حساباً مجانياً",
     unavailable:
       "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً؛ لا تحتاج لتغيير كلمة المرور.",
-    invalid: "بيانات الدخول غير صحيحة!",
+    invalid:
+      "بيانات الدخول غير صحيحة. لو أنشأت حسابك بـ Google أو Facebook، ادخل بنفس الطريقة أو عيّن كلمة مرور من «نسيت كلمة المرور؟».",
     authError:
       "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى.",
     justRegistered:
@@ -40,7 +41,8 @@ const strings = {
     signUpLink: "Sign up for free",
     unavailable:
       "Account service is temporarily unavailable. Please try later; you do not need to reset your password.",
-    invalid: "Invalid credentials!",
+    invalid:
+      "Invalid credentials. If you signed up with Google or Facebook, sign in the same way or set a password with \"Forgot password?\".",
     authError:
       "Unable to sign in. Please try again or use another sign-in method.",
     justRegistered:

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: `شروط الاستخدام`,
-  description: `شروط استخدام منصة Zooka AI: الاشتراكات والاستخدام العادل.`,
+  description: `شروط استخدام منصة ZOOKA-AI: الاشتراكات والاستخدام العادل.`,
   alternates: { canonical: "./" },
 };
 import Link from "next/link";
@@ -99,14 +99,14 @@ async function TermsContent() {
         ) : (
           <>
             <p>
-              These Terms govern your use of the Zooka AI chatbot service at
+              These Terms govern your use of the ZOOKA-AI chatbot service at
               zooka-ai.com. By creating an account or using the service, you
               accept these terms.
             </p>
 
             <h2 className="font-semibold text-lg">The service</h2>
             <p>
-              Zooka AI provides AI-powered chatbot conversations. Message limits
+              ZOOKA-AI provides AI-powered chatbot conversations. Message limits
               depend on your plan: Free (1,000 messages per month), Pro ($19
               per month, 10,000 messages), and Business ($49 per month, 100,000
               messages).
@@ -143,7 +143,7 @@ async function TermsContent() {
             <h2 className="font-semibold text-lg">Limitation of liability</h2>
             <p>
               The service is provided &quot;as is&quot; without warranties. To
-              the maximum extent permitted by law, Zooka AI is not liable for
+              the maximum extent permitted by law, ZOOKA-AI is not liable for
               indirect or consequential damages arising from use of the
               service.
             </p>

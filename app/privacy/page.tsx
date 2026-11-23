@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: `سياسة الخصوصية`,
-  description: `سياسة الخصوصية في Zooka AI: كيف نجمع بياناتك ونحميها.`,
+  description: `سياسة الخصوصية في ZOOKA-AI: كيف نجمع بياناتك ونحميها.`,
   alternates: { canonical: "./" },
 };
 import Link from "next/link";
@@ -139,7 +139,7 @@ async function PrivacyContent() {
         ) : (
           <>
             <p>
-              This Privacy Policy explains how Zooka AI (&quot;we&quot;,
+              This Privacy Policy explains how ZOOKA-AI (&quot;we&quot;,
               &quot;us&quot;) collects, uses, and protects your information when
               you use our chatbot service at zooka-ai.com. By creating an account
               or using the service, you agree to the practices described here.

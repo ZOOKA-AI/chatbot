@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
  * If the variable is missing we send the visitor to the contact page instead
  * of shipping a broken link.
  */
-const PREFILL = "\u0645\u0631\u062d\u0628\u064b\u0627\u060c \u0639\u0627\u064a\u0632 \u0623\u0639\u0631\u0641 \u0628\u0627\u0642\u0627\u062a ZOOKA AI \u0648\u0627\u0644\u062a\u0633\u0639\u064a\u0631.";
+const PREFILL = "\u0645\u0631\u062d\u0628\u064b\u0627\u060c \u0639\u0627\u064a\u0632 \u0623\u0639\u0631\u0641 \u0628\u0627\u0642\u0627\u062a ZOOKA-AI \u0648\u0627\u0644\u062a\u0633\u0639\u064a\u0631.";
 
 export function GET() {
   const digits = (process.env.SUPPORT_WHATSAPP_PHONE || "").replace(/[^0-9]/g, "");

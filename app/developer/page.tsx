@@ -8,9 +8,9 @@ import { SITE_URL } from "@/lib/site";
 export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/developer` },
   description:
-    "من يبني Zooka AI: مطوّر في Google Developer Program وGoogle Cloud Innovator، مع خلفية في Android والذكاء الاصطناعي والبنية السحابية والوكلاء. Meet the developer behind Zooka AI.",
+    "من يبني ZOOKA-AI: مطوّر في Google Developer Program وGoogle Cloud Innovator، مع خلفية في Android والذكاء الاصطناعي والبنية السحابية والوكلاء. Meet the developer behind ZOOKA-AI.",
   keywords: [
-    "Zooka AI developer",
+    "ZOOKA-AI developer",
     "Google Developer Program",
     "Google Cloud Innovator",
     "مطور ذكاء اصطناعي الإمارات",
@@ -20,10 +20,10 @@ export const metadata: Metadata = {
   openGraph: {
     description:
       "مطوّر في Google Developer Program وGoogle Cloud Innovator — بناء وكلاء عرب ينفّذون المهام على أدوات الشركة.",
-    title: "المطوّر وراء Zooka AI",
+    title: "المطوّر وراء ZOOKA-AI",
     type: "profile",
   },
-  title: "المطوّر وراء Zooka AI",
+  title: "المطوّر وراء ZOOKA-AI",
 };
 
 const PAGE_URL = `${SITE_URL}/developer`;
@@ -34,7 +34,7 @@ const personSchema = {
     {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
-      name: "Zooka AI",
+      name: "ZOOKA-AI",
       url: SITE_URL,
       logo: `${SITE_URL}/images/zooka-logo-512.png`,
       sameAs: [
@@ -188,7 +188,7 @@ async function DeveloperContent() {
 
       <div className="flex items-center justify-between">
         <Link className="text-muted-foreground text-sm hover:underline" href="/">
-          ← ZOOKA AI
+          ← ZOOKA-AI
         </Link>
       </div>
 
@@ -201,7 +201,7 @@ async function DeveloperContent() {
           {ar ? "من يبني المنتج" : "Who builds this"}
         </p>
         <h1 className="relative mt-3 font-semibold text-3xl leading-tight sm:text-5xl">
-          {ar ? "المطوّر وراء Zooka AI" : "The developer behind Zooka AI"}
+          {ar ? "المطوّر وراء ZOOKA-AI" : "The developer behind ZOOKA-AI"}
         </h1>
         <p className="relative mt-4 max-w-2xl text-muted-foreground">
           {ar

@@ -5,7 +5,7 @@ import { track } from "@vercel/analytics";
 import { DefaultChatTransport } from "ai";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Response } from "@/components/elements/response";
+import dynamic from "next/dynamic";
 import { DEMO_ASK_EVENT } from "@/components/marketing/task-templates";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
@@ -13,6 +13,17 @@ import { PLANS } from "@/lib/billing/entitlements";
 import { freeUpsell } from "@/lib/billing/entitlements";
 import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { generateUUID } from "@/lib/utils";
+
+// The markdown renderer pulls mermaid, katex, shiki and friends (~1.8 MB of JS).
+// The landing page used to download all of it before the visitor typed anything;
+// it now loads with the first reply, which renders as plain text until then.
+const Response = dynamic(
+  () => import("@/components/elements/response").then((m) => m.Response),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 type Lang = "ar" | "en";
 
@@ -258,6 +269,8 @@ export function DemoChat({ lang }: { lang: Lang }) {
     } catch {
       // storage unavailable: the hand-off is a nice-to-have
     }
+    // Start fetching the renderer now so it is ready by the first token.
+    void import("@/components/elements/response");
     if (messages.length === 0) {
       track("demo_started");
     }

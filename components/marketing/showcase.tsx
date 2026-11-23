@@ -10,7 +10,7 @@ function posters(lang: Lang): Poster[] {
   return [
     {
       src: "/images/posters/poster-1.jpg",
-      tag: ar ? "ZOOKA AI" : "ZOOKA AI",
+      tag: ar ? "ZOOKA-AI" : "ZOOKA-AI",
       title: t("وكيل أعمالك الذكي", "Your business agent"),
       body: t(
         "يربط أدواتك وينفّذ المهمة حتى النهاية — لا مجرد محادثة.",
@@ -400,7 +400,7 @@ export function Compare({ lang }: { lang: Lang }) {
                   {ar ? "مساعد محادثة" : "Chat assistant"}
                 </th>
                 <th className="p-3 text-start font-medium text-blue-300">
-                  Zooka AI
+                  ZOOKA-AI
                 </th>
               </tr>
             </thead>

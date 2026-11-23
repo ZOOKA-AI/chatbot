@@ -7,9 +7,17 @@ import {
   trackWorkspaceUsage,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
-import { hasLaunchSlot, isLaunchProgramOpen } from "@/lib/billing/launch-program";
-import { isOwnerTestingEmail } from "@/lib/billing/owner-testing";
+import {
+  groundedMessage,
+  needsWebSearch,
+  searchQueryFor,
+  type WebSource,
+} from "@/lib/agent/web-grounding";
+import { searchTavily } from "@/lib/ai/tools/web-search";
 import { awardFirstTask } from "@/lib/growth/referrals";
+import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
+import { workspacePlans } from "@/lib/saas/plans";
 
 /**
  * Server-side bridge to the private n8n agent (the "brain").
@@ -41,27 +49,12 @@ const WEBHOOK_KEY =
   process.env.SOLAS_AGENT_KEY ??
   "";
 
-const PLAN_LIMITS: Record<string, number> = {
-  free: 30,
-  starter: 100,
-  pro: 500,
-  business: 2000,
-};
-
 type AgentResponse = {
   ok?: boolean;
   reply?: string;
   steps?: number;
   error?: string;
 };
-
-function normalizePlan(plan: string | null | undefined) {
-  return (plan ?? "free").toLowerCase();
-}
-
-function limitFor(plan: string) {
-  return PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
-}
 
 async function POSTImpl(request: Request) {
   const context = await getWorkspaceContext();
@@ -88,15 +81,15 @@ async function POSTImpl(request: Request) {
     return new ChatbotError("bad_request:api").toResponse();
   }
 
-  const { subscription, usage } = await getWorkspaceBilling(context.organizationId);
-  const plan = normalizePlan(subscription?.plan);
-  const limit = limitFor(plan);
+  // Same entitlement source as the usage and billing pages.
+  const [{ usage }, entitlements] = await Promise.all([
+    getWorkspaceBilling(context.organizationId),
+    getWorkspaceEntitlements(context.organizationId),
+  ]);
+  const plan = entitlements.plan;
+  const limit = (workspacePlans[plan] ?? workspacePlans.free).monthlyAgentRuns;
 
-  const launchFree =
-    isOwnerTestingEmail(context.user.email) ||
-    (isLaunchProgramOpen() && (await hasLaunchSlot(context.user.id)));
-
-  if (!launchFree && usage.agentRuns >= limit) {
+  if (usage.agentRuns >= limit) {
     return Response.json(
       {
         error: "plan_limit_reached",
@@ -107,6 +100,25 @@ async function POSTImpl(request: Request) {
       },
       { status: 429, headers: { "cache-control": "no-store" } }
     );
+  }
+
+  // The n8n agent has no search tool, so fresh information is fetched here
+  // and passed in as untrusted context. Search failures never block the task.
+  let sources: WebSource[] = [];
+  if (process.env.TAVILY_API_KEY && needsWebSearch(message)) {
+    const quota = await checkQuota(
+      context.user.id,
+      "web_search",
+      context.organizationId
+    ).catch(() => ({ allowed: false }));
+    if (quota.allowed) {
+      try {
+        sources = await searchTavily(searchQueryFor(message));
+        await recordUsage(context.user.id, "web_search", context.organizationId);
+      } catch {
+        sources = [];
+      }
+    }
   }
 
   // One memory lane per member inside their own workspace.
@@ -125,7 +137,11 @@ async function POSTImpl(request: Request) {
         "content-type": "application/json",
         "x-solas-key": WEBHOOK_KEY,
       },
-      body: JSON.stringify({ userId: agentUserId, message, history }),
+      body: JSON.stringify({
+        userId: agentUserId,
+        message: groundedMessage(message, sources),
+        history,
+      }),
       signal: AbortSignal.timeout(50_000),
       cache: "no-store",
     });
@@ -199,6 +215,7 @@ async function POSTImpl(request: Request) {
     {
       reply,
       steps: data.steps ?? 1,
+      sources: sources.map(({ title, url }) => ({ title, url })),
       plan,
       limit,
       used: usage.agentRuns + 1,

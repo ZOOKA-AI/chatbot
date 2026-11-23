@@ -14,8 +14,8 @@ describe("mail shell", () => {
   });
 
   it("keeps the wordmark as a text fallback when images are blocked", () => {
-    expect(html).toContain(">Zooka AI</div>");
-    expect(html).toContain('alt="Zooka AI"');
+    expect(html).toContain(">ZOOKA-AI</div>");
+    expect(html).toContain('alt="ZOOKA-AI"');
   });
 
   it("stays rtl for arabic and ltr for english", () => {

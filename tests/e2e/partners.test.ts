@@ -6,7 +6,7 @@ test.describe("partner program", () => {
     await page.getByRole("button", { name: "English" }).click();
 
     await expect(
-      page.getByRole("heading", { name: "Earn with Zooka AI" })
+      page.getByRole("heading", { name: "Earn with ZOOKA-AI" })
     ).toBeVisible();
     await expect(page.getByText("20%").last()).toBeVisible();
     await expect(

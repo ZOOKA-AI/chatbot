@@ -14,7 +14,7 @@ export const copy = {
     signUp: "إنشاء حساب",
     logIn: "تسجيل الدخول",
     viewPlans: "عرض الخطط",
-    paywallTitle: "تابع محادثتك مع Zooka AI",
+    paywallTitle: "تابع محادثتك مع ZOOKA-AI",
     paywallBody:
       "أنشئ حساباً لحفظ محادثاتك، أو رقِّ إلى Pro أو Business للاستفادة من نماذج متقدمة ووضع الوكيل وحدود استخدام أعلى.",
     guestNotice: "تجربة مجانية: 10 رسائل — تكفي مهمة كاملة",
@@ -34,7 +34,7 @@ export const copy = {
     signUp: "Sign up",
     logIn: "Log in",
     viewPlans: "View plans",
-    paywallTitle: "Continue your conversation with Zooka AI",
+    paywallTitle: "Continue your conversation with ZOOKA-AI",
     paywallBody:
       "Create an account to save your conversations, or upgrade to Pro or Business for advanced models, Agent mode, and higher usage limits.",
     guestNotice: "Free preview: 10 messages, enough for a whole task",

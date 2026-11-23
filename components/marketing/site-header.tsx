@@ -142,7 +142,7 @@ export function SiteHeader({ lang }: { lang: Lang }) {
           ),
         },
         {
-          label: "ZOOKA AI TV",
+          label: "ZOOKA-AI TV",
           href: "/tv",
           hint: t("جولات وشروحات بالفيديو", "Video tours and tutorials"),
         },
@@ -168,7 +168,7 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         <Link className="flex items-center gap-2 font-semibold" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            alt="Zooka AI"
+            alt="ZOOKA-AI"
             className="h-9 w-9 rounded-lg"
             height={36}
             src="/brand/zooka-mark-256.png"

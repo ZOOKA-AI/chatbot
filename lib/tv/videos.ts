@@ -1,5 +1,5 @@
 /**
- * ZOOKA AI TV — the one catalog of videos the site may show.
+ * ZOOKA-AI TV — the one catalog of videos the site may show.
  *
  * Rules this module enforces (and tests/unit/tv-videos.test.ts checks):
  * - Only videos ZOOKA-AI owns or is licensed to show. No third-party clips.
@@ -122,7 +122,7 @@ export const TV_VIDEOS: TvVideo[] = [
   },
   {
     id: "zooka-demo",
-    title: { ar: "زوكا AI في 28 ثانية", en: "Zooka AI in 28 seconds" },
+    title: { ar: "زوكا AI في 28 ثانية", en: "ZOOKA-AI in 28 seconds" },
     description: {
       ar: "ربط الأدوات بعد موافقتك، التنفيذ خطوة بخطوة، التكاملات، المحادثة الصوتية، والنشر على فيرسل.",
       en: "Connecting tools with your consent, step-by-step execution, integrations, voice chat and deploying to Vercel.",

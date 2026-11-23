@@ -75,7 +75,7 @@ export async function sendSmsCode({
   to: string;
   code: string;
 }): Promise<SendResult> {
-  const body = `Zooka AI: رمز الدخول ${code} — صالح 5 دقائق. لا تشاركه مع أحد.`;
+  const body = `ZOOKA-AI: رمز الدخول ${code} — صالح 5 دقائق. لا تشاركه مع أحد.`;
   try {
     if (smsProvider === "twilio") {
       return await sendTwilio(to, body);

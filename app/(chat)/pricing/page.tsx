@@ -7,7 +7,7 @@ import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
 
 export const metadata: Metadata = {
   title: "الأسعار | Pricing",
-  description: "Zooka AI plans and pricing — خطط وأسعار Zooka AI",
+  description: "ZOOKA-AI plans and pricing — خطط وأسعار ZOOKA-AI",
 };
 
 const pricingPlanKeys = ["free", "pro", "business"] as const;
@@ -64,7 +64,7 @@ const strings = {
     eyebrow: "Simple, transparent plans",
     title: "Choose the right workspace plan",
     subtitle:
-      "ZOOKA AI is a paid business service. The preview is limited; commercial use runs on a paid plan.",
+      "ZOOKA-AI is a paid business service. The preview is limited; commercial use runs on a paid plan.",
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
       free: {

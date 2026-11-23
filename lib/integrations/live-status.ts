@@ -1,6 +1,9 @@
 import "server-only";
 
-import { listWorkspaceIntegrations } from "@/lib/integrations/catalog";
+import {
+  hasIntegrationAccessToken,
+  listWorkspaceIntegrations,
+} from "@/lib/integrations/catalog";
 import { getGoogleConnectionHealth } from "@/lib/integrations/google-drive/server";
 import { isOAuthProviderId } from "@/lib/integrations/oauth/config";
 import { getOAuthConnection } from "@/lib/integrations/oauth/store";
@@ -65,9 +68,20 @@ export async function getLiveIntegrationStatus(
         );
         if (connection) {
           connected.add(item.providerId);
-        } else if (item.status === "connected") {
-          needsReconnect.add(item.providerId);
+          return;
         }
+        if (item.status !== "connected") {
+          return;
+        }
+        // Same rule as the "Test now" probe: without an OAuth row, a token
+        // stored on the workspace connection (pasted token, e.g. LinkedIn or
+        // Vercel) is the credential the card uses. A passing test must not sit
+        // next to a "reconnect needed" badge.
+        const hasWorkspaceToken = await hasIntegrationAccessToken(
+          organizationId,
+          item.providerId
+        ).catch(() => false);
+        (hasWorkspaceToken ? connected : needsReconnect).add(item.providerId);
         return;
       }
       if (item.status === "connected") {

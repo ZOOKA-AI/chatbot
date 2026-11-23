@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 const WA_LINK = "/wa";
 
 export const metadata: Metadata = {
-  title: "ZOOKA AI لشركات التنظيف | مساعد يرد على العملاء ويكتب المحتوى",
+  title: "ZOOKA-AI لشركات التنظيف | مساعد يرد على العملاء ويكتب المحتوى",
   description:
     "مساعد ذكاء اصطناعي بالعربي لشركات التنظيف وخدمات المنازل في الإمارات: يرد على استفسارات العملاء، يجهز عروض الأسعار، ويكتب محتوى إنستجرام يوميا.",
   alternates: { canonical: "https://zooka-ai.com/lp/cleaning" },
@@ -64,7 +64,7 @@ export default function CleaningLandingPage() {
     >
       <section className="flex flex-col gap-5">
         <p className="w-fit rounded-full border px-3 py-1 text-muted-foreground text-xs">
-          ZOOKA AI — مساعد أعمال بالعربي لشركات التنظيف في الإمارات
+          ZOOKA-AI — مساعد أعمال بالعربي لشركات التنظيف في الإمارات
         </p>
         <h1 className="font-semibold text-3xl leading-snug md:text-4xl">
           رد على عميلك في ثانية، وطلّع محتوى إنستجرامك كل يوم
@@ -195,7 +195,7 @@ export default function CleaningLandingPage() {
       </section>
 
       <footer className="text-muted-foreground flex flex-wrap justify-center gap-3 text-xs">
-        <a className="hover:underline" href="/">ZOOKA AI</a>
+        <a className="hover:underline" href="/">ZOOKA-AI</a>
         <a className="hover:underline" href="/contact">تواصل معنا</a>
         <a className="hover:underline" href="/privacy">سياسة الخصوصية</a>
         <a className="hover:underline" href="/terms">شروط الخدمة</a>

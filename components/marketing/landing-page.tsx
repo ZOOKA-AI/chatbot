@@ -597,7 +597,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
               <img
                 alt={t(
                   "وكيل زوكا AI محاط ببطاقات البريد والملفات والكود",
-                  "Zooka AI agent surrounded by email, files and code cards"
+                  "ZOOKA-AI agent surrounded by email, files and code cards"
                 )}
                 className="hidden w-full rounded-2xl border border-white/10 md:block"
                 decoding="async"
@@ -685,7 +685,7 @@ export function LandingPage({ lang }: { lang: Lang }) {
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-16">
             <div className="flex flex-col gap-2">
               <span className="text-xs tracking-widest text-[#8fb2ff] uppercase">
-                ZOOKA AI TV
+                ZOOKA-AI TV
               </span>
               <h2 className="text-3xl font-semibold">
                 {t("شاهد المنصة وهي تعمل", "Watch the platform at work")}
@@ -967,14 +967,14 @@ export function LandingPage({ lang }: { lang: Lang }) {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
-            name: "Zooka AI",
+            name: "ZOOKA-AI",
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web",
             url: SITE_URL,
             publisher: { "@id": `${SITE_URL}/#organization` },
             inLanguage: ["ar", "en"],
             description:
-              "Zooka AI: an AI business agent that connects your tools, executes multi-step tasks and keeps your data isolated per workspace.",
+              "ZOOKA-AI: an AI business agent that connects your tools, executes multi-step tasks and keeps your data isolated per workspace.",
             offers: plans
               .filter((plan) => plan.id !== "enterprise")
               .map((plan) => ({

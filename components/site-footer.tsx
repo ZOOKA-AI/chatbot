@@ -9,7 +9,7 @@ import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
  */
 import { FOOTER_ACCOUNTS as SOCIALS } from "@/lib/social-accounts";
 
-/** Zooka AI has been in development since late 2024. */
+/** ZOOKA-AI has been in development since late 2024. */
 const FOUNDED_YEAR = 2024;
 const SUPPORT_EMAIL = "support@zooka-ai.com";
 
@@ -33,7 +33,7 @@ const COLUMNS: { id: string; ar: string; en: string; links: FooterLink[] }[] = [
       { href: "/workspace/automations", ar: "الأتمتة", en: "Automation" },
       { href: "/settings/integrations", ar: "التكاملات", en: "Integrations" },
       { href: "/studio", ar: "الاستوديو", en: "Studio" },
-      { href: "/tv", ar: "ZOOKA AI TV", en: "ZOOKA AI TV" },
+      { href: "/tv", ar: "ZOOKA-AI TV", en: "ZOOKA-AI TV" },
       { href: "/pricing", ar: "الأسعار", en: "Pricing" },
     ],
   },
@@ -121,7 +121,7 @@ export function SiteFooter({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-1">
-            <p className="text-foreground text-base font-bold">Zooka AI</p>
+            <p className="text-foreground text-base font-bold">ZOOKA-AI</p>
             <p>
               {ar
                 ? "وكيل أعمال ذكي لشركات الخدمات."
@@ -243,8 +243,8 @@ export function SiteFooter({
         <div className="flex flex-col gap-3 border-t pt-4 text-xs sm:flex-row sm:items-center sm:justify-between">
           <p>
             {ar
-              ? `© ${years} جميع الحقوق محفوظة لمنصة Zooka AI — zooka-ai.com`
-              : `© ${years} All rights reserved to the Zooka AI platform — zooka-ai.com`}
+              ? `© ${years} جميع الحقوق محفوظة لمنصة ZOOKA-AI — zooka-ai.com`
+              : `© ${years} All rights reserved to the ZOOKA-AI platform — zooka-ai.com`}
           </p>
           <div className="flex items-center gap-2">
             <LanguageToggle
