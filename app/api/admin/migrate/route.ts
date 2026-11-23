@@ -148,7 +148,7 @@ END $$`,
     'CREATE INDEX IF NOT EXISTS "MediaJob_organizationId_createdAt_idx" ON "MediaJob" ("organizationId", "createdAt")',
   ],
   BlogPost: [
-    'CREATE TABLE IF NOT EXISTS "BlogPost" ("slug" text PRIMARY KEY NOT NULL, "lang" varchar(8) DEFAULT \'en\' NOT NULL, "title" text NOT NULL, "excerpt" text, "body" text NOT NULL, "keyword" text, "status" varchar(16) DEFAULT \'draft\' NOT NULL, "author" text DEFAULT \'ZOOKA-AI\' NOT NULL, "published_at" timestamp, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS "BlogPost" ("slug" text PRIMARY KEY NOT NULL, "lang" varchar(8) DEFAULT \'en\' NOT NULL, "title" text NOT NULL, "excerpt" text, "body" text NOT NULL, "keyword" text, "status" varchar(16) DEFAULT \'draft\' NOT NULL, "author" text DEFAULT \'Zooka AI\' NOT NULL, "published_at" timestamp, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL)',
     'CREATE INDEX IF NOT EXISTS "BlogPost_status_published_at_idx" ON "BlogPost" USING btree ("status", "published_at")',
     'ALTER TABLE "BlogPost" ENABLE ROW LEVEL SECURITY',
   ],
