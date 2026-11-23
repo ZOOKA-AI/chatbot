@@ -790,6 +790,9 @@ export const agentIdentity = pgTable(
       .notNull()
       .default("unclaimed"),
     scopes: json("scopes").$type<string[]>().notNull().default([]),
+    updateWithoutApproval: boolean("updateWithoutApproval").notNull().default(true),
+    deleteWithoutApproval: boolean("deleteWithoutApproval").notNull().default(false),
+    sendMessagesWithoutApproval: boolean("sendMessagesWithoutApproval").notNull().default(false),
     environment: varchar("environment", { length: 24 }).notNull().default("production"),
     status: varchar("status", { length: 24 }).notNull().default("active"),
     // Nullable on purpose: null means "use the deployment default", which is what every

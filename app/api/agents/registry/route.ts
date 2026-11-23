@@ -34,7 +34,7 @@ async function GETHandler(request: Request) {
   // Both come from the server: a tool the worker does not implement, or a provider with no
   // credential, must not appear as a choice the customer can make and then fail at.
   return json({
-    agents,
+    agents: agents.map((agent) => ({ ...agent, spendWithoutApproval: false })),
     tools: toolCatalog(),
     providers: SELECTABLE_MODEL_PROVIDERS.map((provider) => ({
       id: provider,
@@ -106,6 +106,9 @@ async function PATCHHandler(request: Request) {
         status: z.string().optional(),
         environment: z.string().optional(),
         scopes: z.array(z.string()).optional(),
+        updateWithoutApproval: z.boolean().optional(),
+        deleteWithoutApproval: z.boolean().optional(),
+        sendMessagesWithoutApproval: z.boolean().optional(),
         // The agent console sends this alongside the other fields it edits. Without
         // it here the strict schema refused the whole save, so no agent could ever
         // be given a tool and no task could ever be planned against one.
