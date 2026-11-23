@@ -34,6 +34,13 @@ import {
   createLiveSessionClient,
   type LiveSessionClient,
 } from "@/lib/live/client";
+import {
+  detectMediaSupport,
+  getDisplayMediaCompat,
+  getUserMediaCompat,
+  type MediaSupport,
+  supportNotice,
+} from "@/lib/live/media-support";
 import { cn } from "@/lib/utils";
 
 type QualityMode = "balanced" | "performance" | "high";
@@ -255,6 +262,14 @@ export function LiveSessionConsole({
     status: "idle",
   });
   const [actionError, setActionError] = useState<string | null>(null);
+  // Detected after mount, so the server render and the first client render agree.
+  const [support, setSupport] = useState<MediaSupport | null>(null);
+  useEffect(() => {
+    setSupport(detectMediaSupport(navigator, window.isSecureContext));
+  }, []);
+  const screenUnavailable = support !== null && !support.screen;
+  const userMediaUnavailable = support !== null && (!support.camera || !support.microphone);
+  const notice = support ? supportNotice(support, isArabic ? "ar" : "en") : null;
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -405,7 +420,7 @@ export function LiveSessionConsole({
 
   const captureTrack = useCallback(
     async (kind: "audio" | "video") => {
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (userMediaUnavailable) {
         throw new Error(
           kind === "video"
             ? isArabic
@@ -418,11 +433,11 @@ export function LiveSessionConsole({
       }
       const stream =
         kind === "video"
-          ? await navigator.mediaDevices.getUserMedia({
+          ? await getUserMediaCompat(navigator, {
               video: videoConstraint(quality),
               audio: false,
             })
-          : await navigator.mediaDevices.getUserMedia({
+          : await getUserMediaCompat(navigator, {
               audio: true,
               video: false,
             });
@@ -434,7 +449,7 @@ export function LiveSessionConsole({
             : stream.getAudioTracks()[0],
       };
     },
-    [isArabic, quality]
+    [isArabic, quality, userMediaUnavailable]
   );
 
   const toggleCamera = useCallback(async () => {
@@ -562,16 +577,12 @@ export function LiveSessionConsole({
       return;
     }
 
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setActionError(
-        isArabic
-          ? "هذا المتصفح لا يدعم مشاركة الشاشة. جرّب فتح الجلسة في متصفح على الكمبيوتر."
-          : "This browser does not support screen sharing. Try opening the session in a desktop browser."
-      );
+    if (screenUnavailable) {
+      // The button is disabled and the notice explains why; nothing to try here.
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      const stream = await getDisplayMediaCompat(navigator, {
         video: videoConstraint(quality),
         audio: false,
       });
@@ -608,7 +619,7 @@ export function LiveSessionConsole({
           : errorMessage(error)
       );
     }
-  }, [connected, isArabic, quality, refreshPreview, screenEnabled, stopStream]);
+  }, [connected, isArabic, quality, refreshPreview, screenEnabled, screenUnavailable, stopStream]);
 
   const joinRoom = useCallback(async () => {
     const client = clientRef.current;
@@ -767,7 +778,7 @@ export function LiveSessionConsole({
             <div className="grid grid-cols-3 gap-2">
               <Button
                 aria-pressed={micEnabled}
-                disabled={connecting}
+                disabled={connecting || userMediaUnavailable}
                 onClick={toggleMicrophone}
                 type="button"
                 variant={micEnabled ? "default" : "outline"}
@@ -777,7 +788,7 @@ export function LiveSessionConsole({
               </Button>
               <Button
                 aria-pressed={cameraEnabled}
-                disabled={connecting}
+                disabled={connecting || userMediaUnavailable}
                 onClick={toggleCamera}
                 type="button"
                 variant={cameraEnabled ? "default" : "outline"}
@@ -786,9 +797,12 @@ export function LiveSessionConsole({
                 {isArabic ? "كاميرا" : "Camera"}
               </Button>
               <Button
+                aria-describedby={notice ? "live-media-support" : undefined}
                 aria-pressed={screenEnabled}
-                disabled={connecting}
+                data-testid="live-screen-button"
+                disabled={connecting || screenUnavailable}
                 onClick={toggleScreenShare}
+                title={screenUnavailable && notice ? notice : undefined}
                 type="button"
                 variant={screenEnabled ? "default" : "outline"}
               >
@@ -796,6 +810,17 @@ export function LiveSessionConsole({
                 {isArabic ? "شاشة" : "Screen"}
               </Button>
             </div>
+
+            {notice && (
+              <p
+                className="text-muted-foreground text-xs"
+                data-testid="live-media-support"
+                id="live-media-support"
+                role="status"
+              >
+                {notice}
+              </p>
+            )}
 
             {actionError && (
               <p className="text-destructive text-xs" role="alert">
