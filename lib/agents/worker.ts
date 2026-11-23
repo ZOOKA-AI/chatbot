@@ -9,7 +9,7 @@ import {
   startExecution,
 } from "@/lib/agents/command-center";
 import { agentAllowsTool } from "@/lib/agents/agent-tools";
-import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
+import { githubRepoInspect, githubRepoProbe } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
 import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
 import { studioPromoVideo } from "@/lib/agents/worker-tools/studio-promo";
@@ -70,6 +70,7 @@ import {
 
 export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
+  [githubRepoProbe.name]: githubRepoProbe,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
   [loadSkill.name]: loadSkill,

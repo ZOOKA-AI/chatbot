@@ -260,6 +260,16 @@ export async function runScheduler(overrides: Partial<SchedulerConfig> = {}): Pr
           continue;
         }
         const tool = toolForTask(task, config);
+        if (tool === "github_repo_inspect" && task.payload?.secretName !== undefined) {
+          outcomes.push({
+            taskId: task.id,
+            organizationId: task.organizationId,
+            status: "rejected",
+            tool,
+            error: "named_secret_not_supported",
+          });
+          continue;
+        }
         const outcome = await withCommanderScope(task.organizationId, () =>
           runTask(agent as never, {
             taskId: task.id,
