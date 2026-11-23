@@ -59,16 +59,22 @@ export async function getWorkspaceEntitlements(
   // block them.
   const launchOpen = isLaunchProgramOpen();
   const ownerTestingOn = ownerTestingEmails().size > 0;
+  // Every path below needs the billing row, so it is read alongside the grant
+  // checks instead of after them (up to four sequential round trips before).
+  const billingRead = getWorkspaceBilling(organizationId);
+  billingRead.catch(() => undefined);
   if (launchOpen || ownerTestingOn) {
     const ownerId = await getWorkspaceOwnerId(organizationId).catch(() => null);
-    const ownerEmail =
+    const [ownerEmail, launchSlot] = await Promise.all([
       ownerTestingOn && ownerId
-        ? await getUserEmailById(ownerId).catch(() => null)
-        : null;
+        ? getUserEmailById(ownerId).catch(() => null)
+        : Promise.resolve(null),
+      launchOpen ? hasLaunchSlot(ownerId) : Promise.resolve(false),
+    ]);
     const ownerTesting = isOwnerTestingEmail(ownerEmail);
-    if (ownerTesting || (launchOpen && (await hasLaunchSlot(ownerId)))) {
+    if (ownerTesting || (launchOpen && launchSlot)) {
       const launchPlan = workspacePlans.business;
-      const used = await getWorkspaceBilling(organizationId)
+      const used = await billingRead
         .then((b) => b?.usage.agentRuns ?? 0)
         .catch(() => 0);
       return {
@@ -83,7 +89,7 @@ export async function getWorkspaceEntitlements(
     }
   }
 
-  const billing = await getWorkspaceBilling(organizationId);
+  const billing = await billingRead;
   const subscription = billing?.subscription;
   const isPaid =
     !!subscription &&
