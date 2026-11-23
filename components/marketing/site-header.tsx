@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 import { CTA } from "@/lib/marketing/cta";
 
 type Lang = "ar" | "en";
@@ -65,7 +66,10 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         {
           label: t("التكاملات", "Integrations"),
           href: "/#integrations",
-          hint: t("26 تكاملًا في الكتالوج", "26 integrations in the catalog"),
+          hint: t(
+            `${INTEGRATION_PROVIDERS.length} تكاملًا في الكتالوج`,
+            `${INTEGRATION_PROVIDERS.length} integrations in the catalog`,
+          ),
         },
       ],
     },
