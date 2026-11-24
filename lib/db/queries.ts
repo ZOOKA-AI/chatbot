@@ -681,6 +681,29 @@ export async function tryClaimGuestUsage(key: string, limit: number) {
   return typeof claimed === "number" ? claimed : null;
 }
 
+export async function tryClaimDemoMinute(key: string, limit: number) {
+  const rows = (await adminDb().execute(sql`
+    INSERT INTO "GuestUsage" ("key", "count", "updatedAt")
+    VALUES (${key}, 1, now())
+    ON CONFLICT ("key") DO UPDATE SET
+      "count" = CASE WHEN "GuestUsage"."updatedAt" <= now() - interval '60 seconds'
+        THEN 1 ELSE "GuestUsage"."count" + 1 END,
+      "updatedAt" = CASE WHEN "GuestUsage"."updatedAt" <= now() - interval '60 seconds'
+        THEN now() ELSE "GuestUsage"."updatedAt" END
+    WHERE "GuestUsage"."updatedAt" <= now() - interval '60 seconds'
+      OR "GuestUsage"."count" < ${limit}
+    RETURNING "count"
+  `)) as unknown as { count?: number }[];
+  return typeof rows?.[0]?.count === "number";
+}
+
+export async function pruneDemoMinuteLimits() {
+  const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  await adminDb()
+    .delete(guestUsage)
+    .where(and(like(guestUsage.key, "demo-minute:%"), lt(guestUsage.updatedAt, cutoff)));
+}
+
 /* Hand a claimed unit back, e.g. when the reply failed before its first token. */
 export async function releaseGuestUsage(key: string) {
   try {

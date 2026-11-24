@@ -143,9 +143,13 @@ export function DemoChat({ lang }: { lang: Lang }) {
         const response = await fetch(input, init);
         if (!response.ok) {
           const body = (await response.clone().json().catch(() => null)) as
-            | { code?: string; message?: string }
+            | { code?: string; message?: string; retryAfter?: number }
             | null;
-          const failure = new Error(body?.message ?? "offline:chat");
+          const failure = new Error(
+            body?.code === "demo_busy" && typeof body.retryAfter === "number"
+              ? `demo_busy:${body.retryAfter}`
+              : body?.message ?? "offline:chat"
+          );
           failure.name = body?.code ?? "offline:chat";
           throw failure;
         }
@@ -168,6 +172,17 @@ export function DemoChat({ lang }: { lang: Lang }) {
     onError: (error) => {
       quota.reload();
       const code = String((error as Error | undefined)?.name ?? "offline:chat");
+      const busyMatch = /^demo_busy:(\d{1,15})(?::|$)/.exec(error.message);
+      if (busyMatch) {
+        const seconds = Number(busyMatch[1]);
+        setErrorText(
+          t(
+            `الخدمة مشغولة الآن. حاول مرة أخرى بعد ${seconds} ثانية.`,
+            `The service is busy. Please try again in ${seconds} seconds.`
+          )
+        );
+        return;
+      }
       if (code === "payment_required:chat" || code === "rate_limit:chat") {
         setLimitHit(true);
         track("demo_limit_hit");

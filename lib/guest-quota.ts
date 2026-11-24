@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { ipAddress } from "@vercel/functions";
 import { cookies } from "next/headers";
 import { PLANS } from "@/lib/billing/entitlements";
-import { releaseGuestUsage, tryClaimGuestUsage } from "@/lib/db/queries";
+import { pruneDemoMinuteLimits, releaseGuestUsage, tryClaimDemoMinute, tryClaimGuestUsage } from "@/lib/db/queries";
 import { GUEST_COOKIE, guestDayKey } from "@/lib/guest";
 
 /**
@@ -77,4 +77,21 @@ export async function releaseGuestHold(id: string) {
   for (const key of id.split("|").filter(Boolean)) {
     await releaseGuestUsage(key);
   }
+}
+
+export async function checkDemoMinuteLimit(id: string) {
+  if (Math.random() < 0.01) {
+    await pruneDemoMinuteLimits().catch(() => undefined);
+  }
+  for (const key of id.split("|")) {
+    const identity = key.slice(0, key.lastIndexOf(":"));
+    const limit = identity.startsWith("ip:") ? 4 : 2;
+    if (!(await tryClaimDemoMinute(`demo-minute:${identity}`, limit))) {
+      return false;
+    }
+  }
+  if (!id.includes("|")) {
+    return tryClaimDemoMinute("demo-minute:no-ip", 4);
+  }
+  return true;
 }
