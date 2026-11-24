@@ -144,7 +144,9 @@ export const SOCIAL_ACCOUNTS: SocialAccount[] = [
     handle: "g.dev/zooka-ai",
     category: "developer",
     status: "pending",
-    note: "الملف قيد التجهيز للنشر العام.",
+    // The profile is set to public on Google, but Google shows visitors without a Google
+    // session a sign-in page, so it does not resolve publicly and keeps no link here.
+    note: "الملف علني على Google، لكن عرضه يتطلب تسجيل الدخول بحساب Google.",
     path: "M21.3 10.9c0-.6-.1-1.1-.2-1.6H12v3.1h5.2c-.2 1.2-1 2.2-2.1 2.9v2.4h3.4c2-1.8 3.1-4.5 3.1-7.7ZM12 22c2.7 0 4.9-.9 6.5-2.4l-3.4-2.4c-.9.6-2 1-3.1 1-2.4 0-4.5-1.6-5.2-3.8H3.3v2.5C4.9 20 8.2 22 12 22ZM6.8 14.4c-.2-.6-.3-1.2-.3-1.9s.1-1.3.3-1.9V8.1H3.3A10 10 0 0 0 2.3 12.5c0 1.6.4 3 1 4.4l3.5-2.5ZM12 5.9c1.3 0 2.5.5 3.4 1.3l2.6-2.6C16.4 3 14.3 2 12 2 8.2 2 4.9 4 3.3 7.1l3.5 2.5C7.5 7.4 9.6 5.9 12 5.9Z",
   },
   {
@@ -161,9 +163,10 @@ export const SOCIAL_ACCOUNTS: SocialAccount[] = [
     label: "Reddit",
     handle: "u/Simple-Suggestion-26",
     category: "community",
-    // Owner has not confirmed this account yet; keep it off the live rows.
+    // Ownership is confirmed (the account is ours and named ZOOKA-AI). It stays off the live
+    // rows until the profile is complete: the bio is being fixed and nothing is posted yet.
     status: "pending",
-    note: "بانتظار تأكيد ملكية الحساب.",
+    note: "الحساب تابع لنا، ويُفعَّل رابطه بعد اكتمال الملف ونشر أول محتوى.",
     path: "M22 12.2a2.2 2.2 0 0 0-3.7-1.6 10.9 10.9 0 0 0-5.7-1.8l1.2-3.7 3.2.8a1.6 1.6 0 1 0 .2-1.3l-3.8-.9c-.2 0-.4.1-.4.3l-1.4 4.5a10.9 10.9 0 0 0-5.9 1.8 2.2 2.2 0 1 0-2.4 3.6c0 .3-.1.6-.1.9 0 3.1 3.6 5.7 8 5.7s8-2.6 8-5.7c0-.3 0-.6-.1-.9A2.2 2.2 0 0 0 22 12.2ZM8 13.4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6.9 3.8c-.9.9-2.3 1.3-3.7 1.3s-2.8-.4-3.7-1.3c-.1-.2-.1-.4.1-.5.2-.1.4-.1.5.1.7.7 1.9 1 3.1 1s2.4-.3 3.1-1c.2-.2.4-.2.5-.1.2.1.2.3.1.5Zm-.4-2.3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z",
   },
   {

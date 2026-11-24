@@ -95,6 +95,37 @@ describe("workspace readiness report", () => {
     assert.deepEqual((result.evidence as { tasks: Record<string, number> }).tasks, { completed: 1, pending: 1 });
   });
 
+  test("says when nothing would run the queue without a human", async () => {
+    const db = await seed();
+    const previous = process.env.SCHEDULER_TOKEN;
+    delete process.env.SCHEDULER_TOKEN;
+    try {
+      const closed = await run(db, A, { label: "Monday report" });
+      assert.equal(closed.ok, true);
+      if (!closed.ok) return;
+      // A closed scheduler endpoint plus no active schedule is the difference between "queued"
+      // and "will run", and the report has to say it in those words.
+      assert.match(closed.summary, /only on a manual run/, closed.summary);
+      assert.match(closed.summary, /scheduler endpoint is closed/);
+      const autonomy = (closed.evidence as { autonomy: { schedulerConfigured: boolean; trigger: string } }).autonomy;
+      assert.equal(autonomy.schedulerConfigured, false);
+      assert.equal(autonomy.trigger, "manual");
+
+      process.env.SCHEDULER_TOKEN = "test-token";
+      const open = await run(db, A, { label: "Monday report" });
+      assert.equal(open.ok, true);
+      if (!open.ok) return;
+      assert.doesNotMatch(open.summary, /scheduler endpoint is closed/);
+      assert.match(open.summary, /no schedule is active/);
+      const openAutonomy = (open.evidence as { autonomy: { schedulerConfigured: boolean; trigger: string } }).autonomy;
+      assert.equal(openAutonomy.schedulerConfigured, true);
+      assert.equal(openAutonomy.trigger, "manual", "an open endpoint without a schedule is still a manual run");
+    } finally {
+      if (previous === undefined) delete process.env.SCHEDULER_TOKEN;
+      else process.env.SCHEDULER_TOKEN = previous;
+    }
+  });
+
   test("a run with no rows reports zero rather than failing", async () => {
     const db = await seed();
     const result = await run(db, "cccccccc-cccc-4ccc-8ccc-cccccccccccc", { label: "Empty workspace" });
