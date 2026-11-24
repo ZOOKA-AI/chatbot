@@ -33,6 +33,7 @@ const SCOPE_MARKERS = [
   "withTenantPage",
   "withRequestTenantAction",
   "withCommanderTenant",
+  "withCommanderScope",
   "withRequestTenant(",
 ];
 

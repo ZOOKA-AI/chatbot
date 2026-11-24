@@ -16,11 +16,13 @@ export function SocialSignInButtons({
   google = false,
   facebook = false,
   microsoft = false,
+  callbackUrl = "/",
 }: {
   lang: Lang;
   google?: boolean;
   facebook?: boolean;
   microsoft?: boolean;
+  callbackUrl?: string;
 }) {
   if (!google && !facebook && !microsoft) {
     return null;
@@ -31,7 +33,7 @@ export function SocialSignInButtons({
       {google ? (
         <button
           className={buttonClass}
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { callbackUrl })}
           type="button"
         >
           <svg aria-hidden="true" height="18" viewBox="0 0 48 48" width="18">
@@ -59,7 +61,7 @@ export function SocialSignInButtons({
       {facebook ? (
         <button
           className={buttonClass}
-          onClick={() => signIn("facebook", { callbackUrl: "/" })}
+          onClick={() => signIn("facebook", { callbackUrl })}
           type="button"
         >
           <svg aria-hidden="true" height="18" viewBox="0 0 24 24" width="18">
@@ -75,7 +77,7 @@ export function SocialSignInButtons({
       {microsoft ? (
         <button
           className={buttonClass}
-          onClick={() => signIn("microsoft-entra-id", { callbackUrl: "/" })}
+          onClick={() => signIn("microsoft-entra-id", { callbackUrl })}
           type="button"
         >
           <svg aria-hidden="true" height="18" viewBox="0 0 23 23" width="18">

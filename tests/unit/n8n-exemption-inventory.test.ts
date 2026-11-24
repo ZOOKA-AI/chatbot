@@ -45,6 +45,7 @@ const MACHINE_OR_PUBLIC = new Set([
   "/api/projects", // session checked in the handler
   "/api/publish", // workspace bearer key
   "/api/stripe/webhook", // Stripe signature
+  "/api/templates/", // GET is a public sanitized preview; POST requires a signed-in workspace
   "/api/webhooks", // provider signature per route
 ]);
 
@@ -64,7 +65,12 @@ function routePaths(dir = "app/api", acc: string[] = []): string[] {
 
 function covered(pathname: string): boolean {
   for (const exempt of MACHINE_OR_PUBLIC) {
-    if (pathname === exempt || pathname.startsWith(`${exempt}/`)) return true;
+    const matches = exempt.endsWith("/")
+      ? pathname.startsWith(exempt)
+      : pathname === exempt || pathname.startsWith(`${exempt}/`);
+    if (matches) {
+      return true;
+    }
   }
   return false;
 }
@@ -97,7 +103,7 @@ test("no API route outside the documented list is reachable without a session", 
 test("the documented list has no entry that no longer exists", () => {
   const paths = new Set(routePaths());
   const stale = [...MACHINE_OR_PUBLIC].filter((exempt) => {
-    if (exempt === "/api/auth" || exempt === "/api/webhooks" || exempt === "/api/blog") {
+    if (exempt.endsWith("/") || exempt === "/api/auth" || exempt === "/api/webhooks" || exempt === "/api/blog") {
       return ![...paths].some((pathname) => pathname.startsWith(exempt));
     }
     return !paths.has(exempt);

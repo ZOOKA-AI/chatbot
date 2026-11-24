@@ -27,6 +27,7 @@ export type MaterialiseResult = {
 export type ScheduleRecord = {
   id: string;
   organizationId: string;
+  agentId?: string | null;
   title: string;
   instruction: string;
   tool: string;
@@ -102,11 +103,13 @@ export async function materialiseDueSchedules(input: {
         organizationId: schedule.organizationId,
         title: schedule.title,
         instruction: schedule.instruction,
+        ownerAgentId: schedule.agentId ?? null,
         status: "pending",
         approvalRequired: false,
         createdBy: schedule.createdBy ?? "scheduler",
         scheduleId: schedule.id,
         scheduledFor: slot,
+        payload: { tool: schedule.tool },
       })
       .onConflictDoNothing({ target: [agentTask.scheduleId, agentTask.scheduledFor] })
       .returning({ id: agentTask.id });

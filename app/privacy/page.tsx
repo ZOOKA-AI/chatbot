@@ -145,7 +145,7 @@ async function PrivacyContent() {
             </p>
 
             <h2 className="font-semibold text-lg">التواصل</h2>
-            <p>أسئلة حول هذه السياسة: zookaalmrzwq@gmail.com</p>
+            <p>أسئلة حول هذه السياسة: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         ) : (
           <>
@@ -249,7 +249,7 @@ async function PrivacyContent() {
             </p>
 
             <h2 className="font-semibold text-lg">Contact</h2>
-            <p>Questions about this policy: zookaalmrzwq@gmail.com</p>
+            <p>Questions about this policy: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         )}
       </section>

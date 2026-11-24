@@ -293,7 +293,7 @@ the Stripe Dashboard (Settings → Billing → Customer portal) before launch.
 
 ### Guest paywall
 
-When `GUEST_PAYWALL_ENABLED=true`, visitors who are not signed in may send 3 free messages. The count is tracked in
+When `GUEST_PAYWALL_ENABLED=true`, visitors who are not signed in may send the `GUEST_FREE_MESSAGES` allowance (`lib/copy.ts`, currently 10) before the paywall appears. The count is tracked in
 `localStorage` for the UI and enforced by `POST /api/chat`, which stores
 counters in the `GuestUsage` table keyed by an HTTP-only `zooka_guest` cookie
 and by a hashed IP address per day. Further messages receive HTTP `402` and the

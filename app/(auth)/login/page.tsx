@@ -19,6 +19,7 @@ export default function Page({
   searchParams: Promise<{
     error?: string | string[];
     registered?: string | string[];
+    callbackUrl?: string | string[];
   }>;
 }) {
   return (
@@ -34,16 +35,25 @@ async function LoginPage({
   searchParams: Promise<{
     error?: string | string[];
     registered?: string | string[];
+    callbackUrl?: string | string[];
   }>;
 }) {
   const lang = await getLang();
-  const { error, registered } = await searchParams;
+  const { error, registered, callbackUrl } = await searchParams;
+  const returnTo =
+    typeof callbackUrl === "string" &&
+    callbackUrl.startsWith("/") &&
+    !callbackUrl.startsWith("//") &&
+    !callbackUrl.startsWith("/\\")
+      ? callbackUrl
+      : "/workspace/home";
   return (
     <LoginClient
       facebookEnabled={facebookLoginEnabled}
       googleEnabled={googleLoginEnabled}
       hasAuthError={Boolean(error)}
       justRegistered={Boolean(registered)}
+      callbackUrl={returnTo}
       lang={lang}
       microsoftEnabled={microsoftLoginEnabled}
       phoneEnabled={phoneLoginEnabled}

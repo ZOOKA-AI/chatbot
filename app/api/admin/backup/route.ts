@@ -16,6 +16,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import postgres from "postgres";
+import { redactRow } from "@/lib/admin/backup";
 import { verifySharedSecret } from "@/lib/webhooks/security";
 
 /**
@@ -53,7 +54,7 @@ type Queryable = { unsafe: (query: string) => Promise<readonly unknown[]> };
  * means a table is covered as soon as its migration has run. The legacy tables
  * stay first, in their original order; the rest follow alphabetically.
  */
-export async function listBackupTables(client: Queryable): Promise<string[]> {
+async function listBackupTables(client: Queryable): Promise<string[]> {
   const rows = await client.unsafe(
     "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
   );
@@ -74,16 +75,6 @@ const NO_STORE = {
  * Password hashes, session tokens and API keys are removed by column name, so a
  * future secret column is covered without editing this pattern.
  */
-const SENSITIVE_COLUMN = /(password|passwd|hash|salt|secret|token|api[-_]?key)/i;
-
-export function redactRow(row: Record<string, unknown>): Record<string, unknown> {
-  const clean: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    clean[key] = SENSITIVE_COLUMN.test(key) ? "[redacted]" : value;
-  }
-  return clean;
-}
-
 /**
  * One line per refused request. The token is never logged, not even truncated:
  * a prefix plus a timestamp is still a guessing aid. The request id is echoed to
