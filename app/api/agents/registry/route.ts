@@ -21,6 +21,7 @@ import {
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { toolCatalog } from "@/lib/agents/agent-tools";
 import { SELECTABLE_MODEL_PROVIDERS, modelCredentialStatus } from "@/lib/agents/agent-config";
+import { isUniqueViolation } from "@/lib/db/errors";
 
 async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
@@ -33,7 +34,7 @@ async function GETHandler(request: Request) {
   // Both come from the server: a tool the worker does not implement, or a provider with no
   // credential, must not appear as a choice the customer can make and then fail at.
   return json({
-    agents,
+    agents: agents.map((agent) => ({ ...agent, spendWithoutApproval: false })),
     tools: toolCatalog(),
     providers: SELECTABLE_MODEL_PROVIDERS.map((provider) => ({
       id: provider,
@@ -76,7 +77,7 @@ async function POSTHandler(request: Request) {
     organizationId: callerOrganizationId(caller), slug, displayName, role, scopes, environment });
     return json({ ...created, warning: "store_this_key_now_it_is_never_returned_again" }, 201);
   } catch (error) {
-    if (error instanceof Error && /duplicate key/.test(error.message)) {
+    if (isUniqueViolation(error)) {
       return badRequest("slug_already_registered");
     }
     throw error;
@@ -105,6 +106,9 @@ async function PATCHHandler(request: Request) {
         status: z.string().optional(),
         environment: z.string().optional(),
         scopes: z.array(z.string()).optional(),
+        updateWithoutApproval: z.boolean().optional(),
+        deleteWithoutApproval: z.boolean().optional(),
+        sendMessagesWithoutApproval: z.boolean().optional(),
         // The agent console sends this alongside the other fields it edits. Without
         // it here the strict schema refused the whole save, so no agent could ever
         // be given a tool and no task could ever be planned against one.

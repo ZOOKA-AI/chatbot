@@ -8,13 +8,13 @@ import { SITE_NAME, SITE_URL } from "@/lib/site";
 export const metadata: Metadata = {
   title: "المدونة | Blog",
   description:
-    "مقالات Zooka AI عن تشغيل الأعمال بالذكاء الاصطناعي: ربط البريد وجوجل درايف وجيت هب وأتمتة المهام اليومية. Zooka AI blog on running a business with AI agents.",
+    "مقالات ZOOKA-AI عن تشغيل الأعمال بالذكاء الاصطناعي: ربط البريد وجوجل درايف وجيت هب وأتمتة المهام اليومية. ZOOKA-AI blog on running a business with AI agents.",
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
     type: "website",
     url: `${SITE_URL}/blog`,
     title: `المدونة | ${SITE_NAME}`,
-    description: "مقالات عن أتمتة الأعمال بالذكاء الاصطناعي مع Zooka AI.",
+    description: "مقالات عن أتمتة الأعمال بالذكاء الاصطناعي مع ZOOKA-AI.",
   },
 };
 

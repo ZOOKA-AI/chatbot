@@ -17,7 +17,10 @@ const source = readFileSync("app/(chat)/api/chat/route.ts", "utf8");
 describe("chat finish callback", () => {
   it("opens a tenant transaction instead of reusing the request handle", () => {
     const finish = source.slice(source.indexOf("onFinish:"));
-    expect(finish).toContain("runInTenantTransaction(");
+    // runAfterResponseInTenant opens runInTenantTransaction when the tenant flag
+    // is on, and runs on the shared connection when it is off (production today,
+    // where DATABASE_URL_TENANT is deliberately absent).
+    expect(finish).toContain("runAfterResponseInTenant(");
     expect(finish).toContain("workspaceContext.organizationId");
   });
 

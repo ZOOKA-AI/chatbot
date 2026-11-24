@@ -437,19 +437,125 @@ export function StudioConsole() {
         </section>
       )}
 
-      {tab === "ai" && (
-        <section className="flex flex-col gap-2 rounded border border-white/10 p-3 text-xs">
-          <h2 className="text-xs font-semibold opacity-70">توليد الصور بالذكاء الاصطناعي</h2>
-          <p className="opacity-80">
-            مسار التوليد موجود في المنصة لكنه يحتاج مزوّدًا مربوطًا (مفتاح نموذج صور أو عنوان محرك وسائط).
-            غير مربوط الآن، لذلك لا يُعرض هنا زر يولّد صورة، لأن ذلك سيكون ادعاءً.
-          </p>
-          <p className="opacity-60">
-            ما يعمل اليوم بلا أي مزوّد: الرفع، القياس، القص، التغيير الحجم، طباعة النص، تركيب الشعار، وإنتاج
-            MP4 حقيقي.
-          </p>
-        </section>
-      )}
+      {tab === "ai" && <AiImagePanel onCreated={load} />}
     </div>
+  );
+}
+
+type ProviderRow = {
+  provider: string;
+  kind: string;
+  ready: boolean;
+  capabilities: string[];
+  detail: string | null;
+  blocked?: string;
+};
+
+const PROVIDER_LABELS: Record<string, string> = {
+  "cloudflare-workers-ai": "Cloudflare Workers AI (FLUX.1 schnell) — مجاني يوميًا",
+  "ovhcloud-sdxl": "OVHcloud (Stable Diffusion XL) — مجاني",
+  comfyui: "ComfyUI على خادمك",
+  "runcomfy-cloud": "RunComfy — مدفوع بموافقة",
+  "fal-cloud": "fal — مدفوع بموافقة",
+  "local-ffmpeg": "المحرر المحلي (تعديل فقط)",
+};
+
+const GENERATE_ERRORS: Record<string, string> = {
+  daily_image_limit: "وصلت مساحة العمل إلى حد الصور اليومي. يتجدد منتصف الليل بتوقيت UTC.",
+  no_provider_ready: "لا يوجد مزوّد توليد مُفعّل الآن.",
+  no_engine_for_generation: "لا يوجد مزوّد توليد مُفعّل الآن.",
+  free_allowance_exhausted: "نفدت حصة المزوّد المجانية لليوم. حاول بعد منتصف الليل بتوقيت UTC.",
+  credential_rejected: "مفتاح المزوّد مرفوض. يحتاج مالك المنصة إلى تحديثه.",
+  timeout: "استغرق المزوّد وقتًا أطول من المسموح. حاول مرة أخرى.",
+};
+
+/**
+ * Prompt-to-image, shown only with the providers' real state: a ready free tier gets a button, and
+ * anything else shows the exact blocker instead of a button that would fail.
+ */
+function AiImagePanel({ onCreated }: { onCreated: () => Promise<void> }) {
+  const [providers, setProviders] = useState<ProviderRow[] | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const response = await fetch("/api/studio/providers");
+      const data = (await response.json().catch(() => ({}))) as { providers?: ProviderRow[] };
+      setProviders(response.ok ? (data.providers ?? []) : []);
+    })();
+  }, []);
+
+  const generators = (providers ?? []).filter(
+    (row) => row.capabilities.includes("image") && row.provider !== "local-ffmpeg"
+  );
+  const anyFreeReady = generators.some((row) => row.ready && (row.kind === "free_api" || row.kind === "self_hosted"));
+
+  const generate = async () => {
+    setBusy(true);
+    setNotice(null);
+    setPreview(null);
+    const { ok, data } = await post<{ preview?: string | null; provider?: string; seconds?: number; error?: string }>(
+      "/api/studio/generate",
+      { prompt, capability: "image" }
+    );
+    setBusy(false);
+    if (!ok) {
+      setNotice(`تعذّر التوليد: ${GENERATE_ERRORS[data.error ?? ""] ?? data.error ?? "سبب غير معروف"}`);
+      return;
+    }
+    setPreview(data.preview ?? null);
+    setNotice(`وُلّدت الصورة عبر ${PROVIDER_LABELS[data.provider ?? ""] ?? data.provider} في ${data.seconds ?? "?"} ث، وحُفظت في المكتبة.`);
+    await onCreated();
+  };
+
+  return (
+    <section className="flex flex-col gap-3 rounded border border-white/10 p-3 text-xs" data-testid="studio-ai-panel">
+      <h2 className="text-xs font-semibold opacity-70">توليد الصور بالذكاء الاصطناعي</h2>
+      {providers === null ? (
+        <p className="opacity-60">جارٍ فحص المزوّدين…</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {generators.map((row) => (
+            <li className="flex items-center gap-2" key={row.provider}>
+              <span className={row.ready ? "text-emerald-400" : "opacity-50"}>{row.ready ? "●" : "○"}</span>
+              <span>{PROVIDER_LABELS[row.provider] ?? row.provider}</span>
+              <span className="opacity-50">{row.ready ? "جاهز" : `غير مُفعّل (${row.blocked ?? "?"})`}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {anyFreeReady ? (
+        <>
+          <textarea
+            className="min-h-20 rounded border border-white/10 bg-transparent p-2"
+            dir="auto"
+            maxLength={2000}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder="صف الصورة: الموضوع، الأسلوب، الألوان. الوصف بالإنجليزية يعطي نتيجة أدق."
+            value={prompt}
+          />
+          <button
+            className="self-start rounded bg-white/10 px-3 py-1 disabled:opacity-40"
+            disabled={busy || prompt.trim().length < 4}
+            onClick={() => void generate()}
+            type="button"
+          >
+            {busy ? "جارٍ التوليد…" : "ولّد صورة"}
+          </button>
+        </>
+      ) : providers !== null ? (
+        <p className="opacity-80">
+          لا يوجد مزوّد توليد مجاني مُفعّل بعد. يحتاج مالك المنصة إلى إضافة مفتاح Cloudflare Workers AI أو OVHcloud.
+        </p>
+      ) : null}
+      {notice ? <p className="opacity-80">{notice}</p> : null}
+      {preview ? (
+        // biome-ignore lint/performance/noImgElement: data URL preview of a just-generated file
+        <img alt="الصورة المولّدة" className="max-w-sm rounded border border-white/10" src={preview} />
+      ) : null}
+    </section>
   );
 }

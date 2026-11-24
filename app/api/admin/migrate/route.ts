@@ -2,9 +2,32 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/queries";
+import { TIKTOK_DDL } from "@/lib/integrations/tiktok/ddl";
+import { TIKTOK_QUEUE_DDL } from "@/lib/integrations/tiktok/queue-ddl";
+import { PLATFORM_ROLES_DDL } from "@/lib/platform/ddl";
+import { PLATFORM_OWNER_BOOTSTRAP_DDL } from "@/lib/platform/bootstrap-owner-ddl";
 import { MAIL_DDL } from "@/lib/mail/ddl";
+import { SIGNUP_ATTRIBUTION_DDL } from "@/lib/growth/ddl";
 
 const TABLES: Record<string, string[]> = {
+  // Platform administration (migration 0063). Without this entry the tables that
+  // decide who may open /admin were never created by the only migration path
+  // production has, so every platform administrator was refused.
+  platform_roles_0063: PLATFORM_ROLES_DDL,
+  // First platform administrator (migration 0066). Runs after 0063 so the grant
+  // table exists. One-shot by construction: it inserts only while no super_admin
+  // is present, so a later revoke is not silently undone by a migration re-run.
+  bootstrap_platform_owner_0066: PLATFORM_OWNER_BOOTSTRAP_DDL,
+  // TikTok per-creator integration (migration 0063). Same statements as
+  // lib/db/migrations/pending/0064_tiktok_integration.sql; a unit test keeps
+  // them equal. Two tables only, both owner-scoped by (organizationId, userId).
+  tiktok_integration_0064: TIKTOK_DDL,
+  // TikTok publishing queue (migration 0065). Object.entries preserves this
+  // order, so it is registered after 0064 and the numbers read in sequence.
+  // The queue's foreign keys point at Organization, User and its own event
+  // table, none of which 0064 creates, so the order is a matter of clarity
+  // rather than of dependency.
+  tiktok_publish_jobs_0065: TIKTOK_QUEUE_DDL,
   // ZOOKA Mail (migration 0060). Same statements as
   // lib/db/migrations/pending/0060_zooka_mail.sql; a unit test keeps them equal.
   zooka_mail_0060: MAIL_DDL,
@@ -125,7 +148,7 @@ END $$`,
     'CREATE INDEX IF NOT EXISTS "MediaJob_organizationId_createdAt_idx" ON "MediaJob" ("organizationId", "createdAt")',
   ],
   BlogPost: [
-    'CREATE TABLE IF NOT EXISTS "BlogPost" ("slug" text PRIMARY KEY NOT NULL, "lang" varchar(8) DEFAULT \'en\' NOT NULL, "title" text NOT NULL, "excerpt" text, "body" text NOT NULL, "keyword" text, "status" varchar(16) DEFAULT \'draft\' NOT NULL, "author" text DEFAULT \'Zooka AI\' NOT NULL, "published_at" timestamp, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS "BlogPost" ("slug" text PRIMARY KEY NOT NULL, "lang" varchar(8) DEFAULT \'en\' NOT NULL, "title" text NOT NULL, "excerpt" text, "body" text NOT NULL, "keyword" text, "status" varchar(16) DEFAULT \'draft\' NOT NULL, "author" text DEFAULT \'ZOOKA-AI\' NOT NULL, "published_at" timestamp, "created_at" timestamp DEFAULT now() NOT NULL, "updated_at" timestamp DEFAULT now() NOT NULL)',
     'CREATE INDEX IF NOT EXISTS "BlogPost_status_published_at_idx" ON "BlogPost" USING btree ("status", "published_at")',
     'ALTER TABLE "BlogPost" ENABLE ROW LEVEL SECURITY',
   ],
@@ -271,7 +294,11 @@ $$;`,
     `REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated`,
     `DO $$ DECLARE r record; BEGIN FOR r IN SELECT c.relname AS v FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'v' LOOP EXECUTE format('ALTER VIEW public.%I SET (security_invoker = true)', r.v); END LOOP; END $$`,
   ],
+  // 0067_signup_attribution; the reviewed statements live in lib/growth/ddl.ts
+  // and a unit test keeps them equal to the .sql file.
+  signup_attribution_0067: [...SIGNUP_ATTRIBUTION_DDL],
 };
+
 
 export async function POST(request: Request) {
   const expected = process.env.MIGRATION_TOKEN;

@@ -2,8 +2,10 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
+import { Response } from "@/components/elements/response";
 
-type Turn = { role: "user" | "assistant"; content: string };
+type Source = { title: string; url: string };
+type Turn = { role: "user" | "assistant"; content: string; sources?: Source[] };
 
 type Props = {
   plan: string;
@@ -42,6 +44,7 @@ export function AgentConsole({ plan, used, limit }: Props) {
 
       const data = (await response.json().catch(() => ({}))) as {
         reply?: string;
+        sources?: Source[];
         error?: string;
         used?: number;
         limit?: number;
@@ -65,7 +68,14 @@ export function AgentConsole({ plan, used, limit }: Props) {
         return;
       }
 
-      setTurns((prev) => [...prev, { role: "assistant", content: data.reply as string }]);
+      setTurns((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.reply as string,
+          sources: Array.isArray(data.sources) ? data.sources.slice(0, 5) : [],
+        },
+      ]);
       if (typeof data.used === "number") {
         setUsedNow(data.used);
       }
@@ -103,18 +113,41 @@ export function AgentConsole({ plan, used, limit }: Props) {
             منافس في الشارقة».
           </p>
         ) : null}
-        {turns.map((turn, index) => (
-          <div
-            className={
-              turn.role === "user"
-                ? "ms-auto max-w-[85%] whitespace-pre-wrap rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground"
-                : "me-auto max-w-[85%] whitespace-pre-wrap rounded-xl border bg-card px-3 py-2 text-sm"
-            }
-            key={`${turn.role}-${index}`}
-          >
-            {turn.content}
-          </div>
-        ))}
+        {turns.map((turn, index) =>
+          turn.role === "user" ? (
+            <div
+              className="ms-auto max-w-[85%] whitespace-pre-wrap rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground"
+              key={`${turn.role}-${index}`}
+            >
+              {turn.content}
+            </div>
+          ) : (
+            <div
+              className="me-auto max-w-[85%] rounded-xl border bg-card px-3 py-2 text-sm"
+              data-testid="agent-reply"
+              key={`${turn.role}-${index}`}
+            >
+              <Response>{turn.content}</Response>
+              {turn.sources && turn.sources.length > 0 ? (
+                <ol className="mt-2 flex flex-col gap-1 border-t pt-2 text-xs text-muted-foreground">
+                  {turn.sources.map((source, sourceIndex) => (
+                    <li key={source.url}>
+                      [{sourceIndex + 1}]{" "}
+                      <a
+                        className="underline hover:text-foreground"
+                        href={source.url}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        {source.title || source.url}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </div>
+          )
+        )}
         {pending ? (
           <p className="me-auto rounded-xl border bg-card px-3 py-2 text-sm text-muted-foreground">
             الوكيل يعمل…

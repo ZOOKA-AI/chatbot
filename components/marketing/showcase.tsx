@@ -10,7 +10,7 @@ function posters(lang: Lang): Poster[] {
   return [
     {
       src: "/images/posters/poster-1.jpg",
-      tag: ar ? "ZOOKA AI" : "ZOOKA AI",
+      tag: ar ? "ZOOKA-AI" : "ZOOKA-AI",
       title: t("وكيل أعمالك الذكي", "Your business agent"),
       body: t(
         "يربط أدواتك وينفّذ المهمة حتى النهاية — لا مجرد محادثة.",
@@ -189,7 +189,7 @@ export function VideoSection({ lang }: { lang: Lang }) {
           </Link>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              className="rounded-lg bg-foreground px-5 py-2.5 font-medium text-background text-sm"
+              className="zk-btn-primary px-5 text-sm"
               href="/register"
             >
               {ar ? "أنشئ مساحة عملك" : "Create your workspace"}
@@ -259,7 +259,7 @@ export function HowItWorks({ lang }: { lang: Lang }) {
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
-            <div className="rounded-2xl border border-white/10 p-5" key={step.title}>
+            <div className="zk-card p-5" key={step.title}>
               <span className="inline-flex size-8 items-center justify-center rounded-full bg-blue-500/15 font-semibold text-blue-300 text-sm">
                 {index + 1}
               </span>
@@ -341,7 +341,7 @@ export function UseCases({ lang }: { lang: Lang }) {
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {cases.map((item) => (
-            <article className="rounded-2xl border border-white/10 p-5" key={item.title}>
+            <article className="zk-card p-5" key={item.title}>
               <h3 className="font-medium">{item.title}</h3>
               <ul className="mt-3 flex flex-col gap-2 text-muted-foreground text-sm">
                 {item.examples.map((example) => (
@@ -400,7 +400,7 @@ export function Compare({ lang }: { lang: Lang }) {
                   {ar ? "مساعد محادثة" : "Chat assistant"}
                 </th>
                 <th className="p-3 text-start font-medium text-blue-300">
-                  Zooka AI
+                  ZOOKA-AI
                 </th>
               </tr>
             </thead>

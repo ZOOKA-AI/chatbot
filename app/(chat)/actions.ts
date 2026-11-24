@@ -1,11 +1,8 @@
 "use server";
 
 import { withRequestTenantAction } from "@/lib/db/request-tenant";
-import { generateText, type UIMessage } from "ai";
 import { cookies } from "next/headers";
 import type { VisibilityType } from "@/components/visibility-selector";
-import { titlePrompt } from "@/lib/ai/prompts";
-import { getTitleModel } from "@/lib/ai/providers";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import {
   deleteMessagesByChatIdAfterTimestamp,
@@ -13,27 +10,10 @@ import {
   getMessageById,
   updateChatVisibilityById,
 } from "@/lib/db/queries";
-import { getTextFromMessage } from "@/lib/utils";
 
 async function saveChatModelAsCookieImpl(model: string) {
   const cookieStore = await cookies();
   cookieStore.set("chat-model", model);
-}
-
-async function generateTitleFromUserMessageImpl({
-  message,
-}: {
-  message: UIMessage;
-}) {
-  const { text } = await generateText({
-    model: getTitleModel(),
-    system: titlePrompt,
-    prompt: getTextFromMessage(message),
-  });
-  return text
-    .replace(/^[#*"\s]+/, "")
-    .replace(/["]+$/, "")
-    .trim();
 }
 
 async function deleteTrailingMessagesImpl({ id }: { id: string }) {
@@ -85,6 +65,5 @@ async function updateChatVisibilityImpl({
 
 // Tenant-scoped actions: each mutation runs inside the caller's tenant transaction.
 export const saveChatModelAsCookie = withRequestTenantAction(saveChatModelAsCookieImpl);
-export const generateTitleFromUserMessage = withRequestTenantAction(generateTitleFromUserMessageImpl);
 export const deleteTrailingMessages = withRequestTenantAction(deleteTrailingMessagesImpl);
 export const updateChatVisibility = withRequestTenantAction(updateChatVisibilityImpl);

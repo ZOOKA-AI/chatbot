@@ -16,6 +16,7 @@ type Step = {
 
 const TOOL_LABELS: Record<string, { ar: string; en: string }> = {
   searchWeb: { ar: "بحث في الويب", en: "Searching the web" },
+  generateImage: { ar: "توليد صورة", en: "Generating an image" },
   readUrl: { ar: "قراءة صفحة ويب", en: "Reading a web page" },
   searchGoogleDrive: { ar: "بحث في Google Drive", en: "Searching Google Drive" },
   readGoogleDriveFile: { ar: "قراءة ملف من Drive", en: "Reading a Drive file" },

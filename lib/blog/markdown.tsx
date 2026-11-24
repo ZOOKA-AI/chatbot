@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 /**
  * Deliberately small Markdown renderer: the blog stores plain Markdown from the
  * writing workflow, and this covers exactly the constructs it produces
- * (headings, paragraphs, lists, quotes, code fences, bold/italic/code/links).
- * No raw HTML is ever injected, so untrusted drafts cannot add markup.
+ * (headings, paragraphs, lists, quotes, code fences, bold/italic/code/links and
+ * one image line). No raw HTML is ever injected, so untrusted drafts cannot add
+ * markup, and images must be https URLs.
  */
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -52,6 +53,21 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
   return nodes;
+}
+
+const IMAGE_LINE = /^!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)$/;
+
+/**
+ * First image line in a post body, as the renderer sees it. Used for og:image so
+ * a shared link shows the same cover the article opens with. Only standalone
+ * https image lines count; http and inline occurrences are ignored.
+ */
+export function firstImageUrl(markdown: string): string | null {
+  for (const raw of markdown.replace(/\r\n/g, "\n").split("\n")) {
+    const match = IMAGE_LINE.exec(raw.trim());
+    if (match) return match[2];
+  }
+  return null;
 }
 
 export function renderMarkdown(markdown: string): ReactNode {
@@ -133,6 +149,23 @@ export function renderMarkdown(markdown: string): ReactNode {
 
     if (!line.trim()) {
       flushAll();
+      continue;
+    }
+
+    const image = /^!\[([^\]]*)\]\((https:\/\/[^\s)]+)\)$/.exec(line);
+    if (image) {
+      flushAll();
+      blocks.push(
+        // eslint-disable-next-line @next/next/no-img-element -- stored Markdown, size unknown
+        <img
+          key={`img${key++}`}
+          src={image[2]}
+          alt={image[1]}
+          loading="lazy"
+          decoding="async"
+          className="my-6 w-full rounded-xl border border-border object-cover"
+        />
+      );
       continue;
     }
 

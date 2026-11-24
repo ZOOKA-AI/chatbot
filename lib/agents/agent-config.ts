@@ -29,6 +29,9 @@ export type AgentPatch = {
   displayName?: string;
   status?: AgentStatus;
   scopes?: AgentScope[];
+  updateWithoutApproval?: boolean;
+  deleteWithoutApproval?: boolean;
+  sendMessagesWithoutApproval?: boolean;
   environment?: string;
   modelProvider?: string | null;
   modelId?: string | null;
@@ -101,6 +104,9 @@ export function parseAgentPatch(body: unknown): PatchResult {
     "displayName",
     "status",
     "scopes",
+    "updateWithoutApproval",
+    "deleteWithoutApproval",
+    "sendMessagesWithoutApproval",
     "environment",
     "modelProvider",
     "modelId",
@@ -113,6 +119,19 @@ export function parseAgentPatch(body: unknown): PatchResult {
   }
 
   const patch: AgentPatch = {};
+
+  for (const field of [
+    "updateWithoutApproval",
+    "deleteWithoutApproval",
+    "sendMessagesWithoutApproval",
+  ] as const) {
+    if (input[field] !== undefined) {
+      if (typeof input[field] !== "boolean") {
+        return { ok: false, error: `invalid_${field}` };
+      }
+      patch[field] = input[field];
+    }
+  }
 
   if (input.displayName !== undefined) {
     if (typeof input.displayName !== "string") return { ok: false, error: "invalid_display_name" };

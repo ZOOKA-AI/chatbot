@@ -1,6 +1,7 @@
 import "server-only";
 
-import { drizzle } from "drizzle-orm/postgres-js";
+import type { drizzle } from "drizzle-orm/postgres-js";
+import { drizzleDateSafe } from "@/lib/db/date-params";
 import postgres from "postgres";
 
 import { tenantScopeEnabled } from "./tenant";
@@ -57,7 +58,7 @@ export function serviceDb(): ReturnType<typeof drizzle> {
     });
   }
   if (!cachedDb) {
-    cachedDb = drizzle(cached);
+    cachedDb = drizzleDateSafe(cached);
   }
   return cachedDb;
 }

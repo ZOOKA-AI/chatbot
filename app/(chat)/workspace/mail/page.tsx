@@ -9,6 +9,7 @@ import { sanitizeHtml } from "@/lib/mail/sanitize";
 import { isMailFolder, type MailFolder } from "@/lib/mail/types";
 
 import { MailClient } from "./mail-client";
+import { pgError } from "@/lib/db/errors";
 
 /**
  * Names the failure so the panel can say something true.
@@ -18,7 +19,8 @@ import { MailClient } from "./mail-client";
  * guess.
  */
 function classifyFailure(error: unknown): "tables_missing" | "service_connection" | "unknown" {
-  const message = error instanceof Error ? error.message : String(error);
+  const details = pgError(error);
+  const message = `${details.code ?? ""} ${details.message}`;
   if (message.includes("DATABASE_URL_SERVICE")) return "service_connection";
   if (/relation .* does not exist|undefined_table|42P01/i.test(message)) return "tables_missing";
   return "unknown";

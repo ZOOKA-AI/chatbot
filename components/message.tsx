@@ -177,43 +177,156 @@ const PurePreviewMessage = ({
               }
             }
 
+            if (type === "tool-generateImage") {
+              const { toolCallId, state } = part;
+              if (state === "input-available" || state === "input-streaming") {
+                return (
+                  <p
+                    className="animate-pulse text-muted-foreground text-sm"
+                    data-testid="image-generating"
+                    key={toolCallId}
+                  >
+                    جارٍ توليد الصورة…
+                  </p>
+                );
+              }
+              if (state !== "output-available") {
+                return null;
+              }
+              const output = part.output as {
+                url?: string;
+                error?: string;
+                upgradeUrl?: string;
+                provider?: string;
+              };
+              if (!output.url) {
+                return (
+                  <p
+                    className="text-muted-foreground text-sm"
+                    data-testid="image-refused"
+                    key={toolCallId}
+                  >
+                    {output.error}{" "}
+                    {output.upgradeUrl ? (
+                      <a
+                        className="font-medium text-primary underline"
+                        href={output.upgradeUrl}
+                      >
+                        عرض الخطط
+                      </a>
+                    ) : null}
+                  </p>
+                );
+              }
+              return (
+                <figure
+                  className="flex max-w-md flex-col gap-1"
+                  data-testid="generated-image"
+                  key={toolCallId}
+                >
+                  <a href={output.url} rel="noopener" target="_blank">
+                    {/* biome-ignore lint/performance/noImgElement: private same-origin file, not optimizable */}
+                    <img
+                      alt="صورة مولّدة"
+                      className="h-auto w-full rounded-lg border"
+                      height={512}
+                      src={output.url}
+                      width={512}
+                    />
+                  </a>
+                  <figcaption className="text-muted-foreground text-xs">
+                    <a className="underline" download href={output.url}>
+                      تنزيل
+                    </a>
+                  </figcaption>
+                </figure>
+              );
+            }
+
             if (type === "tool-searchWeb") {
               const { toolCallId, state } = part;
               if (state !== "output-available") {
                 return null;
               }
               if ("error" in part.output) {
+                const output = part.output as {
+                  error: string;
+                  reason?: string;
+                  upgradeUrl?: string;
+                };
+                // A plan limit is not a fault: muted text plus the upgrade
+                // link instead of the red error style.
+                if (output.upgradeUrl) {
+                  return (
+                    <p
+                      className="text-muted-foreground text-sm"
+                      data-testid="search-upgrade"
+                      key={toolCallId}
+                    >
+                      {output.error}{" "}
+                      <a
+                        className="font-medium text-primary underline"
+                        href={output.upgradeUrl}
+                      >
+                        عرض الخطط
+                      </a>
+                    </p>
+                  );
+                }
                 return (
                   <p className="text-sm text-destructive" key={toolCallId}>
-                    {part.output.error}
+                    {output.error}
                   </p>
                 );
               }
+              // Sources are supporting evidence, not the answer: a compact,
+              // collapsed list (title + domain) instead of dumping every
+              // snippet above the reply.
+              const results = part.output.results;
+              const domainOf = (url: string) => {
+                try {
+                  return new URL(url).hostname.replace(/^www\./, "");
+                } catch {
+                  return url;
+                }
+              };
               return (
-                <section
+                <details
                   aria-label="Web search sources"
-                  className="rounded-lg border p-3"
+                  className="group rounded-lg border px-3 py-2 text-sm"
+                  data-testid="search-sources"
                   key={toolCallId}
                 >
-                  <h3 className="mb-2 font-medium text-sm">مصادر البحث</h3>
-                  <ul className="flex flex-col gap-2">
-                    {part.output.results.map((result) => (
-                      <li className="text-sm" key={result.url}>
+                  <summary className="cursor-pointer select-none text-muted-foreground">
+                    مصادر البحث ({results.length})
+                    <span className="ms-2 text-xs">
+                      {results
+                        .slice(0, 3)
+                        .map((result) => domainOf(result.url))
+                        .join(" · ")}
+                    </span>
+                  </summary>
+                  <ol className="mt-2 flex flex-col gap-2">
+                    {results.map((result, index) => (
+                      <li key={result.url}>
                         <a
                           className="font-medium text-primary underline"
                           href={result.url}
                           rel="noopener noreferrer"
                           target="_blank"
                         >
-                          {result.title}
+                          [{index + 1}] {result.title}
                         </a>
-                        <p className="text-muted-foreground">
+                        <span className="ms-2 text-muted-foreground text-xs" dir="ltr">
+                          {domainOf(result.url)}
+                        </span>
+                        <p className="line-clamp-2 text-muted-foreground text-xs">
                           {result.content}
                         </p>
                       </li>
                     ))}
-                  </ul>
-                </section>
+                  </ol>
+                </details>
               );
             }
 

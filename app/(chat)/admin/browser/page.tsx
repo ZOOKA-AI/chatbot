@@ -3,7 +3,7 @@ import { LiveBrowser } from "@/components/live-browser";
 import { getBrowserSessions } from "@/lib/admin/sections";
 import { DataTable, MetricGrid, SectionView } from "@/components/admin/ui";
 
-export const metadata = { title: "المتصفح — ZOOKA AI" };
+export const metadata = { title: "المتصفح — ZOOKA-AI" };
 
 export default async function AdminBrowserPage() {
   const admin = await adminPageContext();

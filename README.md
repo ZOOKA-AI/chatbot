@@ -1,79 +1,186 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Chatbot" src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chatbot</h1>
-</a>
+<p align="center">
+  <img alt="ZOOKA-AI" src="public/images/og-image.jpg" width="760">
+</p>
+
+<h1 align="center">ZOOKA-AI</h1>
 
 <p align="center">
-    Chatbot (formerly AI Chatbot) is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
+  An Arabic-first AI workspace for small service businesses: chat, studio, agents and real
+  integrations, built to run on infrastructure you control.
 </p>
 
 <p align="center">
-  <a href="https://chatbot.dev"><strong>Read Docs</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
+  <a href="https://zooka-ai.com"><strong>Live site</strong></a> ·
+  <a href="#what-it-solves"><strong>What it solves</strong></a> ·
+  <a href="#privacy-by-architecture"><strong>Privacy</strong></a> ·
+  <a href="#local-models-and-offline-behaviour"><strong>Local models</strong></a> ·
+  <a href="#running-locally"><strong>Running locally</strong></a> ·
+  <a href="docs/selfhosting/INSTALL.md"><strong>Self-hosting</strong></a> ·
+  <a href="docs/MOZILLA_FELLOWSHIP.md"><strong>Fellowship brief</strong></a>
 </p>
+
 <br/>
 
-## Features
+> **Status:** live in production at [zooka-ai.com](https://zooka-ai.com) (verified 2026-11-23).
+> This README describes what the software does today. Anything that is not implemented is listed
+> under [Known gaps](#known-gaps) rather than described as a feature.
 
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports OpenAI, Anthropic, Google, xAI, and other model providers via AI Gateway
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+## What it solves
 
-## Model Providers
+Small service businesses in the Gulf, such as a cleaning company, a maintenance workshop or a
+clinic, do not lack AI chat windows. What they lack is an assistant that (a) speaks Arabic
+properly, (b) can reach the tools the business already runs on, and (c) does not require handing
+customer data to a chain of vendors the business cannot audit.
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default model is [OpenAI](https://openai.com) GPT-4.1 Mini, with support for Anthropic, Google, and xAI models.
+ZOOKA-AI is one workspace for that: a chat surface, a media studio, configurable agents and
+integrations (Google Drive, GitHub, Vercel, n8n, Stripe billing) inside a single Arabic and
+English interface with full RTL layout. The same code base runs as a hosted product at
+`zooka-ai.com` and as a self-hosted stack on a machine the owner controls.
 
-### AI Gateway Authentication
+The people this is built for are the ones least served by English-first tools: a shop owner in
+Ajman who writes in Arabic, a small team without a systems administrator, a business that cannot
+send its customer list to a data processor it has never heard of.
 
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
+## How it is built
 
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
+| Layer | Choice | Note |
+|---|---|---|
+| Web | Next.js 16 App Router, React 19 | server components, stateless process |
+| Model access | Vercel AI Gateway by default, direct Groq and Google paths when keys exist | plus a provider-agnostic layer for self-hosting, see [local models](#local-models-and-offline-behaviour) |
+| Data | PostgreSQL via Drizzle ORM | every chat, document and usage event is scoped to a workspace |
+| Auth | Auth.js 5 with Google sign-in | `GET /api/auth/providers` lists the live providers |
+| Billing | Stripe subscriptions, wallet ledger | hosted deployment only |
+| App shell | PWA manifest, service worker, offline page | `app/manifest.ts`, `public/sw.js`, `public/offline.html` |
+| Self-host runtime | web + worker + scheduler + PostgreSQL, Docker Compose | `deploy/compose/docker-compose.yml` |
 
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
+The self-hosted stack is documented in [docs/selfhosting/](docs/selfhosting/): architecture,
+installation, operations and provider swapping.
 
-## Deploy Your Own
+## Privacy by architecture
 
-You can deploy your own version of Chatbot to Vercel with one click:
+| Concern | What actually happens |
+|---|---|
+| Where data lives | One PostgreSQL database you control. A self-hosted install can keep it on your own machine, and `STORAGE_DRIVER=local` keeps uploaded files on a mounted volume instead of a vendor bucket. |
+| What reaches a model provider | Only the content of the turn being answered (prompt, selected attachments, tool results needed for that turn). Retention and training terms are those of the provider you configure. If you point the deployment at a local model, prompts never leave your network. |
+| Analytics | GA4 and Vercel Analytics load **only after explicit consent**. Until the visitor chooses, neither script is mounted (`components/cookie-consent.tsx`). Details page: `/cookies`. |
+| Error reporting | Sentry is optional and DSN-gated. `beforeSend` drops `request`, `user`, `breadcrumbs` and `extra`, and replaces exception text with a generic string (`instrumentation.ts`, `instrumentation-client.ts`). |
+| Tenant isolation | Every query is workspace scoped. Optional row level security can be enforced with `TENANT_RLS_ENABLED`; when the flag is off the app uses the shared connection, which is the current production setting. |
+| Guest mode | Guest conversations are not stored. The free-message counter is keyed by an HTTP-only cookie and a hashed IP per day, not by identity. |
+| Ads | No advertising SDK, no third-party pixel and no data broker integration in this repository. |
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/templates/next.js/chatbot)
+## Local models and offline behaviour
+
+This section is deliberately narrow, because it is the part most easily overstated.
+
+**What exists today**
+
+- A provider-agnostic model resolution layer, `lib/platform/models.ts`, supports `ollama`
+  (default `http://127.0.0.1:11434/v1`), any `openai-compatible` endpoint (vLLM, LiteLLM,
+  LM Studio, TGI), `gateway`, `anthropic` and `google`. It is covered by unit tests:
+  `tests/unit/platform-models.test.ts` passes 8 of 8, including a real call against a local stub
+  server.
+- Workspace administrators can pin an agent to one of those providers
+  (`SELECTABLE_MODEL_PROVIDERS` in `lib/agents/agent-config.ts`), and the UI reports a missing
+  credential instead of failing at task time.
+- The self-hosted compose stack starts with no AI provider account at all if you run a model
+  locally, for example `MODEL_PROVIDER=ollama MODEL_ID=llama3.1:8b`.
+- The app is installable and has a real offline shell: `public/sw.js` serves navigation
+  network-first with a cached copy and then `/offline.html`, caches static assets cache-first, and
+  never touches `/api/`, `/admin` or any non-GET request. `app/manifest.ts` declares only
+  capabilities that exist.
+
+**What does not exist today**
+
+- No on-device or in-browser inference. There is no WebLLM, transformers.js or WASM model in the
+  repository.
+- The interactive chat route, `app/(chat)/api/chat/route.ts`, resolves models through
+  `lib/ai/providers.ts` (gateway, Groq, Google). A self-hosted Ollama endpoint is reachable from
+  the platform and agent configuration path, **not yet from the chat UI**. This is the single
+  largest gap between the current product and a fully local deployment.
+- No offline message queue. The offline page is a shell; composing or sending a message while
+  offline is not supported.
+- No model at or below 10B parameters is used by default. The smallest open-weight model in the
+  hosted catalogue is `gpt-oss-20b` (20B) through Groq. `llama3.1:8b` is only reachable through
+  the self-hosted Ollama path described above.
+
+## Open source status
+
+- The repository is public: [github.com/ZOOKA-AI/chatbot](https://github.com/ZOOKA-AI/chatbot).
+- `LICENSE` carries the **Apache License 2.0** notice inherited from the upstream Vercel AI
+  Chatbot template, which is credited there as `Copyright 2024 Vercel, Inc.`. `NOTICE` records
+  that provenance and the project's own additions.
+- `LICENSE` now holds the complete, unmodified Apache License 2.0 text (published 2026-11-23, byte
+  identical to `apache.org/licenses/LICENSE-2.0.txt` apart from the copyright line, which keeps
+  `Copyright 2024 Vercel, Inc.`). GitHub detects the repository as `Apache-2.0`. Relicensing under
+  MIT remains an option for the owner, and would require replacing this file deliberately.
 
 ## Running locally
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
-
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
-
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
+Requirements: Node.js 22 or newer, pnpm 9, and PostgreSQL 14 or newer.
 
 ```bash
 pnpm install
-pnpm db:migrate # Apply database migrations explicitly to POSTGRES_URL
-pnpm dev
+cp .env.example .env.local      # every variable is documented in the file
 ```
 
-`pnpm build` only compiles the application; it never changes a database. Run
-`pnpm db:migrate` as a deliberate release step against the database for the
-target environment. Preview deployments must use an isolated preview database.
-Do not point a preview migration at production.
+Set at least:
 
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+```bash
+POSTGRES_URL=postgres://user:pass@host:5432/zooka
+AUTH_SECRET=$(openssl rand -base64 32)
+GOOGLE_LOGIN_CLIENT_ID=...      # Google sign-in (openid/email/profile)
+GOOGLE_LOGIN_CLIENT_SECRET=...
+GROQ_API_KEY=...                # or AI_GATEWAY_API_KEY, or GEMINI_API_KEY
+```
+
+Then:
+
+```bash
+pnpm db:migrate   # apply the numbered SQL migrations, re-running is a no-op
+pnpm dev          # http://localhost:3000
+```
+
+`pnpm build` only compiles the application and never touches a database. Run `pnpm db:migrate` as
+a deliberate release step against the target environment, and never point a preview migration at
+production.
+
+Tests:
+
+```bash
+pnpm test:unit    # 222 unit test files (vitest, plus the model catalogue test)
+pnpm test:e2e     # 25 Playwright specs, needs the app and a database running
+```
+
+Self-hosted install instead of local development: [docs/selfhosting/INSTALL.md](docs/selfhosting/INSTALL.md).
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `app/(chat)/` | chat surface, workspace and billing pages |
+| `app/api/` | REST routes: chat, auth, billing, integrations, webhooks |
+| `lib/ai/` | model catalogue and provider wiring for the chat route |
+| `lib/platform/` | self-host runtime: config, model resolution, storage drivers |
+| `lib/agents/` | agent configuration, tools, execution |
+| `docs/selfhosting/` | install, architecture, operations, providers |
+| `deploy/compose/` | Docker Compose stack (web, worker, scheduler, Postgres, MinIO) |
+| `tests/` | unit and Playwright suites |
+
+## Known gaps
+
+Honest list as of 2026-11-23:
+
+1. The chat UI does not use the local-model path yet (see above).
+2. No offline compose or send queue.
+3. Wallet consumption and top-up flows are not implemented; message and agent quotas are.
+4. Pending workspace invitations are stored but not emailed or self-service accepted.
+5. Video generation is not implemented; image generation is.
+6. Row level security is available but not enabled in production.
+
+## Operations reference
+
+The sections below document the hosted deployment in detail: workspaces and plans, Stripe
+billing, credit grants, the guest paywall, WhatsApp Cloud API, SEO and the launch checklist.
 
 ### WhatsApp Cloud API
 
@@ -98,6 +205,32 @@ and create seven-day invitation records. Pending invitations are not emailed or
 self-service accepted yet. Chat and document data, subscription records, and
 usage events are scoped to the validated active workspace. The `free` plan
 includes 1,000 messages each month; paid plans use Stripe Checkout.
+
+### Workspace secrets
+
+Set `WORKSPACE_SECRETS_ENCRYPTION_KEY` to a dedicated, securely stored base64
+32-byte key (`openssl rand -base64 32`) before using the vault. Keep the same key
+across deployments and backups: changing or losing it makes existing values
+unreadable; rotate individual values through the API instead. Values are
+AES-256-GCM encrypted with fresh nonces and workspace/name binding. Names use
+uppercase letters, digits and underscores (up to 64 characters, starting with
+a letter or underscore); values are 1–8192 characters.
+
+Owners and admins can list and create secrets at `/api/workspace/secrets`,
+and inspect metadata, rotate (`PATCH { "value": "..." }`) or delete by name at
+`/api/workspace/secrets/[name]`. Responses never include secret values.
+Detection settings are workspace-scoped, default on, and owner/admin-managed at
+`/api/workspace/secrets/settings`. Before migration `0029_workspace_secrets` is
+applied, chat secret detection is off and pasted credentials are not redacted.
+Apply the migrations and configure the encryption key before relying on detection.
+`lastUsedAt` changes on server-side reads,
+not metadata access. To check GitHub access without inspecting files, create a task
+with `payload: { "tool": "github_repo_probe", "repo": "owner/repo", "secretName": "GITHUB_KEY" }`.
+The probe selects the named workspace secret, never falls back to another
+credential, and returns only a fixed success/failure result. Repository inspection
+does not accept named secrets and will refuse rather than claim a probe was an inspection.
+Only assign that tool to trusted agents: it can send a named workspace secret as
+a GitHub credential to the allowlisted repository endpoint.
 
 Apply `pnpm db:migrate` after setting `POSTGRES_URL` in `.env.local` to create
 the workspace tables and backfill existing users, chats, and documents. Use
@@ -160,7 +293,7 @@ the Stripe Dashboard (Settings → Billing → Customer portal) before launch.
 
 ### Guest paywall
 
-When `GUEST_PAYWALL_ENABLED=true`, visitors who are not signed in may send 3 free messages. The count is tracked in
+When `GUEST_PAYWALL_ENABLED=true`, visitors who are not signed in may send the `GUEST_FREE_MESSAGES` allowance (`lib/copy.ts`, currently 10) before the paywall appears. The count is tracked in
 `localStorage` for the UI and enforced by `POST /api/chat`, which stores
 counters in the `GuestUsage` table keyed by an HTTP-only `zooka_guest` cookie
 and by a hashed IP address per day. Further messages receive HTTP `402` and the

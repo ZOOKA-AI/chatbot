@@ -1,17 +1,29 @@
 import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 
+import { requirePlatformRole } from "@/lib/auth/platform-role";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { adminDb } from "@/lib/db/queries";
 import { getTrafficSnapshotForOrganization } from "@/lib/analytics/growth";
 import { growthNotice } from "@/lib/analytics/growth-notice";
 import { readSettings } from "@/lib/growth/referrals";
+import { getGrowthFunnel } from "@/lib/growth/funnel";
+import { JourneySection } from "./journey-section";
+import { getJourney } from "@/lib/growth/journey";
 import { getLang } from "@/lib/i18n";
 
 export default async function GrowthAdminPage() {
   const context = await getWorkspaceContext();
   if (!context) redirect("/login");
   if (context.role !== "owner") redirect("/workspace");
+  /*
+   * Everything on this page is platform-wide: the referral economy in
+   * GrowthSettings, the RewardLedger of every workspace and the GrowthAudit log.
+   * Owning one workspace is not a grant over those — every new sign-up owns its
+   * own workspace — so the page requires the platform admin role.
+   */
+  const platformAdmin = await requirePlatformRole("admin", "page.admin.growth");
+  if (!platformAdmin) redirect("/workspace");
 
   const lang = await getLang();
   const ar = lang === "ar";
@@ -20,6 +32,16 @@ export default async function GrowthAdminPage() {
   // deployment service account when the owner has not connected one yet.
   const traffic = await getTrafficSnapshotForOrganization(context.organizationId);
   const notice = growthNotice(traffic, ar);
+  /*
+   * Signup-to-usage funnel. This is platform-wide data: it aggregates every
+   * workspace's signups, so it is gated on the platform grant, not on being the
+   * owner of one workspace. A workspace owner who is not a platform admin gets
+   * no funnel at all rather than a slice of everyone else's numbers.
+   */
+  const funnel = platformAdmin
+    ? await getGrowthFunnel(30).catch(() => null)
+    : null;
+  const journey = platformAdmin ? await getJourney(30).catch(() => null) : null;
 
   let recent: Array<Record<string, unknown>> = [];
   let audit: Array<Record<string, unknown>> = [];
@@ -87,6 +109,76 @@ export default async function GrowthAdminPage() {
           {ar ? "حفظ" : "Save"}
         </button>
       </form>
+
+      <section className="rounded-2xl border bg-card p-4">
+        <h2 className="text-sm font-semibold">
+          {ar ? "قمع التسجيل إلى الاستخدام (٣٠ يومًا)" : "Signup to usage funnel (30 days)"}
+        </h2>
+        {!platformAdmin ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {ar
+              ? "هذا القسم لإدارة المنصة فقط: يجمع تسجيلات كل المساحات."
+              : "Platform administration only: it aggregates signups across all workspaces."}
+          </p>
+        ) : funnel === null ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {ar
+              ? "القياس غير متاح بعد: يلزم تطبيق هجرة 0067 لإضافة تاريخ التسجيل ومصدره."
+              : "Not measurable yet: migration 0067 adds the signup time and channel."}
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {ar
+                ? `${funnel.totals.signups} تسجيلًا، ${funnel.totals.activated} استخدم المنصة فعلًا.`
+                : `${funnel.totals.signups} signups, ${funnel.totals.activated} actually used the product.`}
+            </p>
+            <table className="mt-3 w-full text-sm">
+              <thead className="text-xs text-muted-foreground">
+                <tr>
+                  <th className="py-1 text-start font-normal">{ar ? "المصدر" : "Source"}</th>
+                  <th className="py-1 text-end font-normal">{ar ? "تسجيل" : "Signups"}</th>
+                  <th className="py-1 text-end font-normal">{ar ? "استخدام" : "Activated"}</th>
+                  <th className="py-1 text-end font-normal">{ar ? "نشِط ٧ أيام" : "Active 7d"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {funnel.rows.map((row) => (
+                  <tr key={row.source}>
+                    <td className="py-1.5">{row.source}</td>
+                    <td className="py-1.5 text-end font-mono">{row.signups}</td>
+                    <td className="py-1.5 text-end font-mono">{row.activated}</td>
+                    <td className="py-1.5 text-end font-mono">{row.activeLast7d}</td>
+                  </tr>
+                ))}
+                {funnel.rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-2 text-muted-foreground">
+                      {ar ? "لا تسجيلات في هذه الفترة." : "No signups in this window."}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+            {funnel.totals.unattributedSignups > 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {ar
+                  ? `${funnel.totals.unattributedSignups} حسابًا بلا مصدر مسجَّل داخل الفترة.`
+                  : `${funnel.totals.unattributedSignups} accounts in this window carry no channel.`}
+              </p>
+            ) : null}
+            {funnel.totals.unknownSignupDate > 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {ar
+                  ? `${funnel.totals.unknownSignupDate} حسابًا قديمًا بلا تاريخ تسجيل موثوق؛ يُعرض كمجهول ولا يُؤرَّخ بالتخمين.`
+                  : `${funnel.totals.unknownSignupDate} older accounts have no trustworthy signup date; shown as unknown, never guessed.`}
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      {platformAdmin ? <JourneySection ar={ar} journey={journey} /> : null}
 
       <section className="rounded-2xl border bg-card p-4">
         <h2 className="text-sm font-semibold">{ar ? "أحدث المكافآت" : "Recent rewards"}</h2>

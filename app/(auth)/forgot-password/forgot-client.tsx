@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthBrandShell } from "@/components/auth-brand-shell";
 import Link from "next/link";
 import { useActionState } from "react";
 import { LoaderIcon } from "@/components/icons";
@@ -12,19 +13,16 @@ export function ForgotPasswordClient({ lang }: { lang: "ar" | "en" }) {
     { status: "idle" }
   );
   return (
-    <main
-      className="flex min-h-dvh items-start justify-center px-4 pt-16 pb-10 sm:items-center sm:py-10"
-      dir={ar ? "rtl" : "ltr"}
+    <AuthBrandShell
+      lang={lang}
+      title={ar ? "استعادة كلمة المرور" : "Forgot your password?"}
+      subtitle={
+        ar
+          ? "اكتب بريدك وسنرسل لك رابطًا صالحًا 30 دقيقة لتعيين كلمة مرور جديدة."
+          : "Enter your email and we will send a 30-minute link to set a new password."
+      }
     >
-      <div className="w-full max-w-md rounded-2xl border bg-card p-5 shadow-sm sm:p-8">
-        <h1 className="mb-2 font-semibold text-2xl">
-          {ar ? "استعادة كلمة المرور" : "Forgot your password?"}
-        </h1>
-        <p className="mb-6 text-base text-muted-foreground leading-relaxed sm:text-sm">
-          {ar
-            ? "اكتب بريدك وسنرسل لك رابطًا صالحًا 30 دقيقة لتعيين كلمة مرور جديدة."
-            : "Enter your email and we will send a 30-minute link to set a new password."}
-        </p>
+      <div className="px-3 sm:px-6">
         {state.status === "sent" ? (
           <p
             className="rounded-lg border border-green-600/30 bg-green-600/10 p-4 text-base leading-relaxed sm:text-sm"
@@ -82,6 +80,6 @@ export function ForgotPasswordClient({ lang }: { lang: "ar" | "en" }) {
           </Link>
         </p>
       </div>
-    </main>
+    </AuthBrandShell>
   );
 }

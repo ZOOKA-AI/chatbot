@@ -12,6 +12,15 @@ import {
   unauthorized,
 } from "@/lib/agents/auth";
 import { withCommanderTenant } from "@/lib/agents/commander-scope";
+import { parseSkillSnapshot } from "@/lib/agents/skill-snapshot";
+import { namedGithubProbePayload } from "@/lib/agents/named-github-probe";
+
+function visibleTasks<T extends { evidence: string | null }>(tasks: T[], isAgent: boolean): T[] {
+  if (!isAgent) return tasks;
+  return tasks.map((task) =>
+    parseSkillSnapshot(task.evidence) ? { ...task, evidence: null } : task
+  );
+}
 
 async function GETHandler(request: Request) {
   const caller = await resolveCaller(request);
@@ -54,17 +63,17 @@ async function GETHandler(request: Request) {
       limit: query.data.limit ?? 25,
       cursor,
     });
-    return json(page);
+    return json({ ...page, tasks: visibleTasks(page.tasks, caller.kind === "agent") });
   }
 
   return json({
-    tasks: await listTasks({
+    tasks: visibleTasks(await listTasks({
       organizationId: callerOrganizationId(caller),
       status: query.data.status,
       ownerAgentId: query.data.ownerAgentId,
       available: query.data.available === "true",
       limit: query.data.limit ?? 50,
-    }),
+    }), caller.kind === "agent"),
   });
 }
 
@@ -91,6 +100,7 @@ async function POSTHandler(request: Request) {
         environment: fields.environment,
         approvalRequired: z.boolean().optional(),
         rollbackPlan: z.string().trim().max(4000).nullish(),
+        payload: namedGithubProbePayload.optional(),
       })
       .strict()
   );
@@ -107,6 +117,7 @@ async function POSTHandler(request: Request) {
     environment: parsed.data.environment ?? "production",
     approvalRequired: parsed.data.approvalRequired === true,
     rollbackPlan: parsed.data.rollbackPlan ?? null,
+    payload: parsed.data.payload ?? null,
     createdBy: `owner:${caller.userId.slice(0, 8)}`,
   });
 

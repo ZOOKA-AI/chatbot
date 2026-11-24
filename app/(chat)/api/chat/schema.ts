@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { CHAT_TEXT_TOO_LONG, MAX_CHAT_TEXT_LENGTH } from "@/lib/chat-input-limit";
 
 const textPartSchema = z.object({
   type: z.enum(["text"]),
-  text: z.string().min(1).max(2000),
+  text: z.string().min(1).max(MAX_CHAT_TEXT_LENGTH, CHAT_TEXT_TOO_LONG),
 });
 
 const filePartSchema = z.object({
@@ -12,7 +13,7 @@ const filePartSchema = z.object({
   url: z.union([z.string().url(), z.string().startsWith("/api/files/")]),
 });
 
-const partSchema = z.union([textPartSchema, filePartSchema]);
+const partSchema = z.discriminatedUnion("type", [textPartSchema, filePartSchema]);
 
 const userMessageSchema = z.object({
   id: z.string().uuid(),

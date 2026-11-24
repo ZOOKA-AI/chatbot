@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 
 import { AgentManager } from "@/components/agent-manager";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
+import { getLang } from "@/lib/i18n";
 
 export default async function WorkspaceAgentsPage() {
-  const context = await getWorkspaceContext();
+  const [context, lang] = await Promise.all([getWorkspaceContext(), getLang()]);
   if (!context) {
     redirect("/login");
   }
@@ -20,7 +21,7 @@ export default async function WorkspaceAgentsPage() {
           platform cannot execute.
         </p>
       </header>
-      <AgentManager canManage={canManage} />
+      <AgentManager canManage={canManage} lang={lang} />
     </main>
   );
 }

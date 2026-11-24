@@ -1,16 +1,43 @@
 import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
+const mediaPermissions = {
+  key: "Permissions-Policy",
+  value: "camera=(), microphone=(self), display-capture=(self), geolocation=()",
+};
+const chatMediaPermissions = {
+  ...mediaPermissions,
+  value: "camera=(self), microphone=(self), display-capture=(self), geolocation=()",
+};
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   // The browser runtime loads a Chromium driver at request time through a computed import, which
   // the bundler cannot trace. Keeping it external makes the package part of the deployed function;
   // without this the import resolves to nothing inside the lambda.
   serverExternalPackages: ["playwright-core"],
+  // Media under public/ is served by the CDN and never read by server code. Some routes use
+  // dynamic filesystem paths, which makes tracing pull the whole project (public included) into
+  // every function; excluding the videos keeps the brand clips out of the function bundles.
+  // playwright-core 1.65 reads browsers.json with a computed require when it loads. The tracer does
+  // not follow it, and the production build of the 2026-11-23 release shipped without the file:
+  // every function that imports the browser runtime (including /api/chat) failed at load with
+  // "Cannot find module .../playwright-core/browsers.json". Listing it keeps it in every bundle.
+  outputFileTracingIncludes: {
+    "*": [
+      "./node_modules/playwright-core/browsers.json",
+      "./node_modules/.pnpm/playwright-core@*/node_modules/playwright-core/browsers.json",
+    ],
+  },
+  outputFileTracingExcludes: {
+    "*": ["public/videos/**"],
+  },
   // Standalone output is what the self-hosted web image runs (see deploy/docker). It is
   // opt-in so the hosted build is byte-for-byte what it was before this package existed:
   // Vercel never sets this variable.
-  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
+  ...(process.env.NEXT_OUTPUT === "standalone"
+    ? { output: "standalone" as const }
+    : {}),
   async headers() {
     return [
       {
@@ -29,13 +56,13 @@ const nextConfig: NextConfig = {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
-          {
-            key: "Permissions-Policy",
-            value:
-              "camera=(), microphone=(self), display-capture=(self), geolocation=()",
-          },
+          mediaPermissions,
         ],
       },
+      // Next.js uses the last matching header value. Only chat pages with
+      // the live console may ask for the user's camera; /embed stays denied.
+      { source: "/", headers: [chatMediaPermissions] },
+      { source: "/chat/:id", headers: [chatMediaPermissions] },
     ];
   },
   async redirects() {

@@ -1,4 +1,4 @@
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getLegalPageCopy, type LegalPageId } from "@/lib/legal-copy";
 
@@ -7,14 +7,15 @@ export async function LegalPage({ page }: { page: LegalPageId }) {
   const copy = getLegalPageCopy(lang, page);
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 p-6 py-12"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
       <div className="absolute top-4 end-4 z-10">
-        <LanguageToggle lang={lang} />
       </div>
       <article className="flex flex-col gap-6">
         <h1 className="font-semibold text-3xl">{copy.title}</h1>
@@ -28,5 +29,6 @@ export async function LegalPage({ page }: { page: LegalPageId }) {
         ))}
       </article>
     </main>
+    </>
   );
 }

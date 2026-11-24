@@ -2,6 +2,13 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 import { isNavigation, requestIdFrom } from "./lib/http/request-id";
+import { verifySharedSecret } from "./lib/webhooks/security";
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_MAX_AGE_SECONDS,
+  parseAttribution,
+  serializeAttribution,
+} from "./lib/growth/attribution";
 
 /**
  * Routes that require an authenticated session. Anything not listed here is
@@ -15,6 +22,13 @@ import { isNavigation, requestIdFrom } from "./lib/http/request-id";
  */
 const AGENT_KEY_ENDPOINTS = ["/api/agents/worker", "/api/agents/heartbeat"];
 
+/**
+ * TikTok keeps its existing route-level authentication. The growth report
+ * requires a valid machine credential at both the proxy and the handler.
+ */
+const N8N_SERVICE_ENDPOINT = "/api/integrations/n8n/tiktok/run";
+const N8N_GROWTH_REPORT = "/api/integrations/n8n/growth/report";
+
 const PROTECTED_PREFIXES = [
   "/chat",
   "/settings",
@@ -26,11 +40,115 @@ const PROTECTED_PREFIXES = [
   "/api",
 ];
 
+/**
+ * `/templates/<token>` renders a public agent template. The page resolves the
+ * token inside a Suspense boundary (cacheComponents refuses uncached data outside
+ * one), so the shell streams before the lookup runs. That means an unknown token
+ * answers 200 with a "not found" body: a soft 404 on an unbounded URL space, and
+ * the one case the page itself cannot fix.
+ *
+ * The decision therefore happens here, before React renders:
+ *   1. A token of the wrong shape cannot exist (lib/agents/templates.ts issues
+ *      32 random bytes as base64url, always 43 characters), so it is refused
+ *      outright, with no database work at all.
+ *   2. A well-shaped token is checked against the same public endpoint the page
+ *      uses. A 404 there is a real 404 here; any other answer, including an
+ *      error or a timeout, falls through to the page so a probe failure can
+ *      never take the page down.
+ */
+const TEMPLATE_PATH = /^\/templates\/([^/]+)\/?$/;
+const TEMPLATE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+const TEMPLATE_PROBE_TIMEOUT_MS = 2000;
+
+function templateTokenFrom(pathname: string): string | null {
+  const match = TEMPLATE_PATH.exec(pathname);
+  return match ? match[1] : null;
+}
+
+function templateNotFound(requestId: string) {
+  return new NextResponse(
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>404 · Page not found</title></head><body style="margin:0;background:#080D1B;color:#F8F9FA;font-family:Segoe UI,Tahoma,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center"><div><p style="font-size:64px;margin:0;font-weight:700">404</p><p style="opacity:.7;margin:12px 0 24px">This agent template does not exist.</p><a href="/" style="color:#3978FF;text-decoration:none">zooka-ai.com</a></div></body></html>',
+    {
+      status: 404,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "x-request-id": requestId,
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
+/**
+ * `false` only when the endpoint itself said 404. Any other outcome, including a
+ * 500, a timeout or a network failure, returns `true` so the request falls
+ * through to the page: a probe that cannot answer must never decide the status.
+ */
+async function templateExists(request: NextRequest, token: string): Promise<boolean> {
+  try {
+    const probe = new URL(`/api/templates/${encodeURIComponent(token)}`, request.nextUrl.origin);
+    const response = await fetch(probe, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(TEMPLATE_PROBE_TIMEOUT_MS),
+    });
+    return response.status !== 404;
+  } catch {
+    return true;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const requestId = requestIdFrom(request.headers);
+  if (request.method === "GET") {
+    const templateToken = templateTokenFrom(request.nextUrl.pathname);
+    if (templateToken !== null) {
+      const impossible = !TEMPLATE_TOKEN.test(templateToken);
+      if (impossible || !(await templateExists(request, templateToken))) {
+        return templateNotFound(requestId);
+      }
+    }
+  }
   const response = await route(request, requestId);
   response.headers.set("x-request-id", requestId);
+  rememberAttribution(request, response);
   return response;
+}
+
+/**
+ * Records the acquisition channel on the visitor's first landing.
+ *
+ * First touch wins, so an existing cookie is never overwritten: a visitor who
+ * arrived from an AI assistant and later returns through a direct visit must
+ * still be credited to the assistant, otherwise every channel report drifts
+ * towards "direct". Internal navigation and direct visits write nothing, so a
+ * plain page view never invents a channel.
+ *
+ * The cookie is httpOnly because only the server reads it at sign-up, and the
+ * visitor's own browser scripts have no use for it.
+ */
+function rememberAttribution(request: NextRequest, response: Response) {
+  if (request.method !== "GET" || !(response instanceof NextResponse)) {
+    return;
+  }
+  if (request.cookies.get(ATTRIBUTION_COOKIE)?.value) {
+    return;
+  }
+  const attribution = parseAttribution(
+    request.nextUrl,
+    request.headers.get("referer")
+  );
+  if (!attribution) {
+    return;
+  }
+  response.cookies.set({
+    name: ATTRIBUTION_COOKIE,
+    value: serializeAttribution(attribution),
+    maxAge: ATTRIBUTION_MAX_AGE_SECONDS,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
 }
 
 async function route(request: NextRequest, requestId: string) {
@@ -67,6 +185,22 @@ async function route(request: NextRequest, requestId: string) {
    * header, so it must reach the route handler rather than a login redirect.
    */
   if (pathname === "/api/admin/migrate") {
+    return NextResponse.next();
+  }
+
+  /*
+   * Machine access is scoped to POST on exact paths. The growth route must
+   * never be added to the anonymous-route inventory.
+   */
+  if (request.method === "POST" && pathname === N8N_SERVICE_ENDPOINT) {
+    return NextResponse.next();
+  }
+
+  if (request.method === "POST" && pathname === N8N_GROWTH_REPORT) {
+    const secret = process.env.N8N_GROWTH_REPORT_SECRET;
+    if (!verifySharedSecret(request.headers.get("x-n8n-secret"), secret)) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
     return NextResponse.next();
   }
 
@@ -138,6 +272,7 @@ async function route(request: NextRequest, requestId: string) {
     pathname === "/api/mcp" ||
     // Private publishing endpoint for n8n: bearer workspace key, not a session.
     pathname === "/api/publish" ||
+    pathname.startsWith("/api/templates/") ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||

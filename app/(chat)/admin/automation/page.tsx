@@ -5,7 +5,7 @@ import { getAutomation } from "@/lib/admin/sections";
 import { MetricGrid, SectionView } from "@/components/admin/ui";
 import type { Metric } from "@/lib/admin/types";
 
-export const metadata = { title: "الأتمتة — ZOOKA AI" };
+export const metadata = { title: "الأتمتة — ZOOKA-AI" };
 
 export default async function AutomationPage() {
   const admin = await adminPageContext();

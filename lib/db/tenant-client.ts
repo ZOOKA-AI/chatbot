@@ -1,10 +1,11 @@
 import "server-only";
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzleDateSafe } from "@/lib/db/date-params";
 import postgres from "postgres";
 
 import {
+  tenantScopeEnabled,
   TENANT_SETTING,
   TENANT_USER_SETTING,
   TenantScopeError,
@@ -95,7 +96,7 @@ export function tenantRunner(): TenantRunner {
 
 /** Drizzle over the same connection, for callers that want the query builder. */
 export function tenantDb() {
-  return drizzle(client(), { logger: false });
+  return drizzleDateSafe(client(), { logger: false });
 }
 
 /** Drops the cached pool. For tests and for shutdown. */
@@ -123,7 +124,7 @@ export async function runInTenantTransaction<T>(
     throw new TenantScopeError("invalid_context", "organisation is not a valid identifier");
   }
 
-  const base = drizzle(client());
+  const base = drizzleDateSafe(client());
 
   // drizzle's own transaction, so the handle published below is a real query
   // builder over one pinned connection rather than a foreign object.
@@ -174,4 +175,23 @@ export async function runInTenantTransaction<T>(
 
     return runWithCommanderDb(tx, () => work());
   }) as Promise<T>;
+}
+
+/**
+ * Work that runs after the request's own transaction is gone (a streaming
+ * onFinish, an after() callback) and still has to land in the caller's tenant.
+ *
+ * Flag off, the work runs on the shared connection exactly like every other
+ * route. Calling runInTenantTransaction unconditionally here made production,
+ * where DATABASE_URL_TENANT is deliberately absent, throw on every chat finish:
+ * the reply streamed but was never saved.
+ */
+export function runAfterResponseInTenant<T>(
+  context: TenantContext | null,
+  work: () => Promise<T>
+): Promise<T> {
+  if (!tenantScopeEnabled()) {
+    return work();
+  }
+  return runInTenantTransaction(context, work);
 }

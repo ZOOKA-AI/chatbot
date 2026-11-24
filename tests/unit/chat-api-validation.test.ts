@@ -45,6 +45,7 @@ vi.mock("@/lib/auth/workspace", () => ({
 
 import { uuidSchema, limitSchema, queryParamIsValid, timestampSchema } from "@/lib/validation/chat";
 import { postRequestBodySchema } from "@/app/(chat)/api/chat/schema";
+import { CHAT_TEXT_TOO_LONG, MAX_CHAT_TEXT_LENGTH } from "@/lib/chat-input-limit";
 
 const UUID = "3f6a1d2e-4b5c-4d7e-8f90-1a2b3c4d5e6f";
 
@@ -243,9 +244,23 @@ describe("chat POST body", () => {
 
     const tooLongText = {
       ...base,
-      message: { id: UUID, role: "user", parts: [{ type: "text", text: "x".repeat(2001) }] },
+      message: { id: UUID, role: "user", parts: [{ type: "text", text: "x".repeat(MAX_CHAT_TEXT_LENGTH + 1) }] },
     };
-    assert.equal(postRequestBodySchema.safeParse(tooLongText).success, false);
+    const result = postRequestBodySchema.safeParse(tooLongText);
+    assert.equal(result.success, false);
+    assert.ok(result.error.issues.some((issue) => issue.message === CHAT_TEXT_TOO_LONG));
+  });
+
+  test("an image-only message needs no empty text part", () => {
+    const result = postRequestBodySchema.safeParse({
+      ...base,
+      message: {
+        id: UUID,
+        role: "user",
+        parts: [{ type: "file", mediaType: "image/png", name: "photo.png", url: "/api/files/photo.png" }],
+      },
+    });
+    assert.equal(result.success, true);
   });
 
   test("the model identifier is bounded and shaped", () => {

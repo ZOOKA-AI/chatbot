@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -9,6 +9,20 @@ import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@/lib/db/queries";
 import * as schema from "@/lib/db/schema";
+import { StudioError } from "@/lib/studio/errors";
+import { readImageSize } from "@/lib/studio/image-size";
+import {
+  assertDurableStorageConfigured,
+  assertDurableStoragePath,
+  deleteStoredBytes,
+  materialize,
+  persistBytes,
+  persistFile,
+  readStoredBytes,
+  withScratch,
+} from "@/lib/studio/storage";
+
+export { StudioError };
 
 const run = promisify(execFile);
 
@@ -17,8 +31,10 @@ const run = promisify(execFile);
  *
  * Nothing here calls a generative provider. Every operation is deterministic and reproducible from
  * the stored operation parameters, which is why the panel can honestly say what produced an asset.
- * The bytes live under `<root>/<organizationId>/<assetId><ext>`; the path is computed from the row,
- * never accepted from a request, so an id from another workspace leads nowhere.
+ * The bytes live in private Vercel Blob under `<organizationId>/studio-media/<assetId>`, recorded on the
+ * row as `blob:<pathname>` (see storage.ts). The path is computed from the row, never accepted from a
+ * request, so an id from another workspace leads nowhere. Engines work on scratch copies that are
+ * deleted when the operation ends.
  */
 
 export type AssetKind = "image" | "video" | "audio";
@@ -39,16 +55,6 @@ const MIME: Record<string, { kind: AssetKind; ext: string }> = {
   "audio/wav": { kind: "audio", ext: ".wav" },
   "audio/mp4": { kind: "audio", ext: ".m4a" },
 };
-
-export function mediaRoot(): string {
-  return process.env.STUDIO_MEDIA_DIR ?? "/tmp/zooka-studio";
-}
-
-export class StudioError extends Error {
-  constructor(readonly code: string, readonly detail: string | null = null) {
-    super(code);
-  }
-}
 
 /** What a browser is allowed to hand us: a declared type we know, and a size inside the limit. */
 export function acceptUpload(input: { mimeType: string; bytes: number }): { kind: AssetKind; ext: string } {
@@ -99,25 +105,34 @@ export async function store(input: {
   label?: string | null;
 }): Promise<InferSelectModel<typeof schema.studioAsset>> {
   const accepted = acceptUpload({ mimeType: input.mimeType, bytes: input.bytes.length });
+  assertDurableStorageConfigured();
   const assetId = randomUUID();
-  const directory = join(mediaRoot(), input.organizationId);
-  await mkdir(directory, { recursive: true });
-  const path = join(directory, `${assetId}${accepted.ext}`);
-  await writeFile(path, input.bytes);
 
-  let width: number | null = null;
-  let height: number | null = null;
-  let duration: number | null = null;
-  let status = "ready";
-  try {
-    const details = await inspect(path);
-    width = details.width;
-    height = details.height;
-    duration = details.durationSeconds;
-  } catch {
-    // A file ffprobe cannot read is kept and marked failed, never presented as usable.
-    status = "failed";
-  }
+  // Images are measured from their header: Vercel has no ffprobe, and an image ffprobe cannot read
+  // there would otherwise be marked failed and never open. Video and audio still need ffprobe.
+  const headerSize = accepted.kind === "image" ? readImageSize(input.bytes, input.mimeType) : null;
+  const { width, height, duration, status } = headerSize
+    ? { width: headerSize.width, height: headerSize.height, duration: null, status: "ready" }
+    : await withScratch(async (directory) => {
+        // ffprobe needs a file; the scratch copy is deleted when this block ends.
+        const path = join(directory, `probe${accepted.ext}`);
+        await writeFile(path, input.bytes);
+        try {
+          const details = await inspect(path);
+          return { width: details.width, height: details.height, duration: details.durationSeconds, status: "ready" };
+        } catch {
+          // A file ffprobe cannot read is kept and marked failed, never presented as usable.
+          return { width: null, height: null, duration: null, status: "failed" };
+        }
+      });
+
+  const storagePath = await persistBytes({
+    organizationId: input.organizationId,
+    assetId,
+    extension: accepted.ext,
+    mimeType: input.mimeType,
+    bytes: input.bytes,
+  });
 
   const [row] = await db
     .insert(schema.studioAsset)
@@ -127,7 +142,7 @@ export async function store(input: {
       projectId: input.projectId,
       kind: accepted.kind,
       source: "upload",
-      storagePath: path,
+      storagePath: assertDurableStoragePath(storagePath),
       mimeType: input.mimeType,
       bytes: input.bytes.length,
       width,
@@ -172,7 +187,7 @@ export async function readAssetBytes(organizationId: string, assetId: string) {
   const asset = await getAsset(organizationId, assetId);
   if (!asset) throw new StudioError("asset_not_found");
   if (asset.status !== "ready") throw new StudioError("asset_not_ready");
-  const bytes = await readFile(asset.storagePath);
+  const bytes = await readStoredBytes(asset.storagePath);
   return { asset, bytes };
 }
 
@@ -230,60 +245,70 @@ export async function editImage(input: {
   if (!source) throw new StudioError("asset_not_found");
   if (source.kind !== "image") throw new StudioError("not_an_image");
 
-  const outId = randomUUID();
-  const directory = join(mediaRoot(), input.organizationId);
-  await mkdir(directory, { recursive: true });
-  const outPath = join(directory, `${outId}.png`);
-
   const op = input.operation;
-  let args: string[];
+  const logo = op.op === "logo" ? await getAsset(input.organizationId, op.logoAssetId) : null;
+  if (op.op === "logo" && !logo) throw new StudioError("logo_not_found");
+  assertDurableStorageConfigured();
 
-  if (op.op === "resize") {
-    if (op.width < 16 || op.width > 4096 || op.height < 16 || op.height > 4096) {
-      throw new StudioError("invalid_dimensions");
+  const outId = randomUUID();
+  const produced = await withScratch(async (directory) => {
+    const sourcePath = await materialize(source.storagePath, directory, "source");
+    const outPath = join(directory, `${outId}.png`);
+    let args: string[];
+
+    if (op.op === "resize") {
+      if (op.width < 16 || op.width > 4096 || op.height < 16 || op.height > 4096) {
+        throw new StudioError("invalid_dimensions");
+      }
+      args = ["-i", sourcePath, "-vf", `scale=${op.width}:${op.height}:flags=lanczos`, outPath];
+    } else if (op.op === "crop") {
+      if (op.width < 16 || op.height < 16 || op.x < 0 || op.y < 0) throw new StudioError("invalid_dimensions");
+      args = ["-i", sourcePath, "-vf", `crop=${op.width}:${op.height}:${op.x}:${op.y}`, outPath];
+    } else if (op.op === "text") {
+      const font = process.env.STUDIO_FONT_FILE;
+      if (!font) throw new StudioError("font_not_configured");
+      const text = op.text.replace(/[\\:'%]/g, " ").slice(0, 120);
+      if (!text.trim()) throw new StudioError("empty_text");
+      const size = Math.min(Math.max(op.size ?? 48, 12), 200);
+      const color = (op.color ?? "white").replace(/[^#a-zA-Z0-9]/g, "");
+      const y = Math.min(Math.max(op.y ?? 40, 0), 4000);
+      args = [
+        "-i",
+        sourcePath,
+        "-vf",
+        `drawtext=fontfile=${font}:text='${text}':fontsize=${size}:fontcolor=${color}:x=(w-text_w)/2:y=${y}`,
+        outPath,
+      ];
+    } else {
+      const logoPath = await materialize((logo as NonNullable<typeof logo>).storagePath, directory, "logo");
+      const scale = Math.min(Math.max(op.scale ?? 0.2, 0.05), 0.9);
+      const corner = op.corner ?? "br";
+      const position =
+        corner === "tl" ? "20:20" : corner === "tr" ? "W-w-20:20" : corner === "bl" ? "20:H-h-20" : "W-w-20:H-h-20";
+      args = [
+        "-i",
+        sourcePath,
+        "-i",
+        logoPath,
+        "-filter_complex",
+        `[1:v]scale=iw*${scale}:-1[logo];[0:v][logo]overlay=${position}`,
+        "-frames:v",
+        "1",
+        outPath,
+      ];
     }
-    args = ["-i", source.storagePath, "-vf", `scale=${op.width}:${op.height}:flags=lanczos`, outPath];
-  } else if (op.op === "crop") {
-    if (op.width < 16 || op.height < 16 || op.x < 0 || op.y < 0) throw new StudioError("invalid_dimensions");
-    args = ["-i", source.storagePath, "-vf", `crop=${op.width}:${op.height}:${op.x}:${op.y}`, outPath];
-  } else if (op.op === "text") {
-    const font = process.env.STUDIO_FONT_FILE;
-    if (!font) throw new StudioError("font_not_configured");
-    const text = op.text.replace(/[\\:'%]/g, " ").slice(0, 120);
-    if (!text.trim()) throw new StudioError("empty_text");
-    const size = Math.min(Math.max(op.size ?? 48, 12), 200);
-    const color = (op.color ?? "white").replace(/[^#a-zA-Z0-9]/g, "");
-    const y = Math.min(Math.max(op.y ?? 40, 0), 4000);
-    args = [
-      "-i",
-      source.storagePath,
-      "-vf",
-      `drawtext=fontfile=${font}:text='${text}':fontsize=${size}:fontcolor=${color}:x=(w-text_w)/2:y=${y}`,
-      outPath,
-    ];
-  } else {
-    const logo = await getAsset(input.organizationId, op.logoAssetId);
-    if (!logo) throw new StudioError("logo_not_found");
-    const scale = Math.min(Math.max(op.scale ?? 0.2, 0.05), 0.9);
-    const corner = op.corner ?? "br";
-    const position =
-      corner === "tl" ? "20:20" : corner === "tr" ? "W-w-20:20" : corner === "bl" ? "20:H-h-20" : "W-w-20:H-h-20";
-    args = [
-      "-i",
-      source.storagePath,
-      "-i",
-      logo.storagePath,
-      "-filter_complex",
-      `[1:v]scale=iw*${scale}:-1[logo];[0:v][logo]overlay=${position}`,
-      "-frames:v",
-      "1",
-      outPath,
-    ];
-  }
 
-  await ffmpeg(args);
-  const details = await inspect(outPath);
-  const bytes = (await stat(outPath)).size;
+    await ffmpeg(args);
+    const details = await inspect(outPath);
+    const stored = await persistFile({
+      organizationId: input.organizationId,
+      assetId: outId,
+      extension: ".png",
+      mimeType: "image/png",
+      path: outPath,
+    });
+    return { details, ...stored };
+  });
 
   const [row] = await db
     .insert(schema.studioAsset)
@@ -293,11 +318,11 @@ export async function editImage(input: {
       projectId: input.projectId ?? source.projectId,
       kind: "image",
       source: "derived",
-      storagePath: outPath,
+      storagePath: assertDurableStoragePath(produced.storagePath),
       mimeType: "image/png",
-      bytes,
-      width: details.width,
-      height: details.height,
+      bytes: produced.bytes,
+      width: produced.details.width,
+      height: produced.details.height,
       status: "ready",
       operation: op as unknown as Record<string, unknown>,
       parentAssetId: source.id,
@@ -337,7 +362,12 @@ export async function renderVideo(input: {
   const target = ASPECTS[input.aspect];
   if (!target) throw new StudioError("invalid_aspect");
 
-  const sources = [];
+  const sources: Array<{
+    asset: InferSelectModel<typeof schema.studioAsset>;
+    seconds: number;
+    title: string | null;
+    transition: "cut" | "fade";
+  }> = [];
   for (const scene of input.scenes) {
     const asset = await getAsset(input.organizationId, scene.assetId);
     if (!asset) throw new StudioError("asset_not_found");
@@ -349,71 +379,81 @@ export async function renderVideo(input: {
   const audio = input.audioAssetId ? await getAsset(input.organizationId, input.audioAssetId) : null;
   if (input.audioAssetId && !audio) throw new StudioError("audio_not_found");
 
+  assertDurableStorageConfigured();
   const outId = randomUUID();
-  const directory = join(mediaRoot(), input.organizationId);
-  await mkdir(directory, { recursive: true });
-  const outPath = join(directory, `${outId}.mp4`);
+  const produced = await withScratch(async (directory) => {
+    const outPath = join(directory, `${outId}.mp4`);
 
-  const args: string[] = [];
-  for (const source of sources) {
-    if (source.asset.kind === "image") {
-      args.push("-loop", "1", "-t", String(source.seconds), "-i", source.asset.storagePath);
-    } else {
-      args.push("-t", String(Math.min(source.seconds, 30)), "-i", source.asset.storagePath);
+    const args: string[] = [];
+    for (const [index, source] of sources.entries()) {
+      const local = await materialize(source.asset.storagePath, directory, `scene-${index}`);
+      if (source.asset.kind === "image") {
+        args.push("-loop", "1", "-t", String(source.seconds), "-i", local);
+      } else {
+        args.push("-t", String(Math.min(source.seconds, 30)), "-i", local);
+      }
     }
-  }
-  if (audio) args.push("-i", audio.storagePath);
+    if (audio) args.push("-i", await materialize(audio.storagePath, directory, "audio"));
 
-  const font = process.env.STUDIO_FONT_FILE;
-  const filters = sources
-    .map((scene, index) => {
-      const chain = [
-        `scale=${target.width}:${target.height}:force_original_aspect_ratio=decrease`,
-        `pad=${target.width}:${target.height}:(ow-iw)/2:(oh-ih)/2:color=black`,
-        "fps=30",
-        "setsar=1",
-      ];
-      // A title is drawn only when a font capable of the script is configured; otherwise the scene is
-      // rendered without it rather than with broken glyphs.
-      const title = scene.title?.replace(/[\\:'%]/g, " ").slice(0, 80).trim();
-      if (title && font) {
-        chain.push(
-          `drawtext=fontfile=${font}:text='${title}':fontsize=${Math.round(target.width / 22)}:fontcolor=white:box=1:boxcolor=black@0.45:boxborderw=18:x=(w-text_w)/2:y=h-text_h-80`
-        );
-      }
-      // A fade is a real transition on the scene's own timeline; the cut stays the default.
-      if (scene.transition === "fade") {
-        const out = Math.max(scene.seconds - 0.35, 0.1).toFixed(2);
-        chain.push("fade=t=in:st=0:d=0.35", `fade=t=out:st=${out}:d=0.35`);
-      }
-      return `[${index}:v]${chain.join(",")}[s${index}]`;
-    })
-    .join(";");
-  const concat = `${sources.map((_, index) => `[s${index}]`).join("")}concat=n=${sources.length}:v=1:a=0[vout]`;
+    const font = process.env.STUDIO_FONT_FILE;
+    const filters = sources
+      .map((scene, index) => {
+        const chain = [
+          `scale=${target.width}:${target.height}:force_original_aspect_ratio=decrease`,
+          `pad=${target.width}:${target.height}:(ow-iw)/2:(oh-ih)/2:color=black`,
+          "fps=30",
+          "setsar=1",
+        ];
+        // A title is drawn only when a font capable of the script is configured; otherwise the scene is
+        // rendered without it rather than with broken glyphs.
+        const title = scene.title?.replace(/[\\:'%]/g, " ").slice(0, 80).trim();
+        if (title && font) {
+          chain.push(
+            `drawtext=fontfile=${font}:text='${title}':fontsize=${Math.round(target.width / 22)}:fontcolor=white:box=1:boxcolor=black@0.45:boxborderw=18:x=(w-text_w)/2:y=h-text_h-80`
+          );
+        }
+        // A fade is a real transition on the scene's own timeline; the cut stays the default.
+        if (scene.transition === "fade") {
+          const out = Math.max(scene.seconds - 0.35, 0.1).toFixed(2);
+          chain.push("fade=t=in:st=0:d=0.35", `fade=t=out:st=${out}:d=0.35`);
+        }
+        return `[${index}:v]${chain.join(",")}[s${index}]`;
+      })
+      .join(";");
+    const concat = `${sources.map((_, index) => `[s${index}]`).join("")}concat=n=${sources.length}:v=1:a=0[vout]`;
 
-  // The scenes decide how long the film is. A shorter music track simply ends; it must not cut the
-  // picture, which is what `-shortest` would do.
-  const totalSeconds = sources.reduce((sum, scene) => sum + scene.seconds, 0);
-  args.push("-filter_complex", `${filters};${concat}`, "-map", "[vout]");
-  if (audio) args.push("-map", `${sources.length}:a`, "-t", String(totalSeconds));
-  args.push(
-    "-c:v",
-    "libx264",
-    "-preset",
-    "veryfast",
-    "-crf",
-    "23",
-    "-pix_fmt",
-    "yuv420p",
-    "-movflags",
-    "+faststart",
-    outPath
-  );
+    // The scenes decide how long the film is. A shorter music track simply ends; it must not cut the
+    // picture, which is what `-shortest` would do.
+    const totalSeconds = sources.reduce((sum, scene) => sum + scene.seconds, 0);
+    args.push("-filter_complex", `${filters};${concat}`, "-map", "[vout]");
+    if (audio) args.push("-map", `${sources.length}:a`, "-t", String(totalSeconds));
+    args.push(
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "23",
+      "-pix_fmt",
+      "yuv420p",
+      "-movflags",
+      "+faststart",
+      outPath
+    );
 
-  await ffmpeg(args);
-  const details = await inspect(outPath);
-  const bytes = (await stat(outPath)).size;
-  if (!details.width || !details.height || !details.durationSeconds) throw new StudioError("render_unreadable");
+    await ffmpeg(args);
+    const details = await inspect(outPath);
+    if (!details.width || !details.height || !details.durationSeconds) throw new StudioError("render_unreadable");
+    const stored = await persistFile({
+      organizationId: input.organizationId,
+      assetId: outId,
+      extension: ".mp4",
+      mimeType: "video/mp4",
+      path: outPath,
+    });
+    return { details: { width: details.width, height: details.height, durationSeconds: details.durationSeconds }, ...stored };
+  });
+  const { details, bytes } = produced;
 
   const [row] = await db
     .insert(schema.studioAsset)
@@ -423,7 +463,7 @@ export async function renderVideo(input: {
       projectId: input.projectId ?? null,
       kind: "video",
       source: "derived",
-      storagePath: outPath,
+      storagePath: assertDurableStoragePath(produced.storagePath),
       mimeType: "video/mp4",
       bytes,
       width: details.width,
@@ -461,36 +501,47 @@ export async function editAudio(input: {
   if (!source) throw new StudioError("asset_not_found");
   if (source.kind !== "audio") throw new StudioError("not_audio");
 
-  const outId = randomUUID();
-  const directory = join(mediaRoot(), input.organizationId);
-  await mkdir(directory, { recursive: true });
-  const outPath = join(directory, `${outId}.m4a`);
-
   const op = input.op ?? "trim";
-  const args = ["-i", source.storagePath];
-
+  const voice = op === "mix" && input.voiceoverAssetId ? await getAsset(input.organizationId, input.voiceoverAssetId) : null;
   if (op === "mix") {
-    const voice = input.voiceoverAssetId ? await getAsset(input.organizationId, input.voiceoverAssetId) : null;
     if (!voice) throw new StudioError("voiceover_not_found");
     if (voice.kind !== "audio") throw new StudioError("not_audio");
-    const musicDb = Math.min(Math.max(input.gainDb ?? -6, -40), 12);
-    // Music sits under the voice by default; the voice is never attenuated.
-    args.push("-i", voice.storagePath, "-filter_complex", `[0:a]volume=${musicDb}dB[music];[1:a]volume=0dB[voice];[music][voice]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[out]`, "-map", "[out]");
-  } else if (op === "gain") {
-    if (input.start !== undefined) args.push("-ss", String(Math.max(input.start, 0)));
-    if (input.seconds !== undefined) args.push("-t", String(Math.min(Math.max(input.seconds, 0.5), 300)));
-    const gain = Math.min(Math.max(input.gainDb ?? 0, -30), 20);
-    args.push("-af", `volume=${gain}dB`);
-  } else {
-    if (input.start !== undefined) args.push("-ss", String(Math.max(input.start, 0)));
-    if (input.seconds !== undefined) args.push("-t", String(Math.min(Math.max(input.seconds, 0.5), 300)));
-    args.push("-af", "loudnorm=I=-16:TP=-1.5:LRA=11");
   }
-  args.push("-c:a", "aac", "-b:a", "128k", outPath);
+  assertDurableStorageConfigured();
 
-  await ffmpeg(args);
-  const details = await inspect(outPath);
-  const bytes = (await stat(outPath)).size;
+  const outId = randomUUID();
+  const produced = await withScratch(async (directory) => {
+    const outPath = join(directory, `${outId}.m4a`);
+    const args = ["-i", await materialize(source.storagePath, directory, "source")];
+
+    if (op === "mix" && voice) {
+      const musicDb = Math.min(Math.max(input.gainDb ?? -6, -40), 12);
+      // Music sits under the voice by default; the voice is never attenuated.
+      args.push("-i", await materialize(voice.storagePath, directory, "voice"), "-filter_complex", `[0:a]volume=${musicDb}dB[music];[1:a]volume=0dB[voice];[music][voice]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[out]`, "-map", "[out]");
+    } else if (op === "gain") {
+      if (input.start !== undefined) args.push("-ss", String(Math.max(input.start, 0)));
+      if (input.seconds !== undefined) args.push("-t", String(Math.min(Math.max(input.seconds, 0.5), 300)));
+      const gain = Math.min(Math.max(input.gainDb ?? 0, -30), 20);
+      args.push("-af", `volume=${gain}dB`);
+    } else {
+      if (input.start !== undefined) args.push("-ss", String(Math.max(input.start, 0)));
+      if (input.seconds !== undefined) args.push("-t", String(Math.min(Math.max(input.seconds, 0.5), 300)));
+      args.push("-af", "loudnorm=I=-16:TP=-1.5:LRA=11");
+    }
+    args.push("-c:a", "aac", "-b:a", "128k", outPath);
+
+    await ffmpeg(args);
+    const details = await inspect(outPath);
+    const stored = await persistFile({
+      organizationId: input.organizationId,
+      assetId: outId,
+      extension: ".m4a",
+      mimeType: "audio/mp4",
+      path: outPath,
+    });
+    return { details, ...stored };
+  });
+  const { details, bytes } = produced;
 
   const [row] = await db
     .insert(schema.studioAsset)
@@ -500,7 +551,7 @@ export async function editAudio(input: {
       projectId: input.projectId ?? source.projectId,
       kind: "audio",
       source: "derived",
-      storagePath: outPath,
+      storagePath: assertDurableStoragePath(produced.storagePath),
       mimeType: "audio/mp4",
       bytes,
       durationSeconds: details.durationSeconds === null ? null : String(details.durationSeconds.toFixed(3)),
@@ -527,5 +578,5 @@ export async function deleteAsset(organizationId: string, assetId: string) {
   await db
     .delete(schema.studioAsset)
     .where(and(eq(schema.studioAsset.id, assetId), eq(schema.studioAsset.organizationId, organizationId)));
-  await unlink(asset.storagePath).catch(() => undefined);
+  await deleteStoredBytes(asset.storagePath);
 }

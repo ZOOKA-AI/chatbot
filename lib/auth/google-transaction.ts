@@ -33,7 +33,13 @@ export function withGoogleTransactionCookies(
     );
     let forwarded = request;
     if (isCallback && hasTransactionCookies) {
-      forwarded = new NextRequest(request, {
+      // Built from the URL, not from the incoming request object: in production
+      // `new NextRequest(request)` reads the platform Request's private #state
+      // and throws "Cannot read private member #state", which failed the Google
+      // callback whenever the per-transaction cookies were present. The callback
+      // is a GET, so URL, method and headers are the whole request.
+      forwarded = new NextRequest(request.url, {
+        method: request.method,
         headers: new Headers(request.headers),
       });
       for (const name of names) {

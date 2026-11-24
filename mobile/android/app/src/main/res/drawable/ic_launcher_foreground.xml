@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A plain "Z" mark in the brand blue and cyan on the 108dp adaptive canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/zooka_blue"
+        android:pathData="M36,36h36v8L48,66h24v8H36v-8L60,44H36z" />
+    <path
+        android:fillColor="@color/zooka_cyan"
+        android:pathData="M66,30h8v8h-8z" />
+</vector>

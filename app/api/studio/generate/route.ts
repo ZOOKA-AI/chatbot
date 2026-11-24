@@ -5,6 +5,9 @@ import { withCommanderTenant } from "@/lib/agents/commander-scope";
 import { providerStatuses, providerRegistry } from "@/lib/studio/providers";
 import { selectEngine } from "@/lib/studio/engine-policy";
 import { assertQuota, store, StudioError } from "@/lib/studio/media";
+import { finishMediaJob, reserveFreeImage } from "@/lib/db/queries";
+import { dailyImageLimit } from "@/lib/media/free-image";
+import { getWorkspaceEntitlements } from "@/lib/saas/entitlements";
 
 /**
  * Generation, only through a provider that answered its health check.
@@ -58,6 +61,18 @@ async function POSTHandler(request: Request) {
     );
   }
 
+  // Free tiers share one allowance across every workspace, so each workspace gets a daily cap by plan.
+  let freeJobId: string | null = null;
+  if (ready.kind === "free_api") {
+    const entitlements = await getWorkspaceEntitlements(organizationId);
+    const limit = dailyImageLimit(entitlements.plan);
+    const reservation = await reserveFreeImage({ organizationId, prompt: parsed.data.prompt, dailyLimit: limit });
+    if (!reservation.job) {
+      return json({ error: "daily_image_limit", limit, plan: entitlements.plan }, 429);
+    }
+    freeJobId = reservation.job.id;
+  }
+
   const result = await ready.generate({
     organizationId,
     prompt: parsed.data.prompt,
@@ -66,6 +81,9 @@ async function POSTHandler(request: Request) {
   });
 
   if (result.ok === false) {
+    if (freeJobId) {
+      await finishMediaJob({ id: freeJobId, status: "failed", error: `${result.provider}:${result.code}` }).catch(() => null);
+    }
     return json({ error: result.code, provider: result.provider, detail: result.detail }, 502);
   }
 
@@ -79,8 +97,17 @@ async function POSTHandler(request: Request) {
       bytes: result.bytes,
       label: `generated:${result.provider}`,
     });
-    return json({ asset, provider: result.provider, seconds: result.seconds, meta: result.meta }, 201);
+    if (freeJobId) {
+      await finishMediaJob({ id: freeJobId, status: "succeeded", assetUrl: `/api/studio/assets/${asset.id}/file` }).catch(() => null);
+    }
+    // The bytes come back too: studio files live on the instance's disk, and the picture the customer
+    // just paid nothing for should show even if the next request lands on another instance.
+    const preview = result.bytes.length <= 4 * 1024 * 1024 ? `data:${result.mimeType};base64,${result.bytes.toString("base64")}` : null;
+    return json({ asset, provider: result.provider, seconds: result.seconds, meta: result.meta, preview }, 201);
   } catch (error) {
+    if (freeJobId) {
+      await finishMediaJob({ id: freeJobId, status: "failed", error: "store" }).catch(() => null);
+    }
     if (error instanceof StudioError) return json({ error: error.code, detail: error.detail }, 400);
     return json({ error: "store_failed" }, 500);
   }
