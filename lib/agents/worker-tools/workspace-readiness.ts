@@ -92,12 +92,32 @@ export const workspaceReadinessInspect: WorkerTool = {
     const pending = tasks.pending ?? 0;
     const failed = executions.failed ?? 0;
 
+    // Whether anything can pick work up without a human. The scheduler endpoint is closed unless
+    // SCHEDULER_TOKEN is set, and a closed endpoint with no active schedule means the queue only
+    // moves when someone presses run. A report that stayed silent about that called an idle
+    // platform healthy, which is the one thing a readiness report must never do.
+    const schedulerConfigured = Boolean(process.env.SCHEDULER_TOKEN);
+    const autonomy = {
+      schedulerConfigured,
+      schedulesTotal: schedules.total,
+      activeSchedules: schedules.active,
+      pendingTasks: pending,
+      trigger: schedulerConfigured && schedules.active > 0 ? "schedule" : "manual",
+    } as const;
+
     // What needs a human, in plain language, in the same order a person would ask.
     const attention: string[] = [];
     if (agents.total === 0) attention.push("no agent exists yet, so nothing can be assigned work");
     else if (agents.active === 0) attention.push("every agent is disabled, so queued work will not run");
     if (pending > 0) attention.push(`${pending} task(s) are waiting for a worker`);
     if (failed > 0) attention.push(`${failed} execution(s) ended in an error`);
+    if (pending > 0 && autonomy.activeSchedules === 0) {
+      attention.push(
+        schedulerConfigured
+          ? "no schedule is active, so queued work runs only when the scheduler is called"
+          : "the scheduler endpoint is closed (SCHEDULER_TOKEN is not set), so queued work runs only on a manual run"
+      );
+    }
 
     const summary = redact(
       `${label} — ` +
@@ -107,6 +127,7 @@ export const workspaceReadinessInspect: WorkerTool = {
         `${taskTotal} task(s) (${pending} pending)`,
         `${executionTotal} execution(s) (${executions.succeeded ?? 0} succeeded, ${failed} failed)`,
         `${schedules.total} schedule(s) (${schedules.active} active)`,
+        `work runs ${autonomy.trigger === "schedule" ? "on a schedule" : "only on a manual run"}`,
         attention.length ? `Needs attention: ${attention.join("; ")}.` : "Nothing needs attention.",
       ].join(" · ")
     );
@@ -121,6 +142,7 @@ export const workspaceReadinessInspect: WorkerTool = {
         tasks,
         executions,
         schedules,
+        autonomy,
         attention,
         measuredAt: new Date().toISOString(),
         source: "workspace database",
