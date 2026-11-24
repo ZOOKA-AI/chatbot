@@ -370,8 +370,8 @@ export function PlatformSite({
                   </h2>
                   <p>
                     {text(
-                      "المحادثة داخل حسابك، وليست أداة توليد وهمية في صفحة التعريف. ظهرت أخطاء حفظ رسائل سابقاً؛ راجع الجاهزية، وسجّل الدخول لاختبار حسابك.",
-                      "Chat lives in your account, not a pretend generator on this page. Message-save failures were previously observed; review readiness and sign in to test your account.",
+                      "المحادثة داخل حسابك، وليست أداة توليد وهمية في صفحة التعريف. سجّل الدخول لاختبار حسابك وبياناتك.",
+                      "Chat lives in your account, not a pretend generator on this page. Sign in to test your own account and data.",
                     )}
                   </p>
                 </div>

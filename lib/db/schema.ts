@@ -857,6 +857,24 @@ export const agentIdentity = pgTable(
   })
 );
 
+export const agentTemplateLink = pgTable(
+  "AgentTemplateLink",
+  {
+    agentId: uuid("agentId")
+      .primaryKey()
+      .notNull()
+      .references(() => agentIdentity.id, { onDelete: "cascade" }),
+    organizationId: varchar("organizationId", { length: 64 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revokedAt", { withTimezone: true }),
+  },
+  (table) => ({
+    organizationIdx: index("AgentTemplateLink_organizationId_idx").on(table.organizationId),
+  })
+);
+
 export const agentSchedule = pgTable(
   "AgentSchedule",
   {
@@ -1376,3 +1394,38 @@ export const platformAuditLog = pgTable(
     createdIndex: index("PlatformAuditLog_created_idx").on(table.createdAt),
   })
 );
+
+/**
+ * One external sender linked to one workspace agent.
+ *
+ * `secretName` points at a row in WorkspaceSecret that holds the provider
+ * credential as JSON, so a token rotation never touches this table and no
+ * credential is ever stored next to the conversation it belongs to.
+ */
+export const agentChannel = pgTable(
+  "AgentChannel",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    organizationId: uuid("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 16 }).notNull(),
+    externalId: varchar("externalId", { length: 64 }).notNull(),
+    displayName: varchar("displayName", { length: 120 }),
+    secretName: varchar("secretName", { length: 64 }).notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    messageCount: integer("messageCount").notNull().default(0),
+    lastSeenAt: timestamp("lastSeenAt", { withTimezone: true }),
+    createdBy: uuid("createdBy").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    senderUnique: unique("AgentChannel_organizationId_provider_externalId_key").on(
+      table.organizationId,
+      table.provider,
+      table.externalId
+    ),
+    senderLookup: index("AgentChannel_provider_externalId_idx").on(table.provider, table.externalId),
+  })
+);
+
+export type AgentChannel = InferSelectModel<typeof agentChannel>;

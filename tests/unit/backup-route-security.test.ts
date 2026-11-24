@@ -39,7 +39,8 @@ vi.mock("postgres", () => ({
   },
 }));
 
-import { GET, redactRow } from "@/app/api/admin/backup/route";
+import { GET } from "@/app/api/admin/backup/route";
+import { redactRow } from "@/lib/admin/backup";
 
 const TOKEN = "test-backup-token-value";
 const BASE = "https://zooka-ai.com/api/admin/backup";

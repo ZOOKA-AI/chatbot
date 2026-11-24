@@ -105,7 +105,7 @@ async function TermsContent() {
             </p>
 
             <h2 className="font-semibold text-lg">التواصل</h2>
-            <p>أسئلة حول هذه الشروط: zookaalmrzwq@gmail.com</p>
+            <p>أسئلة حول هذه الشروط: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         ) : (
           <>
@@ -167,7 +167,7 @@ async function TermsContent() {
             </p>
 
             <h2 className="font-semibold text-lg">Contact</h2>
-            <p>Questions about these terms: zookaalmrzwq@gmail.com</p>
+            <p>Questions about these terms: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         )}
       </section>

@@ -40,8 +40,74 @@ const PROTECTED_PREFIXES = [
   "/api",
 ];
 
+/**
+ * `/templates/<token>` renders a public agent template. The page resolves the
+ * token inside a Suspense boundary (cacheComponents refuses uncached data outside
+ * one), so the shell streams before the lookup runs. That means an unknown token
+ * answers 200 with a "not found" body: a soft 404 on an unbounded URL space, and
+ * the one case the page itself cannot fix.
+ *
+ * The decision therefore happens here, before React renders:
+ *   1. A token of the wrong shape cannot exist (lib/agents/templates.ts issues
+ *      32 random bytes as base64url, always 43 characters), so it is refused
+ *      outright, with no database work at all.
+ *   2. A well-shaped token is checked against the same public endpoint the page
+ *      uses. A 404 there is a real 404 here; any other answer, including an
+ *      error or a timeout, falls through to the page so a probe failure can
+ *      never take the page down.
+ */
+const TEMPLATE_PATH = /^\/templates\/([^/]+)\/?$/;
+const TEMPLATE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+const TEMPLATE_PROBE_TIMEOUT_MS = 2000;
+
+function templateTokenFrom(pathname: string): string | null {
+  const match = TEMPLATE_PATH.exec(pathname);
+  return match ? match[1] : null;
+}
+
+function templateNotFound(requestId: string) {
+  return new NextResponse(
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>404 · Page not found</title></head><body style="margin:0;background:#080D1B;color:#F8F9FA;font-family:Segoe UI,Tahoma,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center"><div><p style="font-size:64px;margin:0;font-weight:700">404</p><p style="opacity:.7;margin:12px 0 24px">This agent template does not exist.</p><a href="/" style="color:#3978FF;text-decoration:none">zooka-ai.com</a></div></body></html>',
+    {
+      status: 404,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "x-request-id": requestId,
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
+/**
+ * `false` only when the endpoint itself said 404. Any other outcome, including a
+ * 500, a timeout or a network failure, returns `true` so the request falls
+ * through to the page: a probe that cannot answer must never decide the status.
+ */
+async function templateExists(request: NextRequest, token: string): Promise<boolean> {
+  try {
+    const probe = new URL(`/api/templates/${encodeURIComponent(token)}`, request.nextUrl.origin);
+    const response = await fetch(probe, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(TEMPLATE_PROBE_TIMEOUT_MS),
+    });
+    return response.status !== 404;
+  } catch {
+    return true;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const requestId = requestIdFrom(request.headers);
+  if (request.method === "GET") {
+    const templateToken = templateTokenFrom(request.nextUrl.pathname);
+    if (templateToken !== null) {
+      const impossible = !TEMPLATE_TOKEN.test(templateToken);
+      if (impossible || !(await templateExists(request, templateToken))) {
+        return templateNotFound(requestId);
+      }
+    }
+  }
   const response = await route(request, requestId);
   response.headers.set("x-request-id", requestId);
   rememberAttribution(request, response);
@@ -206,6 +272,7 @@ async function route(request: NextRequest, requestId: string) {
     pathname === "/api/mcp" ||
     // Private publishing endpoint for n8n: bearer workspace key, not a session.
     pathname === "/api/publish" ||
+    pathname.startsWith("/api/templates/") ||
     pathname.startsWith("/r/") ||
     pathname.startsWith("/lp/") ||
     pathname === "/blog" ||
