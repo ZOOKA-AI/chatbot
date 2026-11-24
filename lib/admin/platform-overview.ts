@@ -1,6 +1,7 @@
 import "server-only";
 
 import { sql, type SQL } from "drizzle-orm";
+import { cacheLife } from "next/cache";
 
 import { probe, probeRows } from "@/lib/admin/probe";
 import type { AdminSection, AdminTable, Metric } from "@/lib/admin/types";
@@ -24,7 +25,11 @@ async function scalar(query: SQL): Promise<number> {
   return value === null || value === undefined ? 0 : Number(value);
 }
 
-export async function getPlatformOverview(role: PlatformRoleName): Promise<AdminSection> {
+async function getPlatformAggregates(): Promise<AdminSection> {
+  "use cache: remote";
+
+  cacheLife({ stale: 30, revalidate: 45, expire: 60 });
+
   const metrics: Metric[] = await Promise.all([
     probe("platform_users", "إجمالي المستخدمين", "Total users", "User (all rows)", () =>
       scalar(sql`select count(*)::int as value from "User"`)
@@ -107,6 +112,14 @@ export async function getPlatformOverview(role: PlatformRoleName): Promise<Admin
       }
     ),
   ];
+
+  return { metrics, tables };
+}
+
+export async function getPlatformOverview(role: PlatformRoleName): Promise<AdminSection> {
+  const { metrics, tables: aggregates } = await getPlatformAggregates();
+  // Only shared counts are cached; privileged records are read after the role check.
+  const tables = [...aggregates];
 
   if (role === "super_admin") {
     tables.push(
