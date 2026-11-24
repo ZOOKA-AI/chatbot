@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, Menu, X } from "lucide-react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -19,6 +20,9 @@ export function SiteHeader({ lang }: { lang: Lang }) {
   const t = (ar: string, en: string) => (isArabic ? ar : en);
   const [open, setOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const { data: session, status } = useSession();
+  const signedIn =
+    status === "authenticated" && !!session.user && session.user.type !== "guest";
 
   // Escape closes the phone menu and hands focus back to the button that
   // opened it (the audit found aria-expanded stuck at true after Escape).
@@ -223,18 +227,46 @@ export function SiteHeader({ lang }: { lang: Lang }) {
             className="border-border hover:bg-muted hidden size-10 items-center justify-center rounded-lg border transition-colors sm:inline-flex"
             lang={lang}
           />
-          <Link
-            className="zk-btn-ghost hidden min-h-10 rounded-xl px-4 py-1.5 text-sm sm:inline-flex"
-            href="/login"
-          >
-            {t("تسجيل الدخول", "Sign in")}
-          </Link>
-          <Link
-            className="zk-btn-primary min-h-10 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs sm:px-4 sm:text-sm"
-            href={CTA.workspace.href}
-          >
-            {isArabic ? CTA.workspace.ar : CTA.workspace.en}
-          </Link>
+          <div className="grid">
+            <div
+              aria-hidden="true"
+              className="invisible col-start-1 row-start-1 flex items-center gap-2"
+            >
+              <span className="zk-btn-ghost hidden min-h-10 rounded-xl px-4 py-1.5 text-sm sm:inline-flex">
+                {t("تسجيل الدخول", "Sign in")}
+              </span>
+              <span className="zk-btn-primary min-h-10 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs sm:px-4 sm:text-sm">
+                {isArabic ? CTA.workspace.ar : CTA.workspace.en}
+              </span>
+            </div>
+            {status !== "loading" && (
+              <div className="col-start-1 row-start-1 flex items-center justify-end gap-2">
+                {signedIn ? (
+                  <Link
+                    className="zk-btn-primary min-h-10 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs sm:px-4 sm:text-sm"
+                    href="/workspace"
+                  >
+                    {t("مساحة عملك", "Your workspace")}
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      className="zk-btn-ghost hidden min-h-10 rounded-xl px-4 py-1.5 text-sm sm:inline-flex"
+                      href="/login"
+                    >
+                      {t("تسجيل الدخول", "Sign in")}
+                    </Link>
+                    <Link
+                      className="zk-btn-primary min-h-10 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs sm:px-4 sm:text-sm"
+                      href={CTA.workspace.href}
+                    >
+                      {isArabic ? CTA.workspace.ar : CTA.workspace.en}
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <button
             aria-controls="site-mobile-menu"
             aria-expanded={open}
@@ -269,13 +301,19 @@ export function SiteHeader({ lang }: { lang: Lang }) {
               </a>
             ))}
             <div className="border-border mt-2 flex items-center gap-2 border-t pt-3">
-              <Link
-                className="border-border inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border px-3 py-2 text-sm"
-                href="/login"
-                onClick={() => setOpen(false)}
-              >
-                {t("تسجيل الدخول", "Sign in")}
-              </Link>
+              {status === "loading" ? (
+                <span aria-hidden="true" className="min-h-11 flex-1" />
+              ) : (
+                <Link
+                  className="border-border inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border px-3 py-2 text-sm"
+                  href={signedIn ? "/workspace" : "/login"}
+                  onClick={() => setOpen(false)}
+                >
+                  {signedIn
+                    ? t("مساحة عملك", "Your workspace")
+                    : t("تسجيل الدخول", "Sign in")}
+                </Link>
+              )}
               <LanguageToggle
                 className="border-border min-h-11 rounded-lg border px-3 py-2 text-sm"
                 lang={lang}
