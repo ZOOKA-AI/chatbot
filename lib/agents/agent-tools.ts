@@ -13,17 +13,64 @@ import { WORKER_TOOLS } from "@/lib/agents/worker";
  * do. Nothing here accepts a tool id the platform does not implement.
  */
 
-export type ToolCatalogEntry = {
+export interface ToolCatalogEntry {
   id: string;
   /** What it does, in the customer's terms. No capability the tool does not have. */
   summary: string;
   /** Whether running it changes anything outside the workspace. */
   writes: boolean;
+  permission: AgentActionPermission;
+}
+
+export const AGENT_ACTION_PERMISSIONS = ["read", "update", "delete", "send", "spend"] as const;
+export type AgentActionPermission = (typeof AGENT_ACTION_PERMISSIONS)[number];
+
+export interface AgentPermissionSettings {
+  updateWithoutApproval?: boolean;
+  deleteWithoutApproval?: boolean;
+  sendMessagesWithoutApproval?: boolean;
+}
+
+export const DEFAULT_AGENT_PERMISSIONS = {
+  updateWithoutApproval: true,
+  deleteWithoutApproval: false,
+  sendMessagesWithoutApproval: false,
+  spendWithoutApproval: false,
+} as const;
+
+const PERMISSION_BY_TOOL: Record<string, AgentActionPermission> = {
+  github_repo_inspect: "read",
+  vercel_deployment_inspect: "read",
+  workspace_readiness_inspect: "read",
+  studio_asset_list: "read",
+  connector_catalog: "read",
+  connector_status: "read",
+  connector_read: "read",
+  connector_link: "read",
+  github_repo_probe: "read",
+  load_skill: "read",
+  project_document_create: "update",
+  browser_task_run: "update",
+  studio_image_edit: "update",
+  studio_background_remove: "update",
+  studio_video_render: "update",
+  studio_promo_video: "update",
+  studio_ai_generate: "spend",
+  studio_narration: "update",
+  studio_audio_edit: "update",
 };
 
-const DESCRIPTIONS: Record<string, Omit<ToolCatalogEntry, "id">> = {
+const DESCRIPTIONS: Record<string, Omit<ToolCatalogEntry, "id" | "permission">> = {
+  load_skill: {
+    summary: "Reads the instructions for an enabled skill in this workspace.",
+    writes: false,
+  },
   github_repo_inspect: {
     summary: "Reads a repository's branches, recent commits and open pull requests.",
+    writes: false,
+  },
+  github_repo_probe: {
+    summary: "Checks whether a named workspace GitHub credential can access an allowlisted repository; does not inspect files.",
     writes: false,
   },
   vercel_deployment_inspect: {
@@ -94,7 +141,92 @@ export function toolCatalog(): ToolCatalogEntry[] {
       // explicitly; the fallback only catches a tool added without a description,
       // and guessing "read-only" for it would let an approval gate skip a write.
       writes: DESCRIPTIONS[id]?.writes ?? true,
+      permission: PERMISSION_BY_TOOL[id] ?? "spend",
     }));
+}
+
+function browserPermissions(payload: Record<string, unknown> | undefined): AgentActionPermission[] {
+  const steps = payload?.steps;
+  if (!Array.isArray(steps)) {
+    return [];
+  }
+
+  const permissions = steps.flatMap((step): AgentActionPermission[] => {
+    if (!step || typeof step !== "object") {
+      return [];
+    }
+    const record = step as Record<string, unknown>;
+    const values = [record.action, record.kind, record.category, record.operation]
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.toLowerCase());
+    const result: AgentActionPermission[] = [];
+    if (
+      values.some((value) =>
+        ["purchase", "payment", "spend", "security_change", "submit", "submit_final", "click"].includes(value)
+      )
+    ) {
+      result.push("spend");
+    }
+    if (values.some((value) => ["publish", "message", "send", "submit"].includes(value))) {
+      result.push("send");
+    }
+    if (values.includes("delete")) {
+      result.push("delete");
+    }
+    if (values.some((value) => ["type", "select"].includes(value))) {
+      result.push("update");
+    }
+    if (values.some((value) => ["navigate", "read", "screenshot", "scroll"].includes(value))) {
+      result.push("read");
+    }
+    return result.length > 0 ? result : ["spend"];
+  });
+
+  return [...new Set(permissions)];
+}
+
+export function permissionsForTool(
+  tool: string,
+  payload?: Record<string, unknown>
+): AgentActionPermission[] {
+  if (tool === "browser_task_run") {
+    const permissions = browserPermissions(payload);
+    if (permissions.length > 0) {
+      return permissions;
+    }
+  }
+  return [PERMISSION_BY_TOOL[tool] ?? "spend"];
+}
+
+export function permissionForTool(
+  tool: string,
+  payload?: Record<string, unknown>
+): AgentActionPermission {
+  return permissionsForTool(tool, payload)[0];
+}
+
+export function permissionNeedsApproval(
+  permission: AgentActionPermission,
+  settings: AgentPermissionSettings | null | undefined
+): boolean {
+  if (permission === "update") {
+    return !(settings?.updateWithoutApproval ?? DEFAULT_AGENT_PERMISSIONS.updateWithoutApproval);
+  }
+  if (permission === "delete") {
+    return !(settings?.deleteWithoutApproval ?? DEFAULT_AGENT_PERMISSIONS.deleteWithoutApproval);
+  }
+  if (permission === "send") {
+    return !(settings?.sendMessagesWithoutApproval ?? DEFAULT_AGENT_PERMISSIONS.sendMessagesWithoutApproval);
+  }
+  return permission === "spend";
+}
+
+export function permissionsRequiringApproval(
+  tool: string,
+  payload: Record<string, unknown> | undefined,
+  settings: AgentPermissionSettings | null | undefined
+): AgentActionPermission[] {
+  return permissionsForTool(tool, payload).filter((permission) => permissionNeedsApproval(permission, settings));
 }
 
 export function isKnownTool(id: string): boolean {

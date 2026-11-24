@@ -16,9 +16,14 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import postgres from "postgres";
+import { redactRow } from "@/lib/admin/backup";
 import { verifySharedSecret } from "@/lib/webhooks/security";
 
-const TABLES = [
+/**
+ * The legacy tables, exported first and in this order so an existing restore
+ * procedure that replays them in sequence keeps working.
+ */
+const LEGACY_TABLES = [
   "User",
   "Organization",
   "OrganizationMember",
@@ -35,6 +40,31 @@ const TABLES = [
   "Stream",
 ] as const;
 
+/** Only plain identifiers are ever interpolated into a query. */
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+type Queryable = { unsafe: (query: string) => Promise<readonly unknown[]> };
+
+/**
+ * Every table in the public schema, read from the catalog at dump time.
+ *
+ * This replaced a hand-written list of 14 tables: every table added after it
+ * (PlatformRole, TikTok*, AgentTask, WebhookEvent, MediaJob, BlogPost,
+ * AgentMessage, ...) was silently missing from the backup. Reading the catalog
+ * means a table is covered as soon as its migration has run. The legacy tables
+ * stay first, in their original order; the rest follow alphabetically.
+ */
+async function listBackupTables(client: Queryable): Promise<string[]> {
+  const rows = await client.unsafe(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
+  );
+  const catalog = rows
+    .map((row) => (row as { tablename?: unknown }).tablename)
+    .filter((name): name is string => typeof name === "string" && IDENTIFIER.test(name));
+  const legacy = new Set<string>(LEGACY_TABLES);
+  return [...LEGACY_TABLES, ...catalog.filter((name) => !legacy.has(name)).sort()];
+}
+
 const NO_STORE = {
   "cache-control": "private, no-store, max-age=0, must-revalidate",
   pragma: "no-cache",
@@ -45,16 +75,6 @@ const NO_STORE = {
  * Password hashes, session tokens and API keys are removed by column name, so a
  * future secret column is covered without editing this pattern.
  */
-const SENSITIVE_COLUMN = /(password|passwd|hash|salt|secret|token|api[-_]?key)/i;
-
-export function redactRow(row: Record<string, unknown>): Record<string, unknown> {
-  const clean: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    clean[key] = SENSITIVE_COLUMN.test(key) ? "[redacted]" : value;
-  }
-  return clean;
-}
-
 /**
  * One line per refused request. The token is never logged, not even truncated:
  * a prefix plus a timestamp is still a guessing aid. The request id is echoed to
@@ -113,7 +133,7 @@ export async function GET(request: Request) {
   const client = postgres(connectionString, { max: 1, prepare: false });
   try {
     const tables: Record<string, unknown[]> = {};
-    for (const table of TABLES) {
+    for (const table of await listBackupTables(client)) {
       const rows = await client.unsafe(`SELECT * FROM "${table}"`);
       tables[table] =
         mode === "redacted"

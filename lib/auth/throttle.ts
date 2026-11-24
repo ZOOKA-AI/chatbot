@@ -70,3 +70,21 @@ export function createThrottle(options: {
 export const signupThrottle = createThrottle({ limit: 5, windowMs: 15 * 60 * 1000 });
 export const resetThrottle = createThrottle({ limit: 5, windowMs: 15 * 60 * 1000 });
 export const ipThrottle = createThrottle({ limit: 20, windowMs: 15 * 60 * 1000 });
+
+/**
+ * Password sign-in. Production accepted unlimited wrong passwords for one address
+ * (15 in a row, ~400 ms each, no slowdown). Ten attempts per address and fifty
+ * per source IP in 15 minutes; a successful sign-in clears the address budget.
+ */
+export const loginThrottle = createThrottle({ limit: 10, windowMs: 15 * 60 * 1000 });
+export const loginIpThrottle = createThrottle({ limit: 50, windowMs: 15 * 60 * 1000 });
+
+export function loginAttemptAllowed(email: string, ip: string): boolean {
+  const address = loginThrottle.check(`login:${email.trim().toLowerCase()}`).allowed;
+  const source = loginIpThrottle.check(`login:${ip || "unknown"}`).allowed;
+  return address && source;
+}
+
+export function loginSucceeded(email: string) {
+  loginThrottle.reset(`login:${email.trim().toLowerCase()}`);
+}

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const useCases = {
   agents: {
-    eyebrow: "ZOOKA AI / مساحة الأفراد",
+    eyebrow: "ZOOKA-AI / مساحة الأفراد",
     title: "من فكرة مبعثرة إلى مسودة تستطيع تطويرها.",
     description:
       "ابدأ بهدف واضح، اختر قالباً، وراجع النتيجة قبل أي خطوة خارج التطبيق. أنت صاحب القرار، والوكيل يساعدك على التحضير.",
@@ -26,7 +26,7 @@ const useCases = {
     otherLabel: "تبحث عن استخدام لفريقك؟",
   },
   teams: {
-    eyebrow: "ZOOKA AI / فرق الخدمات",
+    eyebrow: "ZOOKA-AI / فرق الخدمات",
     title: "رتّب العمل المتكرر. واترك القرارات لفريقك.",
     description:
       "ابدأ بمهمة واحدة: مسودة عرض، رد على عميل، أو خطة محتوى. اختبر النتيجة أولاً، ثم اربط فقط الأدوات التي يحتاجها عملك.",
@@ -68,7 +68,7 @@ export function UseCaseLanding({
         className="mb-16 flex flex-wrap items-center justify-between gap-4"
       >
         <Link className="text-xl font-semibold tracking-tight" href="/">
-          ZOOKA AI
+          ZOOKA-AI
         </Link>
         <div className="flex gap-5 text-sm">
           <Link className="underline underline-offset-4" href="/pricing">
@@ -96,7 +96,7 @@ export function UseCaseLanding({
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              className="bg-foreground text-background rounded-xl px-6 py-3 font-medium"
+              className="zk-btn-primary px-6"
               href="/register"
             >
               ابدأ بإنشاء حساب

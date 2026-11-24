@@ -1,16 +1,16 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/developer` },
   description:
-    "من يبني Zooka AI: مطوّر في Google Developer Program وGoogle Cloud Innovator، مع خلفية في Android والذكاء الاصطناعي والبنية السحابية والوكلاء. Meet the developer behind Zooka AI.",
+    "من يبني ZOOKA-AI: مطوّر في Google Developer Program وGoogle Cloud Innovator، مع خلفية في Android والذكاء الاصطناعي والبنية السحابية والوكلاء. Meet the developer behind ZOOKA-AI.",
   keywords: [
-    "Zooka AI developer",
+    "ZOOKA-AI developer",
     "Google Developer Program",
     "Google Cloud Innovator",
     "مطور ذكاء اصطناعي الإمارات",
@@ -20,10 +20,10 @@ export const metadata: Metadata = {
   openGraph: {
     description:
       "مطوّر في Google Developer Program وGoogle Cloud Innovator — بناء وكلاء عرب ينفّذون المهام على أدوات الشركة.",
-    title: "المطوّر وراء Zooka AI",
+    title: "المطوّر وراء ZOOKA-AI",
     type: "profile",
   },
-  title: "المطوّر وراء Zooka AI",
+  title: "المطوّر وراء ZOOKA-AI",
 };
 
 const PAGE_URL = `${SITE_URL}/developer`;
@@ -34,7 +34,7 @@ const personSchema = {
     {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
-      name: "Zooka AI",
+      name: "ZOOKA-AI",
       url: SITE_URL,
       logo: `${SITE_URL}/images/zooka-logo-512.png`,
       sameAs: [
@@ -173,7 +173,9 @@ async function DeveloperContent() {
   const ar = lang === "ar";
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-12 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
@@ -186,9 +188,8 @@ async function DeveloperContent() {
 
       <div className="flex items-center justify-between">
         <Link className="text-muted-foreground text-sm hover:underline" href="/">
-          ← ZOOKA AI
+          ← ZOOKA-AI
         </Link>
-        <LanguageToggle lang={lang} />
       </div>
 
       <header className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/10 p-8 sm:p-12">
@@ -200,7 +201,7 @@ async function DeveloperContent() {
           {ar ? "من يبني المنتج" : "Who builds this"}
         </p>
         <h1 className="relative mt-3 font-semibold text-3xl leading-tight sm:text-5xl">
-          {ar ? "المطوّر وراء Zooka AI" : "The developer behind Zooka AI"}
+          {ar ? "المطوّر وراء ZOOKA-AI" : "The developer behind ZOOKA-AI"}
         </h1>
         <p className="relative mt-4 max-w-2xl text-muted-foreground">
           {ar
@@ -209,12 +210,14 @@ async function DeveloperContent() {
         </p>
         <div className="relative mt-6 flex flex-wrap gap-3">
           <a
-            className="inline-flex h-10 items-center rounded-full bg-foreground px-5 font-medium text-background text-sm"
+            className="zk-btn-primary min-h-10 rounded-full px-5 text-sm"
             href="https://g.dev/zooka-ai"
             rel="me noopener"
             target="_blank"
           >
-            {ar ? "ملف مطوّر جوجل" : "Google developer profile"}
+            {ar
+              ? "ملف مطوّر جوجل (يتطلب تسجيل الدخول بحساب Google)"
+              : "Google developer profile (requires a Google sign-in)"}
           </a>
           <a
             className="inline-flex h-10 items-center rounded-full border px-5 font-medium text-sm hover:bg-accent"
@@ -297,7 +300,7 @@ async function DeveloperContent() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            className="inline-flex h-10 items-center rounded-full bg-foreground px-5 font-medium text-background text-sm"
+            className="zk-btn-primary min-h-10 rounded-full px-5 text-sm"
             href="/"
           >
             {ar ? "جرّب زوكا" : "Try Zooka"}
@@ -317,5 +320,6 @@ async function DeveloperContent() {
         </div>
       </section>
     </main>
+    </>
   );
 }

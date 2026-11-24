@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 /**
- * The ZOOKA AI mark.
+ * The ZOOKA-AI mark.
  *
  * Vector by default so it stays crisp at any size and inherits the current
  * colour when `mono` is passed. Geometry is the approved mark: a hexagonal
@@ -69,7 +69,7 @@ export function ZookaWordmark({ size = 28, subtitle }: { size?: number; subtitle
     <span className="inline-flex items-center gap-2">
       <ZookaMark size={size} />
       <span className="flex flex-col leading-tight">
-        <span style={{ fontSize: size * 0.5, fontWeight: 700, letterSpacing: "0.02em" }}>ZOOKA AI</span>
+        <span style={{ fontSize: size * 0.5, fontWeight: 700, letterSpacing: "0.02em" }}>ZOOKA-AI</span>
         {subtitle ? (
           <span className="text-[0.62rem] text-[#10D4FF]" style={{ letterSpacing: "0.08em" }}>
             {subtitle}

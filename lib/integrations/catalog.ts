@@ -1,5 +1,7 @@
 import "server-only";
 
+import { belongsToOtherProject } from "@/lib/integrations/project-isolation";
+
 import { sql } from "drizzle-orm";
 import {
   decryptGoogleDriveTokens,
@@ -109,16 +111,21 @@ export async function listWorkspaceIntegrations(
     where workspace_id = ${workspaceId} and revoked_at is null
     order by provider asc
   `)) as unknown as Record<string, unknown>[];
-  return rows.map((row) => ({
-    providerId: row.provider as string,
-    displayName: (row.display_name as string) ?? null,
-    accountEmail: (row.account_email as string) ?? null,
-    scopes: normalizeScopes(row.scopes),
-    status: row.status as WorkspaceIntegration["status"],
-    expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
-    lastUsedAt: row.last_used_at ? new Date(row.last_used_at as string) : null,
-    lastError: (row.last_error as string) ?? null,
-  }));
+  return (
+    rows
+      .map((row) => ({
+        providerId: row.provider as string,
+        displayName: (row.display_name as string) ?? null,
+        accountEmail: (row.account_email as string) ?? null,
+        scopes: normalizeScopes(row.scopes),
+        status: row.status as WorkspaceIntegration["status"],
+        expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
+        lastUsedAt: row.last_used_at ? new Date(row.last_used_at as string) : null,
+        lastError: (row.last_error as string) ?? null,
+      }))
+      // Assets of the other business are read-boundary excluded, never deleted.
+      .filter((row) => !belongsToOtherProject(row))
+  );
 }
 
 export async function saveIntegrationConnection(input: {
@@ -161,6 +168,35 @@ export async function saveIntegrationConnection(input: {
     action: "connected",
     userId: input.connectedBy ?? null,
   });
+}
+
+/**
+ * Read-only check used by status badges: is there a decryptable access token on
+ * the workspace connection? Unlike getIntegrationTokens it does not touch
+ * last_used_at, so rendering a settings page is never recorded as usage.
+ */
+export async function hasIntegrationAccessToken(
+  workspaceId: string,
+  providerId: string
+): Promise<boolean> {
+  const rows = (await db.execute(sql`
+    select encrypted_tokens, status
+    from integration_connection
+    where workspace_id = ${workspaceId}
+      and provider = ${providerId}
+      and revoked_at is null
+    limit 1
+  `)) as unknown as Record<string, unknown>[];
+  const row = rows[0];
+  if (!row || row.status === "revoked" || typeof row.encrypted_tokens !== "string") {
+    return false;
+  }
+  try {
+    const tokens = decryptTokens(row.encrypted_tokens);
+    return typeof tokens?.accessToken === "string" && tokens.accessToken.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export async function getIntegrationTokens(

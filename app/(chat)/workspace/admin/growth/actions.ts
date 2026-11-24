@@ -2,6 +2,7 @@
 
 import { sql } from "drizzle-orm";
 
+import { requirePlatformRole } from "@/lib/auth/platform-role";
 import { requireWorkspaceRole } from "@/lib/auth/workspace";
 import { adminDb } from "@/lib/db/queries";
 
@@ -13,6 +14,11 @@ import { adminDb } from "@/lib/db/queries";
 export async function updateGrowthSettings(formData: FormData) {
   const context = await requireWorkspaceRole("owner");
   if (!context) return { ok: false as const, reason: "forbidden" as const };
+  // GrowthSettings is one row for the whole platform. Any sign-up owns a
+  // workspace, so the owner role alone let every user rewrite the referral
+  // economy; the write needs the platform admin grant.
+  const platformAdmin = await requirePlatformRole("admin", "action.admin.growth.update");
+  if (!platformAdmin) return { ok: false as const, reason: "forbidden" as const };
 
   const readInt = (key: string, min: number, max: number) => {
     const raw = Number(formData.get(key));

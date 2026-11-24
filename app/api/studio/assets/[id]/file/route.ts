@@ -31,7 +31,8 @@ async function GETHandler(request: Request, context: { params: Promise<{ id: str
     });
   } catch (error) {
     if (error instanceof StudioError) {
-      const status = error.code === "asset_not_found" ? 404 : 409;
+      // A legacy row whose local file did not survive a redeploy is gone, not "not found".
+      const status = error.code === "asset_not_found" ? 404 : error.code === "asset_bytes_missing" ? 410 : 409;
       return json({ error: error.code }, status);
     }
     return json({ error: "read_failed" }, 500);

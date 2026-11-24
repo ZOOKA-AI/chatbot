@@ -8,7 +8,7 @@ import { useActionState, useEffect, useState } from "react";
 import { AuthForm } from "@/components/auth-form";
 import { PhoneSignInForm } from "@/components/phone-sign-in-form";
 import { SocialSignInButtons } from "@/components/social-sign-in-buttons";
-import { LanguageToggle } from "@/components/language-toggle";
+import { AuthBrandShell } from "@/components/auth-brand-shell";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
 import { type LoginActionState, login } from "../actions";
@@ -24,7 +24,8 @@ const strings = {
     signUpLink: "أنشئ حساباً مجانياً",
     unavailable:
       "خدمة الحسابات غير متاحة مؤقتاً. حاول لاحقاً؛ لا تحتاج لتغيير كلمة المرور.",
-    invalid: "بيانات الدخول غير صحيحة!",
+    invalid:
+      "بيانات الدخول غير صحيحة. لو أنشأت حسابك بـ Google أو Facebook، ادخل بنفس الطريقة أو عيّن كلمة مرور من «نسيت كلمة المرور؟».",
     authError:
       "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى أو استخدام طريقة أخرى.",
     justRegistered:
@@ -40,7 +41,8 @@ const strings = {
     signUpLink: "Sign up for free",
     unavailable:
       "Account service is temporarily unavailable. Please try later; you do not need to reset your password.",
-    invalid: "Invalid credentials!",
+    invalid:
+      "Invalid credentials. If you signed up with Google or Facebook, sign in the same way or set a password with \"Forgot password?\".",
     authError:
       "Unable to sign in. Please try again or use another sign-in method.",
     justRegistered:
@@ -56,6 +58,7 @@ export function LoginClient({
   phoneEnabled = false,
   hasAuthError = false,
   justRegistered = false,
+  callbackUrl = "/workspace/home",
 }: {
   lang: "ar" | "en";
   googleEnabled?: boolean;
@@ -64,6 +67,7 @@ export function LoginClient({
   phoneEnabled?: boolean;
   hasAuthError?: boolean;
   justRegistered?: boolean;
+  callbackUrl?: string;
 }) {
   const t = strings[lang];
   const router = useRouter();
@@ -116,64 +120,58 @@ export function LoginClient({
       router.refresh();
       // A full assign is intentional: the middleware has to see the new cookie on
       // the very next navigation.
-      window.location.assign("/workspace/home");
+      window.location.assign(callbackUrl);
     });
   };
 
+  const isArabic = lang === "ar";
+
   return (
-    <div className="flex min-h-dvh w-full items-start justify-center bg-background px-0 pt-16 pb-10 md:items-center md:py-10">
-      <LanguageToggle lang={lang} />
-      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl sm:gap-10">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h1 className="font-semibold text-2xl dark:text-zinc-50">{t.title}</h1>
-          <p className="text-gray-500 text-sm dark:text-zinc-400">
-            {t.subtitle}
-          </p>
-        </div>
-        {hasAuthError ? (
-          <p className="px-4 text-center text-red-600 text-sm" role="alert">
-            {t.authError}
-          </p>
-        ) : null}
-        {justRegistered && !hasAuthError ? (
-          <p
-            className="px-4 text-center text-emerald-600 text-sm dark:text-emerald-400"
-            data-testid="register-notice"
-            role="status"
-          >
-            {t.justRegistered}
-          </p>
-        ) : null}
-        {phoneEnabled ? <PhoneSignInForm lang={lang} /> : null}
-        <SocialSignInButtons
-          facebook={facebookEnabled}
-          google={googleEnabled}
-          lang={lang}
-          microsoft={microsoftEnabled}
-        />
-        <AuthForm
-          action={handleSubmit}
-          defaultEmail={email}
-          labels={{ email: t.email, password: t.password }}
-        >
-          <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
-          <Link
-            className="inline-flex min-h-11 items-center justify-center self-center px-2 text-muted-foreground text-sm underline underline-offset-4"
-            href="/forgot-password"
-          >
-            {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
-          </Link>
-          <p className="text-center text-gray-600 text-sm dark:text-zinc-400">
-            {`${t.noAccount} `}
-            <Link
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
-              href="/register"
+    <AuthBrandShell lang={lang} subtitle={t.subtitle} title={t.title}>
+          {hasAuthError ? (
+            <p className="px-4 text-center text-red-400 text-sm" role="alert">
+              {t.authError}
+            </p>
+          ) : null}
+          {justRegistered && !hasAuthError ? (
+            <p
+              className="px-4 text-center text-emerald-400 text-sm"
+              data-testid="register-notice"
+              role="status"
             >
-              {t.signUpLink}
+              {t.justRegistered}
+            </p>
+          ) : null}
+          {phoneEnabled ? <PhoneSignInForm callbackUrl={callbackUrl} lang={lang} /> : null}
+          <SocialSignInButtons
+            callbackUrl={callbackUrl}
+            facebook={facebookEnabled}
+            google={googleEnabled}
+            lang={lang}
+            microsoft={microsoftEnabled}
+          />
+          <AuthForm
+            action={handleSubmit}
+            defaultEmail={email}
+            labels={{ email: t.email, password: t.password }}
+          >
+            <SubmitButton isSuccessful={isSuccessful}>{t.submit}</SubmitButton>
+            <Link
+              className="inline-flex min-h-11 items-center justify-center self-center px-2 text-muted-foreground text-sm underline underline-offset-4"
+              href="/forgot-password"
+            >
+              {isArabic ? "نسيت كلمة المرور؟" : "Forgot password?"}
             </Link>
-          </p>
-        </AuthForm>
-      </div>
-    </div>
+            <p className="text-center text-muted-foreground text-sm">
+              {`${t.noAccount} `}
+              <Link
+                className="font-semibold text-[#8fb2ff] hover:underline"
+                href="/register"
+              >
+                {t.signUpLink}
+              </Link>
+            </p>
+          </AuthForm>
+    </AuthBrandShell>
   );
 }

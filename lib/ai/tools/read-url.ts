@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { checkQuota, recordUsage } from "@/lib/saas/quota";
+import { webQuotaRefusal } from "@/lib/saas/quota-messages";
 
 const readUrlInputSchema = z.object({
   url: z.string().trim().url().max(2000).describe("Full http(s) URL to read"),
@@ -49,19 +50,19 @@ function isPublicHttpUrl(value: string) {
 function decodeEntities(input: string) {
   return input
     .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/&#x27;/gi, "'");
+    .replace(/&#x27;/gi, "'")
+    .replace(/&amp;/gi, "&");
 }
 
 export function htmlToText(html: string) {
   const withoutNoise = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script\b[^>]*>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style\b[^>]*>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript\b[^>]*>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ");
 
   const titleMatch = withoutNoise.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -130,7 +131,7 @@ export function createReadUrl({
 
       const quota = await checkQuota(userId, "web_search", organizationId);
       if (!quota.allowed) {
-        return { error: "انتهى رصيد قراءة الروابط الشهري لمساحة العمل." };
+        return webQuotaRefusal(quota, "read_url");
       }
 
       try {

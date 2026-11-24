@@ -28,6 +28,14 @@ describe("tool payloads have one source", () => {
     assert.deepEqual(toolPayloadFor("github_repo_inspect", { repo: "owner/other", token: "x" }), {
       repo: "owner/other",
     });
+
+  });
+
+  test("a named secret passes through without accepting a plaintext credential", () => {
+    assert.deepEqual(toolPayloadFor("github_repo_probe", { secretName: "GITHUB_KEY", token: "x" }), {
+      repo: "zooka-ai/chatbot",
+      secretName: "GITHUB_KEY",
+    });
   });
 
   test("a key the tool reads survives even when the tool has no default", () => {
@@ -46,8 +54,15 @@ describe("tool payloads have one source", () => {
     );
   });
 
+  test("a scheduled skill keeps its name but not an injected workspace", () => {
+    assert.deepEqual(toolPayloadFor("load_skill", { name: "writing", organizationId: "other" }), {
+      name: "writing",
+    });
+  });
+
   test("the accepted list is the defaults plus what the tool reads", () => {
     assert.deepEqual(acceptedPayloadKeys("github_repo_inspect"), ["repo", "paths"]);
+    assert.deepEqual(acceptedPayloadKeys("github_repo_probe"), ["repo", "secretName"]);
     assert.deepEqual(acceptedPayloadKeys("workspace_readiness_inspect"), ["label"]);
   });
 

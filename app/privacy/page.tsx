@@ -4,26 +4,28 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: `سياسة الخصوصية`,
-  description: `سياسة الخصوصية في Zooka AI: كيف نجمع بياناتك ونحميها.`,
+  description: `سياسة الخصوصية في ZOOKA-AI: كيف نجمع بياناتك ونحميها.`,
   alternates: { canonical: "./" },
 };
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
+import { LEGAL_ADDRESS, LEGAL_ENTITY_NAME, CONTACT_EMAIL } from "@/lib/legal-entity";
 
 async function PrivacyContent() {
   const lang = await getLang();
   const ar = lang === "ar";
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
       <div className="absolute top-4 end-4 z-10">
-        <LanguageToggle lang={lang} />
       </div>
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-sm">
@@ -36,6 +38,16 @@ async function PrivacyContent() {
           {ar ? "آخر تحديث: 30 أكتوبر 2026" : "Last updated: October 30, 2026"}
         </p>
       </header>
+
+      <section className="border-border bg-muted/40 flex flex-col gap-1 rounded-lg border p-4 text-sm leading-relaxed">
+        <p className="font-semibold">{ar ? "الجهة المشغّلة للخدمة" : "Who operates this service"}</p>
+        <p>{ar ? LEGAL_ENTITY_NAME.ar : LEGAL_ENTITY_NAME.en}</p>
+        <p className="text-muted-foreground">{ar ? LEGAL_ADDRESS.ar : LEGAL_ADDRESS.en}</p>
+        <p className="text-muted-foreground">
+          {ar ? "للتواصل: " : "Contact: "}
+          <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        </p>
+      </section>
 
       <section className="flex flex-col gap-4 text-sm leading-relaxed">
         {ar ? (
@@ -133,12 +145,12 @@ async function PrivacyContent() {
             </p>
 
             <h2 className="font-semibold text-lg">التواصل</h2>
-            <p>أسئلة حول هذه السياسة: zookaalmrzwq@gmail.com</p>
+            <p>أسئلة حول هذه السياسة: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         ) : (
           <>
             <p>
-              This Privacy Policy explains how Zooka AI (&quot;we&quot;,
+              This Privacy Policy explains how ZOOKA-AI (&quot;we&quot;,
               &quot;us&quot;) collects, uses, and protects your information when
               you use our chatbot service at zooka-ai.com. By creating an account
               or using the service, you agree to the practices described here.
@@ -237,7 +249,7 @@ async function PrivacyContent() {
             </p>
 
             <h2 className="font-semibold text-lg">Contact</h2>
-            <p>Questions about this policy: zookaalmrzwq@gmail.com</p>
+            <p>Questions about this policy: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         )}
       </section>
@@ -251,6 +263,7 @@ async function PrivacyContent() {
         </Link>
       </footer>
     </main>
+    </>
   );
 }
 

@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { REFERRAL_COOKIE, recordReferralEvent } from "@/lib/affiliate";
+import type { Attribution } from "@/lib/growth/attribution";
+import { ATTRIBUTION_COOKIE, deserializeAttribution } from "@/lib/growth/attribution";
 import {
   consumePasswordResetToken,
   createPasswordResetToken,
@@ -30,6 +32,7 @@ import { sendExistingAccountNotice, sendVerificationEmail } from "@/lib/email/se
 import { signIn } from "./auth";
 import { isDatabaseUnavailable } from "@/lib/db/diagnostics";
 import { award, getOrCreateReferralCode, resolveReferralCode } from "@/lib/growth/referrals";
+import { isUniqueViolation, pgError } from "@/lib/db/errors";
 
 const authFormSchema = z.object({
   email: z.string().trim().email().max(64),
@@ -119,6 +122,22 @@ export const register = async (
     return { status: NEUTRAL_SIGNUP_STATUS };
   }
 
+  // First-touch channel, captured by the proxy on the visitor's first landing.
+  // Read before the insert because the account row is written in one shot. It stays
+  // optional in the strongest sense: a cookie store that is unavailable (no request
+  // scope) or a value that cannot be parsed records no channel, and never stops the
+  // sign-up. Without this the promise in this comment was not kept, and a throwing
+  // cookie store took the whole registration down with it.
+  let attribution: Attribution | null = null;
+  try {
+    attribution = deserializeAttribution(
+      (await cookies()).get(ATTRIBUTION_COOKIE)?.value
+    );
+  } catch {
+    attribution = null;
+  }
+
+
   try {
     const [existingUser] = await getUser(email);
     let plan = planRegistration({ existing: Boolean(existingUser) });
@@ -132,7 +151,7 @@ export const register = async (
 
     if (plan.createAccount) {
       try {
-        await createUser(email, password);
+        await createUser(email, password, attribution);
         const [created] = await getUser(email);
         createdUserId = created?.id ?? null;
         if (!createdUserId) {
@@ -144,12 +163,11 @@ export const register = async (
         }
         // A unique violation means the address was registered between the read
         // and the insert: the race collapses into the neutral existing branch.
-        const message = error instanceof Error ? error.message : String(error);
-        if (/duplicate key|unique constraint|User_email/i.test(message)) {
+        if (isUniqueViolation(error)) {
           plan = planRegistration({ existing: true, createFailedOnConflict: true });
           generateHashedPassword(password);
         } else {
-          console.error("registration failed", message.slice(0, 200));
+          console.error("registration failed", pgError(error).message.slice(0, 200));
           return { status: "unavailable" };
         }
       }

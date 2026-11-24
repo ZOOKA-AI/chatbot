@@ -3,6 +3,7 @@ import { withRequestTenantHandler } from "@/lib/db/request-tenant";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { createProject, listProjects } from "@/lib/db/projects";
+import { isUniqueViolation } from "@/lib/db/errors";
 
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const RESERVED = new Set([
@@ -98,8 +99,7 @@ async function createWorkspaceProject(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    if (code === "23505") {
+    if (isUniqueViolation(error)) {
       return NextResponse.json(
         { error: "النطاق الفرعي مستخدم بالفعل" },
         { status: 409 }

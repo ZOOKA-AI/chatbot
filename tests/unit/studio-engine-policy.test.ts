@@ -122,6 +122,8 @@ describe("a paid engine needs a flag and an approval, not one of them", () => {
     // reported too, because it was considered and refused for want of a token rather than skipped.
     assert.deepEqual(decision.refused, [
       { engine: "comfyui", reason: "not_configured" },
+      { engine: "cloudflare-workers-ai", reason: "not_configured" },
+      { engine: "ovhcloud-sdxl", reason: "not_configured" },
       { engine: "runcomfy-cloud", reason: "paid_provider_not_configured" },
     ]);
   });
@@ -141,7 +143,13 @@ describe("what the matrix says when nothing can answer", () => {
     // is the ladder's own: cheaper and more local is examined first.
     assert.deepEqual(
       decision.refused.map((entry) => `${entry.engine}:${entry.reason}`),
-      ["comfyui:not_configured", "runcomfy-cloud:paid_provider_not_enabled", "cloud-gpu:paid_provider_not_enabled"]
+      [
+        "comfyui:not_configured",
+        "cloudflare-workers-ai:not_configured",
+        "ovhcloud-sdxl:not_configured",
+        "runcomfy-cloud:paid_provider_not_enabled",
+        "cloud-gpu:paid_provider_not_enabled",
+      ]
     );
   });
 

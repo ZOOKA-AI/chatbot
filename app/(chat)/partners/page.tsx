@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "الشركاء | Partners",
-  description: "اكسب 20% عمولة مع برنامج شركاء Zooka AI",
+  description: "اكسب 20% عمولة مع برنامج شركاء ZOOKA-AI",
 };
 
 export default async function PartnersPage() {
@@ -34,14 +34,15 @@ export default async function PartnersPage() {
   ];
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col gap-10 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
       <div className="absolute top-4 end-4 z-10">
-        <LanguageToggle lang={lang} />
       </div>
 
       <header className="text-center">
@@ -49,7 +50,7 @@ export default async function PartnersPage() {
           {isAr ? "برنامج الشراكة" : "Partner Program"}
         </p>
         <h1 className="mt-2 font-bold text-4xl md:text-5xl">
-          {isAr ? "اكسب مع Zooka AI" : "Earn with Zooka AI"}
+          {isAr ? "اكسب مع ZOOKA-AI" : "Earn with ZOOKA-AI"}
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
           {isAr
@@ -122,5 +123,6 @@ export default async function PartnersPage() {
         </Link>
       </footer>
     </main>
+    </>
   );
 }

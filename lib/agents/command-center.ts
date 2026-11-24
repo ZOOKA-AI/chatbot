@@ -38,6 +38,12 @@ const db = new Proxy({} as typeof queriesModule.db, {
   },
 }) as typeof queriesModule.db;
 
+const AGENT_PERMISSION_FIELDS = {
+  updateWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'updateWithoutApproval')::boolean, true)`,
+  deleteWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'deleteWithoutApproval')::boolean, false)`,
+  sendMessagesWithoutApproval: sql<boolean>`coalesce((to_jsonb(${agentIdentity})->>'sendMessagesWithoutApproval')::boolean, false)`,
+};
+
 
 /**
  * ZOOKA AGENT COMMAND CENTER — shared coordination state for every agent.
@@ -80,6 +86,9 @@ export type AgentIdentity = {
   displayName: string;
   role: string;
   scopes: string[];
+  updateWithoutApproval: boolean;
+  deleteWithoutApproval: boolean;
+  sendMessagesWithoutApproval: boolean;
   environment: string;
   status: string;
   lastSeenAt: Date | null;
@@ -110,6 +119,7 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       lastSeenAt: agentIdentity.lastSeenAt,
@@ -164,6 +174,7 @@ export async function registerAgent(input: RegisterInput) {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       lastSeenAt: agentIdentity.lastSeenAt,
@@ -210,6 +221,7 @@ export async function listAgents(organizationId: string) {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       // The console reads its own state from this list. Without the assignment here the
@@ -240,6 +252,9 @@ export async function updateAgentConfig(input: {
     displayName?: string;
     status?: string;
     scopes?: string[];
+    updateWithoutApproval?: boolean;
+    deleteWithoutApproval?: boolean;
+    sendMessagesWithoutApproval?: boolean;
     environment?: string;
     modelProvider?: string | null;
     modelId?: string | null;
@@ -256,6 +271,15 @@ export async function updateAgentConfig(input: {
       ...(input.patch.displayName === undefined ? {} : { displayName: input.patch.displayName }),
       ...(input.patch.status === undefined ? {} : { status: input.patch.status }),
       ...(input.patch.scopes === undefined ? {} : { scopes: input.patch.scopes }),
+      ...(input.patch.updateWithoutApproval === undefined
+        ? {}
+        : { updateWithoutApproval: input.patch.updateWithoutApproval }),
+      ...(input.patch.deleteWithoutApproval === undefined
+        ? {}
+        : { deleteWithoutApproval: input.patch.deleteWithoutApproval }),
+      ...(input.patch.sendMessagesWithoutApproval === undefined
+        ? {}
+        : { sendMessagesWithoutApproval: input.patch.sendMessagesWithoutApproval }),
       ...(input.patch.environment === undefined ? {} : { environment: input.patch.environment }),
       ...(input.patch.modelProvider === undefined ? {} : { modelProvider: input.patch.modelProvider }),
       ...(input.patch.modelId === undefined ? {} : { modelId: input.patch.modelId }),
@@ -274,6 +298,7 @@ export async function updateAgentConfig(input: {
       displayName: agentIdentity.displayName,
       role: agentIdentity.role,
       scopes: agentIdentity.scopes,
+      ...AGENT_PERMISSION_FIELDS,
       environment: agentIdentity.environment,
       status: agentIdentity.status,
       modelProvider: agentIdentity.modelProvider,
@@ -406,18 +431,83 @@ export async function createTask(input: CreateTaskInput) {
  * tenant handle. The scheduler runs cross-tenant selection but must not read a
  * workspace's rows on the shared connection.
  */
+const AGENT_FOR_SCHEDULER = {
+  id: agentIdentity.id,
+  organizationId: agentIdentity.organizationId,
+  // The scheduler runs tools without an HTTP request, so it needs the policy here or it has none.
+  allowedTools: agentIdentity.allowedTools,
+  ...AGENT_PERMISSION_FIELDS,
+};
+
+/**
+ * The oldest active agent of the workspace. Unordered and unfiltered, this used to
+ * return whichever row the planner met first, which could be a disabled agent.
+ */
 export async function firstAgentIdentity(organizationId: string) {
   const [row] = await db
-    .select({
-      id: agentIdentity.id,
-      organizationId: agentIdentity.organizationId,
-      // The scheduler runs tools without an HTTP request, so it needs the policy here or it has none.
-      allowedTools: agentIdentity.allowedTools,
-    })
+    .select(AGENT_FOR_SCHEDULER)
     .from(agentIdentity)
-    .where(eq(agentIdentity.organizationId, organizationId))
+    .where(and(eq(agentIdentity.organizationId, organizationId), eq(agentIdentity.status, "active")))
+    .orderBy(agentIdentity.createdAt)
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * The agent a task runs as: the one it was assigned to, if that agent is still active
+ * in the same workspace; with no assignment, the oldest active agent. An assigned agent
+ * that is missing or disabled yields null, so the task is refused rather than quietly
+ * executed by someone else with different tools.
+ */
+export async function agentIdentityForTask(organizationId: string, ownerAgentId: string | null) {
+  if (!ownerAgentId) return firstAgentIdentity(organizationId);
+  const [row] = await db
+    .select(AGENT_FOR_SCHEDULER)
+    .from(agentIdentity)
+    .where(
+      and(
+        eq(agentIdentity.id, ownerAgentId),
+        eq(agentIdentity.organizationId, organizationId),
+        eq(agentIdentity.status, "active")
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * The workspace's OAuth connection for a provider, through the tenant handle.
+ *
+ * Connecting (OAuth or a pasted token) writes OAuthConnection; the worker used to read
+ * only the older integration_connection store, so reconnecting refreshed the card and
+ * left the dead token where the worker looked. Both are read now, OAuth first.
+ */
+export async function getWorkspaceOAuthConnection(
+  organizationId: string,
+  provider: string
+): Promise<{ encryptedTokens: string; tokenExpiresAt: Date | null } | null> {
+  // Ask before reading. A denied SELECT would abort the tenant transaction, and
+  // everything the worker does after this (opening the attempt, recording the
+  // evidence) would then fail with it. The tenant runtime role is not granted this
+  // table, so on that connection the answer is simply "no OAuth row".
+  const [access] = (await db.execute(sql`
+    select case
+      when to_regclass('public."OAuthConnection"') is null then false
+      else has_table_privilege(current_user, 'public."OAuthConnection"', 'SELECT')
+    end as ok
+  `)) as unknown as Array<{ ok?: boolean }>;
+  if (!access?.ok) return null;
+
+  const rows = (await db.execute(sql`
+    select "encryptedTokens", "tokenExpiresAt" from "OAuthConnection"
+    where "organizationId"::text = ${organizationId}
+      and provider = ${provider}
+    limit 1
+  `)) as unknown as Array<{ encryptedTokens?: string; tokenExpiresAt?: Date | string | null }>;
+  const row = rows[0];
+  if (!row?.encryptedTokens) return null;
+  const expires = row.tokenExpiresAt ? new Date(row.tokenExpiresAt) : null;
+  return { encryptedTokens: row.encryptedTokens, tokenExpiresAt: expires };
 }
 
 /**
@@ -660,6 +750,7 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
       and(
         eq(agentTask.id, taskId),
         eq(agentTask.organizationId, agent.organizationId),
+        eq(agentTask.approvalRequired, target.approvalRequired),
         eq(agentTask.status, "pending"),
         or(isNull(agentTask.ownerAgentId), eq(agentTask.ownerAgentId, agent.id))
       )
@@ -672,6 +763,7 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
         status: agentTask.status,
         ownerAgentId: agentTask.ownerAgentId,
         title: agentTask.title,
+        approvalRequired: agentTask.approvalRequired,
       })
       .from(agentTask)
       .where(
@@ -684,6 +776,15 @@ export async function claimTask(agent: AgentIdentity, taskId: string) {
 
     if (!current) {
       return { ok: false as const, error: "task_not_found" };
+    }
+    if (current.approvalRequired) {
+      const state = await approvalState(taskId, agent.organizationId);
+      if (state !== "approved") {
+        return {
+          ok: false as const,
+          error: state === "rejected" ? "approval_rejected" : "approval_required",
+        };
+      }
     }
     return {
       ok: false as const,
@@ -728,6 +829,27 @@ export type ReportInput = {
 };
 
 export async function reportTask(agent: AgentIdentity, input: ReportInput) {
+  return reportTaskInternal(agent, input, input.evidence.slice(0, 8000));
+}
+
+/** Worker-only snapshot: structured, bounded, and not routed through user-supplied reports. */
+export async function reportLoadedSkill(
+  agent: AgentIdentity,
+  input: { taskId: string; name: string; instructions: string }
+) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.name) || input.name.length > 64 ||
+      input.instructions.length > 16000) {
+    throw new Error("invalid_skill_snapshot");
+  }
+  const evidence = JSON.stringify({
+    tool: "load_skill",
+    summary: "Loaded workspace skill instructions.",
+    result: { name: input.name, instructions: input.instructions },
+  });
+  return reportTaskInternal(agent, { taskId: input.taskId, status: "completed", evidence }, evidence);
+}
+
+async function reportTaskInternal(agent: AgentIdentity, input: ReportInput, evidence: string) {
   const [target] = await db
     .select({ approvalRequired: agentTask.approvalRequired })
     .from(agentTask)
@@ -757,7 +879,7 @@ export async function reportTask(agent: AgentIdentity, input: ReportInput) {
     .update(agentTask)
     .set({
       status: input.status,
-      evidence: input.evidence.slice(0, 8000),
+      evidence,
       reportedAt: new Date(),
     })
     .where(
@@ -820,6 +942,90 @@ export async function requestApproval(
     })
     .returning();
   return row;
+}
+
+function approvalPayloadHash(payload: Record<string, unknown> | undefined) {
+  const sortKeys = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(sortKeys);
+    if (value !== null && typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      return Object.fromEntries(Object.keys(record).sort().map((key) => [key, sortKeys(record[key])]));
+    }
+    return value;
+  };
+  const serialized = JSON.stringify(sortKeys(payload ?? {})) ?? "{}";
+  return createHash("sha256").update(serialized).digest("hex");
+}
+
+/**
+ * Persist the approval gate and request together while holding the task row lock.
+ * A concurrent worker can therefore neither claim the task between the setting
+ * and its approval request, nor create duplicate pending requests.
+ */
+export async function requestTaskApproval(
+  agent: Pick<AgentIdentity, "id">,
+  input: {
+    organizationId: string;
+    taskId: string;
+    permissions: Array<"read" | "update" | "delete" | "send" | "spend">;
+    tool: string;
+    payload?: Record<string, unknown>;
+  }
+) {
+  return db.transaction(async (tx) => {
+    const [task] = await tx
+      .select({ status: agentTask.status })
+      .from(agentTask)
+      .where(and(eq(agentTask.id, input.taskId), eq(agentTask.organizationId, input.organizationId)))
+      .for("update")
+      .limit(1);
+    if (!task) return { outcome: "not_found" as const };
+    if (task.status !== "pending") return { outcome: "not_pending" as const };
+
+    const permissions = [...input.permissions].sort().join(", ");
+    const reason = `Agent action requires approval: ${permissions} permission for ${input.tool} (payload sha256:${approvalPayloadHash(input.payload)}).`;
+    const [existing] = await tx
+      .select({ status: agentApproval.status, reason: agentApproval.reason })
+      .from(agentApproval)
+      .where(
+        and(
+          eq(agentApproval.taskId, input.taskId),
+          eq(agentApproval.organizationId, input.organizationId)
+        )
+      )
+      .orderBy(desc(agentApproval.createdAt))
+      .limit(1);
+    if (existing?.reason === reason && existing.status === "approved") {
+      return { outcome: "approved" as const };
+    }
+    if (existing?.reason === reason && existing.status === "pending") {
+      return { outcome: "pending" as const };
+    }
+    if (existing?.reason === reason && existing.status === "rejected") {
+      return { outcome: "rejected" as const };
+    }
+
+    await tx
+      .update(agentTask)
+      .set({ approvalRequired: true })
+      .where(
+        and(
+          eq(agentTask.id, input.taskId),
+          eq(agentTask.organizationId, input.organizationId),
+          eq(agentTask.status, "pending")
+        )
+      );
+    const [approval] = await tx
+      .insert(agentApproval)
+      .values({
+        organizationId: input.organizationId,
+        taskId: input.taskId,
+        requestedBy: agent.id,
+        reason,
+      })
+      .returning({ id: agentApproval.id });
+    return { outcome: "pending" as const, approvalId: approval?.id ?? null };
+  });
 }
 
 export async function listDeployments(organizationId: string, limit = 50) {

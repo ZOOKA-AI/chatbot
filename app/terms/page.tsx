@@ -4,26 +4,28 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: `شروط الاستخدام`,
-  description: `شروط استخدام منصة Zooka AI: الاشتراكات والاستخدام العادل.`,
+  description: `شروط استخدام منصة ZOOKA-AI: الاشتراكات والاستخدام العادل.`,
   alternates: { canonical: "./" },
 };
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
+import { LEGAL_ADDRESS, LEGAL_ENTITY_NAME, CONTACT_EMAIL } from "@/lib/legal-entity";
 
 async function TermsContent() {
   const lang = await getLang();
   const ar = lang === "ar";
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
       <div className="absolute top-4 end-4 z-10">
-        <LanguageToggle lang={lang} />
       </div>
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-sm">
@@ -36,6 +38,16 @@ async function TermsContent() {
           {ar ? "آخر تحديث: 23 أكتوبر 2026" : "Last updated: October 23, 2026"}
         </p>
       </header>
+
+      <section className="border-border bg-muted/40 flex flex-col gap-1 rounded-lg border p-4 text-sm leading-relaxed">
+        <p className="font-semibold">{ar ? "الجهة المشغّلة للخدمة" : "Who operates this service"}</p>
+        <p>{ar ? LEGAL_ENTITY_NAME.ar : LEGAL_ENTITY_NAME.en}</p>
+        <p className="text-muted-foreground">{ar ? LEGAL_ADDRESS.ar : LEGAL_ADDRESS.en}</p>
+        <p className="text-muted-foreground">
+          {ar ? "للتواصل: " : "Contact: "}
+          <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        </p>
+      </section>
 
       <section className="flex flex-col gap-4 text-sm leading-relaxed">
         {ar ? (
@@ -93,19 +105,19 @@ async function TermsContent() {
             </p>
 
             <h2 className="font-semibold text-lg">التواصل</h2>
-            <p>أسئلة حول هذه الشروط: zookaalmrzwq@gmail.com</p>
+            <p>أسئلة حول هذه الشروط: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         ) : (
           <>
             <p>
-              These Terms govern your use of the Zooka AI chatbot service at
+              These Terms govern your use of the ZOOKA-AI chatbot service at
               zooka-ai.com. By creating an account or using the service, you
               accept these terms.
             </p>
 
             <h2 className="font-semibold text-lg">The service</h2>
             <p>
-              Zooka AI provides AI-powered chatbot conversations. Message limits
+              ZOOKA-AI provides AI-powered chatbot conversations. Message limits
               depend on your plan: Free (1,000 messages per month), Pro ($19
               per month, 10,000 messages), and Business ($49 per month, 100,000
               messages).
@@ -142,7 +154,7 @@ async function TermsContent() {
             <h2 className="font-semibold text-lg">Limitation of liability</h2>
             <p>
               The service is provided &quot;as is&quot; without warranties. To
-              the maximum extent permitted by law, Zooka AI is not liable for
+              the maximum extent permitted by law, ZOOKA-AI is not liable for
               indirect or consequential damages arising from use of the
               service.
             </p>
@@ -155,7 +167,7 @@ async function TermsContent() {
             </p>
 
             <h2 className="font-semibold text-lg">Contact</h2>
-            <p>Questions about these terms: zookaalmrzwq@gmail.com</p>
+            <p>Questions about these terms: <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </>
         )}
       </section>
@@ -169,6 +181,7 @@ async function TermsContent() {
         </Link>
       </footer>
     </main>
+    </>
   );
 }
 

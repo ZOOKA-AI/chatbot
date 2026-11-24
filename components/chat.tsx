@@ -25,6 +25,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { localizeAgentModeErrorCause } from "@/lib/ai/agent-mode-errors";
+import { CHAT_TEXT_TOO_LONG, chatTextLimitMessage } from "@/lib/chat-input-limit";
 import { refreshAgentQuotaIfNeeded } from "@/lib/ai/agent-quota-refresh";
 import { modelSupportsTools } from "@/lib/ai/models";
 import { templateChatPrompt } from "@/lib/studio";
@@ -171,6 +172,15 @@ export function Chat({
       },
     }),
     onData: (dataPart) => {
+      if (dataPart.type === "data-redacted-messages") {
+        const redacted = new Map(dataPart.data.map((message) => [message.id, message.parts]));
+        setMessages((current) => current.map((message) =>
+          redacted.has(message.id)
+            ? { ...message, parts: redacted.get(message.id) as ChatMessage["parts"] }
+            : message,
+        ));
+        return;
+      }
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: ({ isAbort, isDisconnect, isError }) => {
@@ -217,7 +227,10 @@ export function Chat({
       ) {
         setShowCreditCardAlert(true);
       } else if (error instanceof ChatbotError) {
-        const cause = localizeAgentModeErrorCause(error.cause, lang);
+        const cause =
+          error.cause === CHAT_TEXT_TOO_LONG
+            ? chatTextLimitMessage(lang)
+            : localizeAgentModeErrorCause(error.cause, lang);
         toast({
           type: "error",
           description:

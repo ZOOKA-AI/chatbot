@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getWorkspaceContext } from "@/lib/auth/workspace";
 import { BrowserConsole } from "@/components/browser-console";
 
-export const metadata = { title: "متصفح الوكيل — ZOOKA AI" };
+export const metadata = { title: "متصفح الوكيل — ZOOKA-AI" };
 
 function safeUrl(raw: string | string[] | undefined): string {
   const value = Array.isArray(raw) ? raw[0] : raw;

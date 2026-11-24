@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { Lang } from "@/lib/i18n";
 
 type Agent = {
   id: string;
@@ -10,6 +11,10 @@ type Agent = {
   status: string;
   environment: string;
   scopes: string[];
+  updateWithoutApproval: boolean;
+  deleteWithoutApproval: boolean;
+  sendMessagesWithoutApproval: boolean;
+  spendWithoutApproval: false;
   modelProvider: string | null;
   modelId: string | null;
   allowedTools?: string[] | null;
@@ -27,7 +32,7 @@ type HistoryRow = { id: string; title: string; status: string; createdAt: string
  * not implement, or a provider this deployment holds no credential for, must not appear as a
  * choice the customer can make and then watch fail.
  */
-export function AgentManager({ canManage }: { canManage: boolean }) {
+export function AgentManager({ canManage, lang }: { canManage: boolean; lang: Lang }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tools, setTools] = useState<ToolEntry[]>([]);
   const [providers, setProviders] = useState<ProviderEntry[]>([]);
@@ -43,6 +48,7 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
   const [issuedKey, setIssuedKey] = useState<{ slug: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [queueNote, setQueueNote] = useState<string | null>(null);
+  const [templateLinks, setTemplateLinks] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,6 +114,45 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
     setError(null);
     setEditing(null);
     await load();
+  }
+
+  async function createTemplateLink(agent: Agent) {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/agents/registry/${agent.id}/template`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || typeof body.url !== "string") {
+        setError(response.status === 404 ? "That agent is no longer available." : "Could not create the template link.");
+        return;
+      }
+      setTemplateLinks((current) => ({ ...current, [agent.id]: body.url }));
+      setError(null);
+    } catch {
+      setError("Could not create the template link.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeTemplateLink(agent: Agent) {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/agents/registry/${agent.id}/template`, { method: "DELETE" });
+      if (!response.ok) {
+        setError(response.status === 404 ? "There is no active template link for this agent." : "Could not revoke the template link.");
+        return;
+      }
+      setTemplateLinks((current) => {
+        const next = { ...current };
+        delete next[agent.id];
+        return next;
+      });
+      setError(null);
+    } catch {
+      setError("Could not revoke the template link.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function showHistory(agent: Agent) {
@@ -291,10 +336,32 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
                       >
                         Edit
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => createTemplateLink(agent)}
+                        disabled={busy}
+                        className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+                      >
+                        Create template link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => revokeTemplateLink(agent)}
+                        disabled={busy}
+                        className="rounded border px-2 py-1 text-xs disabled:opacity-40"
+                      >
+                        Revoke link
+                      </button>
                     </>
                   ) : null}
                 </div>
               </div>
+
+              {templateLinks[agent.id] ? (
+                <p className="mt-2 break-all border-t pt-2 text-xs">
+                  Public template: <a className="underline" href={templateLinks[agent.id]}>{templateLinks[agent.id]}</a>
+                </p>
+              ) : null}
 
               {openHistory === agent.id ? (
                 <div className="mt-2 border-t pt-2">
@@ -319,6 +386,7 @@ export function AgentManager({ canManage }: { canManage: boolean }) {
                   agent={agent}
                   tools={tools}
                   providers={providers}
+                  lang={lang}
                   onCancel={() => setEditing(null)}
                   onSave={(patch) => save(agent, patch)}
                 />
@@ -335,12 +403,14 @@ function AgentEditor({
   agent,
   tools,
   providers,
+  lang,
   onCancel,
   onSave,
 }: {
   agent: Agent;
   tools: ToolEntry[];
   providers: ProviderEntry[];
+  lang: Lang;
   onCancel: () => void;
   onSave: (patch: Record<string, unknown>) => void;
 }) {
@@ -348,6 +418,11 @@ function AgentEditor({
   const [instructions, setInstructions] = useState(agent.instructions ?? "");
   const [provider, setProvider] = useState(agent.modelProvider ?? "");
   const [modelId, setModelId] = useState(agent.modelId ?? "");
+  const [updateWithoutApproval, setUpdateWithoutApproval] = useState(agent.updateWithoutApproval ?? true);
+  const [deleteWithoutApproval, setDeleteWithoutApproval] = useState(agent.deleteWithoutApproval ?? false);
+  const [sendMessagesWithoutApproval, setSendMessagesWithoutApproval] = useState(
+    agent.sendMessagesWithoutApproval ?? false
+  );
   // An omitted or null list is the legacy state: not restricted, still reaching every tool.
   const [restricted, setRestricted] = useState(Array.isArray(agent.allowedTools));
   const [selected, setSelected] = useState<string[]>(agent.allowedTools ?? []);
@@ -426,6 +501,38 @@ function AgentEditor({
         </div>
       ) : null}
 
+      <section className="flex flex-col gap-2 rounded border p-3" dir={lang === "ar" ? "rtl" : "ltr"}>
+        <h3 className="font-semibold">{lang === "ar" ? "الصلاحيات" : "Permissions"}</h3>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={updateWithoutApproval}
+            onChange={(event) => setUpdateWithoutApproval(event.target.checked)}
+          />
+          {lang === "ar" ? "السماح بالتحديث دون موافقة" : "Allow updates without approval"}
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={deleteWithoutApproval}
+            onChange={(event) => setDeleteWithoutApproval(event.target.checked)}
+          />
+          {lang === "ar" ? "السماح بالحذف دون موافقة" : "Allow deletes without approval"}
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={sendMessagesWithoutApproval}
+            onChange={(event) => setSendMessagesWithoutApproval(event.target.checked)}
+          />
+          {lang === "ar" ? "السماح بإرسال الرسائل دون موافقة" : "Allow sending messages without approval"}
+        </label>
+        <label className="flex items-center gap-2 opacity-70">
+          <input type="checkbox" checked={false} disabled />
+          {lang === "ar" ? "السماح بالإنفاق دون موافقة (متوقف دائمًا)" : "Allow spending without approval (always off)"}
+        </label>
+      </section>
+
       <div className="flex gap-2">
         <button
           type="button"
@@ -436,6 +543,9 @@ function AgentEditor({
               modelProvider: provider === "" ? null : provider,
               modelId: provider === "" ? null : modelId,
               allowedTools: restricted ? selected : null,
+              updateWithoutApproval,
+              deleteWithoutApproval,
+              sendMessagesWithoutApproval,
             })
           }
           disabled={restricted && selected.length === 0}

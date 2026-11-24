@@ -1,0 +1,23 @@
+ZOOKA-AI
+https://zooka-ai.com
+https://github.com/ZOOKA-AI/chatbot
+
+This product is distributed under the Apache License, Version 2.0. The full terms are in the
+LICENSE file.
+
+Upstream attribution
+--------------------
+This product is derived from the Vercel AI Chatbot template
+(https://github.com/vercel/ai-chatbot), Copyright 2024 Vercel, Inc., which is licensed under the
+Apache License, Version 2.0. The original copyright notice is retained in the LICENSE file.
+
+Project additions
+-----------------
+The ZOOKA-AI workspace, the Arabic and right-to-left surfaces, the workspace and billing model,
+the agent runtime, the provider-agnostic model layer, the self-hosted runtime (web, worker,
+scheduler, storage drivers) and the offline shell are additions made in this repository.
+
+Third-party components
+----------------------
+Dependencies and their licences are listed in package.json and their respective licence files
+under node_modules. Vendored or generated assets carry their own attribution where applicable.

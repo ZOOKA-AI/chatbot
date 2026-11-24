@@ -31,6 +31,37 @@ beforeEach(() => {
 });
 
 describe("integration probe", () => {
+  it("tests the credential the card shows when the OAuth store holds none", async () => {
+    // LinkedIn keeps a pasted token in the workspace store; the OAuth store is empty.
+    // The card said "connected" while this check said "not connected", about the same
+    // workspace and the same account.
+    getOAuthAccessToken.mockResolvedValue(null);
+    getIntegrationTokens.mockResolvedValue({ accessToken: "workspace-member-token" });
+    const fetchMock = vi.fn(async (_url: string) =>
+      new Response(JSON.stringify({ sub: "member-1", name: "Helmy Ali" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await probeIntegration({ workspaceId: "ws", providerId: "linkedin" });
+
+    expect(result.ok).toBe(true);
+    expect(result.account).toBe("Helmy Ali");
+    expect(result.detail.credentialSource).toBe("workspace");
+    expect(String(fetchMock.mock.calls[0][0])).toContain("api.linkedin.com");
+    vi.unstubAllGlobals();
+  });
+
+  it("still reports a provider with neither credential as not connected", async () => {
+    getOAuthAccessToken.mockResolvedValue(null);
+    getIntegrationTokens.mockResolvedValue(null);
+    const result = await probeIntegration({ workspaceId: "ws", providerId: "vercel" });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("not_connected");
+  });
+
   it("reports a provider with no read path as no_probe instead of a success", async () => {
     const result = await probeIntegration({ workspaceId: "ws", providerId: "plaid" });
     expect(result.ok).toBe(false);

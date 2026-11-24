@@ -86,7 +86,7 @@ export const studioPromoVideo: WorkerTool = {
         scenes,
         aspect,
         logoAssetId: logo?.id ?? null,
-        backdropPaths: backdrops,
+        backdropStoragePaths: backdrops,
         label: payload.label == null ? "promo:film" : String(payload.label),
       });
 

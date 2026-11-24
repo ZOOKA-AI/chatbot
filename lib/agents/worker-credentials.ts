@@ -1,5 +1,9 @@
-import { getWorkspaceConnection } from "@/lib/agents/command-center";
+import "server-only";
+
+import { getWorkspaceConnection, getWorkspaceOAuthConnection } from "@/lib/agents/command-center";
+import { getWorkspaceSecretValue } from "@/lib/db/workspace-secrets";
 import { decryptTokens } from "@/lib/integrations/catalog";
+import { secretName } from "@/lib/workspace/secrets/validation";
 
 /**
  * Credentials for a worker run come from the workspace that owns the task.
@@ -60,10 +64,57 @@ function pickToken(tokens: Record<string, unknown>): unknown {
   return tokens.accessToken ?? tokens.access_token ?? tokens.token ?? tokens.bearer;
 }
 
+/** Providers whose connect flow (OAuth or a pasted token) writes OAuthConnection. */
+const OAUTH_STORE_PROVIDERS = new Set(["github", "vercel", "x", "meta", "linkedin"]);
+
+/** Explicit secret references never fall back to another credential. */
+export async function resolveNamedWorkspaceCredential(
+  organizationId: string,
+  name: unknown
+): Promise<ResolvedCredential | CredentialRefusal> {
+  if (!secretName.safeParse(name).success) {
+    return { ok: false, error: "credential_malformed", detail: "Invalid workspace secret name." };
+  }
+  try {
+    const raw = await getWorkspaceSecretValue(organizationId, name as string);
+    if (raw === null) return { ok: false, error: "credential_missing", detail: "Workspace secret not found." };
+    const problem = inspect(raw);
+    return problem ?? { ok: true, token: raw, source: "workspace" };
+  } catch {
+    return { ok: false, error: "credential_unreadable", detail: "Workspace secret could not be read." };
+  }
+}
+
+/**
+ * A usable token from OAuthConnection, or null so the caller falls back to the older
+ * store. Expired, unreadable or malformed values are skipped, never returned.
+ */
+async function fromOAuthStore(
+  organizationId: string,
+  providerId: string,
+  now: number
+): Promise<ResolvedCredential | null> {
+  if (!OAUTH_STORE_PROVIDERS.has(providerId)) return null;
+  try {
+    const row = await getWorkspaceOAuthConnection(organizationId, providerId);
+    if (!row) return null;
+    if (row.tokenExpiresAt && row.tokenExpiresAt.getTime() <= now) return null;
+    const raw = pickToken(decryptTokens(row.encryptedTokens) as Record<string, unknown>);
+    if (inspect(raw)) return null;
+    return { ok: true, token: raw as string, source: "workspace" };
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveWorkspaceCredential(
   organizationId: string,
-  providerId: string
+  providerId: string,
+  now: number = Date.now()
 ): Promise<ResolvedCredential | CredentialRefusal> {
+  const fresh = await fromOAuthStore(organizationId, providerId, now);
+  if (fresh) return fresh;
+
   let encrypted: string | null = null;
   try {
     const row = await getWorkspaceConnection(organizationId, providerId);

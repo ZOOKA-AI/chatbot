@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LanguageToggle } from "@/components/language-toggle";
+import { SiteHeader } from "@/components/marketing/site-header";
 import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 import { dirOf, fontOf, getLang } from "@/lib/i18n";
 import { getStripePriceId, workspacePlans } from "@/lib/saas/plans";
 
 export const metadata: Metadata = {
   title: "الأسعار | Pricing",
-  description: "Zooka AI plans and pricing — خطط وأسعار Zooka AI",
+  description: "ZOOKA-AI plans and pricing — خطط وأسعار ZOOKA-AI",
 };
 
 const pricingPlanKeys = ["free", "pro", "business"] as const;
@@ -64,7 +64,7 @@ const strings = {
     eyebrow: "Simple, transparent plans",
     title: "Choose the right workspace plan",
     subtitle:
-      "ZOOKA AI is a paid business service. The preview is limited; commercial use runs on a paid plan.",
+      "ZOOKA-AI is a paid business service. The preview is limited; commercial use runs on a paid plan.",
     canceled: "Checkout was canceled. No changes were made.",
     plans: {
       free: {
@@ -119,14 +119,15 @@ export default async function PricingPage({
   const t = strings[lang];
 
   return (
-    <main
+    <>
+      <SiteHeader lang={lang} />
+      <main
       className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col gap-10 p-6 py-16"
       dir={dirOf(lang)}
       lang={lang}
       style={{ fontFamily: fontOf(lang) }}
     >
       <div className="absolute top-4 end-4 z-10">
-        <LanguageToggle lang={lang} />
       </div>
       <header className="mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
         <p className="text-muted-foreground text-sm">{t.eyebrow}</p>
@@ -224,5 +225,6 @@ export default async function PricingPage({
         </a>
       </footer>
     </main>
+    </>
   );
 }

@@ -11,8 +11,14 @@ operation that produced it, and `parentAssetId` for lineage. RLS plus a tenant p
 `(projectId, organizationId)` to `AgentProject` means a row cannot name one workspace and belong to
 another.
 
-Bytes live under `STUDIO_MEDIA_DIR/<organizationId>/<assetId>.<ext>`. The path is never taken from a
-request, so another workspace's id resolves to nothing. Quota: `STUDIO_QUOTA_BYTES` (2 GB default),
+Bytes live in private Vercel Blob under `<organizationId>/studio-media/<assetId>-<suffix>.<ext>`, the
+same store chat images use; the row records `blob:<pathname>` (`lib/studio/storage.ts`). A serverless
+filesystem does not survive a redeploy or a cold start, so nothing is persisted locally: ffmpeg, Piper
+and rembg work on scratch copies that are deleted when the operation ends, and
+`assertDurableStoragePath` refuses to record any path that is not a Blob pathname. Without
+`BLOB_READ_WRITE_TOKEN` a write is refused with `storage_not_configured`. Rows written before this
+change still carry a local path; reading one whose file is gone answers 410 `asset_bytes_missing`.
+The path is never taken from a request, so another workspace's id resolves to nothing. Quota: `STUDIO_QUOTA_BYTES` (2 GB default),
 checked before the write.
 
 ## Image
@@ -130,7 +136,7 @@ cycle, a workflow error, and a deadline that expires instead of hanging.
 
 | Variable | Purpose |
 |---|---|
-| `STUDIO_MEDIA_DIR` | where bytes live, per workspace |
+| `BLOB_READ_WRITE_TOKEN` | the private Blob store the bytes live in (shared with chat images) |
 | `STUDIO_QUOTA_BYTES` | workspace storage ceiling |
 | `STUDIO_FONT_FILE` | a TTF that can shape the scripts you need; without it, text is refused |
 | `COMFYUI_ENDPOINT`, `COMFYUI_API_TOKEN`, `COMFYUI_WORKFLOW_FILE` | optional generation |

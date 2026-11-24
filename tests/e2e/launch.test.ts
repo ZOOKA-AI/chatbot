@@ -44,7 +44,7 @@ test.describe("SEO and Open Graph", () => {
     await page.goto("/pricing");
     await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
       "content",
-      "Zooka AI"
+      "ZOOKA-AI"
     );
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
       "content",

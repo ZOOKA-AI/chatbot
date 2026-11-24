@@ -1,4 +1,6 @@
 import "server-only";
+
+import type { Attribution } from "@/lib/growth/attribution";
 import { accountDatabaseError } from "./diagnostics";
 import { commanderActiveDb } from "./tenant-context";
 import { serviceConnectionAvailable, serviceDb } from "./service-client";
@@ -25,7 +27,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzleDateSafe } from "@/lib/db/date-params";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
@@ -60,6 +62,7 @@ import {
 import { generateHashedPassword } from "./utils";
 import { claimPasswordResetToken } from "@/lib/auth/verification";
 import { mediaJobUpdateQuery, type MediaJobUpdate } from "./media-job-state";
+import { pgError } from "./errors";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -79,7 +82,7 @@ const client = postgres(connectionString, {
   idle_timeout: 20,
   connect_timeout: 10,
 });
-const sharedDb = drizzle(client);
+const sharedDb = drizzleDateSafe(client);
 
 /**
  * Handle for writes that legitimately happen before, or outside, a tenant scope:
@@ -735,11 +738,26 @@ export async function getUser(email: string): Promise<User[]> {
   }
 }
 
-export async function createUser(email: string, password: string) {
+export async function createUser(
+  email: string,
+  password: string,
+  attribution?: Attribution | null
+) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await adminDb().insert(user).values({ email, password: hashedPassword });
+    return await adminDb()
+      .insert(user)
+      .values({
+        email,
+        password: hashedPassword,
+        // Null when the visit carried no channel: an invented source is worse
+        // than an empty one for every later decision made from this table.
+        signupSource: attribution?.source ?? null,
+        signupMedium: attribution?.medium ?? null,
+        signupCampaign: attribution?.campaign ?? null,
+        signupReferrer: attribution?.referrer ?? null,
+      });
   } catch (error) {
     throw accountDatabaseError("create", error);
   }
@@ -910,7 +928,7 @@ export async function getChatsByOrganizationId({
               )
             : and(eq(chat.organizationId, organizationId), visibleToUser)
         )
-        .orderBy(desc(chat.createdAt))
+        .orderBy(desc(chat.createdAt), desc(chat.id))
         .limit(extendedLimit);
 
     let filteredChats: Chat[] = [];
@@ -935,7 +953,15 @@ export async function getChatsByOrganizationId({
         );
       }
 
-      filteredChats = await query(gt(chat.createdAt, selectedChat.createdAt));
+      filteredChats = await query(
+        or(
+          gt(chat.createdAt, selectedChat.createdAt),
+          and(
+            eq(chat.createdAt, selectedChat.createdAt),
+            gt(chat.id, selectedChat.id)
+          )
+        )
+      );
     } else if (endingBefore) {
       const [selectedChat] = await db
         .select()
@@ -956,7 +982,15 @@ export async function getChatsByOrganizationId({
         );
       }
 
-      filteredChats = await query(lt(chat.createdAt, selectedChat.createdAt));
+      filteredChats = await query(
+        or(
+          lt(chat.createdAt, selectedChat.createdAt),
+          and(
+            eq(chat.createdAt, selectedChat.createdAt),
+            lt(chat.id, selectedChat.id)
+          )
+        )
+      );
     } else {
       filteredChats = await query();
     }
@@ -1060,10 +1094,7 @@ export async function saveMessages({
         });
     }
   } catch (error) {
-    const details = error as {
-      code?: string;
-      constraint?: string;
-    };
+    const details = pgError(error);
     // لا نُسجّل detail الخام لأنه قد يحوي قيماً من صفوف المستخدم.
     console.error("[db] saveMessages failed", {
       code: details.code,
@@ -2051,6 +2082,46 @@ export async function reserveGatewayImage(input: {
   });
 }
 
+/**
+ * Free-provider image admission: one job row per attempt, counted per UTC day.
+ * A separate action type keeps it from eating the owner-only gateway pilot's cap.
+ */
+export async function reserveFreeImage(input: {
+  organizationId: string;
+  prompt: string;
+  dailyLimit: number;
+}) {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`free-image:${input.organizationId}`}))`
+    );
+    const [usage] = await tx
+      .select({ total: count() })
+      .from(mediaJob)
+      .where(
+        and(
+          eq(mediaJob.organizationId, input.organizationId),
+          eq(mediaJob.actionType, "FREE_IMAGE"),
+          sql`${mediaJob.createdAt} >= (now() at time zone 'UTC')::date`
+        )
+      );
+    const used = Number(usage?.total ?? 0);
+    if (used >= input.dailyLimit) {
+      return { job: null, used };
+    }
+    const [job] = await tx
+      .insert(mediaJob)
+      .values({
+        organizationId: input.organizationId,
+        actionType: "FREE_IMAGE",
+        prompt: input.prompt,
+        status: "running",
+      })
+      .returning();
+    return { job, used: used + 1 };
+  });
+}
+
 export async function getAgentHistory(
   organizationId: string,
   conversationKey: string,
@@ -2094,6 +2165,16 @@ export async function appendAgentMessage({
     role,
     content: content.slice(0, 8000),
   });
+}
+
+/** Email of one account, used to match the owner testing allowlist. */
+export async function getUserEmailById(userId: string) {
+  const [row] = await adminDb()
+    .select({ email: user.email })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return row?.email ?? null;
 }
 
 /** Owner of a workspace, used by the launch testing program to resolve a claim. */

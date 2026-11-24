@@ -20,7 +20,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "من نحن",
       sections: [
         {
-          title: "عن Zooka AI",
+          title: "عن ZOOKA-AI",
           body: "تقدّم [LEGAL_ENTITY_NAME] أدوات ذكاء اصطناعي ومحادثة للعمل والأفراد عبر zooka-ai.com.",
         },
         {
@@ -148,7 +148,7 @@ const legalCopy: Record<Lang, Record<LegalPageId, LegalPageCopy>> = {
       title: "About",
       sections: [
         {
-          title: "About Zooka AI",
+          title: "About ZOOKA-AI",
           body: "[LEGAL_ENTITY_NAME] provides AI and chat tools for individuals and teams at zooka-ai.com.",
         },
         {

@@ -34,9 +34,13 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
 
   const isGuest = !context || context.user.type === "guest";
-  const billing = context
-    ? await getWorkspaceBilling(context.organizationId)
-    : null;
+  // Independent reads: run together rather than one after the other.
+  const [billing, entitlements] = context
+    ? await Promise.all([
+        getWorkspaceBilling(context.organizationId),
+        getWorkspaceEntitlements(context.organizationId),
+      ])
+    : [null, null];
   const subscription = billing?.subscription;
   const hasPaidPlan =
     !!subscription &&
@@ -45,9 +49,6 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
   // One source of truth for agent access, shared with the API routes: a paid
   // subscription, or a live launch-testing claim, which is what makes the
   // toggle available to the first registered testers without any charge.
-  const entitlements = context
-    ? await getWorkspaceEntitlements(context.organizationId)
-    : null;
   const isAgentPlan = entitlements?.isPaid ?? false;
   const agentRunsRemaining = entitlements?.agentRunsRemaining ?? 0;
   const canManageBilling =

@@ -1,7 +1,7 @@
 import { AdminDenied, adminPageContext } from "@/lib/admin/page-guard";
 import { SectionView } from "@/components/admin/ui";
 
-export const metadata = { title: "التقارير اليومية — ZOOKA AI" };
+export const metadata = { title: "التقارير اليومية — ZOOKA-AI" };
 
 /**
  * Daily reports need somewhere to be stored before they can be shown.

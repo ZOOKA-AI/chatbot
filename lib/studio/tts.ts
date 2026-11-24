@@ -1,12 +1,19 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { access, mkdir, readFile, stat, unlink } from "node:fs/promises";
+import { access, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { db } from "@/lib/db/queries";
 import * as schema from "@/lib/db/schema";
-import { inspect, mediaRoot, StudioError } from "@/lib/studio/media";
+import { inspect, StudioError } from "@/lib/studio/media";
+import {
+  assertDurableStorageConfigured,
+  assertDurableStoragePath,
+  persistFile,
+  readStoredBytes,
+  withScratch,
+} from "@/lib/studio/storage";
 
 const run = promisify(execFile);
 
@@ -113,38 +120,48 @@ export async function synthesizeArabic(input: {
   // Arabic must actually be present: synthesising Latin text with an Arabic voice produces nonsense.
   if (!/[\u0621-\u064A]/.test(script)) throw new StudioError("not_arabic");
 
+  assertDurableStorageConfigured();
+
   const id = randomUUID();
-  const directory = join(mediaRoot(), input.organizationId);
-  await mkdir(directory, { recursive: true });
-  const wavPath = join(directory, `${id}.wav`);
-  const m4aPath = join(directory, `${id}.m4a`);
-  const python = process.env.STUDIO_PYTHON ?? "python3";
+  const produced = await withScratch(async (directory) => {
+    const wavPath = join(directory, `${id}.wav`);
+    const m4aPath = join(directory, `${id}.m4a`);
+    const python = process.env.STUDIO_PYTHON ?? "python3";
 
-  try {
-    // Piper reads the script from stdin so a long sentence never lands in a shell argument.
-    const child = run(
-      python,
-      ["-m", "piper", "--model", status.voice === voicePath() ? status.voice : String(voicePath()), "--output_file", wavPath],
-      { timeout: Number(process.env.STUDIO_TTS_TIMEOUT_MS ?? 180_000), maxBuffer: 8 * 1024 * 1024 }
-    );
-    child.child.stdin?.end(script);
-    await child;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new StudioError("tts_failed", message.slice(0, 300));
-  }
+    try {
+      // Piper reads the script from stdin so a long sentence never lands in a shell argument.
+      const child = run(
+        python,
+        ["-m", "piper", "--model", status.voice === voicePath() ? status.voice : String(voicePath()), "--output_file", wavPath],
+        { timeout: Number(process.env.STUDIO_TTS_TIMEOUT_MS ?? 180_000), maxBuffer: 8 * 1024 * 1024 }
+      );
+      child.child.stdin?.end(script);
+      await child;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new StudioError("tts_failed", message.slice(0, 300));
+    }
 
-  try {
-    await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", wavPath, "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "128k", m4aPath]);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new StudioError("encode_failed", message.slice(0, 300));
-  } finally {
-    await unlink(wavPath).catch(() => undefined);
-  }
+    try {
+      await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", wavPath, "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "128k", m4aPath]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new StudioError("encode_failed", message.slice(0, 300));
+    } finally {
+      await unlink(wavPath).catch(() => undefined);
+    }
 
-  const details = await inspect(m4aPath);
-  const bytes = (await stat(m4aPath)).size;
+    const details = await inspect(m4aPath);
+    const stored = await persistFile({
+      organizationId: input.organizationId,
+      assetId: id,
+      extension: ".m4a",
+      mimeType: "audio/mp4",
+      path: m4aPath,
+    });
+    return { details, ...stored };
+  });
+  const { details, bytes } = produced;
   const [row] = await db
     .insert(schema.studioAsset)
     .values({
@@ -153,7 +170,7 @@ export async function synthesizeArabic(input: {
       projectId: input.projectId ?? null,
       kind: "audio",
       source: "derived",
-      storagePath: m4aPath,
+      storagePath: assertDurableStoragePath(produced.storagePath),
       mimeType: "audio/mp4",
       bytes,
       durationSeconds: details.durationSeconds === null ? null : String(details.durationSeconds.toFixed(3)),
@@ -173,6 +190,6 @@ export async function synthesizeArabic(input: {
 }
 
 /** Reads back the stored audio, used by the acceptance run to prove the bytes are speech. */
-export async function readAudio(path: string): Promise<Buffer> {
-  return readFile(path);
+export async function readAudio(storagePath: string): Promise<Buffer> {
+  return readStoredBytes(storagePath);
 }

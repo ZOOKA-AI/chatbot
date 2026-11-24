@@ -10,12 +10,14 @@
  * paid provider is called.
  */
 import { chromium } from "playwright";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 
 const BASE = process.env.ACCEPT_BASE || "https://localhost:3444";
 const OUT = process.env.ACCEPT_OUT || "acceptance-rc";
 const stamp = Date.now().toString(36);
-const PASS = process.env.ACCEPT_PASSWORD || "Rc-Accept-2026!x7Qm";
+// Fresh accounts per run: a random password unless one is supplied. Never commit one.
+const PASS = process.env.ACCEPT_PASSWORD || `Rc-${randomBytes(12).toString("base64url")}!9a`;
 const emailB = process.env.ACCEPT_EMAIL_B || `rc-b-${stamp}@zooka-test.dev`;
 const emailC = process.env.ACCEPT_EMAIL_C || `rc-c-${stamp}@zoka-test.dev`.replace("zoka", "zooka");
 
@@ -72,7 +74,8 @@ try {
   await submitAuth(page, "/register", emailB, PASS);
   await page.waitForTimeout(4000);
   const afterRegister = page.url();
-  const registered = !/register/.test(afterRegister);
+  // Registration ends on /login?registered=1 by design; only staying on /register is a failure.
+  const registered = !new URL(afterRegister).pathname.startsWith("/register");
   await shot(page, "01-register");
   record("registration", registered, `landed ${afterRegister.replace(BASE, "")}`);
 

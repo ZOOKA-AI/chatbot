@@ -40,6 +40,7 @@ import {
   modelSupportsTools,
   modelsByProvider,
 } from "@/lib/ai/models";
+import { MAX_CHAT_TEXT_LENGTH, chatTextLimitMessage } from "@/lib/chat-input-limit";
 import { AGENT_DRAFT_KEY, parseAgentDraft } from "@/lib/studio-media";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -203,6 +204,10 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
   const submitForm = useCallback(() => {
+    if (input.length > MAX_CHAT_TEXT_LENGTH) {
+      toast.error(chatTextLimitMessage(lang));
+      return;
+    }
     const workMode =
       new URLSearchParams(window.location.search).get("mode") === "work"
         ? "?mode=work"
@@ -218,10 +223,7 @@ function PureMultimodalInput({
           name: attachment.name,
           mediaType: attachment.contentType,
         })),
-        {
-          type: "text",
-          text: input,
-        },
+        ...(input.trim() ? [{ type: "text" as const, text: input }] : []),
       ],
     });
 
@@ -235,6 +237,7 @@ function PureMultimodalInput({
     }
   }, [
     input,
+    lang,
     setInput,
     attachments,
     sendMessage,
@@ -269,7 +272,7 @@ function PureMultimodalInput({
       if (!trimmed) {
         return;
       }
-      if (voiceMode && status !== "streaming" && status !== "submitted") {
+      if (voiceMode && status !== "streaming" && status !== "submitted" && trimmed.length <= MAX_CHAT_TEXT_LENGTH) {
         submitText(trimmed);
         return;
       }
@@ -831,6 +834,21 @@ function PureModelSelectorCompact({
   onModelChange?: (modelId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [unavailable, setUnavailable] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/models/availability")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { unavailable?: unknown } | null) => {
+        if (!cancelled && Array.isArray(body?.unavailable)) {
+          setUnavailable(new Set(body.unavailable.filter((id): id is string => typeof id === "string")));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selectedModel =
     chatModels.find((m) => m.id === selectedModelId) ??
@@ -867,7 +885,7 @@ function PureModelSelectorCompact({
                 heading={providerNames[providerKey] ?? providerKey}
                 key={providerKey}
               >
-                {providerModels.map((model) => {
+                {providerModels.filter((model) => !unavailable.has(model.id)).map((model) => {
                   const logoProvider = model.id.split("/")[0];
                   return (
                     <ModelSelectorItem

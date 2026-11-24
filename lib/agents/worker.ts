@@ -1,22 +1,30 @@
+import { isDeepStrictEqual } from "node:util";
 import {
   claimTask,
   countExecutions,
   finishExecution,
   getTask,
   latestExecution,
+  reportLoadedSkill,
   reportTask,
+  requestTaskApproval,
   startExecution,
 } from "@/lib/agents/command-center";
-import { agentAllowsTool } from "@/lib/agents/agent-tools";
-import { githubRepoInspect } from "@/lib/agents/worker-tools/github-inspect";
+import {
+  agentAllowsTool,
+  permissionsRequiringApproval,
+} from "@/lib/agents/agent-tools";
+import { githubRepoInspect, githubRepoProbe } from "@/lib/agents/worker-tools/github-inspect";
 import { vercelDeploymentInspect } from "@/lib/agents/worker-tools/vercel-inspect";
 import { projectDocumentCreate } from "@/lib/agents/worker-tools/project-document";
 import { studioPromoVideo } from "@/lib/agents/worker-tools/studio-promo";
 import { studioAiGenerate } from "@/lib/agents/worker-tools/studio-ai-generate";
 import { workspaceReadinessInspect } from "@/lib/agents/worker-tools/workspace-readiness";
+import { loadSkill } from "@/lib/agents/worker-tools/load-skill";
 import { HEARTBEAT_MS, heartbeat, idempotencyKey, leaseDeadline } from "@/lib/agents/worker-lease";
 import { INTERNAL_WRITE_TOOLS } from "@/lib/agents/worker-types";
 import type { WorkerTool } from "@/lib/agents/worker-types";
+import { namedGithubProbePayload } from "@/lib/agents/named-github-probe";
 
 /**
  * The first real execution worker.
@@ -48,8 +56,17 @@ type WorkerAgent = {
    * the second gate, and it is the one that holds when the queue was filled by something other than the route.
    */
   allowedTools?: unknown;
+   updateWithoutApproval?: boolean;
+   deleteWithoutApproval?: boolean;
+   sendMessagesWithoutApproval?: boolean;
 };
 
+import {
+  connectorCatalog,
+  connectorLink,
+  connectorRead,
+  connectorStatus,
+} from "./worker-tools/connectors";
 import { browserTaskRun } from "./worker-tools/browser-task";
 import {
   studioAssetList,
@@ -62,8 +79,10 @@ import {
 
 export const WORKER_TOOLS: Record<string, WorkerTool> = {
   [githubRepoInspect.name]: githubRepoInspect,
+  [githubRepoProbe.name]: githubRepoProbe,
   [vercelDeploymentInspect.name]: vercelDeploymentInspect,
   [workspaceReadinessInspect.name]: workspaceReadinessInspect,
+  [loadSkill.name]: loadSkill,
   [projectDocumentCreate.name]: projectDocumentCreate,
   browser_task_run: browserTaskRun,
   studio_asset_list: studioAssetList,
@@ -74,6 +93,13 @@ export const WORKER_TOOLS: Record<string, WorkerTool> = {
   studio_ai_generate: studioAiGenerate,
   studio_narration: studioNarration,
   studio_audio_edit: studioAudioEdit,
+  // Connector skills: the chat surface could inspect and call integrations, a
+  // queued task could not. Read-only tools, and connector_link returns a path,
+  // never a token.
+  [connectorCatalog.name]: connectorCatalog,
+  [connectorStatus.name]: connectorStatus,
+  [connectorRead.name]: connectorRead,
+  [connectorLink.name]: connectorLink,
 };
 
 export class WorkerRefusal extends Error {
@@ -150,6 +176,53 @@ export async function runTask(
     };
   }
 
+  const storedPayload = task.payload as Record<string, unknown> | null;
+  const isStoredProbe = storedPayload?.tool === "github_repo_probe";
+  if (isStoredProbe && (
+    input.tool !== "github_repo_probe" ||
+    !namedGithubProbePayload.safeParse(storedPayload).success ||
+    (input.payload !== undefined && !isDeepStrictEqual(input.payload, storedPayload))
+  )) {
+    return {
+      ok: false,
+      taskId: input.taskId,
+      executionId: null,
+      status: "rejected",
+      tool: input.tool,
+      error: "stored_probe_mismatch",
+    };
+  }
+
+  const effectivePayload = isStoredProbe && storedPayload ? storedPayload : input.payload ?? storedPayload ?? {};
+  const permissions = permissionsRequiringApproval(input.tool, effectivePayload, agent);
+  if (permissions.length > 0) {
+    const approval = await requestTaskApproval(agent, {
+      organizationId: agent.organizationId,
+      taskId: input.taskId,
+      permissions,
+      tool: input.tool,
+      payload: effectivePayload,
+    });
+    if (approval.outcome !== "approved") {
+      const error =
+        approval.outcome === "rejected"
+          ? "approval_rejected"
+          : approval.outcome === "not_found"
+            ? "task_not_found"
+            : approval.outcome === "not_pending"
+              ? "task_not_pending"
+              : "approval_required";
+      return {
+        ok: false,
+        taskId: input.taskId,
+        executionId: null,
+        status: approval.outcome === "pending" ? "awaiting_approval" : "rejected",
+        tool: input.tool,
+        error,
+      };
+    }
+  }
+
   const attempts = await countExecutions(agent.organizationId, input.taskId);
   const claim = await claimTask(agent as never, input.taskId);
   if (!claim.ok) {
@@ -222,8 +295,9 @@ export async function runTask(
       // The task is the record of what was asked for. A caller that claims by task id, or one
       // that lets the worker take the next queued task, gets that task's own inputs; an explicit
       // payload from the caller wins only when it is actually provided, so a scheduler can still
-      // re-run a task with different inputs.
-      payload: input.payload ?? ((task?.payload as Record<string, unknown> | null) ?? {}),
+      // re-run a task with different inputs. Named credential probes are pinned to
+      // the persisted request so a caller cannot substitute different work.
+      payload: effectivePayload,
       signal: controller.signal,
       fetchImpl: input.fetchImpl ?? fetch,
     });
@@ -302,15 +376,16 @@ export async function runTask(
       };
     }
 
-    const evidence = JSON.stringify({ tool: tool.name, summary: result.summary, result: result.evidence }).slice(
-      0,
-      8000
-    );
-    const reported = await reportTask(agent as never, {
-      taskId: input.taskId,
-      status: "completed",
-      evidence,
-    });
+    const reported = tool.name === loadSkill.name
+      ? await reportLoadedSkill(agent as never, {
+          taskId: input.taskId,
+          ...(result.evidence as { name: string; instructions: string }),
+        })
+      : await reportTask(agent as never, {
+          taskId: input.taskId,
+          status: "completed",
+          evidence: JSON.stringify({ tool: tool.name, summary: result.summary, result: result.evidence }).slice(0, 8000),
+        });
     if (!reported) {
       // The task moved out from under us (cancelled or already settled). The
       // execution is recorded as cancelled; nothing claims a completion.

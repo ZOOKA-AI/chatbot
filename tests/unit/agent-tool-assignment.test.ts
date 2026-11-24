@@ -5,6 +5,7 @@ import { describe, test, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { agentAllowsTool, describeToolAssignment } from "@/lib/agents/agent-tools";
+import { runTask, WORKER_TOOLS } from "@/lib/agents/worker";
 
 /**
  * Tool assignment states.
@@ -47,6 +48,16 @@ describe("describeToolAssignment", () => {
 });
 
 describe("agentAllowsTool with the new default", () => {
+  test("load_skill is read-only and still requires an assignment", async () => {
+    assert.equal(WORKER_TOOLS.load_skill.readOnly, true);
+    const outcome = await runTask(
+      { id: "agent-a", organizationId: "org-a", allowedTools: [] },
+      { taskId: "task-a", tool: "load_skill", payload: { name: "shared" } }
+    );
+    assert.equal(outcome.error, "tool_not_assigned");
+    assert.equal(outcome.executionId, null);
+    assert.equal(agentAllowsTool({ allowedTools: ["load_skill"] }, "load_skill"), true);
+  });
   test("a freshly created agent may run no tool", () => {
     const fresh = { allowedTools: [] };
     assert.equal(agentAllowsTool(fresh, "github_repo_inspect"), false);

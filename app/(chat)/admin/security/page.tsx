@@ -4,7 +4,7 @@ import { getCommandOverview } from "@/lib/admin/overview";
 import { MetricGrid, SectionView } from "@/components/admin/ui";
 import type { Metric } from "@/lib/admin/types";
 
-export const metadata = { title: "الأمان — ZOOKA AI" };
+export const metadata = { title: "الأمان — ZOOKA-AI" };
 
 /**
  * Security shows only what the running app can prove about itself.

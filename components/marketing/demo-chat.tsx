@@ -5,7 +5,7 @@ import { track } from "@vercel/analytics";
 import { DefaultChatTransport } from "ai";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Response } from "@/components/elements/response";
+import dynamic from "next/dynamic";
 import { DEMO_ASK_EVENT } from "@/components/marketing/task-templates";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
@@ -13,6 +13,17 @@ import { PLANS } from "@/lib/billing/entitlements";
 import { freeUpsell } from "@/lib/billing/entitlements";
 import { useGuestQuota } from "@/hooks/use-guest-quota";
 import { generateUUID } from "@/lib/utils";
+
+// The markdown renderer pulls mermaid, katex, shiki and friends (~1.8 MB of JS).
+// The landing page used to download all of it before the visitor typed anything;
+// it now loads with the first reply, which renders as plain text until then.
+const Response = dynamic(
+  () => import("@/components/elements/response").then((m) => m.Response),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 type Lang = "ar" | "en";
 
@@ -190,7 +201,12 @@ export function DemoChat({ lang }: { lang: Lang }) {
   }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // Nothing to follow on first paint: scrolling here dragged the whole
+    // page down to the demo before the visitor saw the hero.
+    if (messages.length === 0) {
+      return;
+    }
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, status, agentStep]);
 
   useEffect(() => {
@@ -253,6 +269,8 @@ export function DemoChat({ lang }: { lang: Lang }) {
     } catch {
       // storage unavailable: the hand-off is a nice-to-have
     }
+    // Start fetching the renderer now so it is ready by the first token.
+    void import("@/components/elements/response");
     if (messages.length === 0) {
       track("demo_started");
     }
@@ -342,10 +360,10 @@ export function DemoChat({ lang }: { lang: Lang }) {
 
       <div className="relative flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {empty ? (
-          <div className="flex h-full flex-col justify-center gap-4">
+          <div className="flex min-h-full flex-col justify-center gap-4">
             <div>
               <p className="font-semibold text-xl">
-                {t("اسأل أو أمُر… وشوف النتيجة بنفسك", "Ask or command it, and watch it work")}
+                {t("ابدأ بطلب جاهز أو اكتب مهمتك", "Start from a ready request or write your task")}
               </p>
               <p className="mt-1 text-muted-foreground text-sm">
                 {t(

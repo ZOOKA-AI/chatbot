@@ -3,15 +3,19 @@
 import {
   Bot,
   BriefcaseBusiness,
-  House,
   Cable,
-  Mail,
   CreditCard,
   FileText,
+  House,
+  LifeBuoy,
+  Mail,
   Settings,
+  Share2,
+  ShieldCheck,
+  Sparkles,
+  Tv,
   UserRound,
   Users,
-  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,6 +49,10 @@ import {
 } from "@/components/ui/sidebar";
 import { UpgradeButton } from "@/components/upgrade-button";
 import { copy } from "@/lib/copy";
+import {
+  adminNavItems,
+  adminNavSectionLabel,
+} from "@/lib/navigation/admin-nav";
 import { SITE_NAME } from "@/lib/site";
 import {
   AlertDialog,
@@ -57,7 +65,6 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { adminNavItems, adminNavSectionLabel } from "@/lib/navigation/admin-nav";
 
 export function AppSidebar({
   user,
@@ -128,6 +135,11 @@ export function AppSidebar({
           href: "/workspace/agents",
           icon: <Bot />,
           label: isArabic ? "الوكلاء" : "Agents",
+        },
+        {
+          href: "/workspace/skills",
+          icon: <Sparkles />,
+          label: isArabic ? "المهارات" : "Skills",
         },
         {
           href: "/workspace/schedules",
@@ -234,6 +246,31 @@ export function AppSidebar({
         },
       ],
     },
+    {
+      label: isArabic ? "المساعدة والموارد" : "Help and resources",
+      items: [
+        {
+          href: "/settings",
+          icon: <Settings />,
+          label: isArabic ? "كل الإعدادات" : "All settings",
+        },
+        {
+          href: "/support",
+          icon: <LifeBuoy />,
+          label: isArabic ? "مركز الدعم" : "Support center",
+        },
+        {
+          href: "/tv",
+          icon: <Tv />,
+          label: "ZOOKA-AI TV",
+        },
+        {
+          href: "/social",
+          icon: <Share2 />,
+          label: isArabic ? "حساباتنا الرسمية" : "Official accounts",
+        },
+      ],
+    },
   ];
   // Admin-only entries are appended rather than inlined in the list above, so nothing renders for a
   // member even if a future edit forgets a role check: the items simply do not exist for them.
@@ -283,7 +320,7 @@ export function AppSidebar({
                   setOpenMobile(false);
                 }}
               >
-                <span className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
+                <span className="hover:bg-muted cursor-pointer rounded-md px-2 text-lg font-semibold">
                   {SITE_NAME}
                 </span>
               </Link>
@@ -343,7 +380,7 @@ export function AppSidebar({
                 {canRename && (
                   <button
                     aria-label={t.rename}
-                    className="shrink-0 text-muted-foreground text-xs underline"
+                    className="text-muted-foreground shrink-0 text-xs underline"
                     data-testid="rename-workspace"
                     onClick={() => setShowRenameDialog(true)}
                     type="button"
@@ -389,13 +426,13 @@ export function AppSidebar({
             />
             <ManageAccountButton className="w-full" />
           </div>
-          <SidebarHistory user={user} />
+          <SidebarHistory isArabic={lang === "ar"} user={user} />
         </SidebarContent>
         <SidebarFooter>
           {user && !isGuest && <SidebarUserNav user={user} />}
           {isGuest && (
             <div className="flex flex-col gap-2">
-              <p className="text-center text-muted-foreground text-xs">
+              <p className="text-muted-foreground text-center text-xs">
                 {t.guestNotice}
               </p>
               <Button asChild size="sm">

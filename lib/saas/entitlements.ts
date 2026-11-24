@@ -1,4 +1,9 @@
-import { getWorkspaceBilling, getWorkspaceOwnerId } from "@/lib/db/queries";
+import {
+  getUserEmailById,
+  getWorkspaceBilling,
+  getWorkspaceOwnerId,
+} from "@/lib/db/queries";
+import { isOwnerTestingEmail, ownerTestingEmails } from "@/lib/billing/owner-testing";
 import { hasLaunchSlot, isLaunchProgramOpen } from "@/lib/billing/launch-program";
 import { type WorkspacePlan, workspacePlans } from "@/lib/saas/plans";
 
@@ -9,8 +14,16 @@ import { type WorkspacePlan, workspacePlans } from "@/lib/saas/plans";
  */
 const ENTITLED_STATUSES = ["active", "trialing"] as const;
 
+export type EntitlementGrant =
+  | "subscription"
+  | "owner_testing"
+  | "launch_program"
+  | "none";
+
 export type WorkspaceEntitlements = {
   plan: WorkspacePlan;
+  /** Why the workspace has this plan. Screens show it so the plan name never contradicts billing. */
+  grant: EntitlementGrant;
   isPaid: boolean;
   canConnectIntegrations: boolean;
   canUseAgentMode: boolean;
@@ -20,6 +33,7 @@ export type WorkspaceEntitlements = {
 
 const freeEntitlements: WorkspaceEntitlements = {
   plan: "free",
+  grant: "none",
   isPaid: false,
   canConnectIntegrations: false,
   canUseAgentMode: false,
@@ -39,25 +53,43 @@ export async function getWorkspaceEntitlements(
     return freeEntitlements;
   }
 
-  // Launch testing program: the first twenty registered accounts keep full
-  // features until the owner ends the program. Checked before billing so a
-  // missing Subscription row cannot block them.
-  if (isLaunchProgramOpen()) {
+  // Launch testing program (first twenty accounts) and owner testing access
+  // (addresses in OWNER_TESTING_EMAILS) keep full features without a
+  // subscription. Checked before billing so a missing Subscription row cannot
+  // block them.
+  const launchOpen = isLaunchProgramOpen();
+  const ownerTestingOn = ownerTestingEmails().size > 0;
+  // Every path below needs the billing row, so it is read alongside the grant
+  // checks instead of after them (up to four sequential round trips before).
+  const billingRead = getWorkspaceBilling(organizationId);
+  billingRead.catch(() => undefined);
+  if (launchOpen || ownerTestingOn) {
     const ownerId = await getWorkspaceOwnerId(organizationId).catch(() => null);
-    if (await hasLaunchSlot(ownerId)) {
+    const [ownerEmail, launchSlot] = await Promise.all([
+      ownerTestingOn && ownerId
+        ? getUserEmailById(ownerId).catch(() => null)
+        : Promise.resolve(null),
+      launchOpen ? hasLaunchSlot(ownerId) : Promise.resolve(false),
+    ]);
+    const ownerTesting = isOwnerTestingEmail(ownerEmail);
+    if (ownerTesting || (launchOpen && launchSlot)) {
       const launchPlan = workspacePlans.business;
+      const used = await billingRead
+        .then((b) => b?.usage.agentRuns ?? 0)
+        .catch(() => 0);
       return {
         plan: "business",
+        grant: ownerTesting ? "owner_testing" : "launch_program",
         isPaid: true,
         canConnectIntegrations: true,
         canUseAgentMode: true,
-        agentRunsRemaining: launchPlan.monthlyAgentRuns,
+        agentRunsRemaining: Math.max(0, launchPlan.monthlyAgentRuns - used),
         messagesLimit: launchPlan.monthlyMessages,
       };
     }
   }
 
-  const billing = await getWorkspaceBilling(organizationId);
+  const billing = await billingRead;
   const subscription = billing?.subscription;
   const isPaid =
     !!subscription &&
@@ -76,6 +108,7 @@ export async function getWorkspaceEntitlements(
 
   return {
     plan: subscription.plan as WorkspacePlan,
+    grant: "subscription",
     isPaid: true,
     canConnectIntegrations: true,
     canUseAgentMode: agentRunsRemaining > 0,

@@ -61,20 +61,43 @@ export async function GET(
   }
 
   const definition = OAUTH_PROVIDERS[provider];
+  // A JSON body is right for GitHub, Vercel and X. Meta and LinkedIn are plain
+  // OAuth 2.0 servers: they want an urlencoded body and an explicit grant type,
+  // and answer 400 to anything else.
+  const tokenRequest =
+    definition.tokenBody === "form"
+      ? {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            code,
+            redirect_uri: config.redirectUri,
+            grant_type: "authorization_code",
+          }).toString(),
+        }
+      : {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            code,
+            redirect_uri: config.redirectUri,
+          }),
+        };
+
   let tokens: TokenPayload;
   try {
     const tokenResponse = await fetch(definition.tokenUrl, {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        code,
-        redirect_uri: config.redirectUri,
-      }),
+      headers: tokenRequest.headers,
+      body: tokenRequest.body,
       cache: "no-store",
     });
     tokens = (await tokenResponse.json()) as TokenPayload;

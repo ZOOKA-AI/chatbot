@@ -32,8 +32,22 @@ import {
 } from "@/components/ui/tooltip";
 import {
   createLiveSessionClient,
+  fetchLiveToken,
   type LiveSessionClient,
 } from "@/lib/live/client";
+import {
+  detectMediaSupport,
+  getDisplayMediaCompat,
+  getUserMediaCompat,
+  type MediaSupport,
+  supportNotice,
+} from "@/lib/live/media-support";
+import {
+  ANDROID_APP_URL,
+  createNativeScreenBridge,
+  getNativePort,
+  type NativeScreenBridge,
+} from "@/lib/live/native-bridge";
 import { cn } from "@/lib/utils";
 
 type QualityMode = "balanced" | "performance" | "high";
@@ -255,6 +269,50 @@ export function LiveSessionConsole({
     status: "idle",
   });
   const [actionError, setActionError] = useState<string | null>(null);
+  // Detected after mount, so the server render and the first client render agree.
+  const [support, setSupport] = useState<MediaSupport | null>(null);
+  useEffect(() => {
+    setSupport(detectMediaSupport(navigator, window.isSecureContext));
+  }, []);
+  // Inside the ZOOKA-AI Android app, the app captures the screen natively for this room.
+  const nativeBridgeRef = useRef<NativeScreenBridge | null>(null);
+  const [nativeScreen, setNativeScreen] = useState(false);
+  const [nativeScreenEnabled, setNativeScreenEnabled] = useState(false);
+  useEffect(() => {
+    const port = getNativePort(window as unknown as { ZookaNative?: unknown });
+    if (!port) {
+      return;
+    }
+    const bridge = createNativeScreenBridge(port, (message) => {
+      if (message.type === "hello") {
+        setNativeScreen(message.screen);
+        return;
+      }
+      if (message.state === "started") {
+        setNativeScreenEnabled(true);
+        return;
+      }
+      setNativeScreenEnabled(false);
+      if (message.state === "error") {
+        setActionError(message.message ?? "screen_share_failed");
+      }
+    });
+    nativeBridgeRef.current = bridge;
+    bridge.hello();
+    return () => {
+      bridge.stop();
+      bridge.dispose();
+      nativeBridgeRef.current = null;
+    };
+  }, []);
+  const useNativeScreen = nativeScreen && support !== null && !support.screen;
+  const screenUnavailable = support !== null && !support.screen && !nativeScreen;
+  const userMediaUnavailable = support !== null && (!support.camera || !support.microphone);
+  const notice = support
+    ? supportNotice(support, isArabic ? "ar" : "en", { nativeScreen })
+    : null;
+  const offerAndroidApp =
+    support !== null && support.platform === "android" && !support.screen && !nativeScreen;
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -405,7 +463,7 @@ export function LiveSessionConsole({
 
   const captureTrack = useCallback(
     async (kind: "audio" | "video") => {
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (userMediaUnavailable) {
         throw new Error(
           kind === "video"
             ? isArabic
@@ -418,11 +476,11 @@ export function LiveSessionConsole({
       }
       const stream =
         kind === "video"
-          ? await navigator.mediaDevices.getUserMedia({
+          ? await getUserMediaCompat(navigator, {
               video: videoConstraint(quality),
               audio: false,
             })
-          : await navigator.mediaDevices.getUserMedia({
+          : await getUserMediaCompat(navigator, {
               audio: true,
               video: false,
             });
@@ -434,7 +492,7 @@ export function LiveSessionConsole({
             : stream.getAudioTracks()[0],
       };
     },
-    [isArabic, quality]
+    [isArabic, quality, userMediaUnavailable]
   );
 
   const toggleCamera = useCallback(async () => {
@@ -476,7 +534,13 @@ export function LiveSessionConsole({
       cameraStreamRef.current = null;
       setCameraEnabled(false);
       refreshPreview();
-      setActionError(errorMessage(error));
+      setActionError(
+        error instanceof Error && error.name === "NotAllowedError"
+          ? isArabic
+            ? "تعذّر الوصول إلى الكاميرا. تحقق من إذن الكاميرا لهذا الموقع في إعدادات المتصفح."
+            : "Camera access was denied. Check the camera permission for this site in your browser."
+          : errorMessage(error)
+      );
     }
   }, [
     cameraEnabled,
@@ -537,6 +601,33 @@ export function LiveSessionConsole({
     stopStream,
   ]);
 
+  const toggleNativeScreenShare = useCallback(async () => {
+    setActionError(null);
+    const bridge = nativeBridgeRef.current;
+    if (!bridge) {
+      return;
+    }
+    if (nativeScreenEnabled) {
+      bridge.stop();
+      return;
+    }
+    try {
+      // A fresh token for the app's own participant; the page's connection keeps its own.
+      const response = await fetchLiveToken(slug);
+      if (!response.configured) {
+        setActionError(
+          isArabic
+            ? "الجلسة المباشرة غير مهيأة حاليًا."
+            : "Live sessions are not configured right now."
+        );
+        return;
+      }
+      bridge.start(response.url, response.token);
+    } catch (error) {
+      setActionError(errorMessage(error));
+    }
+  }, [isArabic, nativeScreenEnabled, slug]);
+
   const toggleScreenShare = useCallback(async () => {
     setActionError(null);
     const client = clientRef.current;
@@ -556,16 +647,12 @@ export function LiveSessionConsole({
       return;
     }
 
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setActionError(
-        isArabic
-          ? "مشاركة الشاشة غير مدعومة."
-          : "Screen sharing is not supported."
-      );
+    if (screenUnavailable) {
+      // The button is disabled and the notice explains why; nothing to try here.
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      const stream = await getDisplayMediaCompat(navigator, {
         video: videoConstraint(quality),
         audio: false,
       });
@@ -602,7 +689,7 @@ export function LiveSessionConsole({
           : errorMessage(error)
       );
     }
-  }, [connected, isArabic, quality, refreshPreview, screenEnabled, stopStream]);
+  }, [connected, isArabic, quality, refreshPreview, screenEnabled, screenUnavailable, stopStream]);
 
   const joinRoom = useCallback(async () => {
     const client = clientRef.current;
@@ -653,7 +740,7 @@ export function LiveSessionConsole({
     releaseLocalCapture();
   }, [releaseLocalCapture]);
 
-  const isSessionLive = cameraEnabled || micEnabled || screenEnabled;
+  const isSessionLive = cameraEnabled || micEnabled || screenEnabled || nativeScreenEnabled;
   const summary = useMemo(() => {
     const tracks: string[] = [];
     if (micEnabled) {
@@ -662,11 +749,11 @@ export function LiveSessionConsole({
     if (cameraEnabled) {
       tracks.push(isArabic ? "كاميرا" : "Camera");
     }
-    if (screenEnabled) {
+    if (screenEnabled || nativeScreenEnabled) {
       tracks.push(isArabic ? "شاشة" : "Screen");
     }
     return tracks.join(" + ");
-  }, [cameraEnabled, isArabic, micEnabled, screenEnabled]);
+  }, [cameraEnabled, isArabic, micEnabled, nativeScreenEnabled, screenEnabled]);
 
   return (
     <>
@@ -761,7 +848,7 @@ export function LiveSessionConsole({
             <div className="grid grid-cols-3 gap-2">
               <Button
                 aria-pressed={micEnabled}
-                disabled={connecting}
+                disabled={connecting || userMediaUnavailable}
                 onClick={toggleMicrophone}
                 type="button"
                 variant={micEnabled ? "default" : "outline"}
@@ -771,7 +858,7 @@ export function LiveSessionConsole({
               </Button>
               <Button
                 aria-pressed={cameraEnabled}
-                disabled={connecting}
+                disabled={connecting || userMediaUnavailable}
                 onClick={toggleCamera}
                 type="button"
                 variant={cameraEnabled ? "default" : "outline"}
@@ -780,16 +867,47 @@ export function LiveSessionConsole({
                 {isArabic ? "كاميرا" : "Camera"}
               </Button>
               <Button
-                aria-pressed={screenEnabled}
-                disabled={connecting}
-                onClick={toggleScreenShare}
+                aria-describedby={notice ? "live-media-support" : undefined}
+                aria-pressed={useNativeScreen ? nativeScreenEnabled : screenEnabled}
+                data-testid="live-screen-button"
+                disabled={connecting || screenUnavailable}
+                onClick={useNativeScreen ? toggleNativeScreenShare : toggleScreenShare}
+                title={screenUnavailable && notice ? notice : undefined}
                 type="button"
-                variant={screenEnabled ? "default" : "outline"}
+                variant={
+                  (useNativeScreen ? nativeScreenEnabled : screenEnabled)
+                    ? "default"
+                    : "outline"
+                }
               >
                 <MonitorUp className="size-4" />
                 {isArabic ? "شاشة" : "Screen"}
               </Button>
             </div>
+
+            {notice && (
+              <p
+                className="text-muted-foreground text-xs"
+                data-testid="live-media-support"
+                id="live-media-support"
+                role="status"
+              >
+                {notice}
+              </p>
+            )}
+
+            {offerAndroidApp && (
+              <a
+                className="text-primary text-xs underline underline-offset-4"
+                data-testid="live-android-app"
+                href={ANDROID_APP_URL}
+                rel="noopener"
+              >
+                {isArabic
+                  ? "تحميل تطبيق ZOOKA-AI لأندرويد (مشاركة شاشة الجوال)"
+                  : "Download the ZOOKA-AI Android app (share your phone screen)"}
+              </a>
+            )}
 
             {actionError && (
               <p className="text-destructive text-xs" role="alert">

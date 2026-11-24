@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { paidGenerationEnabled, spendCapUsd } from "./paid-switch";
 import { guardedFetch } from "./outbound-guard";
+import { freeImageStatuses, generateFreeImage, type FreeImageProviderId } from "../media/free-image";
 
 /**
  * Providers, in one neutral shape.
@@ -17,7 +18,7 @@ import { guardedFetch } from "./outbound-guard";
  * assets it produces are stored through the same tenant-scoped media layer as an upload.
  */
 
-export type ProviderKind = "local" | "self_hosted" | "external_api";
+export type ProviderKind = "local" | "self_hosted" | "free_api" | "external_api";
 export type Capability = "image" | "video" | "audio";
 
 export type ProviderStatus =
@@ -348,11 +349,72 @@ async function listCheckpoints(
   }
 }
 
+/**
+ * A free-tier cloud provider (Cloudflare Workers AI, OVHcloud), as a studio generator.
+ *
+ * `free_api` means no third-party bill: when the provider's free allowance runs out it refuses, and the
+ * studio reports that refusal. Readiness is "has a credential"; the first real call is the health check,
+ * because neither provider offers a free status endpoint that proves generation works.
+ */
+export function createFreeImageProvider(
+  id: FreeImageProviderId,
+  options: { env?: Record<string, string | undefined>; fetchImpl?: typeof fetch } = {}
+): MediaProvider {
+  const env = options.env ?? process.env;
+  return {
+    id,
+    kind: "free_api",
+    capabilities: ["image"],
+    generative: true,
+    async status() {
+      const status = freeImageStatuses(env).find((entry) => entry.provider === id);
+      if (!status?.configured) {
+        return {
+          ready: false,
+          provider: id,
+          kind: "free_api",
+          capabilities: ["image"],
+          blocked: "credential_missing",
+          detail: `set ${status?.missing.join(" and ") ?? "the provider key"} on the server. ${status?.note ?? ""}`.trim(),
+        };
+      }
+      return { ready: true, provider: id, kind: "free_api", capabilities: ["image"], detail: status.note, models: [status.model] };
+    },
+    async generate(input) {
+      if (!input.organizationId) {
+        return { ok: false, provider: id, code: "tenant_required", detail: "a tenant is required for every job" };
+      }
+      if (input.capability !== "image") {
+        return { ok: false, provider: id, code: "unsupported_capability", detail: input.capability };
+      }
+      const outcome = await generateFreeImage(input.prompt, { env, fetchImpl: options.fetchImpl, only: id });
+      if (!outcome.ok) {
+        const attempt = outcome.attempts[0];
+        return { ok: false, provider: id, code: attempt?.code ?? "failed", detail: attempt?.detail ?? null };
+      }
+      return {
+        ok: true,
+        bytes: outcome.bytes,
+        mimeType: outcome.mimeType,
+        provider: id,
+        seconds: outcome.seconds,
+        meta: { model: outcome.model, organizationId: input.organizationId, billed: false },
+      };
+    },
+  };
+}
+
 /** Every provider the studio knows about, so settings and status are driven by one list. */
 export function providerRegistry(
   options: { env?: Record<string, string | undefined>; fetchImpl?: typeof fetch } = {}
 ): MediaProvider[] {
-  return [localProvider, createComfyProvider(options)];
+  // Order is preference: the owner's own ComfyUI first, then the free cloud tiers.
+  return [
+    localProvider,
+    createComfyProvider(options),
+    createFreeImageProvider("cloudflare-workers-ai", options),
+    createFreeImageProvider("ovhcloud-sdxl", options),
+  ];
 }
 
 /**
