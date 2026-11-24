@@ -1,20 +1,63 @@
-import { AdminDenied, adminPageContext } from "@/lib/admin/page-guard";
-import { getCommandOverview } from "@/lib/admin/overview";
-import { getPlatformOverview } from "@/lib/admin/platform-overview";
+import { Suspense } from "react";
+
 import { DataTable, MetricGrid, SectionView } from "@/components/admin/ui";
+import { getCommandOverview } from "@/lib/admin/overview";
+import { AdminDenied, adminPageContext } from "@/lib/admin/page-guard";
+import { getPlatformOverview } from "@/lib/admin/platform-overview";
+import type { AdminSection } from "@/lib/admin/types";
+import type { Lang } from "@/lib/i18n";
+
+import { OverviewSkeleton } from "./overview-skeleton";
 
 export const metadata = { title: "مركز القيادة — ZOOKA-AI" };
+
+const OVERVIEW_TIMEOUT_MS = 8000;
+
+async function loadOverview(load: () => Promise<AdminSection>) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), OVERVIEW_TIMEOUT_MS);
+      }),
+      load(),
+    ]);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function OverviewContent({ lang, load }: { lang: Lang; load: () => Promise<AdminSection> }) {
+  const overview = await loadOverview(load);
+  if (!overview) {
+    return (
+      <div role="status" className="rounded-xl border border-white/10 p-4 text-sm text-white/80">
+        {lang === "ar" ? "هذا القسم غير متاح الآن." : "This section is unavailable right now."}{" "}
+        <a className="font-medium underline" href="/admin">
+          {lang === "ar" ? "إعادة المحاولة" : "Retry"}
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <MetricGrid metrics={overview.metrics} lang={lang} />
+      <div className="grid gap-3 xl:grid-cols-2">
+        {overview.tables.map((table) => (
+          <DataTable key={table.key} table={table} lang={lang} />
+        ))}
+      </div>
+    </>
+  );
+}
 
 export default async function AdminOverviewPage() {
   const admin = await adminPageContext();
   if (!admin) return <AdminDenied />;
 
-  // Sequential on purpose, matching every other section of this panel. The overview is the only
-  // page that loads two aggregate models, and running them concurrently against the service pool
-  // left the page pending indefinitely in production (reproduced across sessions while the six
-  // other sections rendered in seconds). One after the other costs a round trip and always returns.
-  const platform = await getPlatformOverview(admin.platformRole);
-  const workspace = await getCommandOverview(admin.organizationId);
   const lang = admin.lang;
 
   return (
@@ -28,12 +71,9 @@ export default async function AdminOverviewPage() {
             : "Aggregates across every workspace, each from its own source. No user content is shown."
         }
       >
-        <MetricGrid metrics={platform.metrics} lang={lang} />
-        <div className="grid gap-3 xl:grid-cols-2">
-          {platform.tables.map((table) => (
-            <DataTable key={table.key} table={table} lang={lang} />
-          ))}
-        </div>
+        <Suspense fallback={<OverviewSkeleton lang={lang} />}>
+          <OverviewContent lang={lang} load={() => getPlatformOverview(admin.platformRole)} />
+        </Suspense>
       </SectionView>
 
       <SectionView
@@ -45,12 +85,9 @@ export default async function AdminOverviewPage() {
             : "This block and the other sections in the menu are still scoped to your own workspace, not the platform."
         }
       >
-        <MetricGrid metrics={workspace.metrics} lang={lang} />
-        <div className="grid gap-3 xl:grid-cols-2">
-          {workspace.tables.map((table) => (
-            <DataTable key={table.key} table={table} lang={lang} />
-          ))}
-        </div>
+        <Suspense fallback={<OverviewSkeleton lang={lang} />}>
+          <OverviewContent lang={lang} load={() => getCommandOverview(admin.organizationId)} />
+        </Suspense>
       </SectionView>
     </div>
   );
